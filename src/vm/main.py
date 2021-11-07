@@ -1,6 +1,6 @@
 from sys import argv
 
-import files
+from src.shared import files
 from processor import Processor
 from memory import Memory
 
