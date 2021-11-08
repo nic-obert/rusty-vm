@@ -2,6 +2,7 @@ import pathlib
 from sys import argv
 
 from src.shared import files
+from src.assembler import assemble
 
 
 def main() -> None:

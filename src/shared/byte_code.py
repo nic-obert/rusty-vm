@@ -2,34 +2,44 @@ import enum
 
 
 @enum.unique
-class ByteCodes(enum.auto):
+class ByteCodes(enum.IntEnum):
 
     # Arithmetic
 
     ADD_REG_REG = enum.auto()
-    ADD_ADDR_REG = enum.auto()
     ADD_REG_ADDR = enum.auto()
     ADD_REG_CONST = enum.auto()
-    ADD_ADDR_CONST = enum.auto()
+    ADD_ADDR_REG = enum.auto()
     ADD_ADDR_ADDR = enum.auto()
+    ADD_ADDR_CONST = enum.auto()
 
     SUB_REG_REG = enum.auto()
-    SUB_ADDR_REG = enum.auto()
     SUB_REG_ADDR = enum.auto()
     SUB_REG_CONST = enum.auto()
+    SUB_ADDR_REG = enum.auto()
+    SUB_ADDR_ADDR = enum.auto()
     SUB_ADDR_CONST = enum.auto()
 
     MUL_REG_REG = enum.auto()
-    MUL_ADDR_REG = enum.auto()
     MUL_REG_ADDR = enum.auto()
     MUL_REG_CONST = enum.auto()
+    MUL_ADDR_REG = enum.auto()
+    MUL_ADDR_ADDR = enum.auto()    
     MUL_ADDR_CONST = enum.auto()
 
     DIV_REG_REG = enum.auto()
-    DIV_ADDR_REG = enum.auto()
     DIV_REG_ADDR = enum.auto()
     DIV_REG_CONST = enum.auto()
+    DIV_ADDR_REG = enum.auto()
+    DIV_ADDR_ADDR = enum.auto()
     DIV_ADDR_CONST = enum.auto()
+
+    MOD_REG_REG = enum.auto()
+    MOD_REG_ADDR = enum.auto()
+    MOD_REG_CONST = enum.auto()
+    MOD_ADDR_REG = enum.auto()
+    MOD_ADDR_ADDR = enum.auto()
+    MOD_ADDR_CONST = enum.auto()
 
     # No operation
 
@@ -42,9 +52,9 @@ class ByteCodes(enum.auto):
     LOAD_REG_CONST = enum.auto()
 
     MOVE_REG_REG = enum.auto()
+    MOVE_REG_ADDR = enum.auto()
     MOVE_REG_CONST = enum.auto()
     MOVE_ADDR_REG = enum.auto()
-    MOVE_REG_ADDR = enum.auto()
     MOVE_ADDR_ADDR = enum.auto()
     MOVE_ADDR_CONST = enum.auto()
 
