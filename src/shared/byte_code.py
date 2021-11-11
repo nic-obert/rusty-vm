@@ -6,57 +6,62 @@ class ByteCodes(enum.IntEnum):
 
     # Arithmetic
 
-    ADD_REG_REG = enum.auto()
-    ADD_REG_ADDR = enum.auto()
-    ADD_REG_CONST = enum.auto()
-    ADD_ADDR_REG = enum.auto()
-    ADD_ADDR_ADDR = enum.auto()
-    ADD_ADDR_CONST = enum.auto()
-
-    SUB_REG_REG = enum.auto()
-    SUB_REG_ADDR = enum.auto()
-    SUB_REG_CONST = enum.auto()
-    SUB_ADDR_REG = enum.auto()
-    SUB_ADDR_ADDR = enum.auto()
-    SUB_ADDR_CONST = enum.auto()
-
-    MUL_REG_REG = enum.auto()
-    MUL_REG_ADDR = enum.auto()
-    MUL_REG_CONST = enum.auto()
-    MUL_ADDR_REG = enum.auto()
-    MUL_ADDR_ADDR = enum.auto()    
-    MUL_ADDR_CONST = enum.auto()
-
-    DIV_REG_REG = enum.auto()
-    DIV_REG_ADDR = enum.auto()
-    DIV_REG_CONST = enum.auto()
-    DIV_ADDR_REG = enum.auto()
-    DIV_ADDR_ADDR = enum.auto()
-    DIV_ADDR_CONST = enum.auto()
-
-    MOD_REG_REG = enum.auto()
-    MOD_REG_ADDR = enum.auto()
-    MOD_REG_CONST = enum.auto()
-    MOD_ADDR_REG = enum.auto()
-    MOD_ADDR_ADDR = enum.auto()
-    MOD_ADDR_CONST = enum.auto()
+    ADD = enum.auto()
+    SUB = enum.auto()
+    MUL = enum.auto()
+    DIV = enum.auto()
+    MOD = enum.auto()
 
     # No operation
 
     NO_OPERATION = enum.auto()
 
-    # Registers
+    # Memory
 
-    LOAD_REG_REG = enum.auto()
-    LOAD_REG_ADDR = enum.auto()
-    LOAD_REG_CONST = enum.auto()
+    LOAD1_REG_REG = enum.auto()
+    LOAD1_REG_ADDR = enum.auto()
+    LOAD1_REG_CONST = enum.auto()
 
-    MOVE_REG_REG = enum.auto()
-    MOVE_REG_ADDR = enum.auto()
-    MOVE_REG_CONST = enum.auto()
-    MOVE_ADDR_REG = enum.auto()
-    MOVE_ADDR_ADDR = enum.auto()
-    MOVE_ADDR_CONST = enum.auto()
+    LOAD2_REG_REG = enum.auto()
+    LOAD2_REG_ADDR = enum.auto()
+    LOAD2_REG_CONST = enum.auto()
+
+    LOAD4_REG_REG = enum.auto()
+    LOAD4_REG_ADDR = enum.auto()
+    LOAD4_REG_CONST = enum.auto()
+
+    LOAD8_REG_REG = enum.auto()
+    LOAD8_REG_ADDR = enum.auto()
+    LOAD8_REG_CONST = enum.auto()
+
+
+    MOVE1_REG_REG = enum.auto()
+    MOVE1_REG_ADDR = enum.auto()
+    MOVE1_REG_CONST = enum.auto()
+    MOVE1_ADDR_REG = enum.auto()
+    MOVE1_ADDR_ADDR = enum.auto()
+    MOVE1_ADDR_CONST = enum.auto()
+
+    MOVE2_REG_REG = enum.auto()
+    MOVE2_REG_ADDR = enum.auto()
+    MOVE2_REG_CONST = enum.auto()
+    MOVE2_ADDR_REG = enum.auto()
+    MOVE2_ADDR_ADDR = enum.auto()
+    MOVE2_ADDR_CONST = enum.auto()
+
+    MOVE4_REG_REG = enum.auto()
+    MOVE4_REG_ADDR = enum.auto()
+    MOVE4_REG_CONST = enum.auto()
+    MOVE4_ADDR_REG = enum.auto()
+    MOVE4_ADDR_ADDR = enum.auto()
+    MOVE4_ADDR_CONST = enum.auto()
+
+    MOVE8_REG_REG = enum.auto()
+    MOVE8_REG_ADDR = enum.auto()
+    MOVE8_REG_CONST = enum.auto()
+    MOVE8_ADDR_REG = enum.auto()
+    MOVE8_ADDR_ADDR = enum.auto()
+    MOVE8_ADDR_CONST = enum.auto()
 
     # Control flow
 
