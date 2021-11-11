@@ -3,6 +3,7 @@ import enum
 from typing import Any, Dict, List, Union
 
 from src.shared.registers import Registers
+from arguments_table import arguments_table
 
 
 register_map: Dict[str, Registers] = \
@@ -30,22 +31,22 @@ class TokenType(enum.IntEnum):
         return count
 
     REGISTER = enum.auto()
-    LABEL = enum.auto()
-    NUMBER = enum.auto()
-    PARENTHESIS = enum.auto()
-    ADDRESS_OF = enum.auto()
-    NAME = enum.auto()
     ADDRESS = enum.auto()
+    NUMBER = enum.auto()
+
+    LABEL = enum.auto()
+    PARENTHESIS = enum.auto()
+    NAME = enum.auto()
+    
     CURRENT_POSITION = enum.auto()
 
     names_table: List[str] = [
         "REGISTER",
-        "LABEL",
-        "NUMBER",
-        "PARENTHESIS",
-        "ADDRESS_OF ",
-        "NAME",
         "ADDRESS",
+        "NUMBER",
+        "LABEL",
+        "PARENTHESIS",
+        "NAME",
         "CURRENT_POSITION"
     ]
 
@@ -79,8 +80,22 @@ def tokenize_operands(operands: str) -> List[Token]:
 
             if current_token.type == TokenType.ADDRESS_OF:
                 if is_name_character(char):
-                    current_token.value += char # TODO to complete
-                current_token.value += char
+                    current_token.value += char
+                    continue
+
+                if char == ' ':
+                    continue
+                if char != ']':
+                    print(f'Expected a \']\' after address in argument list "{operands}", but \'{char}\' was provided.')
+
+                register = register_map.get(current_token.value)
+                if register is not None:
+                    tokens.append(Token(TokenType.ADDRESS, register))
+                else:
+                    print(f"Unknown register {current_token.value} in argument list \"{operands}\".")
+                    exit(1)
+                
+                continue
 
             if current_token.type == TokenType.NAME:
                 if is_name_character(char):
@@ -115,7 +130,7 @@ def tokenize_operands(operands: str) -> List[Token]:
             continue
 
         if char == '[':
-            current_token = Token(TokenType.ADDRESS_OF, '')
+            current_token = Token(TokenType.ADDRESS, '')
             continue
         
         if is_name_character(char):
@@ -129,7 +144,7 @@ def tokenize_operands(operands: str) -> List[Token]:
         
 
         # If the character isn't handled, raise an error
-        raise ValueError(f"Unhandled character: {char} in argument list {operands}")
+        raise ValueError(f"Unhandled character: '{char}' in argument list \"{operands}\".")
 
     if current_token is not None:
         tokens.append(current_token)
