@@ -32,6 +32,56 @@ arguments_table : Dict[str, List[Union[List[Union[List, ByteCodes]], ByteCodes]]
         ]
     ],
 
+    'inc': [
+        # Register
+        ByteCodes.INC_REG
+    ],
+    'inc1': [
+        None, # Register
+        # Address
+        ByteCodes.INC1_ADDR
+    ],
+    'inc2': [
+        None, # Register
+        # Address
+        ByteCodes.INC2_ADDR
+    ],
+    'inc4': [
+        None, # Register
+        # Address
+        ByteCodes.INC4_ADDR
+    ],
+    'inc8': [
+        None, # Register
+        # Address
+        ByteCodes.INC8_ADDR
+    ],
+
+    'dec': [
+        # Register
+        ByteCodes.DEC_REG
+    ],
+    'dec1': [
+        None, # Register
+        # Address
+        ByteCodes.DEC1_ADDR
+    ],
+    'dec2': [
+        None, # Register
+        # Address
+        ByteCodes.DEC2_ADDR
+    ],
+    'dec4': [
+        None, # Register
+        # Address
+        ByteCodes.DEC4_ADDR
+    ],
+    'dec8': [
+        None, # Register
+        # Address
+        ByteCodes.DEC8_ADDR
+    ],
+
     # No operation
 
     'nop': ByteCodes.NO_OPERATION,
@@ -127,9 +177,87 @@ arguments_table : Dict[str, List[Union[List[Union[List, ByteCodes]], ByteCodes]]
             ByteCodes.MOVE8_ADDR_CONST
         ],
     ],
+    
+    'st1': [
+        # Register
+        [
+            ByteCodes.STORE1_REG_REG
+        ],
+        # Address
+        [
+            ByteCodes.STORE1_ADDR_REG
+        ],
+        # Constant
+        [
+            ByteCodes.STORE1_CONST_REG
+        ]
+    ],
+    'st2': [
+        # Register
+        [
+            ByteCodes.STORE2_REG_REG
+        ],
+        # Address
+        [
+            ByteCodes.STORE2_ADDR_REG
+        ],
+        # Constant
+        [
+            ByteCodes.STORE2_CONST_REG
+        ]
+    ],
+    'st4': [
+        # Register
+        [
+            ByteCodes.STORE4_REG_REG
+        ],
+        # Address
+        [
+            ByteCodes.STORE4_ADDR_REG
+        ],
+        # Constant
+        [
+            ByteCodes.STORE4_CONST_REG
+        ]
+    ],
+    'st8': [
+        # Register
+        [
+            ByteCodes.STORE8_REG_REG
+        ],
+        # Address
+        [
+            ByteCodes.STORE8_ADDR_REG
+        ],
+        # Constant
+        [
+            ByteCodes.STORE8_CONST_REG
+        ]
+    ],
 
+    # Control flow
 
-  
+    'jmp': [
+        None, None, None, # Register, Address, Constant
+        # Label
+        ByteCodes.JUMP
+    ],
+    'cjmp': [
+        None, None, None, # Register, Address, Constant
+        # Label
+        [
+            ByteCodes.JUMP_IF_TRUE_REG,
+            ByteCodes.JUMP_IF_TRUE_ADDR
+        ],
+    ],
+    'njmp': [
+        None, None, None, # Register, Address, Constant
+        # Label
+        [
+            ByteCodes.JUMP_IF_FALSE_REG,
+            ByteCodes.JUMP_IF_FALSE_ADDR
+        ],
+    ]
 
 }
 
