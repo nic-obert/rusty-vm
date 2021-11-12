@@ -1,0 +1,1 @@
+mov1 A 8 ; this is a comment

@@ -25,6 +25,18 @@ def is_name_character(char: str) -> bool:
     return char.isalpha() or char == '_'
 
 
+token_type_names_table: List[str] = [
+    "REGISTER",
+    "ADDRESS",
+    "NUMBER",
+    "LABEL",
+    "PARENTHESIS",
+    "NAME",
+    "CURRENT_POSITION"
+]
+
+
+@enum.unique
 class TokenType(enum.IntEnum):
 
     def _generate_next_value_(name: str, start: int, count: int, last_values: List[int]) -> int:
@@ -40,21 +52,12 @@ class TokenType(enum.IntEnum):
     
     CURRENT_POSITION = enum.auto()
 
-    names_table: List[str] = [
-        "REGISTER",
-        "ADDRESS",
-        "NUMBER",
-        "LABEL",
-        "PARENTHESIS",
-        "NAME",
-        "CURRENT_POSITION"
-    ]
 
     def __str__(self) -> str:
-        return self.names_table[self.value]
+        return token_type_names_table[self.value]
     
     def __repr__(self) -> str:
-        return self.names_table[self.value]
+        return token_type_names_table[self.value]
 
 
 class Token:
@@ -78,7 +81,7 @@ def tokenize_operands(operands: str) -> List[Token]:
 
         if current_token is not None:
 
-            if current_token.type == TokenType.ADDRESS_OF:
+            if current_token.type == TokenType.ADDRESS:
                 if is_name_character(char):
                     current_token.value += char
                     continue
@@ -87,6 +90,7 @@ def tokenize_operands(operands: str) -> List[Token]:
                     continue
                 if char != ']':
                     print(f'Expected a \']\' after address in argument list "{operands}", but \'{char}\' was provided.')
+                    exit(1)
 
                 register = register_map.get(current_token.value)
                 if register is not None:
@@ -135,6 +139,10 @@ def tokenize_operands(operands: str) -> List[Token]:
         
         if is_name_character(char):
             current_token = Token(TokenType.NAME, char)
+            continue
+
+        if char.isdigit():
+            current_token = Token(TokenType.NUMBER, int(char))
             continue
 
         if char == ';':

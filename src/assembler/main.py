@@ -2,7 +2,7 @@ import pathlib
 from sys import argv
 
 from src.shared import files
-from src.assembler import assemble
+from assembler import assemble
 
 
 def main() -> None:
@@ -10,7 +10,7 @@ def main() -> None:
         print("Usage: python3 assembler.py <file_path>")
         exit(1)
 
-    assembly = files.load_file(argv[1])
+    assembly = files.load_assembly(argv[1])
     byte_code = assemble(assembly)
     
     new_file_name = pathlib.Path(argv[1]).stem + '.bc'
