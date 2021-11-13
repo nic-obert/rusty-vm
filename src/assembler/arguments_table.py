@@ -1,6 +1,6 @@
 from typing import Dict, List, Union
 
-from src.shared.byte_code import ByteCodes
+from shared.byte_code import ByteCodes
 
 
 arguments_table : Dict[str, List[Union[List[Union[List, ByteCodes]], ByteCodes]]] = \

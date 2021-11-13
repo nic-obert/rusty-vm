@@ -1,7 +1,7 @@
-from enum import Enum
+import enum
 
-
-class Registers(Enum):
+@enum.unique
+class Registers(enum.IntEnum):
 
     # General purpose registers
     A = 0

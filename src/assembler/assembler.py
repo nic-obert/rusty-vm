@@ -1,6 +1,6 @@
 from typing import List
 
-from src.shared.byte_code import ByteCodes
+from shared.byte_code import ByteCodes
 from tokenizer import tokenize_operands
 from arguments_table import arguments_table
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 from typing import Any, Dict, List, Union
 
-from src.shared.registers import Registers
+from shared.registers import Registers
 from arguments_table import arguments_table
 
 
@@ -67,6 +67,9 @@ class Token:
         self.value = value
 
     def __str__(self) -> str:
+        return f"<{self.type}: {self.value}>"
+    
+    def __repr__(self) -> str:
         return f"<{self.type}: {self.value}>"
 
 
