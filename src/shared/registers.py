@@ -1,21 +1,53 @@
 import enum
+from typing import Tuple, List
 
 @enum.unique
 class Registers(enum.IntEnum):
 
+    def _generate_next_value_(name: str, start: int, count: int, last_values: List[int]) -> int:
+        return count
+
     # General purpose registers
-    A = 0
-    B = 1
-    C = 2
-    D = 3
-    E = 4
-    F = 5
-    G = 6
-    H = 7
+
+    A = enum.auto()
+    B = enum.auto()
+    C = enum.auto()
+    D = enum.auto()
+    E = enum.auto()
+    F = enum.auto()
+    G = enum.auto()
+    H = enum.auto()
 
     # Stack pointer
-    STACK_POINTER = 8
+
+    STACK_POINTER = enum.auto()
 
     # Program counter
-    PROGRAM_COUNTER = 9
+
+    PROGRAM_COUNTER = enum.auto()
+
+    # Flags
+
+    ZERO_FLAG = enum.auto()
+    SIGN_FLAG = enum.auto()
+
+
+register_names: Tuple[str] = \
+(
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+
+    "STACK_POINTER",
+
+    "PROGRAM_COUNTER"
+
+    "ZERO_FLAG",
+    "SIGN_FLAG"
+)
 
