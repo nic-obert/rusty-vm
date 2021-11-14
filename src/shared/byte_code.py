@@ -10,84 +10,136 @@ byte_code_names: Tuple[str] = \
     "DIV",
     "MOD",
 
+
     "INC_REG",
-    "INC1_ADDR",
-    "INC2_ADDR",
-    "INC4_ADDR",
-    "INC8_ADDR",
+
+    "INC1_ADDR_IN_REG",
+    "INC1_ADDR_LITERAL",
+
+    "INC2_ADDR_IN_REG",
+    "INC2_ADDR_LITERAL",
+
+    "INC4_ADDR_IN_REG",
+    "INC4_ADDR_LITERAL",
+
+    "INC8_ADDR_IN_REG",
+    "INC8_ADDR_LITERAL",
+
 
     "DEC_REG",
-    "DEC1_ADDR",
-    "DEC2_ADDR",
-    "DEC4_ADDR",
-    "DEC8_ADDR",
+
+    "DEC1_ADDR_IN_REG",
+    "DEC1_ADDR_LITERAL",
+
+    "DEC2_ADDR_IN_REG",
+    "DEC2_ADDR_LITERAL",
+
+    "DEC4_ADDR_IN_REG",
+    "DEC4_ADDR_LITERAL",
+
+    "DEC8_ADDR_IN_REG",
+    "DEC8_ADDR_LITERAL",
+
 
     "NO_OPERATION",
 
+
     "LOAD1_REG_REG",
-    "LOAD1_REG_ADDR",
+    "LOAD1_REG_ADDR_IN_REG",
     "LOAD1_REG_CONST",
+    "LOAD1_REG_ADDR_LITERAL"
 
     "LOAD2_REG_REG",
-    "LOAD2_REG_ADDR",
+    "LOAD2_REG_ADDR_IN_REG",
     "LOAD2_REG_CONST",
+    "LOAD2_REG_ADDR_LITERAL"
 
     "LOAD4_REG_REG",
-    "LOAD4_REG_ADDR",
+    "LOAD4_REG_ADDR_IN_REG",
     "LOAD4_REG_CONST",
+    "LOAD4_REG_ADDR_LITERAL"
 
     "LOAD8_REG_REG",
-    "LOAD8_REG_ADDR",
+    "LOAD8_REG_ADDR_IN_REG",
     "LOAD8_REG_CONST",
+    "LOAD8_REG_ADDR_LITERAL"
+
 
     "MOVE1_REG_REG",
-    "MOVE1_REG_ADDR",
+    "MOVE1_REG_ADDR_IN_REG",
     "MOVE1_REG_CONST",
-    "MOVE1_ADDR_REG",
-    "MOVE1_ADDR_ADDR",
-    "MOVE1_ADDR_CONST",
+    "MOVE1_REG_ADDR_LITERAL"
+    "MOVE1_ADDR_IN_REG_REG",
+    "MOVE1_ADDR_IN_REG_ADDR_IN_REG",
+    "MOVE1_ADDR_IN_REG_CONST",
+    "MOVE1_ADDR_IN_REG_ADDR_LITERAL",
+    "MOVE1_ADDR_LITERAL_REG",
+    "MOVE1_ADDR_LITERAL_ADDR_IN_REG",   
+    "MOVE1_ADDR_LITERAL_CONST",
+    "MOVE1_ADDR_LITERAL_ADDR_LITERAL",
 
     "MOVE2_REG_REG",
-    "MOVE2_REG_ADDR",
+    "MOVE2_REG_ADDR_IN_REG",
     "MOVE2_REG_CONST",
-    "MOVE2_ADDR_REG",
-    "MOVE2_ADDR_ADDR",
-    "MOVE2_ADDR_CONST",
+    "MOVE2_REG_ADDR_LITERAL"
+    "MOVE2_ADDR_IN_REG_REG",
+    "MOVE2_ADDR_IN_REG_ADDR_IN_REG",
+    "MOVE2_ADDR_IN_REG_CONST",
+    "MOVE2_ADDR_IN_REG_ADDR_LITERAL",
+    "MOVE2_ADDR_LITERAL_REG",
+    "MOVE2_ADDR_LITERAL_ADDR_IN_REG",
+    "MOVE2_ADDR_LITERAL_CONST",
+    "MOVE2_ADDR_LITERAL_ADDR_LITERAL",
 
     "MOVE4_REG_REG",
-    "MOVE4_REG_ADDR",
+    "MOVE4_REG_ADDR_IN_REG",
     "MOVE4_REG_CONST",
-    "MOVE4_ADDR_REG",
-    "MOVE4_ADDR_ADDR",
-    "MOVE4_ADDR_CONST",
+    "MOVE4_REG_ADDR_LITERAL"
+    "MOVE4_ADDR_IN_REG_REG",
+    "MOVE4_ADDR_IN_REG_ADDR_IN_REG",
+    "MOVE4_ADDR_IN_REG_CONST",
+    "MOVE4_ADDR_IN_REG_ADDR_LITERAL",
+    "MOVE4_ADDR_LITERAL_REG",
+    "MOVE4_ADDR_LITERAL_ADDR_IN_REG",
+    "MOVE4_ADDR_LITERAL_CONST",
+    "MOVE4_ADDR_LITERAL_ADDR_LITERAL",
 
     "MOVE8_REG_REG",
-    "MOVE8_REG_ADDR",
+    "MOVE8_REG_ADDR_IN_REG",
     "MOVE8_REG_CONST",
-    "MOVE8_ADDR_REG",
-    "MOVE8_ADDR_ADDR",
-    "MOVE8_ADDR_CONST",
+    "MOVE8_REG_ADDR_LITERAL"
+    "MOVE8_ADDR_IN_REG_REG",
+    "MOVE8_ADDR_IN_REG_ADDR_IN_REG",
+    "MOVE8_ADDR_IN_REG_CONST",
+    "MOVE8_ADDR_IN_REG_ADDR_LITERAL",
+    "MOVE8_ADDR_LITERAL_REG",
+    "MOVE8_ADDR_LITERAL_ADDR_IN_REG",
+    "MOVE8_ADDR_LITERAL_CONST",
+    "MOVE8_ADDR_LITERAL_ADDR_LITERAL",
+    
 
     "STORE1_REG_REG",
-    "STORE1_ADDR_REG",
-    "STORE1_CONST_REG",
+    "STORE1_ADDR_IN_REG_REG",
+    "STORE1_ADDR_LITERAL_REG",
 
     "STORE2_REG_REG",
-    "STORE2_ADDR_REG",
-    "STORE2_CONST_REG",
+    "STORE2_ADDR_IN_REG_REG",
+    "STORE2_ADDR_LITERAL_REG",
 
     "STORE4_REG_REG",
-    "STORE4_ADDR_REG",
-    "STORE4_CONST_REG",
+    "STORE4_ADDR_IN_REG_REG",
+    "STORE4_ADDR_LITERAL_REG",
 
     "STORE8_REG_REG",
-    "STORE8_ADDR_REG",
-    "STORE8_CONST_REG",
+    "STORE8_ADDR_IN_REG_REG",
+    "STORE8_ADDR_LITERAL_REG",
+
 
     "LABEL",
     "JUMP",
     "JUMP_IF_TRUE_REG",
     "JUMP_IF_FALSE_REG",
+
 
     "COMPARE_REG_REG",
     "COMPARE_REG_CONST",
@@ -111,17 +163,35 @@ class ByteCodes(enum.IntEnum):
     DIV = enum.auto()
     MOD = enum.auto()
 
+
     INC_REG = enum.auto()
-    INC1_ADDR = enum.auto()
-    INC2_ADDR = enum.auto()
-    INC4_ADDR = enum.auto()
-    INC8_ADDR = enum.auto()
+
+    INC1_ADDR_IN_REG = enum.auto()
+    INC1_ADDR_LITERAL = enum.auto()
+
+    INC2_ADDR_IN_REG = enum.auto()
+    INC2_ADDR_LITERAL = enum.auto()
+
+    INC4_ADDR_IN_REG = enum.auto()
+    INC4_ADDR_LITERAL = enum.auto()
+
+    INC8_ADDR_IN_REG = enum.auto()
+    INC8_ADDR_LITERAL = enum.auto()
+
 
     DEC_REG = enum.auto()
-    DEC1_ADDR = enum.auto()
-    DEC2_ADDR = enum.auto()
-    DEC4_ADDR = enum.auto()
-    DEC8_ADDR = enum.auto()
+
+    DEC1_ADDR_IN_REG = enum.auto()
+    DEC1_ADDR_LITERAL = enum.auto()
+
+    DEC2_ADDR_IN_REG = enum.auto()
+    DEC2_ADDR_LITERAL = enum.auto()
+
+    DEC4_ADDR_IN_REG = enum.auto()
+    DEC4_ADDR_LITERAL = enum.auto()
+
+    DEC8_ADDR_IN_REG = enum.auto()
+    DEC8_ADDR_LITERAL = enum.auto()
 
     # No operation
 
@@ -130,66 +200,94 @@ class ByteCodes(enum.IntEnum):
     # Memory
 
     LOAD1_REG_REG = enum.auto()
-    LOAD1_REG_ADDR = enum.auto()
+    LOAD1_REG_ADDR_IN_REG = enum.auto()
     LOAD1_REG_CONST = enum.auto()
+    LOAD1_REG_ADDR_LITERAL = enum.auto()
 
     LOAD2_REG_REG = enum.auto()
-    LOAD2_REG_ADDR = enum.auto()
+    LOAD2_REG_ADDR_IN_REG = enum.auto()
     LOAD2_REG_CONST = enum.auto()
+    LOAD2_REG_ADDR_LITERAL = enum.auto()
 
     LOAD4_REG_REG = enum.auto()
-    LOAD4_REG_ADDR = enum.auto()
+    LOAD4_REG_ADDR_IN_REG = enum.auto()
     LOAD4_REG_CONST = enum.auto()
+    LOAD4_REG_ADDR_LITERAL = enum.auto()
 
     LOAD8_REG_REG = enum.auto()
-    LOAD8_REG_ADDR = enum.auto()
+    LOAD8_REG_ADDR_IN_REG = enum.auto()
     LOAD8_REG_CONST = enum.auto()
+    LOAD8_REG_ADDR_LITERAL = enum.auto()
 
 
     MOVE1_REG_REG = enum.auto()
-    MOVE1_REG_ADDR = enum.auto()
+    MOVE1_REG_ADDR_IN_REG = enum.auto()
     MOVE1_REG_CONST = enum.auto()
-    MOVE1_ADDR_REG = enum.auto()
-    MOVE1_ADDR_ADDR = enum.auto()
-    MOVE1_ADDR_CONST = enum.auto()
+    MOVE1_REG_ADDR_LITERAL = enum.auto()
+    MOVE1_ADDR_IN_REG_REG = enum.auto()
+    MOVE1_ADDR_IN_REG_ADDR_IN_REG = enum.auto()
+    MOVE1_ADDR_IN_REG_CONST = enum.auto()
+    MOVE1_ADDR_IN_REG_ADDR_LITERAL = enum.auto()
+    MOVE1_ADDR_LITERAL_REG = enum.auto()
+    MOVE1_ADDR_LITERAL_ADDR_IN_REG = enum.auto()
+    MOVE1_ADDR_LITERAL_CONST = enum.auto()
+    MOVE1_ADDR_LITERAL_ADDR_LITERAL = enum.auto()
 
     MOVE2_REG_REG = enum.auto()
-    MOVE2_REG_ADDR = enum.auto()
+    MOVE2_REG_ADDR_IN_REG = enum.auto()
     MOVE2_REG_CONST = enum.auto()
-    MOVE2_ADDR_REG = enum.auto()
-    MOVE2_ADDR_ADDR = enum.auto()
-    MOVE2_ADDR_CONST = enum.auto()
+    MOVE2_REG_ADDR_LITERAL = enum.auto()
+    MOVE2_ADDR_IN_REG_REG = enum.auto()
+    MOVE2_ADDR_IN_REG_ADDR_IN_REG = enum.auto()
+    MOVE2_ADDR_IN_REG_CONST = enum.auto()
+    MOVE2_ADDR_IN_REG_ADDR_LITERAL = enum.auto()
+    MOVE2_ADDR_LITERAL_REG = enum.auto()
+    MOVE2_ADDR_LITERAL_ADDR_IN_REG = enum.auto()
+    MOVE2_ADDR_LITERAL_CONST = enum.auto()
+    MOVE2_ADDR_LITERAL_ADDR_LITERAL = enum.auto()
 
     MOVE4_REG_REG = enum.auto()
-    MOVE4_REG_ADDR = enum.auto()
+    MOVE4_REG_ADDR_IN_REG = enum.auto()
     MOVE4_REG_CONST = enum.auto()
-    MOVE4_ADDR_REG = enum.auto()
-    MOVE4_ADDR_ADDR = enum.auto()
-    MOVE4_ADDR_CONST = enum.auto()
+    MOVE4_REG_ADDR_LITERAL = enum.auto()
+    MOVE4_ADDR_IN_REG_REG = enum.auto()
+    MOVE4_ADDR_IN_REG_ADDR_IN_REG = enum.auto()
+    MOVE4_ADDR_IN_REG_CONST = enum.auto()
+    MOVE4_ADDR_IN_REG_ADDR_LITERAL = enum.auto()
+    MOVE4_ADDR_LITERAL_REG = enum.auto()
+    MOVE4_ADDR_LITERAL_ADDR_IN_REG = enum.auto()
+    MOVE4_ADDR_LITERAL_CONST = enum.auto()
+    MOVE4_ADDR_LITERAL_ADDR_LITERAL = enum.auto()
 
     MOVE8_REG_REG = enum.auto()
-    MOVE8_REG_ADDR = enum.auto()
+    MOVE8_REG_ADDR_IN_REG = enum.auto()
     MOVE8_REG_CONST = enum.auto()
-    MOVE8_ADDR_REG = enum.auto()
-    MOVE8_ADDR_ADDR = enum.auto()
-    MOVE8_ADDR_CONST = enum.auto()
+    MOVE8_REG_ADDR_LITERAL = enum.auto()
+    MOVE8_ADDR_IN_REG_REG = enum.auto()
+    MOVE8_ADDR_IN_REG_ADDR_IN_REG = enum.auto()
+    MOVE8_ADDR_IN_REG_CONST = enum.auto()
+    MOVE8_ADDR_IN_REG_ADDR_LITERAL = enum.auto()
+    MOVE8_ADDR_LITERAL_REG = enum.auto()
+    MOVE8_ADDR_LITERAL_ADDR_IN_REG = enum.auto()
+    MOVE8_ADDR_LITERAL_CONST = enum.auto()
+    MOVE8_ADDR_LITERAL_ADDR_LITERAL = enum.auto()
 
 
     STORE1_REG_REG = enum.auto()
-    STORE1_ADDR_REG = enum.auto()
-    STORE1_CONST_REG = enum.auto()
+    STORE1_ADDR_IN_REG_REG = enum.auto()
+    STORE1_ADDR_LITERAL_REG = enum.auto()
 
     STORE2_REG_REG = enum.auto()
-    STORE2_ADDR_REG = enum.auto()
-    STORE2_CONST_REG = enum.auto()
+    STORE2_ADDR_IN_REG_REG = enum.auto()
+    STORE2_ADDR_LITERAL_REG = enum.auto()
 
     STORE4_REG_REG = enum.auto()
-    STORE4_ADDR_REG = enum.auto()
-    STORE4_CONST_REG = enum.auto()
+    STORE4_ADDR_IN_REG_REG = enum.auto()
+    STORE4_ADDR_LITERAL_REG = enum.auto()
 
     STORE8_REG_REG = enum.auto()
-    STORE8_ADDR_REG = enum.auto()
-    STORE8_CONST_REG = enum.auto()
+    STORE8_ADDR_IN_REG_REG = enum.auto()
+    STORE8_ADDR_LITERAL_REG = enum.auto()
 
     # Control flow
 

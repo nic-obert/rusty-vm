@@ -29,8 +29,9 @@ def is_name_character(char: str) -> bool:
 token_type_names_table: Tuple[str] = \
 (
     "REGISTER",
-    "ADDRESS",
+    "ADDRESS_IN_REGISTER",
     "NUMBER",
+    "ADDRESS_LITERAL",
     "LABEL",
     "PARENTHESIS",
     "NAME",
@@ -45,12 +46,14 @@ class TokenType(enum.IntEnum):
         return count
 
     REGISTER = enum.auto()
-    ADDRESS = enum.auto()
+    ADDRESS_IN_REGISTER = enum.auto()
     NUMBER = enum.auto()
+    ADDRESS_LITERAL = enum.auto()
 
     LABEL = enum.auto()
     PARENTHESIS = enum.auto()
     NAME = enum.auto()
+    ADDRESS_GENERIC = enum.auto()
     
     CURRENT_POSITION = enum.auto()
 
@@ -86,7 +89,23 @@ def tokenize_operands(operands: str) -> List[Token]:
 
         if current_token is not None:
 
-            if current_token.type == TokenType.ADDRESS:
+            if current_token.type == TokenType.ADDRESS_GENERIC:
+                if char.isdigit():
+                    current_token = Token(TokenType.ADDRESS_IN_REGISTER, char)
+                elif is_name_character(char):
+                    current_token = Token(TokenType.ADDRESS_LITERAL, int(char))
+                
+                continue   
+                
+            elif current_token.type == TokenType.ADDRESS_LITERAL:
+                if char.isdigit():
+                    current_token.value *= 10
+                    current_token.value += int(char)
+                    continue
+                tokens.append(current_token)
+                current_token = None 
+
+            elif current_token.type == TokenType.ADDRESS_IN_REGISTER:
                 if is_name_character(char):
                     current_token.value += char
                     continue
@@ -139,7 +158,7 @@ def tokenize_operands(operands: str) -> List[Token]:
             continue
 
         if char == '[':
-            current_token = Token(TokenType.ADDRESS, '')
+            current_token = Token(TokenType.ADDRESS_GENERIC, None)
             continue
         
         if is_name_character(char):

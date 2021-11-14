@@ -38,23 +38,35 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     ),
     'inc1': (
         None, # Register
-        # Address
-        ByteCodes.INC1_ADDR
+        # Address in register
+        ByteCodes.INC1_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.INC1_ADDR_LITERAL,
     ),
     'inc2': (
         None, # Register
-        # Address
-        ByteCodes.INC2_ADDR
+        # Address in register
+        ByteCodes.INC2_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.INC2_ADDR_LITERAL,
     ),
     'inc4': (
         None, # Register
-        # Address
-        ByteCodes.INC4_ADDR
+        # Address in register
+        ByteCodes.INC4_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.INC4_ADDR_LITERAL,
     ),
     'inc8': (
         None, # Register
-        # Address
-        ByteCodes.INC8_ADDR
+        # Address in register
+        ByteCodes.INC8_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.INC8_ADDR_LITERAL,
     ),
 
     'dec': (
@@ -63,23 +75,35 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     ),
     'dec1': (
         None, # Register
-        # Address
-        ByteCodes.DEC1_ADDR
+        # Address in register
+        ByteCodes.DEC1_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.DEC1_ADDR_LITERAL,
     ),
     'dec2': (
         None, # Register
-        # Address
-        ByteCodes.DEC2_ADDR
+        # Address in register
+        ByteCodes.DEC2_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.DEC2_ADDR_LITERAL,
     ),
     'dec4': (
         None, # Register
-        # Address
-        ByteCodes.DEC4_ADDR
+        # Address in register
+        ByteCodes.DEC4_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.DEC4_ADDR_LITERAL,
     ),
     'dec8': (
         None, # Register
-        # Address
-        ByteCodes.DEC8_ADDR
+        # Address in register
+        ByteCodes.DEC8_ADDR_IN_REG,
+        None, # Constant
+        # Address literal
+        ByteCodes.DEC8_ADDR_LITERAL,
     ),
 
     # No operation
@@ -92,32 +116,36 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
         # Register
         (
             ByteCodes.LOAD1_REG_REG,
-            ByteCodes.LOAD1_REG_ADDR,
-            ByteCodes.LOAD1_REG_CONST
+            ByteCodes.LOAD1_REG_ADDR_IN_REG,
+            ByteCodes.LOAD1_REG_CONST,
+            ByteCodes.LOAD1_REG_ADDR_LITERAL,
         )
     ),
     'ld2': (
         # Register
         (
             ByteCodes.LOAD2_REG_REG,
-            ByteCodes.LOAD2_REG_ADDR,
-            ByteCodes.LOAD2_REG_CONST
+            ByteCodes.LOAD2_REG_ADDR_IN_REG,
+            ByteCodes.LOAD2_REG_CONST,
+            ByteCodes.LOAD2_REG_ADDR_LITERAL,
         )
     ),
     'ld4': (
         # Register
         (
             ByteCodes.LOAD4_REG_REG,
-            ByteCodes.LOAD4_REG_ADDR,
-            ByteCodes.LOAD4_REG_CONST
+            ByteCodes.LOAD4_REG_ADDR_IN_REG,
+            ByteCodes.LOAD4_REG_CONST,
+            ByteCodes.LOAD4_REG_ADDR_LITERAL,
         )
     ),
     'ld8': (
         # Register
         (
             ByteCodes.LOAD8_REG_REG,
-            ByteCodes.LOAD8_REG_ADDR,
-            ByteCodes.LOAD8_REG_CONST
+            ByteCodes.LOAD8_REG_ADDR_IN_REG,
+            ByteCodes.LOAD8_REG_CONST,
+            ByteCodes.LOAD8_REG_ADDR_LITERAL,
         )
     ),
 
@@ -125,114 +153,167 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
         # Register
         (
             ByteCodes.MOVE1_REG_REG,
-            ByteCodes.MOVE1_REG_ADDR,
-            ByteCodes.MOVE1_REG_CONST
+            ByteCodes.MOVE1_REG_ADDR_IN_REG,
+            ByteCodes.MOVE1_REG_CONST,
+            ByteCodes.MOVE1_REG_ADDR_LITERAL,
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.MOVE1_ADDR_REG,
-            ByteCodes.MOVE1_ADDR_ADDR,
-            ByteCodes.MOVE1_ADDR_CONST
+            ByteCodes.MOVE1_ADDR_IN_REG_REG,
+            ByteCodes.MOVE1_ADDR_IN_REG_ADDR,
+            ByteCodes.MOVE1_ADDR_IN_REG_CONST,
+            ByteCodes.MOVE1_ADDR_IN_REG_ADDR_LITERAL,
+        ),
+        # Address literal
+        (
+            ByteCodes.MOVE1_ADDR_LITERAL_REG,
+            ByteCodes.MOVE1_ADDR_LITERAL_ADDR,
+            ByteCodes.MOVE1_ADDR_LITERAL_CONST,
+            ByteCodes.MOVE1_ADDR_LITERAL_ADDR_LITERAL,
         ),
     ),
     'mov2': (
         # Register
         (
             ByteCodes.MOVE2_REG_REG,
-            ByteCodes.MOVE2_REG_ADDR,
-            ByteCodes.MOVE2_REG_CONST
+            ByteCodes.MOVE2_REG_ADDR_IN_REG,
+            ByteCodes.MOVE2_REG_CONST,
+            ByteCodes.MOVE2_REG_ADDR_LITERAL,
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.MOVE2_ADDR_REG,
-            ByteCodes.MOVE2_ADDR_ADDR,
-            ByteCodes.MOVE2_ADDR_CONST
+            ByteCodes.MOVE2_ADDR_IN_REG_REG,
+            ByteCodes.MOVE2_ADDR_IN_REG_ADDR,
+            ByteCodes.MOVE2_ADDR_IN_REG_CONST,
+            ByteCodes.MOVE2_ADDR_IN_REG_ADDR_LITERAL,
+        ),
+        # Address literal
+        (
+            ByteCodes.MOVE2_ADDR_LITERAL_REG,
+            ByteCodes.MOVE2_ADDR_LITERAL_ADDR,
+            ByteCodes.MOVE2_ADDR_LITERAL_CONST,
+            ByteCodes.MOVE2_ADDR_LITERAL_ADDR_LITERAL,
         ),
     ),
     'mov4': (
         # Register
         (
             ByteCodes.MOVE4_REG_REG,
-            ByteCodes.MOVE4_REG_ADDR,
-            ByteCodes.MOVE4_REG_CONST
+            ByteCodes.MOVE4_REG_ADDR_IN_REG,
+            ByteCodes.MOVE4_REG_CONST,
+            ByteCodes.MOVE4_REG_ADDR_LITERAL,
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.MOVE4_ADDR_REG,
-            ByteCodes.MOVE4_ADDR_ADDR,
-            ByteCodes.MOVE4_ADDR_CONST
+            ByteCodes.MOVE4_ADDR_IN_REG_REG,
+            ByteCodes.MOVE4_ADDR_IN_REG_ADDR,
+            ByteCodes.MOVE4_ADDR_IN_REG_CONST,
+            ByteCodes.MOVE4_ADDR_IN_REG_ADDR_LITERAL,
+        ),
+        # Address literal
+        (
+            ByteCodes.MOVE4_ADDR_LITERAL_REG,
+            ByteCodes.MOVE4_ADDR_LITERAL_ADDR,
+            ByteCodes.MOVE4_ADDR_LITERAL_CONST,
+            ByteCodes.MOVE4_ADDR_LITERAL_ADDR_LITERAL,
         ),
     ),
     'mov8': (
         # Register
         (
             ByteCodes.MOVE8_REG_REG,
-            ByteCodes.MOVE8_REG_ADDR,
-            ByteCodes.MOVE8_REG_CONST
+            ByteCodes.MOVE8_REG_ADDR_IN_REG,
+            ByteCodes.MOVE8_REG_CONST,
+            ByteCodes.MOVE8_REG_ADDR_LITERAL,
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.MOVE8_ADDR_REG,
-            ByteCodes.MOVE8_ADDR_ADDR,
-            ByteCodes.MOVE8_ADDR_CONST
+            ByteCodes.MOVE8_ADDR_IN_REG_REG,
+            ByteCodes.MOVE8_ADDR_IN_REG_ADDR,
+            ByteCodes.MOVE8_ADDR_IN_REG_CONST,
+            ByteCodes.MOVE8_ADDR_IN_REG_ADDR_LITERAL,
+        ),
+        # Address literal
+        (
+            ByteCodes.MOVE8_ADDR_LITERAL_REG,
+            ByteCodes.MOVE8_ADDR_LITERAL_ADDR,
+            ByteCodes.MOVE8_ADDR_LITERAL_CONST,
+            ByteCodes.MOVE8_ADDR_LITERAL_ADDR_LITERAL,
         ),
     ),
+
     
     'st1': (
         # Register
         (
             ByteCodes.STORE1_REG_REG
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.STORE1_ADDR_REG
+            ByteCodes.STORE1_ADDR_IN_REG_REG
         ),
         # Constant
         (
             ByteCodes.STORE1_CONST_REG
-        )
+        ),
+        # Address literal
+        (
+            ByteCodes.STORE1_ADDR_LITERAL_REG
+        ),
     ),
     'st2': (
         # Register
         (
             ByteCodes.STORE2_REG_REG
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.STORE2_ADDR_REG
+            ByteCodes.STORE2_ADDR_IN_REG_REG
         ),
         # Constant
         (
             ByteCodes.STORE2_CONST_REG
-        )
+        ),
+        # Address literal
+        (
+            ByteCodes.STORE2_ADDR_LITERAL_REG
+        ),
     ),
     'st4': (
         # Register
         (
             ByteCodes.STORE4_REG_REG
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.STORE4_ADDR_REG
+            ByteCodes.STORE4_ADDR_IN_REG_REG
         ),
         # Constant
         (
             ByteCodes.STORE4_CONST_REG
-        )
+        ),
+        # Address literal
+        (
+            ByteCodes.STORE4_ADDR_LITERAL_REG
+        ),
     ),
     'st8': (
         # Register
         (
             ByteCodes.STORE8_REG_REG
         ),
-        # Address
+        # Address in register
         (
-            ByteCodes.STORE8_ADDR_REG
+            ByteCodes.STORE8_ADDR_IN_REG_REG
         ),
         # Constant
         (
             ByteCodes.STORE8_CONST_REG
-        )
+        ),
+        # Address literal
+        (
+            ByteCodes.STORE8_ADDR_LITERAL_REG
+        ),
     ),
 
     # Control flow
