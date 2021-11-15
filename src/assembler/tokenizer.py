@@ -33,8 +33,8 @@ token_type_names_table: Tuple[str] = \
     "NUMBER",
     "ADDRESS_LITERAL",
     "LABEL",
-    "PARENTHESIS",
     "NAME",
+    "ADDRESS_GENERIC",
     "CURRENT_POSITION"
 )
 
@@ -51,7 +51,6 @@ class TokenType(enum.IntEnum):
     ADDRESS_LITERAL = enum.auto()
 
     LABEL = enum.auto()
-    PARENTHESIS = enum.auto()
     NAME = enum.auto()
     ADDRESS_GENERIC = enum.auto()
     
@@ -91,9 +90,9 @@ def tokenize_operands(operands: str) -> List[Token]:
 
             if current_token.type == TokenType.ADDRESS_GENERIC:
                 if char.isdigit():
-                    current_token = Token(TokenType.ADDRESS_IN_REGISTER, char)
-                elif is_name_character(char):
                     current_token = Token(TokenType.ADDRESS_LITERAL, int(char))
+                elif is_name_character(char):
+                    current_token = Token(TokenType.ADDRESS_IN_REGISTER, char)
                 
                 continue   
                 
@@ -149,13 +148,6 @@ def tokenize_operands(operands: str) -> List[Token]:
                 tokens.append(current_token)
                 current_token = None
 
-
-        if char == '(':
-            tokens.append(Token(TokenType.PARENTHESIS, None))
-            continue
-        if char == ')':
-            tokens.append(Token(TokenType.PARENTHESIS, None))
-            continue
 
         if char == '[':
             current_token = Token(TokenType.ADDRESS_GENERIC, None)
