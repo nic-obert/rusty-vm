@@ -135,9 +135,22 @@ byte_code_names: Tuple[str] = \
 
 
     "COMPARE_REG_REG",
-    "COMPARE_REG_CONST",
-    "COMPARE_CONST_REG",
-    "COMPARE_CONST_CONST",
+
+    "COMPARE1_REG_CONST",
+    "COMPARE1_CONST_REG",
+    "COMPARE1_CONST_CONST",
+
+    "COMPARE2_REG_CONST",
+    "COMPARE2_CONST_REG",
+    "COMPARE2_CONST_CONST",
+
+    "COMPARE4_REG_CONST",
+    "COMPARE4_CONST_REG",
+    "COMPARE4_CONST_CONST",
+
+    "COMPARE8_REG_CONST",
+    "COMPARE8_CONST_REG",
+    "COMPARE8_CONST_CONST",
 
 )
 
@@ -285,9 +298,22 @@ class ByteCodes(enum.IntEnum):
     # Comparison
 
     COMPARE_REG_REG = enum.auto()
-    COMPARE_REG_CONST = enum.auto()
-    COMPARE_CONST_REG = enum.auto()
-    COMPARE_CONST_CONST = enum.auto()
+
+    COMPARE1_REG_CONST = enum.auto()
+    COMPARE1_CONST_REG = enum.auto()
+    COMPARE1_CONST_CONST = enum.auto()
+
+    COMPARE2_REG_CONST = enum.auto()
+    COMPARE2_CONST_REG = enum.auto()
+    COMPARE2_CONST_CONST = enum.auto()
+
+    COMPARE4_REG_CONST = enum.auto()
+    COMPARE4_CONST_REG = enum.auto()
+    COMPARE4_CONST_CONST = enum.auto()
+
+    COMPARE8_REG_CONST = enum.auto()
+    COMPARE8_CONST_REG = enum.auto()
+    COMPARE8_CONST_CONST = enum.auto()
 
 
     def __str__(self) -> str:

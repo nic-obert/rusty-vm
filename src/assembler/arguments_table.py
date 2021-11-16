@@ -339,17 +339,68 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'cmp': (
         # Register
         (
-            ByteCodes.COMPARE_REG_REG,
+            ByteCodes.COMPARE_REG_REG, # Register
+        )
+    ),
+    'cmp1': (
+        # Register
+        (
+            None, # Register
             None, # Address in register
-            ByteCodes.COMPARE_REG_CONST
+            ByteCodes.COMPARE1_REG_CONST, # Constant
         ),
         None, # Address in register
         # Constant
         (
-            ByteCodes.COMPARE_CONST_REG,
+            ByteCodes.COMPARE1_CONST_REG, # Register
             None, # Address in register
-            ByteCodes.COMPARE_CONST_CONST
+            ByteCodes.COMPARE1_CONST_CONST, # Constant
+        )
+    ),
+    'cmp2': (
+        # Register
+        (
+            None, # Register
+            None, # Address in register
+            ByteCodes.COMPARE2_REG_CONST, # Constant
         ),
+        None, # Address in register
+        # Constant
+        (
+            ByteCodes.COMPARE2_CONST_REG, # Register
+            None, # Address in register
+            ByteCodes.COMPARE2_CONST_CONST, # Constant
+        )
+    ),
+    'cmp4': (
+        # Register
+        (
+            None, # Register
+            None, # Address in register
+            ByteCodes.COMPARE4_REG_CONST, # Constant
+        ),
+        None, # Address in register
+        # Constant
+        (
+            ByteCodes.COMPARE4_CONST_REG, # Register
+            None, # Address in register
+            ByteCodes.COMPARE4_CONST_CONST, # Constant
+        )
+    ),
+    'cmp8': (
+        # Register
+        (
+            None, # Register
+            None, # Address in register
+            ByteCodes.COMPARE8_REG_CONST, # Constant
+        ),
+        None, # Address in register
+        # Constant
+        (
+            ByteCodes.COMPARE8_CONST_REG, # Register
+            None, # Address in register
+            ByteCodes.COMPARE8_CONST_CONST
+        )
     ),
     
 

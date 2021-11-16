@@ -529,23 +529,78 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 1)
     )),
 
-    # ByteCodes.COMPARE_REG_CONST
+    # ByteCodes.COMPARE1_REG_CONST
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, number_size(operands[1].value))
-    )),
-
-    # ByteCodes.COMPARE_CONST_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, number_size(operands[0].value)),
         *number_to_bytes(operands[1].value, 1)
     )),
 
-    # ByteCodes.COMPARE_CONST_CONST
+    # ByteCodes.COMPARE1_CONST_REG
     lambda operands: bytes((
-        *number_to_bytes(operands[0].value, number_size(operands[0].value)),
-        *number_to_bytes(operands[1].value, number_size(operands[1].value))
+        *number_to_bytes(operands[0].value, 1),
+        *number_to_bytes(operands[1].value, 1)
     )),
+
+    # ByteCodes.COMPARE1_CONST_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+        *number_to_bytes(operands[1].value, 1)
+    )),
+
+    # ByteCodes.COMPARE2_REG_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+        *number_to_bytes(operands[1].value, 2)
+    )),
+
+    # ByteCodes.COMPARE2_CONST_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 2),
+        *number_to_bytes(operands[1].value, 1)
+    )),
+
+    # ByteCodes.COMPARE2_CONST_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 2),
+        *number_to_bytes(operands[1].value, 2)
+    )),
+
+    # ByteCodes.COMPARE4_REG_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+        *number_to_bytes(operands[1].value, 4)
+    )),
+
+    # ByteCodes.COMPARE4_CONST_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 4),
+        *number_to_bytes(operands[1].value, 1)
+    )),
+
+    # ByteCodes.COMPARE4_CONST_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 4),
+        *number_to_bytes(operands[1].value, 4)
+    )),
+
+    # ByteCodes.COMPARE8_REG_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+        *number_to_bytes(operands[1].value, 8)
+    )),
+
+    # ByteCodes.COMPARE8_CONST_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+        *number_to_bytes(operands[1].value, 1)
+    )),
+
+    # ByteCodes.COMPARE8_CONST_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+        *number_to_bytes(operands[1].value, 8)
+    )),
+    
     
 )
 
