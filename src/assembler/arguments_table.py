@@ -112,10 +112,16 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
 
     # Memory
 
+    'ld': (
+        # Register
+        (
+            ByteCodes.LOAD_REG_REG
+        )
+    ),
     'ld1': (
         # Register
         (
-            ByteCodes.LOAD1_REG_REG,
+            None, # Register
             ByteCodes.LOAD1_REG_ADDR_IN_REG,
             ByteCodes.LOAD1_REG_CONST,
             ByteCodes.LOAD1_REG_ADDR_LITERAL,
@@ -124,7 +130,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'ld2': (
         # Register
         (
-            ByteCodes.LOAD2_REG_REG,
+            None, # Register
             ByteCodes.LOAD2_REG_ADDR_IN_REG,
             ByteCodes.LOAD2_REG_CONST,
             ByteCodes.LOAD2_REG_ADDR_LITERAL,
@@ -133,7 +139,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'ld4': (
         # Register
         (
-            ByteCodes.LOAD4_REG_REG,
+            None, # Register
             ByteCodes.LOAD4_REG_ADDR_IN_REG,
             ByteCodes.LOAD4_REG_CONST,
             ByteCodes.LOAD4_REG_ADDR_LITERAL,
@@ -142,17 +148,23 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'ld8': (
         # Register
         (
-            ByteCodes.LOAD8_REG_REG,
+            None, # Register
             ByteCodes.LOAD8_REG_ADDR_IN_REG,
             ByteCodes.LOAD8_REG_CONST,
             ByteCodes.LOAD8_REG_ADDR_LITERAL,
         )
     ),
 
+    'mov': (
+        # Register
+        (
+            ByteCodes.MOVE_REG_REG
+        )
+    ),
     'mov1': (
         # Register
         (
-            ByteCodes.MOVE1_REG_REG,
+            None, # Register
             ByteCodes.MOVE1_REG_ADDR_IN_REG,
             ByteCodes.MOVE1_REG_CONST,
             ByteCodes.MOVE1_REG_ADDR_LITERAL,
@@ -176,7 +188,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'mov2': (
         # Register
         (
-            ByteCodes.MOVE2_REG_REG,
+            None, # Register
             ByteCodes.MOVE2_REG_ADDR_IN_REG,
             ByteCodes.MOVE2_REG_CONST,
             ByteCodes.MOVE2_REG_ADDR_LITERAL,
@@ -224,7 +236,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'mov8': (
         # Register
         (
-            ByteCodes.MOVE8_REG_REG,
+            None, # Register
             ByteCodes.MOVE8_REG_ADDR_IN_REG,
             ByteCodes.MOVE8_REG_CONST,
             ByteCodes.MOVE8_REG_ADDR_LITERAL,
@@ -248,10 +260,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
 
     
     'st1': (
-        # Register
-        (
-            ByteCodes.STORE1_REG_REG
-        ),
+        None, # Register
         # Address in register
         (
             ByteCodes.STORE1_ADDR_IN_REG_REG
@@ -263,10 +272,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
         ),
     ),
     'st2': (
-        # Register
-        (
-            ByteCodes.STORE2_REG_REG
-        ),
+        None, # Register
         # Address in register
         (
             ByteCodes.STORE2_ADDR_IN_REG_REG
@@ -278,10 +284,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
         ),
     ),
     'st4': (
-        # Register
-        (
-            ByteCodes.STORE4_REG_REG
-        ),
+        None, # Register
         # Address in register
         (
             ByteCodes.STORE4_ADDR_IN_REG_REG
@@ -293,10 +296,7 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
         ),
     ),
     'st8': (
-        # Register
-        (
-            ByteCodes.STORE8_REG_REG
-        ),
+        None, # Register
         # Address in register
         (
             ByteCodes.STORE8_ADDR_IN_REG_REG

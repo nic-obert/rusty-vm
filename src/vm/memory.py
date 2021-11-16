@@ -15,10 +15,9 @@ class Memory:
         return int.from_bytes(data, byteorder='big', signed=False)
 
 
-    def store_data(self, address: int, data: int) -> None:
+    def store_data(self, address: int, data: int, size: int) -> None:
         """
         Store data to memory.
         """
-        
-        self.memory[address:address + len(data)] = data
+        self.memory[address:address + size] = data.to_bytes(size, byteorder='big')
 

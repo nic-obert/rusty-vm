@@ -153,11 +153,12 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
 
     # Memory
 
-    # ByteCodes.LOAD1_REG_REG
+    # ByteCodes.LOAD_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
+
     # ByteCodes.LOAD1_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -174,11 +175,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.LOAD2_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.LOAD2_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -195,11 +191,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.LOAD4_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.LOAD4_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -216,11 +207,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.LOAD8_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.LOAD8_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -238,11 +224,12 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
     )),
 
 
-    # ByteCodes.MOVE1_REG_REG
+    # ByteCodes.MOVE_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
+
     # ByteCodes.MOVE1_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -299,11 +286,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.MOVE2_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.MOVE2_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -360,11 +342,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.MOVE4_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.MOVE4_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -421,11 +398,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.MOVE8_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.MOVE8_REG_ADDR_IN_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -483,11 +455,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
     )),
     
 
-    # ByteCodes.STORE1_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.STORE1_ADDR_IN_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -499,11 +466,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 1),
     )),
 
-    # ByteCodes.STORE2_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.STORE2_ADDR_IN_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -515,11 +477,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 1),
     )),
 
-    # ByteCodes.STORE4_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.STORE4_ADDR_IN_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
@@ -531,11 +488,6 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[1].value, 1),
     )),
 
-    # ByteCodes.STORE8_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
     # ByteCodes.STORE8_ADDR_IN_REG_REG
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),

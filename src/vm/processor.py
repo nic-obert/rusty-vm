@@ -43,62 +43,482 @@ class Processor:
         """
         Execute the byte code.
         """
-        pass
+        # Load the byte code into memory.
+        self.memory.store_data(0, byte_code, len(byte_code))
+
+
+    def set_flags(self, value: int) -> None:
+        self.ZERO_FLAG = value == 0
+        self.SIGN_FLAG = value < 0
 
 
     # Instruction handlers
 
+
     def handle_add(self) -> None:
         self.A += self.B
 
-        self.ZERO_FLAG = self.A == 0
-        self.SIGN_FLAG = self.A < 0
+        self.set_flags(self.A)
 
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
+
 
     def handle_sub(self) -> None:
         self.A -= self.B
 
-        self.ZERO_FLAG = self.A == 0
-        self.SIGN_FLAG = self.A < 0
+        self.set_flags(self.A)
 
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
+
 
     def handle_mul(self) -> None:
         self.A *= self.B
 
-        self.ZERO_FLAG = self.A == 0
-        self.SIGN_FLAG = self.A < 0
+        self.set_flags(self.A)
 
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
     
+
     def handle_div(self) -> None:
         self.A //= self.B
 
-        self.ZERO_FLAG = self.A == 0
-        self.SIGN_FLAG = self.A < 0
+        self.set_flags(self.A)
 
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
+
 
     def handle_mod(self) -> None:
         self.A %= self.B
 
-        self.ZERO_FLAG = self.A == 0
-        self.SIGN_FLAG = self.A < 0
+        self.set_flags(self.A)
 
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
+
 
     def handle_inc_reg(self) -> None:
-        self.STACK_POINTER += 1
-        register = self.memory.get_data(self.STACK_POINTER, 1)
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
         self.registers[register] += 1
+        
+        self.set_flags(self.registers[register])
+
     
     def handle_inc1_addr_in_reg(self) -> None:
-        self.STACK_POINTER += 1
-        register = self.memory.get_data(self.STACK_POINTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
         address = self.registers[register]
-        self.STACK_POINTER += 1
+        self.PROGRAM_COUNTER += 1
         value = self.memory.get_data(address, 1) + 1
         self.memory.store_data(self.register, value, 1)
+
+        self.set_flags(self.A)
+
+
+    def handle_inc1_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 1) + 1
+        self.memory.store_data(address, value, 1)
+
+        self.set_flags(value)
+
+
+    def handle_inc2_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 2) + 1
+        self.memory.store_data(address, value, 2)
+
+        self.set_flags(value)
+
+    
+    def handle_inc2_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 2) + 1
+        self.memory.store_data(address, value, 2)
+
+        self.set_flags(value)    
+
+    
+    def handle_inc4_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 4) + 1
+        self.memory.store_data(address, value, 4)
+
+        self.set_flags(value)
+
+
+    def handle_inc4_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 4) + 1
+        self.memory.store_data(address, value, 4)
+
+        self.set_flags(value)
+
+    
+    def handle_inc8_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 8) + 1
+        self.memory.store_data(address, value, 8)
+
+        self.set_flags(value)
+
+    
+    def handle_inc8_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 8) + 1
+        self.memory.store_data(address, value, 8)
+
+        self.set_flags(value)
+
+    
+    def handle_dec_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.registers[register] -= 1
+
+        self.set_flags(self.registers[register])
+    
+
+    def handle_dec1_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 1) - 1
+        self.memory.store_data(address, value, 1)
+
+        self.set_flags(value)
+
+    
+    def handle_dec1_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 1) - 1
+        self.memory.store_data(address, value, 1)
+
+        self.set_flags(value)
+
+    
+    def handle_dec2_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 2) - 1
+        self.memory.store_data(address, value, 2)
+
+        self.set_flags(value)
+
+    
+    def handle_dec2_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 2) - 1
+        self.memory.store_data(address, value, 2)
+
+        self.set_flags(value)
+
+    
+    def handle_dec4_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 4) - 1
+        self.memory.store_data(address, value, 4)
+
+        self.set_flags(value)
+
+
+    def handle_dec4_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 4) - 1
+        self.memory.store_data(address, value, 4)
+
+        self.set_flags(value)
+
+
+    def handle_dec8_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        address = self.registers[register]
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(address, 8) - 1
+        self.memory.store_data(address, value, 8)
+
+        self.set_flags(value)
+
+
+    def handle_dec8_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(address, 8) - 1
+        self.memory.store_data(address, value, 8)
+
+        self.set_flags(value)
+
+    
+    def handle_no_operation(self) -> None:
+        self.PROGRAM_COUNTER += 1
+    
+
+    def handle_load_reg_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.registers[register1] = self.registers[register2]
+    
+
+    def handle_load1_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register2]
+        self.registers[register1] = self.memory.get_data(address, 1)
+
+
+    def handle_load1_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.registers[register] = value
+
+
+    def handle_load1_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = self.memory.get_data(address, 1)
+    
+
+    def handle_load2_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register2]
+        self.registers[register1] = self.memory.get_data(address, 2)
+
+
+    def handle_load2_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 2)
+        self.PROGRAM_COUNTER += 2
+        self.registers[register] = value
+
+
+    def handle_load2_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = self.memory.get_data(address, 2)
+
+
+    def handle_load4_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register2]
+        self.registers[register1] = self.memory.get_data(address, 4)
+
+
+    def handle_load4_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 4)
+        self.PROGRAM_COUNTER += 4
+        self.registers[register] = value
+
+
+    def handle_load4_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = self.memory.get_data(address, 4)
+
+
+    def handle_load8_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register2]
+        self.registers[register1] = self.memory.get_data(address, 8)
+
+
+    def handle_load8_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = value
+
+
+    def handle_load8_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = self.memory.get_data(address, 8)
+
+
+    def handle_move_reg_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.registers[register1] = self.registers[register2]
+    
+
+    def handle_move1_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register2]
+        self.registers[register1] = self.memory.get_data(address, 1)
+    
+
+    def handle_move1_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.registers[register] = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+
+    
+    def handle_move1_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.registers[register] = self.memory.get_data(address, 1)
+    
+
+    def handle_move1_addr_in_reg_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register1]
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.memory.store_data(address, self.registers[register2], 1)
+    
+
+    def handle_move1_addr_in_reg_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register1 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address1 = self.registers[register1]
+        register2 = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address2 = self.registers[register2]
+        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+        
+
+    def handle_move1_addr_in_reg_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address = self.registers[register]
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.memory.store_data(address, value, 1)
+    
+
+    def handle_move1_addr_in_reg_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address1 = self.registers[register]
+        address2 = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+
+    
+    def handle_move1_addr_literal_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.memory.store_data(address, self.registers[register])
+    
+
+    def handle_move1_addr_literal_addr_in_reg(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address1 = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        register = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        address2 = self.registers[register]
+        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+    
+
+    def handle_move1_addr_literal_const(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        value = self.memory.get_data(self.PROGRAM_COUNTER, 1)
+        self.PROGRAM_COUNTER += 1
+        self.memory.store_data(address, value, 1)
+    
+
+    def handle_move1_addr_literal_addr_literal(self) -> None:
+        self.PROGRAM_COUNTER += 1
+        address1 = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        address2 = self.memory.get_data(self.PROGRAM_COUNTER, 8)
+        self.PROGRAM_COUNTER += 8
+        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+
+
+
 
