@@ -14,7 +14,7 @@ def main() -> None:
         exit(1)
     
     byte_code = files.load_byte_code(argv[1])
-    processor = Processor(Memory(MEMORY_SIZE))
+    processor = Processor(MEMORY_SIZE)
 
     processor.execute(byte_code)
 

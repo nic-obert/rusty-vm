@@ -9,10 +9,13 @@ class Registers(enum.IntEnum):
 
     # General purpose registers
 
+    # First arithmetical register A
     A = enum.auto()
+    # Second arithmetical register B
     B = enum.auto()
     C = enum.auto()
     D = enum.auto()
+    # Exit status register E
     E = enum.auto()
     F = enum.auto()
     G = enum.auto()
@@ -31,6 +34,7 @@ class Registers(enum.IntEnum):
 
     ZERO_FLAG = enum.auto()
     SIGN_FLAG = enum.auto()
+    REMAINDER_FLAG = enum.auto()
 
 
 register_names: Tuple[str] = \
@@ -49,6 +53,7 @@ register_names: Tuple[str] = \
     "PROGRAM_COUNTER"
 
     "ZERO_FLAG",
-    "SIGN_FLAG"
+    "SIGN_FLAG",
+    "REMAINDER_FLAG",
 )
 

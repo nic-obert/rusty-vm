@@ -156,6 +156,8 @@ byte_code_names: Tuple[str] = \
     "PRINT",
     "PRINT_STRING",
 
+    "EXIT",
+
 )
 
 
@@ -324,6 +326,8 @@ class ByteCodes(enum.IntEnum):
 
     PRINT = enum.auto()
     PRINT_STRING = enum.auto()
+
+    EXIT = enum.auto()
 
 
     def __str__(self) -> str:

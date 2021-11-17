@@ -608,6 +608,9 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
 
     # ByteCodes.PRINT_STRING
     lambda operands: bytes(0),
+
+    # ByteCodes.EXIT
+    lambda operands: bytes(0),
     
     
 )
