@@ -53,7 +53,6 @@ class Processor:
         while self.running:
             opcode = self.get_from_byte_code(1)
             self.instruction_handlers_table[opcode](self)
-            self.PROGRAM_COUNTER += 1
 
         exit(self.E)
     
@@ -916,6 +915,56 @@ class Processor:
         handle_move8_addr_literal_addr_in_reg,
         handle_move8_addr_literal_const,
         handle_move8_addr_literal_addr_literal,
+
+
+        handle_store1_addr_in_reg_reg,
+        handle_store1_addr_literal_reg,
+
+        handle_store2_addr_in_reg_reg,
+        handle_store2_addr_literal_reg,
+
+        handle_store4_addr_in_reg_reg,
+        handle_store4_addr_literal_reg,
+
+        handle_store8_addr_in_reg_reg,
+        handle_store8_addr_literal_reg,
+
+
+        None, # Label don't get handled
+
+
+        handle_jump,
+
+        handle_jump_if_true_reg,
+
+        handle_jump_if_false_reg,
+
+
+        handle_compare_reg_reg,
+        
+        handle_compare1_reg_const,
+        handle_compare1_const_reg,
+        handle_compare1_const_const,
+
+        handle_compare2_reg_const,
+        handle_compare2_const_reg,
+        handle_compare2_const_const,
+
+        handle_compare4_reg_const,
+        handle_compare4_const_reg,
+        handle_compare4_const_const,
+
+        handle_compare8_reg_const,
+        handle_compare8_const_reg,
+        handle_compare8_const_const,
+
+
+        handle_print,
+
+        handle_print_string,
+
+
+        handle_exit,
 
 
     ]
