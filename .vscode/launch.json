@@ -5,6 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Virtual Machine",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/vm/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "${workspaceFolder}/assembly.bc"
+            ]
+        },
+        {
             "name": "Python: Assembler",
             "type": "python",
             "request": "launch",
