@@ -152,6 +152,10 @@ byte_code_names: Tuple[str] = \
     "COMPARE8_CONST_REG",
     "COMPARE8_CONST_CONST",
 
+
+    "PRINT",
+    "PRINT_STRING",
+
 )
 
 
@@ -314,6 +318,12 @@ class ByteCodes(enum.IntEnum):
     COMPARE8_REG_CONST = enum.auto()
     COMPARE8_CONST_REG = enum.auto()
     COMPARE8_CONST_CONST = enum.auto()
+
+
+    # Interrupts
+
+    PRINT = enum.auto()
+    PRINT_STRING = enum.auto()
 
 
     def __str__(self) -> str:

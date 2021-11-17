@@ -402,6 +402,12 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
             ByteCodes.COMPARE8_CONST_CONST
         )
     ),
+
+    # Interrupts
+
+    'prt': ByteCodes.PRINT,
+    'prtstr': ByteCodes.PRINT_STRING,
+    
     
 
 }

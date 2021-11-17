@@ -600,6 +600,14 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 8)
     )),
+
+    # Interrupts
+
+    # ByteCodes.PRINT
+    lambda operands: bytes(0),
+
+    # ByteCodes.PRINT_STRING
+    lambda operands: bytes(0),
     
     
 )

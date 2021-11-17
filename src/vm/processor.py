@@ -769,6 +769,22 @@ class Processor:
         self.set_flags(value1 - value2)
 
     
+    def handle_print(self) -> None:
+        print(int(self.H))
+
+    
+    def handle_print_string(self) -> None:
+        address = self.H
+        buffer = ''
+        byte = 1
+        while byte != 0:
+            byte = self.memory.load_data(address, 1)
+            address += 1
+            buffer += byte.decode('utf-8')
+        
+        print(buffer, end='')
+
+    
     # End of instruction handlers
 
     instruction_handlers_table: List[Callable[[Processor], None]] = \

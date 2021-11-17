@@ -16,6 +16,7 @@ class Registers(enum.IntEnum):
     E = enum.auto()
     F = enum.auto()
     G = enum.auto()
+    # Print register H
     H = enum.auto()
 
     # Stack pointer
