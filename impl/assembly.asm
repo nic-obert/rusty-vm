@@ -1,4 +1,6 @@
-mov8 b 1522; t\
-mov h b ; move from b to h
+ld2 a 50
+ld1 b 3
+add
+mov h a
 prt
 exit

@@ -12,7 +12,9 @@ def assemble(assembly: List[str]) -> bytes:
     # Map of labels to their byte code location
     label_map: Dict[str, int] = {}
 
+    line_number = 0
     for line in assembly:
+        line_number += 1
 
         line = line.strip()
         if line == '' or line.startswith(';'):
@@ -25,7 +27,7 @@ def assemble(assembly: List[str]) -> bytes:
         possible_instructions = arguments_table.get(raw_tokens[0])
 
         if possible_instructions is None:
-            print(f'Unknown instruction: "{raw_tokens[0]}" in line "{line}"')
+            print(f'Unknown instruction: "{raw_tokens[0]}" in line {line_number} "{line}"')
             exit(1)
 
         # Branch for operators with operands
@@ -34,7 +36,11 @@ def assemble(assembly: List[str]) -> bytes:
 
             # Filter out all the possible byte code instructions associated with the operator
             for operand in operands:
-                possible_instructions = possible_instructions[operand.type]
+                try:
+                    possible_instructions = possible_instructions[operand.type]
+                except IndexError:
+                    print(f'Unknown operand "{operand}" for instruction "{raw_tokens[0]}" in line {line_number} "{line}"')
+                    exit(1)
 
             # By now possible_instructions is just a ByteCodes instance because it has been filtered
             possible_instructions: ByteCodes

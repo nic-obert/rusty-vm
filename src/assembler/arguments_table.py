@@ -309,25 +309,25 @@ arguments_table : Dict[str, Tuple[Union[Tuple[Union[Tuple, ByteCodes]], ByteCode
     'pop1': (
         None, # Register
         ByteCodes.POP1_ADDR_IN_REG, # Address in register
-        ByteCodes.POP1_CONST, # Constant
+        None, # Constant
         ByteCodes.POP1_ADDR_LITERAL, # Address literal
     ),
     'pop2': (
         None, # Register
         ByteCodes.POP2_ADDR_IN_REG, # Address in register
-        ByteCodes.POP2_CONST, # Constant
+        None, # Constant
         ByteCodes.POP2_ADDR_LITERAL, # Address literal
     ),
     'pop4': (
         None, # Register
         ByteCodes.POP4_ADDR_IN_REG, # Address in register
-        ByteCodes.POP4_CONST, # Constant
+        None, # Constant
         ByteCodes.POP4_ADDR_LITERAL, # Address literal
     ),
     'pop8': (
         None, # Register
         ByteCodes.POP8_ADDR_IN_REG, # Address in register
-        ByteCodes.POP8_CONST, # Constant
+        None, # Constant
         ByteCodes.POP8_ADDR_LITERAL, # Address literal
     ),
 

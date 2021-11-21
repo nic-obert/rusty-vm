@@ -1,8 +1,8 @@
 from __future__ import annotations
-import enum
-from typing import Any, Dict, List, Tuple, Union
+from typing import  Dict, List, Union
 
 from shared.registers import Registers
+from shared.token import Token, TokenType
 
 
 register_map: Dict[str, Registers] = \
@@ -26,60 +26,10 @@ def is_name_character(char: str) -> bool:
     return char.isalpha() or char == '_'
 
 
-token_type_names_table: Tuple[str] = \
-(
-    "REGISTER",
-    "ADDRESS_IN_REGISTER",
-    "NUMBER",
-    "ADDRESS_LITERAL",
-    "LABEL",
-    "NAME",
-    "ADDRESS_GENERIC",
-    "CURRENT_POSITION"
-)
-
-
-@enum.unique
-class TokenType(enum.IntEnum):
-
-    def _generate_next_value_(name: str, start: int, count: int, last_values: List[int]) -> int:
-        return count
-
-    REGISTER = enum.auto()
-    ADDRESS_IN_REGISTER = enum.auto()
-    NUMBER = enum.auto()
-    ADDRESS_LITERAL = enum.auto()
-
-    LABEL = enum.auto()
-    NAME = enum.auto()
-    ADDRESS_GENERIC = enum.auto()
-    
-    CURRENT_POSITION = enum.auto()
-
-
-    def __str__(self) -> str:
-        return token_type_names_table[self.value]
-    
-    def __repr__(self) -> str:
-        return token_type_names_table[self.value]
-
-
-class Token:
-    
-    def __init__(self, type: TokenType, value: Any):
-        self.type = type
-        self.value = value
-
-    def __str__(self) -> str:
-        return f"<{self.type}: {self.value}>"
-    
-    def __repr__(self) -> str:
-        return f"<{self.type}: {self.value}>"
-
-
 def tokenize_operands(operands: str) -> List[Token]:
     tokens: List[Token] = []
-    operands = operands.strip()
+    # Remove redundant spaces and add a semicolon at the end in order to make the loop iterate one more time
+    operands = operands.strip() + ';'
     if operands == "":
         return tokens
      
@@ -170,7 +120,5 @@ def tokenize_operands(operands: str) -> List[Token]:
         # If the character isn't handled, raise an error
         raise ValueError(f"Unhandled character: '{char}' in argument list \"{operands}\".")
 
-    if current_token is not None:
-        tokens.append(current_token)
     return tokens
 
