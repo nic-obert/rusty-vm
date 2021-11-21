@@ -128,7 +128,42 @@ byte_code_names: Tuple[str] = \
     "STORE8_ADDR_LITERAL_REG",
 
 
+    "PUSH_REG",
+
+    "PUSH1_ADDR_IN_REG",
+    "PUSH1_CONST",
+    "PUSH1_ADDR_LITERAL",
+
+    "PUSH2_ADDR_IN_REG",
+    "PUSH2_CONST",
+    "PUSH2_ADDR_LITERAL",
+
+    "PUSH4_ADDR_IN_REG",
+    "PUSH4_CONST",
+    "PUSH4_ADDR_LITERAL",
+
+    "PUSH8_ADDR_IN_REG",
+    "PUSH8_CONST",
+    "PUSH8_ADDR_LITERAL",
+
+
+    "POP_REG",
+
+    "POP1_ADDR_IN_REG",
+    "POP1_ADDR_LITERAL",
+
+    "POP2_ADDR_IN_REG",
+    "POP2_ADDR_LITERAL",
+
+    "POP4_ADDR_IN_REG",
+    "POP4_ADDR_LITERAL",
+
+    "POP8_ADDR_IN_REG",
+    "POP8_ADDR_LITERAL",
+
+
     "LABEL",
+
     "JUMP",
     "JUMP_IF_TRUE_REG",
     "JUMP_IF_FALSE_REG",
@@ -292,6 +327,40 @@ class ByteCodes(enum.IntEnum):
 
     STORE8_ADDR_IN_REG_REG = enum.auto()
     STORE8_ADDR_LITERAL_REG = enum.auto()
+
+
+    PUSH_REG = enum.auto()
+
+    PUSH1_ADDR_IN_REG = enum.auto()
+    PUSH1_CONST = enum.auto()
+    PUSH1_ADDR_LITERAL = enum.auto()
+
+    PUSH2_ADDR_IN_REG = enum.auto()
+    PUSH2_CONST = enum.auto()
+    PUSH2_ADDR_LITERAL = enum.auto()
+
+    PUSH4_ADDR_IN_REG = enum.auto()
+    PUSH4_CONST = enum.auto()
+    PUSH4_ADDR_LITERAL = enum.auto()
+
+    PUSH8_ADDR_IN_REG = enum.auto()
+    PUSH8_CONST = enum.auto()
+    PUSH8_ADDR_LITERAL = enum.auto()
+
+
+    POP_REG = enum.auto()
+
+    POP1_ADDR_IN_REG = enum.auto()
+    POP1_ADDR_LITERAL = enum.auto()
+
+    POP2_ADDR_IN_REG = enum.auto()
+    POP2_ADDR_LITERAL = enum.auto()
+
+    POP4_ADDR_IN_REG = enum.auto()
+    POP4_ADDR_LITERAL = enum.auto()
+
+    POP8_ADDR_IN_REG = enum.auto()
+    POP8_ADDR_LITERAL = enum.auto()
 
     # Control flow
 

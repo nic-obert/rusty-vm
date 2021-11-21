@@ -48,10 +48,14 @@ class Processor:
         """
         # Load the byte code into memory.
         self.memory.store_bytes(0, byte_code)
+        # Set the stack pointer to the first available memory address.
+        self.STACK_POINTER = len(byte_code)
 
         self.running = True
         while self.running:
+            # Fetch the instruction
             opcode = self.get_from_byte_code(1)
+            # Execute the instruction
             self.instruction_handlers_table[opcode](self)
 
         exit(self.E)
@@ -69,6 +73,17 @@ class Processor:
         data = self.memory.get_data(self.PROGRAM_COUNTER, size)
         self.PROGRAM_COUNTER += size
         return data
+
+    
+    def push_stack(self, value: int, size: int) -> None:
+        self.memory.store_data(self.STACK_POINTER, value, size)
+        self.STACK_POINTER += size
+
+
+    def pop_stack(self, size: int) -> int:
+        self.STACK_POINTER -= size
+        value = self.memory.get_data(self.STACK_POINTER, size)
+        return value
 
 
     # Instruction handlers
@@ -687,6 +702,124 @@ class Processor:
         self.memory.store_data(address, self.registers[register], 8)
 
     
+    def handle_push_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        self.push_stack(self.registers[register], 8)
+    
+
+    def handle_push1_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.push_stack(self.memory.get_data(address, 1))
+    
+
+    def handle_push1_const(self) -> None:
+        value = self.get_from_byte_code(1)
+        self.push_stack(value, 1)
+    
+
+    def handle_push1_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.push_stack(self.memory.get_data(address, 1))
+
+
+    def handle_push2_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.push_stack(self.memory.get_data(address, 2))
+
+
+    def handle_push2_const(self) -> None:
+        value = self.get_from_byte_code(2)
+        self.push_stack(value, 2)
+
+
+    def handle_push2_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.push_stack(self.memory.get_data(address, 2))
+
+
+    def handle_push4_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.push_stack(self.memory.get_data(address, 4))
+
+
+    def handle_push4_const(self) -> None:
+        value = self.get_from_byte_code(4)
+        self.push_stack(value, 4)
+
+
+    def handle_push4_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.push_stack(self.memory.get_data(address, 4))
+
+
+    def handle_push8_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.push_stack(self.memory.get_data(address, 8))
+
+
+    def handle_push8_const(self) -> None:
+        value = self.get_from_byte_code(8)
+        self.push_stack(value, 8)
+
+
+    def handle_push8_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.push_stack(self.memory.get_data(address, 8))
+
+
+    def handle_pop_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        self.registers[register] = self.pop_stack(8)
+
+
+    def handle_pop1_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.memory.store_data(address, self.pop_stack(1), 1)
+
+
+    def handle_pop1_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.memory.store_data(address, self.pop_stack(1), 1)
+
+
+    def handle_pop2_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.memory.store_data(address, self.pop_stack(2), 2)
+
+
+    def handle_pop2_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.memory.store_data(address, self.pop_stack(2), 2)
+
+
+    def handle_pop4_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.memory.store_data(address, self.pop_stack(4), 4)
+
+
+    def handle_pop4_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.memory.store_data(address, self.pop_stack(4), 4)
+
+
+    def handle_pop8_addr_in_reg(self) -> None:
+        register = self.get_from_byte_code(1)
+        address = self.registers[register]
+        self.memory.store_data(address, self.pop_stack(8), 8)
+
+
+    def handle_pop8_addr_literal(self) -> None:
+        address = self.get_from_byte_code(8)
+        self.memory.store_data(address, self.pop_stack(8), 8)
+
+    
     def handle_jump(self) -> None:
         self.PROGRAM_COUNTER = self.get_from_byte_code(8)
     
@@ -930,7 +1063,41 @@ class Processor:
         handle_store8_addr_literal_reg,
 
 
-        None, # Label don't get handled
+        handle_push_reg,
+
+        handle_push1_addr_in_reg,
+        handle_push1_const,
+        handle_push1_addr_literal,
+
+        handle_push2_addr_in_reg,
+        handle_push2_const,
+        handle_push2_addr_literal,
+
+        handle_push4_addr_in_reg,
+        handle_push4_const,
+        handle_push4_addr_literal,
+
+        handle_push8_addr_in_reg,
+        handle_push8_const,
+        handle_push8_addr_literal,
+
+
+        handle_pop_reg,
+
+        handle_pop1_addr_in_reg,
+        handle_pop1_addr_literal,
+
+        handle_pop2_addr_in_reg,
+        handle_pop2_addr_literal,
+
+        handle_pop4_addr_in_reg,
+        handle_pop4_addr_literal,
+
+        handle_pop8_addr_in_reg,
+        handle_pop8_addr_literal,
+
+
+        None, # Labels don't get handled
 
 
         handle_jump,

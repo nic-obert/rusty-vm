@@ -33,34 +33,19 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
     # Arithmetic
 
     # ByteCodes.ADD
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1)
-    )),
+    lambda operands: bytes(0),
 
     # ByteCodes.SUB
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1)
-    )),
+    lambda operands: bytes(0),
 
     # ByteCodes.MUL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1)
-    )),
+    lambda operands: bytes(0),
 
     # ByteCodes.DIV
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1)
-    )),
+    lambda operands: bytes(0),
 
     # ByteCodes.MOD
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1)
-    )),
+    lambda operands: bytes(0),
 
 
     # ByteCodes.INC_REG
@@ -497,6 +482,104 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
     lambda operands: bytes((
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
+    )),
+
+    # ByteCodes.PUSH_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+
+    # ByteCodes.PUSH1_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.PUSH1_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.PUSH1_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.PUSH2_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.PUSH2_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 2),
+    )),
+    # ByteCodes.PUSH2_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.PUSH4_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.PUSH4_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 4),
+    )),
+    # ByteCodes.PUSH4_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.PUSH8_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.PUSH8_CONST
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+    # ByteCodes.PUSH8_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.POP_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+
+    # ByteCodes.POP1_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.POP1_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.POP2_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.POP2_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.POP4_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.POP4_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
+    )),
+
+    # ByteCodes.POP8_ADDR_IN_REG
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 1),
+    )),
+    # ByteCodes.POP8_ADDR_LITERAL
+    lambda operands: bytes((
+        *number_to_bytes(operands[0].value, 8),
     )),
 
     # Control flow
