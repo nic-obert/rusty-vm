@@ -39,21 +39,21 @@ class Registers(enum.IntEnum):
 
 register_names: Tuple[str] = \
 (
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
 
-    "STACK_POINTER",
+    "sp",
 
-    "PROGRAM_COUNTER"
+    "pc"
 
-    "ZERO_FLAG",
-    "SIGN_FLAG",
-    "REMAINDER_FLAG",
+    "zf",
+    "sf",
+    "rf",
 )
 
