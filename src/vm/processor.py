@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Callable, List
 
 from memory import Memory
+from shared.byte_code import byte_code_names
 
 
 class Processor:
@@ -42,7 +43,7 @@ class Processor:
         ]
     
 
-    def execute(self, byte_code: bytes) -> None:
+    def execute(self, byte_code: bytes, verbose: bool = False) -> None:
         """
         Execute the byte code.
         """
@@ -52,14 +53,30 @@ class Processor:
         self.STACK_POINTER = len(byte_code)
 
         self.running = True
+        if verbose:
+            self._verbose_cycle()
+        else:
+            self._cycle()
+
+        exit(self.E)        
+    
+
+    def _cycle(self) -> None:
         while self.running:
             # Fetch the instruction
             opcode = self.get_from_byte_code(1)
             # Execute the instruction
             self.instruction_handlers_table[opcode](self)
-
-        exit(self.E)
     
+
+    def _verbose_cycle(self) -> None:
+        while self.running:
+            # Fetch the instruction
+            opcode = self.get_from_byte_code(1)
+            print(byte_code_names[opcode])
+            # Execute the instruction
+            self.instruction_handlers_table[opcode](self)
+
 
     # Useful functions
 

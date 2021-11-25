@@ -8,14 +8,15 @@ MEMORY_SIZE = 1024
 
 
 def main() -> None:
-    if len(argv) != 2:
+    if len(argv) < 2:
         print(f"Usage: {argv[0]} <file_path>")
         exit(1)
     
     byte_code = files.load_byte_code(argv[1])
     processor = Processor(MEMORY_SIZE)
 
-    processor.execute(byte_code)
+    verbose = '-v' in argv
+    processor.execute(byte_code, verbose)
 
 
 if __name__ == "__main__":
