@@ -923,7 +923,7 @@ class Processor:
 
     
     def handle_print(self) -> None:
-        print(int(self.registers[Registers.PRINT]))
+        print(int(self.registers[Registers.PRINT]), end='')
 
     
     def handle_print_string(self) -> None:
