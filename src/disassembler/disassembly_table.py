@@ -13,207 +13,72 @@ Structure:
 
 An empty argument type list means the instruction does not take any arguments.
 """
-disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int]]] = \
+disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int], bool]] = \
 (
-    ('add', (), ()),
-
-    ('sub', (), ()),
-
-    ('mul', (), ()),
-
-    ('div', (), ()),
-
-    ('mod', (), ()),
+    ('add', (), (), False),
+    ('sub', (), (), False),
+    ('mul', (), (), False),
+    ('div', (), (), False),
+    ('mod', (), (), False),
 
     
-    ('inc', (TokenType.REGISTER), (1,)),
+    ('inc', (TokenType.REGISTER), (1,), False),
+    ('inc', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
+    ('inc', (TokenType.ADDRESS_LITERAL,), (8,), True),
 
-    ('inc1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('inc1', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('inc2', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('inc2', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('inc4', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('inc4', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('inc8', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('inc8', (TokenType.ADDRESS_LITERAL,), (8,)),
+    ('dec', (TokenType.REGISTER), (1,), False),
+    ('dec', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
+    ('dec', (TokenType.ADDRESS_LITERAL,), (8,), True),
 
 
-    ('dec', (TokenType.REGISTER), (1,)),
-
-    ('dec1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('dec1', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('dec2', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('dec2', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('dec4', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('dec4', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('dec8', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('dec8', (TokenType.ADDRESS_LITERAL,), (8,)),
+    ('nop', (), (), False),
 
 
-    ('nop', (), ()),
+    ('mov', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), False),
+    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), True),
+    ('mov', (TokenType.REGISTER, TokenType.NUMBER), (1, 1), True),
+    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), True),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1), True),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), True),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 1), True),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), True),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1), True),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1), True),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 1), True),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8), True),
 
 
-    ('ld', (TokenType.REGISTER, TokenType.REGISTER), (1, 1)),
+    ('push', (TokenType.REGISTER,), (1,), False),
+    ('push', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
+    ('push', (TokenType.NUMBER,), (1,), True),
+    ('push', (TokenType.ADDRESS_LITERAL,), (8,), True),
 
-    ('ld1', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('ld1', (TokenType.REGISTER, TokenType.NUMBER), (1, 1)),
-    ('ld1', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-
-    ('ld2', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('ld2', (TokenType.REGISTER, TokenType.NUMBER), (1, 2)),
-    ('ld2', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-
-    ('ld4', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('ld4', (TokenType.REGISTER, TokenType.NUMBER), (1, 4)),
-    ('ld4', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL)),
-
-    ('ld8', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('ld8', (TokenType.REGISTER, TokenType.NUMBER), (1, 8)),
-    ('ld8', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
+    ('pop', (TokenType.REGISTER,), (1,), False),
+    ('pop', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
+    ('pop', (TokenType.ADDRESS_LITERAL,), (8,), True),
 
 
-    ('mov', (TokenType.REGISTER, TokenType.REGISTER), (1, 1)),
-
-    ('mov1', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov1', (TokenType.REGISTER, TokenType.NUMBER), (1, 1)),
-    ('mov1', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov1', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('mov1', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov1', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 1)),
-    ('mov1', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov1', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-    ('mov1', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1)),
-    ('mov1', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 1)),
-    ('mov1', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8)),
-
-    ('mov2', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov2', (TokenType.REGISTER, TokenType.NUMBER), (1, 2)),
-    ('mov2', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov2', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('mov2', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov2', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 2)),
-    ('mov2', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov2', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-    ('mov2', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1)),
-    ('mov2', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 2)),
-    ('mov2', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8)),
-
-    ('mov4', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov4', (TokenType.REGISTER, TokenType.NUMBER), (1, 4)),
-    ('mov4', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov4', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('mov4', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov4', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 4)),
-    ('mov4', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov4', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-    ('mov4', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1)),
-    ('mov4', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 4)),
-    ('mov4', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8)),
-
-    ('mov8', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov8', (TokenType.REGISTER, TokenType.NUMBER), (1, 8)),
-    ('mov8', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov8', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('mov8', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1)),
-    ('mov8', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 8)),
-    ('mov8', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8)),
-    ('mov8', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-    ('mov8', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1)),
-    ('mov8', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 8)),
-    ('mov8', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8)),
+    ('@', (TokenType.LABEL), (8,), False), # Doesn't get used, but it's here for completeness.
 
 
-    ('st1', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('st1', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-
-    ('st2', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('st2', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-
-    ('st4', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('st4', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
-
-    ('st8', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1)),
-    ('st8', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1)),
+    ('jmp', (TokenType.NUMBER,), (8,), False),
+    ('cjmp', (TokenType.NUMBER, TokenType.REGISTER), (8, 1), False),
+    ('njmp', (TokenType.NUMBER, TokenType.REGISTER,), (8, 1), False),
 
 
-    ('push', (TokenType.REGISTER,), (1,)),
-
-    ('push1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('push1', (TokenType.NUMBER,), (1,)),
-    ('push1', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('push2', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('push2', (TokenType.NUMBER,), (2,)),
-    ('push2', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('push4', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('push4', (TokenType.NUMBER,), (4,)),
-    ('push4', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('push8', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('push8', (TokenType.NUMBER,), (8,)),
-    ('push8', (TokenType.ADDRESS_LITERAL,), (8,)),
+    ('cmp', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), False),
+    ('cmp', (TokenType.REGISTER, TokenType.NUMBER), (1, 1), True),
+    ('cmp', (TokenType.NUMBER, TokenType.REGISTER), (1, 1), True),
+    ('cmp', (TokenType.NUMBER, TokenType.NUMBER), (1, 1), True),
 
 
-    ('pop', (TokenType.REGISTER,), (1,)),
+    ('prt', (), (), False),
+    ('prtstr', (None,), (None), False), # TODO: add string literal
 
-    ('pop1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('pop1', (TokenType.ADDRESS_LITERAL,), (8,)),
+    ('inint', (), (), False),
+    ('instr', (), (), False),
 
-    ('pop2', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('pop2', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('pop4', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('pop4', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-    ('pop8', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
-    ('pop8', (TokenType.ADDRESS_LITERAL,), (8,)),
-
-
-    ('@', (TokenType.LABEL), (8,)), # Doesn't get used, but it's here for completeness.
-
-
-    ('jmp', (TokenType.NUMBER,), (8,)),
-    ('cjmp', (TokenType.NUMBER, TokenType.REGISTER), (8, 1)),
-    ('njmp', (TokenType.NUMBER, TokenType.REGISTER,), (8, 1)),
-
-
-    ('cmp', (TokenType.REGISTER, TokenType.REGISTER), (1, 1)),
-
-    ('cmp1', (TokenType.REGISTER, TokenType.NUMBER), (1, 1)),
-    ('cmp1', (TokenType.NUMBER, TokenType.REGISTER), (1, 1)),
-    ('cmp1', (TokenType.NUMBER, TokenType.NUMBER), (1, 1)),
-
-    ('cmp2', (TokenType.REGISTER, TokenType.NUMBER), (1, 2)),
-    ('cmp2', (TokenType.NUMBER, TokenType.REGISTER), (2, 1)),
-    ('cmp2', (TokenType.NUMBER, TokenType.NUMBER), (2, 2)),
-
-    ('cmp4', (TokenType.REGISTER, TokenType.NUMBER), (1, 4)),
-    ('cmp4', (TokenType.NUMBER, TokenType.REGISTER), (4, 1)),
-    ('cmp4', (TokenType.NUMBER, TokenType.NUMBER), (4, 4)),
-
-    ('cmp8', (TokenType.REGISTER, TokenType.NUMBER), (1, 8)),
-    ('cmp8', (TokenType.NUMBER, TokenType.REGISTER), (8, 1)),
-    ('cmp8', (TokenType.NUMBER, TokenType.NUMBER), (8, 8)),
-
-
-    ('prt', (), ()),
-
-    ('prtstr', (None,), (None)), # TODO: add string literal
-
-
-    ('inint', (), ()),
-
-    ('instr', (), ()),
-
-
-    ('exit', (), ()),
+    ('exit', (), (), False),
 
 
 )

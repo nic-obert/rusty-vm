@@ -11,6 +11,7 @@ class Memory:
         """
         Get data from memory.
         """
+        # TODO: fix data retirval bugs
         data = self.memory[address : address + size]
         return int.from_bytes(data, byteorder='little', signed=False)
 

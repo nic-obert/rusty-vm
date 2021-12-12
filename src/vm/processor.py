@@ -35,10 +35,8 @@ class Processor:
         """
         Execute the byte code.
         """
-        # Load the byte code into memory.
-        self.memory.store_bytes(0, byte_code)
-        # Set the stack pointer to the first available memory address.
-        self.registers[Registers.STACK_POINTER] = len(byte_code)
+        # Load the byte code into memory
+        self.push_stack_bytes(byte_code)
 
         self.running = True
         while self.running:
@@ -133,70 +131,21 @@ class Processor:
         self.set_arithmetical_flags(self.registers[register])
 
     
-    def handle_inc1_addr_in_reg(self) -> None:
+    def handle_inc_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.registers[register]
-        value = self.memory.get_data(address, 1) + 1
-        self.memory.store_data(self.register, value, 1)
+        value = self.memory.get_data(address, size) + 1
+        self.memory.store_data(self.register, value, size)
 
         self.set_arithmetical_flags(value)
 
 
-    def handle_inc1_addr_literal(self) -> None:
+    def handle_inc_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 1) + 1
-        self.memory.store_data(address, value, 1)
-
-        self.set_arithmetical_flags(value)
-
-
-    def handle_inc2_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 2) + 1
-        self.memory.store_data(address, value, 2)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_inc2_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 2) + 1
-        self.memory.store_data(address, value, 2)
-
-        self.set_arithmetical_flags(value)    
-
-    
-    def handle_inc4_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 4) + 1
-        self.memory.store_data(address, value, 4)
-
-        self.set_arithmetical_flags(value)
-
-
-    def handle_inc4_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 4) + 1
-        self.memory.store_data(address, value, 4)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_inc8_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 8) + 1
-        self.memory.store_data(address, value, 8)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_inc8_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 8) + 1
-        self.memory.store_data(address, value, 8)
+        value = self.memory.get_data(address, size) + 1
+        self.memory.store_data(address, value, size)
 
         self.set_arithmetical_flags(value)
 
@@ -208,159 +157,28 @@ class Processor:
         self.set_arithmetical_flags(self.registers[register])
     
 
-    def handle_dec1_addr_in_reg(self) -> None:
+    def handle_dec_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.registers[register]
-        value = self.memory.get_data(address, 1) - 1
-        self.memory.store_data(address, value, 1)
+        value = self.memory.get_data(address, size) - 1
+        self.memory.store_data(address, value, size)
 
         self.set_arithmetical_flags(value)
 
     
-    def handle_dec1_addr_literal(self) -> None:
+    def handle_dec_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 1) - 1
-        self.memory.store_data(address, value, 1)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_dec2_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 2) - 1
-        self.memory.store_data(address, value, 2)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_dec2_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 2) - 1
-        self.memory.store_data(address, value, 2)
-
-        self.set_arithmetical_flags(value)
-
-    
-    def handle_dec4_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 4) - 1
-        self.memory.store_data(address, value, 4)
-
-        self.set_arithmetical_flags(value)
-
-
-    def handle_dec4_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 4) - 1
-        self.memory.store_data(address, value, 4)
-
-        self.set_arithmetical_flags(value)
-
-
-    def handle_dec8_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.memory.get_data(address, 8) - 1
-        self.memory.store_data(address, value, 8)
-
-        self.set_arithmetical_flags(value)
-
-
-    def handle_dec8_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.memory.get_data(address, 8) - 1
-        self.memory.store_data(address, value, 8)
+        value = self.memory.get_data(address, size) - 1
+        self.memory.store_data(address, value, size)
 
         self.set_arithmetical_flags(value)
 
     
     def handle_no_operation(self) -> None:
         pass
-
-
-    def handle_load_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        self.registers[register1] = self.registers[register2]
     
-
-    def handle_load1_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 1)
-
-
-    def handle_load1_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(1)
-        self.registers[register] = value
-
-
-    def handle_load1_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 1)
-    
-
-    def handle_load2_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 2)
-
-
-    def handle_load2_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(2)
-        self.registers[register] = value
-
-
-    def handle_load2_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 2)
-
-
-    def handle_load4_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 4)
-
-
-    def handle_load4_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(4)
-        self.registers[register] = value
-
-
-    def handle_load4_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 4)
-
-
-    def handle_load8_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 8)
-
-
-    def handle_load8_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(8)
-        self.registers[register] = value
-
-
-    def handle_load8_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 8)
-
 
     def handle_move_reg_reg(self) -> None:
         register1 = self.get_from_byte_code(1)
@@ -368,344 +186,87 @@ class Processor:
         self.registers[register1] = self.registers[register2]
     
 
-    def handle_move1_reg_addr_in_reg(self) -> None:
+    def handle_move_reg_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register1 = self.get_from_byte_code(1)
         register2 = self.get_from_byte_code(1)
         address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 1)
+        self.registers[register1] = self.memory.get_data(address, size)
     
 
-    def handle_move1_reg_const(self) -> None:
+    def handle_move_reg_const(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
-        self.registers[register] = self.get_from_byte_code(1)
+        self.registers[register] = self.get_from_byte_code(size)
 
     
-    def handle_move1_reg_addr_literal(self) -> None:
+    def handle_move_reg_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 1)
+        self.registers[register] = self.memory.get_data(address, size)
     
 
-    def handle_move1_addr_in_reg_reg(self) -> None:
+    def handle_move_addr_in_reg_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register1 = self.get_from_byte_code(1)
         address = self.registers[register1]
         register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 1)
+        self.memory.store_data(address, self.registers[register2], size)
     
 
-    def handle_move1_addr_in_reg_addr_in_reg(self) -> None:
+    def handle_move_addr_in_reg_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register1 = self.get_from_byte_code(1)
         address1 = self.registers[register1]
         register2 = self.get_from_byte_code(1)
         address2 = self.registers[register2]
-        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+        self.memory.store_data(address1, self.memory.get_data(address2, size), size)
         
 
-    def handle_move1_addr_in_reg_const(self) -> None:
+    def handle_move_addr_in_reg_const(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.registers[register]
-        value = self.get_from_byte_code(1)
-        self.memory.store_data(address, value, 1)
+        value = self.get_from_byte_code(size)
+        self.memory.store_data(address, value, size)
     
 
-    def handle_move1_addr_in_reg_addr_literal(self) -> None:
+    def handle_move_addr_in_reg_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address1 = self.registers[register]
         address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+        self.memory.store_data(address1, self.memory.get_data(address2, size), size)
 
     
-    def handle_move1_addr_literal_reg(self) -> None:
+    def handle_move_addr_literal_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
         register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register])
+        self.memory.store_data(address, self.registers[register], size)
     
 
-    def handle_move1_addr_literal_addr_in_reg(self) -> None:
+    def handle_move_addr_literal_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         address1 = self.get_from_byte_code(8)
         register = self.get_from_byte_code(1)
         address2 = self.registers[register]
-        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
+        self.memory.store_data(address1, self.memory.get_data(address2, size), size)
     
 
-    def handle_move1_addr_literal_const(self) -> None:
+    def handle_move_addr_literal_const(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        value = self.get_from_byte_code(1)
-        self.memory.store_data(address, value, 1)
+        value = self.get_from_byte_code(size)
+        self.memory.store_data(address, value, size)
     
 
-    def handle_move1_addr_literal_addr_literal(self) -> None:
+    def handle_move_addr_literal_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         address1 = self.get_from_byte_code(8)
         address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 1), 1)
-
-
-    def handle_move2_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 2)
-
-    
-    def handle_move2_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        self.registers[register] = self.get_from_byte_code(2)
-    
-
-    def handle_move2_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 2)
-
-
-    def handle_move2_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 2)
-
-
-    def handle_move2_addr_in_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address1 = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        address2 = self.registers[register2]
-        self.memory.store_data(address1, self.memory.get_data(address2, 2), 2)
-
-
-    def handle_move2_addr_in_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.get_from_byte_code(2)
-        self.memory.store_data(address, value, 2)
-
-
-    def handle_move2_addr_in_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address1 = self.registers[register]
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 2), 2)
-
-
-    def handle_move2_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 2)
-    
-
-    def handle_move2_addr_literal_addr_in_reg(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        address2 = self.registers[register]
-        self.memory.store_data(address1, self.memory.get_data(address2, 2), 2)
-
-
-    def handle_move2_addr_literal_const(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.get_from_byte_code(2)
-        self.memory.store_data(address, value, 2)
-
-
-    def handle_move2_addr_literal_addr_literal(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 2), 2)
-    
-
-    def handle_move4_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 4)
-
-    
-    def handle_move4_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        self.registers[register] = self.get_from_byte_code(4)
-    
-
-    def handle_move4_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 4)
-
-
-    def handle_move4_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 4)
-
-
-    def handle_move4_addr_in_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address1 = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        address2 = self.registers[register2]
-        self.memory.store_data(address1, self.memory.get_data(address2, 4), 4)
-
-
-    def handle_move4_addr_in_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.get_from_byte_code(4)
-        self.memory.store_data(address, value, 4)
-
-
-    def handle_move4_addr_in_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address1 = self.registers[register]
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 4), 4)
-
-
-    def handle_move4_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 4)
-    
-
-    def handle_move4_addr_literal_addr_in_reg(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        address2 = self.registers[register]
-        self.memory.store_data(address1, self.memory.get_data(address2, 4), 4)
-
-
-    def handle_move4_addr_literal_const(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.get_from_byte_code(4)
-        self.memory.store_data(address, value, 4)
-
-
-    def handle_move4_addr_literal_addr_literal(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 4), 4)
-    
-
-    def handle_move8_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
-        address = self.registers[register2]
-        self.registers[register1] = self.memory.get_data(address, 8)
-
-    
-    def handle_move8_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        self.registers[register] = self.get_from_byte_code(8)
-    
-
-    def handle_move8_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        self.registers[register] = self.memory.get_data(address, 8)
-
-
-    def handle_move8_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 8)
-
-
-    def handle_move8_addr_in_reg_addr_in_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address1 = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        address2 = self.registers[register2]
-        self.memory.store_data(address1, self.memory.get_data(address2, 8), 8)
-
-
-    def handle_move8_addr_in_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        value = self.get_from_byte_code(8)
-        self.memory.store_data(address, value, 8)
-
-
-    def handle_move8_addr_in_reg_addr_literal(self) -> None:
-        register = self.get_from_byte_code(1)
-        address1 = self.registers[register]
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 8), 8)
-
-
-    def handle_move8_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 8)
-    
-
-    def handle_move8_addr_literal_addr_in_reg(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        address2 = self.registers[register]
-        self.memory.store_data(address1, self.memory.get_data(address2, 8), 8)
-
-
-    def handle_move8_addr_literal_const(self) -> None:
-        address = self.get_from_byte_code(8)
-        value = self.get_from_byte_code(8)
-        self.memory.store_data(address, value, 8)
-
-
-    def handle_move8_addr_literal_addr_literal(self) -> None:
-        address1 = self.get_from_byte_code(8)
-        address2 = self.get_from_byte_code(8)
-        self.memory.store_data(address1, self.memory.get_data(address2, 8), 8)
-    
-
-    def handle_store1_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 1)
-
-
-    def handle_store1_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 1)
-
-
-    def handle_store2_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 2)
-
-    
-    def handle_store2_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 2)
-
-    
-    def handle_store4_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 4)
-    
-
-    def handle_store4_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 4)
-
-
-    def handle_store8_addr_in_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register2], 8)
-
-    
-    def handle_store8_addr_literal_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.memory.store_data(address, self.registers[register], 8)
+        self.memory.store_data(address1, self.memory.get_data(address2, size), size)
 
     
     def handle_push_reg(self) -> None:
@@ -713,68 +274,23 @@ class Processor:
         self.push_stack(self.registers[register], 8)
     
 
-    def handle_push1_addr_in_reg(self) -> None:
+    def handle_push_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.registers[register]
-        self.push_stack(self.memory.get_data(address, 1))
+        self.push_stack(self.memory.get_data(address, size), size)
     
 
-    def handle_push1_const(self) -> None:
-        value = self.get_from_byte_code(1)
-        self.push_stack(value, 1)
+    def handle_push_const(self) -> None:
+        size = self.get_from_byte_code(1)
+        value = self.get_from_byte_code(size)
+        self.push_stack(value, size)
     
 
-    def handle_push1_addr_literal(self) -> None:
+    def handle_push_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        self.push_stack(self.memory.get_data(address, 1))
-
-
-    def handle_push2_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.push_stack(self.memory.get_data(address, 2))
-
-
-    def handle_push2_const(self) -> None:
-        value = self.get_from_byte_code(2)
-        self.push_stack(value, 2)
-
-
-    def handle_push2_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.push_stack(self.memory.get_data(address, 2))
-
-
-    def handle_push4_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.push_stack(self.memory.get_data(address, 4))
-
-
-    def handle_push4_const(self) -> None:
-        value = self.get_from_byte_code(4)
-        self.push_stack(value, 4)
-
-
-    def handle_push4_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.push_stack(self.memory.get_data(address, 4))
-
-
-    def handle_push8_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.push_stack(self.memory.get_data(address, 8))
-
-
-    def handle_push8_const(self) -> None:
-        value = self.get_from_byte_code(8)
-        self.push_stack(value, 8)
-
-
-    def handle_push8_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.push_stack(self.memory.get_data(address, 8))
+        self.push_stack(self.memory.get_data(address, size), size)
 
 
     def handle_pop_reg(self) -> None:
@@ -782,48 +298,17 @@ class Processor:
         self.registers[register] = self.pop_stack(8)
 
 
-    def handle_pop1_addr_in_reg(self) -> None:
+    def handle_pop_addr_in_reg(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
         address = self.registers[register]
-        self.memory.store_data(address, self.pop_stack(1), 1)
+        self.memory.store_data(address, self.pop_stack(size), size)
 
 
-    def handle_pop1_addr_literal(self) -> None:
+    def handle_pop_addr_literal(self) -> None:
+        size = self.get_from_byte_code(1)
         address = self.get_from_byte_code(8)
-        self.memory.store_data(address, self.pop_stack(1), 1)
-
-
-    def handle_pop2_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.memory.store_data(address, self.pop_stack(2), 2)
-
-
-    def handle_pop2_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.memory.store_data(address, self.pop_stack(2), 2)
-
-
-    def handle_pop4_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.memory.store_data(address, self.pop_stack(4), 4)
-
-
-    def handle_pop4_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.memory.store_data(address, self.pop_stack(4), 4)
-
-
-    def handle_pop8_addr_in_reg(self) -> None:
-        register = self.get_from_byte_code(1)
-        address = self.registers[register]
-        self.memory.store_data(address, self.pop_stack(8), 8)
-
-
-    def handle_pop8_addr_literal(self) -> None:
-        address = self.get_from_byte_code(8)
-        self.memory.store_data(address, self.pop_stack(8), 8)
+        self.memory.store_data(address, self.pop_stack(size), size)
 
     
     def handle_jump(self) -> None:
@@ -850,75 +335,24 @@ class Processor:
         self.set_arithmetical_flags(register1 - register2)
 
 
-    def handle_compare1_reg_const(self) -> None:
+    def handle_compare_reg_const(self) -> None:
+        size = self.get_from_byte_code(1)
         register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(1)
+        value = self.get_from_byte_code(size)
         self.set_arithmetical_flags(self.registers[register] - value)
     
 
-    def handle_compare1_const_reg(self) -> None:
-        value = self.get_from_byte_code(1)
+    def handle_compare_const_reg(self) -> None:
+        size = self.get_from_byte_code(1)
+        value = self.get_from_byte_code(size)
         register = self.get_from_byte_code(1)
         self.set_arithmetical_flags(value - self.registers[register])
     
 
-    def handle_compare1_const_const(self) -> None:
-        value1 = self.get_from_byte_code(1)
-        value2 = self.get_from_byte_code(1)
-        self.set_arithmetical_flags(value1 - value2)
-
-
-    def handle_compare2_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(2)
-        self.set_arithmetical_flags(self.registers[register] - value)
-    
-
-    def handle_compare2_const_reg(self) -> None:
-        value = self.get_from_byte_code(2)
-        register = self.get_from_byte_code(1)
-        self.set_arithmetical_flags(value - self.registers[register])
-    
-
-    def handle_compare2_const_const(self) -> None:
-        value1 = self.get_from_byte_code(2)
-        value2 = self.get_from_byte_code(2)
-        self.set_arithmetical_flags(value1 - value2)
-    
-
-    def handle_compare4_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(4)
-        self.set_arithmetical_flags(self.registers[register] - value)
-    
-
-    def handle_compare4_const_reg(self) -> None:
-        value = self.get_from_byte_code(4)
-        register = self.get_from_byte_code(1)
-        self.set_arithmetical_flags(value - self.registers[register])
-    
-
-    def handle_compare4_const_const(self) -> None:
-        value1 = self.get_from_byte_code(4)
-        value2 = self.get_from_byte_code(4)
-        self.set_arithmetical_flags(value1 - value2)
-
-    
-    def handle_compare8_reg_const(self) -> None:
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(8)
-        self.set_arithmetical_flags(self.registers[register] - value)
-    
-
-    def handle_compare8_const_reg(self) -> None:
-        value = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
-        self.set_arithmetical_flags(value - self.registers[register])
-    
-
-    def handle_compare8_const_const(self) -> None:
-        value1 = self.get_from_byte_code(8)
-        value2 = self.get_from_byte_code(8)
+    def handle_compare_const_const(self) -> None:
+        size = self.get_from_byte_code(1)
+        value1 = self.get_from_byte_code(size)
+        value2 = self.get_from_byte_code(size)
         self.set_arithmetical_flags(value1 - value2)
 
     
@@ -982,193 +416,60 @@ class Processor:
 
 
         handle_inc_reg,
-
-        handle_inc1_addr_in_reg,
-        handle_inc1_addr_literal,
-
-        handle_inc2_addr_in_reg,
-        handle_inc2_addr_literal,
-
-        handle_inc4_addr_in_reg,
-        handle_inc4_addr_literal,
-
-        handle_inc8_addr_in_reg,
-        handle_inc8_addr_literal,
-
+        handle_inc_addr_in_reg,
+        handle_inc_addr_literal,
 
         handle_dec_reg,
-
-        handle_dec1_addr_in_reg,
-        handle_dec1_addr_literal,
-
-        handle_dec2_addr_in_reg,
-        handle_dec2_addr_literal,
-
-        handle_dec4_addr_in_reg,
-        handle_dec4_addr_literal,
-
-        handle_dec8_addr_in_reg,
-        handle_dec8_addr_literal,
+        handle_dec_addr_in_reg,
+        handle_dec_addr_literal,
 
 
         handle_no_operation,
 
 
-        handle_load_reg_reg,
-
-        handle_load1_reg_addr_in_reg,
-        handle_load1_reg_const,
-        handle_load1_reg_addr_literal,
-
-        handle_load2_reg_addr_in_reg,
-        handle_load2_reg_const,
-        handle_load2_reg_addr_literal,
-
-        handle_load4_reg_addr_in_reg,
-        handle_load4_reg_const,
-        handle_load4_reg_addr_literal,
-
-        handle_load8_reg_addr_in_reg,
-        handle_load8_reg_const,
-        handle_load8_reg_addr_literal,
-
-
         handle_move_reg_reg,
-
-        handle_move1_reg_addr_in_reg,
-        handle_move1_reg_const,
-        handle_move1_reg_addr_literal,
-        handle_move1_addr_in_reg_reg,
-        handle_move1_addr_in_reg_addr_in_reg,
-        handle_move1_addr_in_reg_const,
-        handle_move1_addr_in_reg_addr_literal,
-        handle_move1_addr_literal_reg,
-        handle_move1_addr_literal_addr_in_reg,
-        handle_move1_addr_literal_const,
-        handle_move1_addr_literal_addr_literal,
-
-        handle_move2_reg_addr_in_reg,
-        handle_move2_reg_const,
-        handle_move2_reg_addr_literal,
-        handle_move2_addr_in_reg_reg,
-        handle_move2_addr_in_reg_addr_in_reg,
-        handle_move2_addr_in_reg_const,
-        handle_move2_addr_in_reg_addr_literal,
-        handle_move2_addr_literal_reg,
-        handle_move2_addr_literal_addr_in_reg,
-        handle_move2_addr_literal_const,
-        handle_move2_addr_literal_addr_literal,
-
-        handle_move4_reg_addr_in_reg,
-        handle_move4_reg_const,
-        handle_move4_reg_addr_literal,
-        handle_move4_addr_in_reg_reg,
-        handle_move4_addr_in_reg_addr_in_reg,
-        handle_move4_addr_in_reg_const,
-        handle_move4_addr_in_reg_addr_literal,
-        handle_move4_addr_literal_reg,
-        handle_move4_addr_literal_addr_in_reg,
-        handle_move4_addr_literal_const,
-        handle_move4_addr_literal_addr_literal,
-
-        handle_move8_reg_addr_in_reg,
-        handle_move8_reg_const,
-        handle_move8_reg_addr_literal,
-        handle_move8_addr_in_reg_reg,
-        handle_move8_addr_in_reg_addr_in_reg,
-        handle_move8_addr_in_reg_const,
-        handle_move8_addr_in_reg_addr_literal,
-        handle_move8_addr_literal_reg,
-        handle_move8_addr_literal_addr_in_reg,
-        handle_move8_addr_literal_const,
-        handle_move8_addr_literal_addr_literal,
-
-
-        handle_store1_addr_in_reg_reg,
-        handle_store1_addr_literal_reg,
-
-        handle_store2_addr_in_reg_reg,
-        handle_store2_addr_literal_reg,
-
-        handle_store4_addr_in_reg_reg,
-        handle_store4_addr_literal_reg,
-
-        handle_store8_addr_in_reg_reg,
-        handle_store8_addr_literal_reg,
+        handle_move_reg_addr_in_reg,
+        handle_move_reg_const,
+        handle_move_reg_addr_literal,
+        handle_move_addr_in_reg_reg,
+        handle_move_addr_in_reg_addr_in_reg,
+        handle_move_addr_in_reg_const,
+        handle_move_addr_in_reg_addr_literal,
+        handle_move_addr_literal_reg,
+        handle_move_addr_literal_addr_in_reg,
+        handle_move_addr_literal_const,
+        handle_move_addr_literal_addr_literal,
 
 
         handle_push_reg,
-
-        handle_push1_addr_in_reg,
-        handle_push1_const,
-        handle_push1_addr_literal,
-
-        handle_push2_addr_in_reg,
-        handle_push2_const,
-        handle_push2_addr_literal,
-
-        handle_push4_addr_in_reg,
-        handle_push4_const,
-        handle_push4_addr_literal,
-
-        handle_push8_addr_in_reg,
-        handle_push8_const,
-        handle_push8_addr_literal,
-
+        handle_push_addr_in_reg,
+        handle_push_const,
+        handle_push_addr_literal,
 
         handle_pop_reg,
-
-        handle_pop1_addr_in_reg,
-        handle_pop1_addr_literal,
-
-        handle_pop2_addr_in_reg,
-        handle_pop2_addr_literal,
-
-        handle_pop4_addr_in_reg,
-        handle_pop4_addr_literal,
-
-        handle_pop8_addr_in_reg,
-        handle_pop8_addr_literal,
+        handle_pop_addr_in_reg,
+        handle_pop_addr_literal,
 
 
         None, # Labels don't get handled
 
 
         handle_jump,
-
         handle_jump_if_true_reg,
-
         handle_jump_if_false_reg,
 
 
-        handle_compare_reg_reg,
-        
-        handle_compare1_reg_const,
-        handle_compare1_const_reg,
-        handle_compare1_const_const,
-
-        handle_compare2_reg_const,
-        handle_compare2_const_reg,
-        handle_compare2_const_const,
-
-        handle_compare4_reg_const,
-        handle_compare4_const_reg,
-        handle_compare4_const_const,
-
-        handle_compare8_reg_const,
-        handle_compare8_const_reg,
-        handle_compare8_const_const,
+        handle_compare_reg_reg, 
+        handle_compare_reg_const,
+        handle_compare_const_reg,
+        handle_compare_const_const,
 
 
         handle_print,
-
         handle_print_string,
 
-
         handle_input_int,
-
         handle_input_string,
-
 
         handle_exit,
 

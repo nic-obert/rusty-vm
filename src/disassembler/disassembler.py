@@ -13,7 +13,11 @@ def disassemble(byte_code: bytes) -> List[str]:
         operator = byte_code[index]
         index += 1
 
-        name, args, sizes = disassembly_table[operator]
+        name, args, sizes, is_sized = disassembly_table[operator]
+        if is_sized:
+            handled_size = byte_code[index]
+            index += 1
+            name += str(handled_size)
         
         string = f'   \t{operator}:{hex(operator)}   \t\t{name}'
         for arg, size in zip(args, sizes):

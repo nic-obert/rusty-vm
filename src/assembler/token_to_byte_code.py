@@ -4,6 +4,9 @@ from tokenizer import Token
 
 
 def number_size(number: int) -> int:
+    """
+    Returns the number of bytes needed to represent the number.
+    """
     if number == 0:
         return 1
 
@@ -16,6 +19,9 @@ def number_size(number: int) -> int:
 
 
 def number_to_bytes(number: int, size: int) -> bytes:
+    """
+    Returns the bytes representation of the number.
+    """
     if number_size(number) > size:
         print(f'Number {number} cannot fit in {size} bytes')
         exit(1)
@@ -28,578 +34,206 @@ def number_to_bytes(number: int, size: int) -> bytes:
     return bytes(value)
 
 
-token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
+def sized_operator_bytes_handled(operator: str) -> int:
+    """
+    Returns the number of bytes a sized operator handles.
+    The output size should always be representable in a single byte.
+    """
+    return int(operator[-1])
+
+
+
+"""
+The following functions are used to convert the operand tokens to bytes.
+"""
+instruction_conversion_table: Tuple[Callable[[str, List[Token]], bytes]] = \
 (
     # Arithmetic
 
     # ByteCodes.ADD
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.SUB
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.MUL
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.DIV
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.MOD
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
 
     # ByteCodes.INC_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1), 
     )),
 
-    # ByteCodes.INC1_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.INC_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
     )),
-    # ByteCodes.INC1_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.INC_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
     )),
-
-    # ByteCodes.INC2_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.INC2_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.INC4_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.INC4_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.INC8_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.INC8_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
 
     # ByteCodes.DEC_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
-    # ByteCodes.DEC1_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.DEC_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
     )),
-    # ByteCodes.DEC1_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.DEC_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
     )),
-
-    # ByteCodes.DEC2_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.DEC2_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.DEC4_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.DEC4_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.DEC8_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.DEC8_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
 
     # No operation
     # ByteCodes.NOP
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # Memory
 
-    # ByteCodes.LOAD_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-
-    # ByteCodes.LOAD1_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.LOAD1_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.LOAD1_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-    # ByteCodes.LOAD2_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.LOAD2_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 2),
-    )),
-    # ByteCodes.LOAD2_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-    # ByteCodes.LOAD4_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.LOAD4_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 4),
-    )),
-    # ByteCodes.LOAD4_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-    # ByteCodes.LOAD8_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.LOAD8_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.LOAD8_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-
     # ByteCodes.MOVE_REG_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
 
-    # ByteCodes.MOVE1_REG_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.MOVE_REG_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE1_REG_CONST
-    lambda operands: bytes((
+    # ByteCodes.MOVE_REG_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE1_REG_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.MOVE_REG_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 8),
     )),
-    # ByteCodes.MOVE1_ADDR_IN_REG_REG
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_IN_REG_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE1_ADDR_IN_REG_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_IN_REG_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE1_ADDR_IN_REG_CONST
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_IN_REG_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE1_ADDR_IN_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE1_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE1_ADDR_LITERAL_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE1_ADDR_LITERAL_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE1_ADDR_LITERAL_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-    # ByteCodes.MOVE2_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE2_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 2),
-    )),
-    # ByteCodes.MOVE2_REG_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_IN_REG_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 8),
     )),
-    # ByteCodes.MOVE2_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE2_ADDR_IN_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE2_ADDR_IN_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 2),
-    )),
-    # ByteCodes.MOVE2_ADDR_IN_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )), 
-    # ByteCodes.MOVE2_ADDR_LITERAL_REG
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_LITERAL_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE2_ADDR_LITERAL_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_LITERAL_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE2_ADDR_LITERAL_CONST
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_LITERAL_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 2),
+        *number_to_bytes(operands[1].value, 1),
     )),
-    # ByteCodes.MOVE2_ADDR_LITERAL_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.MOVE_ADDR_LITERAL_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 8),
     )),
 
-    # ByteCodes.MOVE4_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE4_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 4),
-    )),
-    # ByteCodes.MOVE4_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE4_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE4_ADDR_IN_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE4_ADDR_IN_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 4),
-    )),
-    # ByteCodes.MOVE4_ADDR_IN_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE4_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE4_ADDR_LITERAL_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE4_ADDR_LITERAL_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 4),
-    )),
-    # ByteCodes.MOVE4_ADDR_LITERAL_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-
-    # ByteCodes.MOVE8_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE8_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE8_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE8_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE8_ADDR_IN_REG_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE8_ADDR_IN_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE8_ADDR_IN_REG_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE8_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE8_ADDR_LITERAL_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.MOVE8_ADDR_LITERAL_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    # ByteCodes.MOVE8_ADDR_LITERAL_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 8),
-    )),
-    
-
-    # ByteCodes.STORE1_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.STORE1_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-
-    # ByteCodes.STORE2_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.STORE2_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-
-    # ByteCodes.STORE4_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.STORE4_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-
-    # ByteCodes.STORE8_ADDR_IN_REG_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 1),
-    )),
-    # ByteCodes.STORE8_ADDR_LITERAL_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1),
-    )),
+    # Stack
 
     # ByteCodes.PUSH_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
-    # ByteCodes.PUSH1_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.PUSH_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
     )),
-    # ByteCodes.PUSH1_CONST
-    lambda operands: bytes((
+    # ByteCodes.PUSH_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
     )),
-    # ByteCodes.PUSH1_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.PUSH2_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.PUSH2_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 2),
-    )),
-    # ByteCodes.PUSH2_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.PUSH4_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.PUSH4_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 4),
-    )),
-    # ByteCodes.PUSH4_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.PUSH8_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.PUSH8_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-    # ByteCodes.PUSH8_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.PUSH_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # ByteCodes.POP_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
-    # ByteCodes.POP1_ADDR_IN_REG
-    lambda operands: bytes((
+    # ByteCodes.POP_ADDR_IN_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
     )),
-    # ByteCodes.POP1_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.POP2_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.POP2_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.POP4_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.POP4_ADDR_LITERAL
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-    )),
-
-    # ByteCodes.POP8_ADDR_IN_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-    )),
-    # ByteCodes.POP8_ADDR_LITERAL
-    lambda operands: bytes((
+    # ByteCodes.POP_ADDR_LITERAL
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # Control flow
 
     # ByteCodes.LABEL
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.JUMP
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
     )),
 
     # ByteCodes.JUMP_IF_TRUE_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
         *number_to_bytes(operands[1].value, 1)
     )),
 
     # ByteCodes.JUMP_IF_FALSE_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
         *number_to_bytes(operands[1].value, 1)
     )),
@@ -607,96 +241,48 @@ token_conversion_table: Tuple[Callable[[List[Token]], bytes]] = \
     # Comparison
 
     # ByteCodes.COMPARE_REG_REG
-    lambda operands: bytes((
+    lambda operator, operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
-    # ByteCodes.COMPARE1_REG_CONST
-    lambda operands: bytes((
+    # ByteCodes.COMPARE_REG_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
-    # ByteCodes.COMPARE1_CONST_REG
-    lambda operands: bytes((
+    # ByteCodes.COMPARE_CONST_REG
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
-    # ByteCodes.COMPARE1_CONST_CONST
-    lambda operands: bytes((
+    # ByteCodes.COMPARE_CONST_CONST
+    lambda operator, operands: bytes((
+        sized_operator_bytes_handled(operator),
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
-    )),
-
-    # ByteCodes.COMPARE2_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 2)
-    )),
-
-    # ByteCodes.COMPARE2_CONST_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 2),
-        *number_to_bytes(operands[1].value, 1)
-    )),
-
-    # ByteCodes.COMPARE2_CONST_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 2),
-        *number_to_bytes(operands[1].value, 2)
-    )),
-
-    # ByteCodes.COMPARE4_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 4)
-    )),
-
-    # ByteCodes.COMPARE4_CONST_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 4),
-        *number_to_bytes(operands[1].value, 1)
-    )),
-
-    # ByteCodes.COMPARE4_CONST_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 4),
-        *number_to_bytes(operands[1].value, 4)
-    )),
-
-    # ByteCodes.COMPARE8_REG_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 1),
-        *number_to_bytes(operands[1].value, 8)
-    )),
-
-    # ByteCodes.COMPARE8_CONST_REG
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 1)
-    )),
-
-    # ByteCodes.COMPARE8_CONST_CONST
-    lambda operands: bytes((
-        *number_to_bytes(operands[0].value, 8),
-        *number_to_bytes(operands[1].value, 8)
     )),
 
     # Interrupts
 
     # ByteCodes.PRINT
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.PRINT_STRING
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
+
+    # ByteCodes.INPUT_INT
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.INPUT_STRING
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
 
     # ByteCodes.EXIT
-    lambda operands: bytes(0),
+    lambda operator, operands: bytes(0),
     
     
 )

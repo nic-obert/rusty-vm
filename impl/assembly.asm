@@ -1,6 +1,6 @@
-ld2 a 50
-ld1 b 3
+mov2 a 50
+mov1 b 3
 add
-mov h a
+mov print a
 prt
 exit

@@ -65,7 +65,7 @@ register_table: Dict[str, Registers] = \
     'd': Registers.D,
     'exit': Registers.EXIT,
     'input': Registers.INPUT,
-    'error': Registers.G,
+    'error': Registers.ERROR,
     'print': Registers.PRINT,
     'sp': Registers.STACK_POINTER,
     'pc': Registers.PROGRAM_COUNTER,
