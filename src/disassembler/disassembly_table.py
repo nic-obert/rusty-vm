@@ -208,6 +208,11 @@ disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int]]] = \
     ('prtstr', (None,), (None)), # TODO: add string literal
 
 
+    ('inint', (), ()),
+
+    ('instr', (), ()),
+
+
     ('exit', (), ()),
 
 

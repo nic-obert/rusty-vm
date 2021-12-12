@@ -1,6 +1,7 @@
 import enum
 from typing import Dict, Tuple, List
 
+
 @enum.unique
 class Registers(enum.IntEnum):
 
@@ -9,24 +10,22 @@ class Registers(enum.IntEnum):
 
     # General purpose registers
 
-    # First arithmetical register A
-    A = enum.auto()
-    # Second arithmetical register B
-    B = enum.auto()
+    A = enum.auto() # First arithmetical register
+    B = enum.auto() # Second arithmetical register
+
     C = enum.auto()
     D = enum.auto()
-    # Exit status register E
-    E = enum.auto()
-    F = enum.auto()
-    G = enum.auto()
-    # Print register H
-    H = enum.auto()
 
-    # Stack pointer
+    # Special registers
+
+    EXIT = enum.auto() # Exit status register
+    INPUT = enum.auto() # External input register
+    ERROR = enum.auto() # Error code register
+    PRINT = enum.auto() # Print register
+
+    # Stack registers
 
     STACK_POINTER = enum.auto()
-
-    # Program counter
 
     PROGRAM_COUNTER = enum.auto()
 
@@ -43,10 +42,10 @@ register_names: Tuple[str] = \
     "b",
     "c",
     "d",
-    "e",
-    "f",
-    "g",
-    "h",
+    "exit",
+    "input",
+    "error",
+    "print",
 
     "sp",
 
@@ -64,10 +63,10 @@ register_table: Dict[str, Registers] = \
     'b': Registers.B,
     'c': Registers.C,
     'd': Registers.D,
-    'e': Registers.E,
-    'f': Registers.F,
-    'g': Registers.G,
-    'h': Registers.H,
+    'exit': Registers.EXIT,
+    'input': Registers.INPUT,
+    'error': Registers.G,
+    'print': Registers.PRINT,
     'sp': Registers.STACK_POINTER,
     'pc': Registers.PROGRAM_COUNTER,
     'zf': Registers.ZERO_FLAG,

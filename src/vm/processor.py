@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Callable, List, Union
 
 from memory import Memory
+from errors import Errors
 from shared.byte_code import byte_code_names
 from shared.registers import Registers
 
@@ -14,19 +15,19 @@ class Processor:
 
         self.registers: List[Union[int, bool]] = \
         [
-            0,  # A
-            0,  # B
-            0,  # C
-            0,  # D
-            0,  # E
-            0,  # F
-            0,  # G
-            0,  # H
-            0,  # Stack Pointer
-            0,  # Program Counter
+            0,      # A
+            0,      # B
+            0,      # C
+            0,      # D
+            0,      # Exit
+            0,      # Input
+            0,      # Error
+            0,      # Print
+            0,      # Stack Pointer
+            0,      # Program Counter
             False,  # Zero Flag
             False,  # Sign Flag
-            0,  # Remainder Flag
+            0,      # Remainder Flag
         ]
     
 
@@ -50,11 +51,18 @@ class Processor:
             # Execute the instruction
             self.instruction_handlers_table[opcode](self)
 
+            # Clear after executing the instruction
+            self.clear_volatile_registers()
+
         # Exit the program with the status code stored in E register.
-        exit(self.registers[Registers.E])  
+        exit(self.registers[Registers.EXIT])  
 
 
     # Useful functions
+
+    def clear_volatile_registers(self) -> None:
+        self.registers[Registers.ERROR] = 0
+
 
     def set_arithmetical_flags(self, result: int, remainder: int = 0) -> None:
         self.registers[Registers.ZERO_FLAG] = result == 0
@@ -71,6 +79,11 @@ class Processor:
     def push_stack(self, value: int, size: int) -> None:
         self.memory.store_data(self.registers[Registers.STACK_POINTER], value, size)
         self.registers[Registers.STACK_POINTER] += size
+
+
+    def push_stack_bytes(self, data: bytes) -> None:
+        self.memory.store_bytes(self.registers[Registers.STACK_POINTER], data)
+        self.registers[Registers.STACK_POINTER] += len(data)
 
 
     def pop_stack(self, size: int) -> int:
@@ -910,11 +923,11 @@ class Processor:
 
     
     def handle_print(self) -> None:
-        print(int(self.registers[Registers.H]))
+        print(int(self.registers[Registers.PRINT]))
 
     
     def handle_print_string(self) -> None:
-        address = self.registers[Registers.H]
+        address = self.registers[Registers.PRINT]
         buffer = ''
         byte = 1
         while byte != 0:
@@ -923,6 +936,34 @@ class Processor:
             buffer += byte.decode('utf-8')
         
         print(buffer, end='')
+
+
+    def handle_input_int(self) -> None:
+        try:
+            self.registers[Registers.INPUT] = int(input())
+        except ValueError:
+            self.registers[Registers.ERROR] = Errors.INVALID_INPUT
+        except EOFError:
+            self.registers[Registers.ERROR] = Errors.END_OF_FILE
+        except:
+            self.registers[Registers.ERROR] = Errors.GENERIC_ERROR
+            
+
+    def handle_input_string(self) -> None:
+        try:
+            data = input().encode('utf-8')
+        except EOFError:
+            self.registers[Registers.ERROR] = Errors.END_OF_FILE
+            return
+        except UnicodeEncodeError:
+            self.registers[Registers.ERROR] = Errors.INVALID_INPUT
+            return
+        except:
+            self.registers[Registers.ERROR] = Errors.GENERIC_ERROR
+            return
+
+        self.push_stack_bytes(data)
+        self.registers[Registers.INPUT] = len(data)
 
 
     def handle_exit(self) -> None:
@@ -1122,6 +1163,11 @@ class Processor:
         handle_print,
 
         handle_print_string,
+
+
+        handle_input_int,
+
+        handle_input_string,
 
 
         handle_exit,
