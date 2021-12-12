@@ -12,14 +12,14 @@ class Memory:
         Get data from memory.
         """
         data = self.memory[address : address + size]
-        return int.from_bytes(data, byteorder='big', signed=False)
+        return int.from_bytes(data, byteorder='little', signed=False)
 
 
     def store_data(self, address: int, data: int, size: int) -> None:
         """
         Store data to memory.
         """
-        self.memory[address : address + size] = data.to_bytes(size, byteorder='big')
+        self.memory[address : address + size] = data.to_bytes(size, byteorder='little')
 
 
     def store_bytes(self, address: int, data: bytes) -> None:

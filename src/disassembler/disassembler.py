@@ -15,12 +15,13 @@ def disassemble(byte_code: bytes) -> List[str]:
 
         name, args, sizes = disassembly_table[operator]
         
+        string = f'   \t{operator}:{hex(operator)}   \t\t{name}'
         for arg, size in zip(args, sizes):
             operand_string = operator_disassembly_table[arg](byte_code[index : index + size])
             index += size
-            name += f" {operand_string}"
+            string += f" {operand_string}"
 
-        assembly.append(name)
+        assembly.append(string)
 
     return assembly
         

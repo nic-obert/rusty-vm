@@ -1,25 +1,8 @@
 from __future__ import annotations
-from typing import  Dict, List, Union
+from typing import List, Union
 
-from shared.registers import Registers
+from shared.registers import register_table
 from shared.token import Token, TokenType
-
-
-register_map: Dict[str, Registers] = \
-{
-    'a': Registers.A,
-    'b': Registers.B,
-    'c': Registers.C,
-    'd': Registers.D,
-    'e': Registers.E,
-    'f': Registers.F,
-    'g': Registers.G,
-    'h': Registers.H,
-    'sp': Registers.STACK_POINTER,
-    'pc': Registers.PROGRAM_COUNTER,
-    'zf': Registers.ZERO_FLAG,
-    'sf': Registers.SIGN_FLAG,
-}
 
 
 def is_name_character(char: str) -> bool:
@@ -65,7 +48,7 @@ def tokenize_operands(operands: str) -> List[Token]:
                     print(f'Expected a \']\' after address in argument list "{operands}", but \'{char}\' was provided.')
                     exit(1)
 
-                register = register_map.get(current_token.value)
+                register = register_table.get(current_token.value)
                 if register is not None:
                     tokens.append(Token(TokenType.ADDRESS, register))
                 else:
@@ -83,7 +66,7 @@ def tokenize_operands(operands: str) -> List[Token]:
                     current_token = None
                     continue
 
-                register = register_map.get(current_token.value)
+                register = register_table.get(current_token.value)
                 if register is not None:
                     tokens.append(Token(TokenType.REGISTER, register))
                 else:

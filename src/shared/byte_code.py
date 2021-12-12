@@ -120,7 +120,6 @@ byte_code_names: Tuple[str] = \
     "STORE2_ADDR_IN_REG_REG",
     "STORE2_ADDR_LITERAL_REG",
 
-    "STORE4_REG_REG",
     "STORE4_ADDR_IN_REG_REG",
     "STORE4_ADDR_LITERAL_REG",
 

@@ -26,7 +26,7 @@ disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int]]] = \
     ('mod', (), ()),
 
     
-    ('inc', (), ()),
+    ('inc', (TokenType.REGISTER), (1,)),
 
     ('inc1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
     ('inc1', (TokenType.ADDRESS_LITERAL,), (8,)),
@@ -41,7 +41,7 @@ disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int]]] = \
     ('inc8', (TokenType.ADDRESS_LITERAL,), (8,)),
 
 
-    ('dec', (), ()),
+    ('dec', (TokenType.REGISTER), (1,)),
 
     ('dec1', (TokenType.ADDRESS_IN_REGISTER,), (1,)),
     ('dec1', (TokenType.ADDRESS_LITERAL,), (8,)),

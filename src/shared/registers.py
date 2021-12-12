@@ -1,5 +1,5 @@
 import enum
-from typing import Tuple, List
+from typing import Dict, Tuple, List
 
 @enum.unique
 class Registers(enum.IntEnum):
@@ -56,4 +56,22 @@ register_names: Tuple[str] = \
     "sf",
     "rf",
 )
+
+
+register_table: Dict[str, Registers] = \
+{
+    'a': Registers.A,
+    'b': Registers.B,
+    'c': Registers.C,
+    'd': Registers.D,
+    'e': Registers.E,
+    'f': Registers.F,
+    'g': Registers.G,
+    'h': Registers.H,
+    'sp': Registers.STACK_POINTER,
+    'pc': Registers.PROGRAM_COUNTER,
+    'zf': Registers.ZERO_FLAG,
+    'sf': Registers.SIGN_FLAG,
+    'rf': Registers.REMAINDER_FLAG,
+}
 

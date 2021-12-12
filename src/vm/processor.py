@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from memory import Memory
 from shared.byte_code import byte_code_names
+from shared.registers import Registers
 
 
 class Processor:
@@ -11,35 +12,21 @@ class Processor:
         self.memory = Memory(memory_size)
         self.running = False
 
-        self.A = 0
-        self.B = 0
-        self.C = 0
-        self.D = 0
-        self.E = 0
-        self.F = 0
-        self.G = 0
-        self.H = 0
-        self.STACK_POINTER = 0
-        self.PROGRAM_COUNTER = 0
-        self.ZERO_FLAG = False
-        self.SIGN_FLAG = False
-        self.REMAINDER_FLAG = 0
-
-        self.registers: List[int] = \
+        self.registers: List[Union[int, bool]] = \
         [
-            self.A,
-            self.B,
-            self.C,
-            self.D,
-            self.E,
-            self.F,
-            self.G,
-            self.H,
-            self.STACK_POINTER,
-            self.PROGRAM_COUNTER,
-            self.ZERO_FLAG,
-            self.SIGN_FLAG,
-            self.REMAINDER_FLAG,
+            0,  # A
+            0,  # B
+            0,  # C
+            0,  # D
+            0,  # E
+            0,  # F
+            0,  # G
+            0,  # H
+            0,  # Stack Pointer
+            0,  # Program Counter
+            False,  # Zero Flag
+            False,  # Sign Flag
+            0,  # Remainder Flag
         ]
     
 
@@ -50,56 +37,45 @@ class Processor:
         # Load the byte code into memory.
         self.memory.store_bytes(0, byte_code)
         # Set the stack pointer to the first available memory address.
-        self.STACK_POINTER = len(byte_code)
+        self.registers[Registers.STACK_POINTER] = len(byte_code)
 
         self.running = True
-        if verbose:
-            self._verbose_cycle()
-        else:
-            self._cycle()
-
-        exit(self.E)        
-    
-
-    def _cycle(self) -> None:
         while self.running:
             # Fetch the instruction
             opcode = self.get_from_byte_code(1)
-            # Execute the instruction
-            self.instruction_handlers_table[opcode](self)
-    
 
-    def _verbose_cycle(self) -> None:
-        while self.running:
-            # Fetch the instruction
-            opcode = self.get_from_byte_code(1)
-            print(byte_code_names[opcode])
+            if verbose:
+                print(f'Instruction: {byte_code_names[opcode]}')
+
             # Execute the instruction
             self.instruction_handlers_table[opcode](self)
+
+        # Exit the program with the status code stored in E register.
+        exit(self.registers[Registers.E])  
 
 
     # Useful functions
 
     def set_arithmetical_flags(self, result: int, remainder: int = 0) -> None:
-        self.ZERO_FLAG = result == 0
-        self.SIGN_FLAG = result < 0
-        self.REMAINDER_FLAG = remainder
-    
+        self.registers[Registers.ZERO_FLAG] = result == 0
+        self.registers[Registers.SIGN_FLAG] = result < 0
+        self.registers[Registers.REMAINDER_FLAG] = remainder
+
 
     def get_from_byte_code(self, size: int) -> int:
-        data = self.memory.get_data(self.PROGRAM_COUNTER, size)
-        self.PROGRAM_COUNTER += size
+        data = self.memory.get_data(self.registers[Registers.PROGRAM_COUNTER], size)
+        self.registers[Registers.PROGRAM_COUNTER] += size
         return data
 
     
     def push_stack(self, value: int, size: int) -> None:
-        self.memory.store_data(self.STACK_POINTER, value, size)
-        self.STACK_POINTER += size
+        self.memory.store_data(self.registers[Registers.STACK_POINTER], value, size)
+        self.registers[Registers.STACK_POINTER] += size
 
 
     def pop_stack(self, size: int) -> int:
-        self.STACK_POINTER -= size
-        value = self.memory.get_data(self.STACK_POINTER, size)
+        self.registers[Registers.STACK_POINTER] -= size
+        value = self.memory.get_data(self.registers[Registers.STACK_POINTER], size)
         return value
 
 
@@ -107,34 +83,34 @@ class Processor:
 
 
     def handle_add(self) -> None:
-        self.A += self.B
+        self.registers[Registers.A] += self.registers[Registers.B]
 
-        self.set_arithmetical_flags(self.A)
+        self.set_arithmetical_flags(self.registers[Registers.A])
 
 
     def handle_sub(self) -> None:
-        self.A -= self.B
+        self.registers[Registers.A] -= self.registers[Registers.B]
 
-        self.set_arithmetical_flags(self.A)
+        self.set_arithmetical_flags(self.registers[Registers.A])
 
 
     def handle_mul(self) -> None:
-        self.A *= self.B
+        self.registers[Registers.A] *= self.registers[Registers.B]
 
-        self.set_arithmetical_flags(self.A)
+        self.set_arithmetical_flags(self.registers[Registers.A])
 
 
     def handle_div(self) -> None:
-        remainder = self.A % self.B
-        self.A //= self.B
+        remainder = self.registers[Registers.A] % self.registers[Registers.B]
+        self.registers[Registers.A] //= self.registers[Registers.B]
 
-        self.set_arithmetical_flags(self.A, remainder)
+        self.set_arithmetical_flags(self.registers[Registers.A], remainder)
 
 
     def handle_mod(self) -> None:
-        self.A %= self.B
+        self.registers[Registers.A] %= self.registers[Registers.B]
 
-        self.set_arithmetical_flags(self.A)
+        self.set_arithmetical_flags(self.registers[Registers.A])
 
 
     def handle_inc_reg(self) -> None:
@@ -150,7 +126,7 @@ class Processor:
         value = self.memory.get_data(address, 1) + 1
         self.memory.store_data(self.register, value, 1)
 
-        self.set_arithmetical_flags(self.A)
+        self.set_arithmetical_flags(value)
 
 
     def handle_inc1_addr_literal(self) -> None:
@@ -838,21 +814,21 @@ class Processor:
 
     
     def handle_jump(self) -> None:
-        self.PROGRAM_COUNTER = self.get_from_byte_code(8)
+        self.registers[Registers.PROGRAM_COUNTER] = self.get_from_byte_code(8)
     
 
     def handle_jump_if_true_reg(self) -> None:
         address = self.get_from_byte_code(8)
         register = self.get_from_byte_code(1)
         if self.registers[register] != 0:
-            self.PROGRAM_COUNTER = address
+            self.registers[Registers.PROGRAM_COUNTER] = address
     
 
     def handle_jump_if_false_reg(self) -> None:
         address = self.get_from_byte_code(8)
         register = self.get_from_byte_code(1)
         if self.registers[register] == 0:
-            self.PROGRAM_COUNTER = address
+            self.registers[Registers.PROGRAM_COUNTER] = address
 
 
     def handle_compare_reg_reg(self) -> None:
@@ -934,11 +910,11 @@ class Processor:
 
     
     def handle_print(self) -> None:
-        print(int(self.H))
+        print(int(self.registers[Registers.H]))
 
     
     def handle_print_string(self) -> None:
-        address = self.H
+        address = self.registers[Registers.H]
         buffer = ''
         byte = 1
         while byte != 0:
@@ -1152,5 +1128,4 @@ class Processor:
 
 
     ]
-
 
