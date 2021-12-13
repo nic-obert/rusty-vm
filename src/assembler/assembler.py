@@ -43,8 +43,8 @@ def assemble(assembly: List[str]) -> bytes:
                     print(f'Unknown operand "{operand}" for instruction "{operator}" in line {line_number} "{line}"')
                     exit(1)
 
-            # By now possible_instructions is just a ByteCodes instance because it has been filtered
-            possible_instructions: ByteCodes
+            # By now possible_instructions is just a Tuple of ByteCodes and an integer because it has been filtered
+            possible_instructions, handled_size = possible_instructions
 
             # If the operator is a label, store its byte code location
             if possible_instructions == ByteCodes.LABEL:
@@ -56,7 +56,11 @@ def assemble(assembly: List[str]) -> bytes:
                 operands[0].value = label_map[operands[0].value]
 
             operand_converter = instruction_conversion_table[possible_instructions]
-            operand_bytes = operand_converter(operator, operands)
+
+            if handled_size != 0:
+                operand_bytes = operand_converter(operands, handled_size)
+            else:
+                operand_bytes = operand_converter(operands)
         
         # Branch for operators without operands
         else:

@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 from tokenizer import Token
 
@@ -46,133 +46,138 @@ def sized_operator_bytes_handled(operator: str) -> int:
 """
 The following functions are used to convert the operand tokens to bytes.
 """
-instruction_conversion_table: Tuple[Callable[[str, List[Token]], bytes]] = \
+instruction_conversion_table: Tuple[
+    Callable[
+        [List[Token], Union[int, None]],
+        bytes
+    ]
+] = \
 (
     # Arithmetic
 
     # ByteCodes.ADD
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.SUB
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.MUL
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.DIV
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.MOD
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
 
     # ByteCodes.INC_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1), 
     )),
 
     # ByteCodes.INC_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
     )),
     # ByteCodes.INC_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # ByteCodes.DEC_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
     # ByteCodes.DEC_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
     )),
     # ByteCodes.DEC_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # No operation
     # ByteCodes.NOP
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # Memory
 
     # ByteCodes.MOVE_REG_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
 
     # ByteCodes.MOVE_REG_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_REG_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_REG_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 8),
     )),
     # ByteCodes.MOVE_ADDR_IN_REG_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_IN_REG_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_IN_REG_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_IN_REG_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 8),
     )),
     # ByteCodes.MOVE_ADDR_LITERAL_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_LITERAL_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_LITERAL_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 1),
     )),
     # ByteCodes.MOVE_ADDR_LITERAL_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
         *number_to_bytes(operands[1].value, 8),
     )),
@@ -180,60 +185,60 @@ instruction_conversion_table: Tuple[Callable[[str, List[Token]], bytes]] = \
     # Stack
 
     # ByteCodes.PUSH_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
     # ByteCodes.PUSH_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
     )),
     # ByteCodes.PUSH_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
     )),
     # ByteCodes.PUSH_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # ByteCodes.POP_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
     )),
 
     # ByteCodes.POP_ADDR_IN_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
     )),
     # ByteCodes.POP_ADDR_LITERAL
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 8),
     )),
 
     # Control flow
 
     # ByteCodes.LABEL
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.JUMP
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
     )),
 
     # ByteCodes.JUMP_IF_TRUE_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
         *number_to_bytes(operands[1].value, 1)
     )),
 
     # ByteCodes.JUMP_IF_FALSE_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 8), # Argument is an 8-byte address
         *number_to_bytes(operands[1].value, 1)
     )),
@@ -241,28 +246,28 @@ instruction_conversion_table: Tuple[Callable[[str, List[Token]], bytes]] = \
     # Comparison
 
     # ByteCodes.COMPARE_REG_REG
-    lambda operator, operands: bytes((
+    lambda operands: bytes((
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
     # ByteCodes.COMPARE_REG_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
     # ByteCodes.COMPARE_CONST_REG
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
 
     # ByteCodes.COMPARE_CONST_CONST
-    lambda operator, operands: bytes((
-        sized_operator_bytes_handled(operator),
+    lambda operands, handled_size: bytes((
+        handled_size,
         *number_to_bytes(operands[0].value, 1),
         *number_to_bytes(operands[1].value, 1)
     )),
@@ -270,19 +275,19 @@ instruction_conversion_table: Tuple[Callable[[str, List[Token]], bytes]] = \
     # Interrupts
 
     # ByteCodes.PRINT
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.PRINT_STRING
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.INPUT_INT
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.INPUT_STRING
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
 
     # ByteCodes.EXIT
-    lambda operator, operands: bytes(0),
+    lambda operands: bytes(0),
     
     
 )
