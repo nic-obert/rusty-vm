@@ -12,10 +12,8 @@ def main() -> None:
     byte_code = files.load_byte_code(argv[1])
     assembly = disassemble(byte_code)
 
-    i = 1
     for line in assembly:
-        print(f'{i}: {line}')
-        i += 1
+        print(line)
 
 
 if __name__ == "__main__":

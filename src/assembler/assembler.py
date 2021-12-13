@@ -6,7 +6,7 @@ from arguments_table import arguments_table
 from token_to_byte_code import instruction_conversion_table
 
 
-def assemble(assembly: List[str]) -> bytes:
+def assemble(assembly: List[str], verbose: bool=False) -> bytes:
     byte_code = bytearray()
 
     # Map of labels to their byte code location
@@ -31,7 +31,11 @@ def assemble(assembly: List[str]) -> bytes:
             print(f'Unknown instruction: "{operator}" in line {line_number} "{line}"')
             exit(1)
 
-        # Branch for operators with operands
+        if verbose:
+            print(f'{line_number}: {line}')
+            print(f'    {operator}')
+
+        # Branch for operators with operands (n.b. this is the length of the raw_tokens list, not the number of operands)
         if len(raw_tokens) == 2:
             operands = tokenize_operands(raw_tokens[1]) 
 
@@ -44,19 +48,26 @@ def assemble(assembly: List[str]) -> bytes:
                     exit(1)
 
             # By now possible_instructions is just a Tuple of ByteCodes and an integer because it has been filtered
-            possible_instructions, handled_size = possible_instructions
+            instruction_code, handled_size = possible_instructions
+            # Just a type hint for clarity
+            instruction_code: ByteCodes
+            handled_size: int
+
+            if verbose:
+                print(f'    {instruction_code}, {handled_size}')
 
             # If the operator is a label, store its byte code location
-            if possible_instructions == ByteCodes.LABEL:
+            if instruction_code == ByteCodes.LABEL:
                 label_map[operands[0].value] = len(byte_code)
                 continue
 
             # Substitute the label with the byte code location
-            if is_jump_instruction(possible_instructions):
+            if is_jump_instruction(instruction_code):
                 operands[0].value = label_map[operands[0].value]
 
-            operand_converter = instruction_conversion_table[possible_instructions]
+            operand_converter = instruction_conversion_table[instruction_code]
 
+            # Differentiate between operators that require a size specification and those that don't
             if handled_size != 0:
                 operand_bytes = operand_converter(operands, handled_size)
             else:
@@ -65,8 +76,15 @@ def assemble(assembly: List[str]) -> bytes:
         # Branch for operators without operands
         else:
             operand_bytes = bytes(0)
-                
-        byte_code.extend(bytes([possible_instructions, *operand_bytes]))
+            # In this branch possible_instructions is just a Tuple of ByteCodes and an integer
+            instruction_code = possible_instructions[0]
+        
+        instruction = bytes([instruction_code, *operand_bytes])
+
+        if verbose:
+            print(f'    {instruction}')
+
+        byte_code.extend(instruction)
         
     return bytes(byte_code)
 

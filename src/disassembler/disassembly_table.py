@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 from shared.token import TokenType
 
@@ -8,77 +8,85 @@ Structure:
     (
         "string representation for the instruction",
         (argument type1, argument type2, ...),
-        (argument size1, argument size2, ...),
+        (argument size1, argument size2, ...), # Elements are None if they are sized
+        (sized_operand_index_1, sized_operand_index_2, ...), # Or None if no sized operands, empty if size is not important
     )
 
 An empty argument type list means the instruction does not take any arguments.
 """
-disassembly_table: Tuple[Tuple[str, Tuple[TokenType], Tuple[int], bool]] = \
+disassembly_table: Tuple[
+    Tuple[
+        str,
+        Tuple[TokenType],
+        Tuple[int],
+        Union[Tuple[int], None],
+    ],
+] = \
 (
-    ('add', (), (), False),
-    ('sub', (), (), False),
-    ('mul', (), (), False),
-    ('div', (), (), False),
-    ('mod', (), (), False),
+    ('add', (), (), None),
+    ('sub', (), (), None),
+    ('mul', (), (), None),
+    ('div', (), (), None),
+    ('mod', (), (), None),
 
     
-    ('inc', (TokenType.REGISTER), (1,), False),
-    ('inc', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
-    ('inc', (TokenType.ADDRESS_LITERAL,), (8,), True),
+    ('inc', (TokenType.REGISTER), (1,), None),
+    ('inc', (TokenType.ADDRESS_IN_REGISTER,), (None,), (0,)),
+    ('inc', (TokenType.ADDRESS_LITERAL,), (8,), ()),
 
-    ('dec', (TokenType.REGISTER), (1,), False),
-    ('dec', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
-    ('dec', (TokenType.ADDRESS_LITERAL,), (8,), True),
-
-
-    ('nop', (), (), False),
+    ('dec', (TokenType.REGISTER), (1,), None),
+    ('dec', (TokenType.ADDRESS_IN_REGISTER,), (1,), (0,)),
+    ('dec', (TokenType.ADDRESS_LITERAL,), (8,), ()),
 
 
-    ('mov', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), False),
-    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), True),
-    ('mov', (TokenType.REGISTER, TokenType.NUMBER), (1, 1), True),
-    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), True),
-    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1), True),
-    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), True),
-    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, 1), True),
-    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), True),
-    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1), True),
-    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1), True),
-    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, 1), True),
-    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8), True),
+    ('nop', (), (), None),
 
 
-    ('push', (TokenType.REGISTER,), (1,), False),
-    ('push', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
-    ('push', (TokenType.NUMBER,), (1,), True),
-    ('push', (TokenType.ADDRESS_LITERAL,), (8,), True),
-
-    ('pop', (TokenType.REGISTER,), (1,), False),
-    ('pop', (TokenType.ADDRESS_IN_REGISTER,), (1,), True),
-    ('pop', (TokenType.ADDRESS_LITERAL,), (8,), True),
-
-
-    ('@', (TokenType.LABEL), (8,), False), # Doesn't get used, but it's here for completeness.
-
-
-    ('jmp', (TokenType.NUMBER,), (8,), False),
-    ('cjmp', (TokenType.NUMBER, TokenType.REGISTER), (8, 1), False),
-    ('njmp', (TokenType.NUMBER, TokenType.REGISTER,), (8, 1), False),
+    ('mov', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), None),
+    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), ()),
+    ('mov', (TokenType.REGISTER, TokenType.NUMBER), (1, None), (1,)),
+    ('mov', (TokenType.REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), ()),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.REGISTER), (1, 1), ()),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_IN_REGISTER), (1, 1), ()),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.NUMBER), (1, None), (1,)),
+    ('mov', (TokenType.ADDRESS_IN_REGISTER, TokenType.ADDRESS_LITERAL), (1, 8), ()),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.REGISTER), (8, 1), ()),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_IN_REGISTER), (8, 1), ()),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.NUMBER), (8, None), (1,)),
+    ('mov', (TokenType.ADDRESS_LITERAL, TokenType.ADDRESS_LITERAL), (8, 8), ()),
 
 
-    ('cmp', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), False),
-    ('cmp', (TokenType.REGISTER, TokenType.NUMBER), (1, 1), True),
-    ('cmp', (TokenType.NUMBER, TokenType.REGISTER), (1, 1), True),
-    ('cmp', (TokenType.NUMBER, TokenType.NUMBER), (1, 1), True),
+    ('push', (TokenType.REGISTER,), (1,), None),
+    ('push', (TokenType.ADDRESS_IN_REGISTER,), (1,), ()),
+    ('push', (TokenType.NUMBER,), (None,), (0,)),
+    ('push', (TokenType.ADDRESS_LITERAL,), (8,), ()),
+
+    ('pop', (TokenType.REGISTER,), (1,), None),
+    ('pop', (TokenType.ADDRESS_IN_REGISTER,), (1,), ()),
+    ('pop', (TokenType.ADDRESS_LITERAL,), (8,), ()),
 
 
-    ('prt', (), (), False),
-    ('prtstr', (None,), (None), False), # TODO: add string literal
+    ('@', (TokenType.LABEL), (8,), None), # Doesn't get used, but it's here for completeness.
 
-    ('inint', (), (), False),
-    ('instr', (), (), False),
 
-    ('exit', (), (), False),
+    ('jmp', (TokenType.NUMBER,), (8,), None),
+    ('cjmp', (TokenType.NUMBER, TokenType.REGISTER), (8, 1), None),
+    ('njmp', (TokenType.NUMBER, TokenType.REGISTER,), (8, 1), None),
+
+
+    ('cmp', (TokenType.REGISTER, TokenType.REGISTER), (1, 1), None),
+    ('cmp', (TokenType.REGISTER, TokenType.NUMBER), (1, None), (1,)),
+    ('cmp', (TokenType.NUMBER, TokenType.REGISTER), (None, 1), (0,)),
+    ('cmp', (TokenType.NUMBER, TokenType.NUMBER), (None, None), (0, 1)),
+
+
+    ('prt', (), (), None),
+    ('prtstr', (None,), (None), None), # TODO: add string literal
+
+    ('inint', (), (), None),
+    ('instr', (), (), None),
+
+    ('exit', (), (), None),
 
 
 )
