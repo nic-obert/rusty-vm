@@ -7,7 +7,7 @@ from assembler import assemble
 
 def main() -> None:
     if len(argv) < 2:
-        print(f"Usage: {argv[0]} <file_path>")
+        print(f"Usage: {argv[0]} <input_file>")
         exit(1)
 
     assembly = files.load_assembly(argv[1])
