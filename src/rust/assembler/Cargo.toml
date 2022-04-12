@@ -1,0 +1,7 @@
+[package]
+name = "assembler"
+version = "1.0.0"
+
+[depencencies]
+shared = { path = "../shared" }
+bytes = "1.1.0"

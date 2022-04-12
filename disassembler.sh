@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 src/disassembler/main.py "$@"
+python3 src/python/disassembler/main.py "$@"

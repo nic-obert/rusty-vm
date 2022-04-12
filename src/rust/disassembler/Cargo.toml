@@ -1,0 +1,6 @@
+[package]
+name = "disassembler"
+version = "1.0.0"
+
+[depencencies]
+shared = { path = "../shared" }

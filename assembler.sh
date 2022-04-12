@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 src/assembler/main.py "$@"
+python3 src/python/assembler/main.py "$@"

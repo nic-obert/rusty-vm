@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 src/vm/main.py "$@"
+python3 src/python/vm/main.py "$@"

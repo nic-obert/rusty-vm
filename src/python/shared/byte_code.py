@@ -64,7 +64,7 @@ byte_code_names: Tuple[str] = \
     "PRINT_STRING",
 
     "INPUT_INT",
-    "INPUT_STRING"
+    "INPUT_STRING",
 
     "EXIT",
 
