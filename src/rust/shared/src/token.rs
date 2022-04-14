@@ -18,12 +18,12 @@ pub static TOKEN_NAMES_TABLE: [&str; 8] = [
 pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
-    Number(i32),
-    AddressLiteral(i32),
+    Number(i64),
+    AddressLiteral(u64),
     Label(String),
     Name(String),
-    AddressGeneric(i32),
-    CurrentPosition(i32)
+    AddressGeneric(u64),
+    CurrentPosition(u64)
 }
 
 
