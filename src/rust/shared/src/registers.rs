@@ -1,6 +1,7 @@
 use std::fmt;
 
 
+#[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy)]
 pub enum Registers {
     A,
@@ -49,7 +50,7 @@ pub static REGISTER_NAMES: [&str; 13] = [
 ];
 
 
-pub fn get_register(name: &str) -> Registers {
+pub fn get_register(name: &str) -> Option<Registers> {
     match name {
         "a" => Registers::A,
         "b" => Registers::B,
@@ -64,7 +65,7 @@ pub fn get_register(name: &str) -> Registers {
         "zf" => Registers::ZERO_FLAG,
         "sf" => Registers::SIGN_FLAG,
         "rf" => Registers::REMAINDER_FLAG,
-        _ => panic!("Unknown register name: {}", name)
+        _ => None
     }
 }
 

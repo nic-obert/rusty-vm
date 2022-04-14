@@ -1,4 +1,8 @@
 use std::env;
+mod shared;
+use shared::files;
+mod assembler;
+
 
 
 fn main() {
@@ -9,4 +13,11 @@ fn main() {
         println!("Usage: {} <input_file>", args[0]);
         return;
     }
+
+    let input_file = &args[1];
+    let assembly = files::load_assembly(input_file);
+
+    
+
+
 }

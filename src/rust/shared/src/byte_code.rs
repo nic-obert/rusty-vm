@@ -69,6 +69,7 @@ pub static BYTE_CODE_NAMES: [&str; 44] = [
 
 
 #[derive(Clone, Copy)]
+#[allow(dead_code, non_camel_case_types)]
 pub enum ByteCodes {
     ADD,
     SUB,

@@ -1,20 +1,9 @@
 use std::fmt;
-use registers::Registers;
-
-
-pub static TOKEN_NAMES_TABLE: [&str; 8] = [
-    "REGISTER",
-    "ADDRESS_IN_REGISTER",
-    "NUMBER",
-    "ADDRESS_LITERAL",
-    "LABEL",
-    "NAME",
-    "ADDRESS_GENERIC",
-    "CURRENT_POSITION"
-];
+use super::registers::Registers;
 
 
 // TODO: check if this is correct
+#[allow(dead_code)]
 pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
@@ -23,7 +12,8 @@ pub enum TokenValue {
     Label(String),
     Name(String),
     AddressGeneric(u64),
-    CurrentPosition(u64)
+    CurrentPosition(u64),
+    AddressInRegisterIncomplete(String),
 }
 
 
@@ -43,7 +33,8 @@ impl fmt::Display for Token {
             TokenValue::Label(ref label) => write!(f, "LABEL({})", label),
             TokenValue::Name(ref name) => write!(f, "NAME({})", name),
             TokenValue::AddressGeneric(num) => write!(f, "ADDRESS_GENERIC({})", num),
-            TokenValue::CurrentPosition(num) => write!(f, "CURRENT_POSITION({})", num)
+            TokenValue::CurrentPosition(num) => write!(f, "CURRENT_POSITION({})", num),
+            TokenValue::AddressInRegisterIncomplete(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
         }
     }
 }

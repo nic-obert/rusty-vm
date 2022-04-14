@@ -11,10 +11,11 @@ def is_name_character(char: str) -> bool:
 
 def tokenize_operands(operands: str) -> List[Token]:
     tokens: List[Token] = []
-    # Remove redundant spaces and add a semicolon at the end in order to make the loop iterate one more time
-    operands = operands.strip() + ';'
+    # Remove redundant spaces and add a semicolon at the end in order to make the loop iterate one more time for simplicity
+    operands = operands.strip()
     if operands == "":
         return tokens
+    operands += ';'
      
     current_token: Union[Token, None] = None
     for char in operands:
@@ -50,7 +51,9 @@ def tokenize_operands(operands: str) -> List[Token]:
 
                 register = register_table.get(current_token.value)
                 if register is not None:
-                    tokens.append(Token(TokenType.ADDRESS, register))
+                    current_token.value = register
+                    tokens.append(current_token)
+                    current_token = None
                 else:
                     print(f"Unknown register {current_token.value} in argument list \"{operands}\".")
                     exit(1)
