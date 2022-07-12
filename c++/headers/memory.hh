@@ -15,6 +15,7 @@ namespace memory {
 
         public:
             Memory(size_t size);
+            Memory() = delete;
             ~Memory();
 
             void setByte(Address address, Byte data);

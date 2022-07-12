@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Mon Jul 11 09:32:18 2022
+# Make data base, printed on Tue Jul 12 12:36:43 2022
 
 # Variables
 
@@ -31,7 +31,7 @@ LC_NUMERIC = it_IT.UTF-8
 # environment
 VSCODE_CWD = /home/nic/dev/virtual-machine/c++
 # environment
-TERMINATOR_UUID = urn:uuid:065dd565-9d34-4c42-b85b-1d60291469b8
+TERMINATOR_UUID = urn:uuid:f2f7c506-4e4b-45b9-a93c-13c6a1caa38e
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -96,14 +96,14 @@ XDG_CONFIG_DIRS = /etc/xdg
 +D = $(patsubst %/,%,$(dir $+))
 # environment
 XDG_SESSION_DESKTOP = XFCE
-# makefile (from 'makefile', line 1)
-MAKEFILE_LIST := makefile
+# makefile (from 'Makefile', line 1)
+MAKEFILE_LIST := Makefile
 # environment
 SNAP_REEXEC = 
 # automatic
 @F = $(notdir $@)
 # environment
-VSCODE_PID = 33870
+VSCODE_PID = 63289
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -281,7 +281,15 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # No implicit rules.
 
+ 
 # Files
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-07-11 09:28:44.206454102
+#  File has been updated.
+#  Successfully updated.
 
 # Not a target:
 .DEFAULT:
@@ -295,14 +303,6 @@ all:
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has not been updated.
- 
-
-# Not a target:
-makefile:
-#  Implicit rule search has been done.
-#  Last modified 2022-07-11 09:28:44.206454102
-#  File has been updated.
-#  Successfully updated.
 
 # files hash-table stats:
 # Load=4/1024=0%, Rehash=0, Collisions=0/14=0%
@@ -318,6 +318,6 @@ makefile:
 # strcache performance: lookups = 15 / hit rate = 26%
 # hash-table stats:
 # Load=11/8192=0%, Rehash=0, Collisions=0/15=0%
-# Finished Make data base on Mon Jul 11 09:32:18 2022
+# Finished Make data base on Tue Jul 12 12:36:43 2022
 
  

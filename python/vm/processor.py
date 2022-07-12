@@ -41,7 +41,7 @@ class Processor:
         self.running = True
         while self.running:
             # Fetch the instruction
-            opcode = self.get_from_byte_code(1)
+            opcode = self.next_byte_code(1)
 
             if verbose:
                 print(f'Instruction: {byte_code_names[opcode]}')
@@ -68,7 +68,7 @@ class Processor:
         self.registers[Registers.REMAINDER_FLAG] = remainder
 
 
-    def get_from_byte_code(self, size: int) -> int:
+    def next_byte_code(self, size: int) -> int:
         data = self.memory.get_data(self.registers[Registers.PROGRAM_COUNTER], size)
         self.registers[Registers.PROGRAM_COUNTER] += size
         return data
@@ -125,15 +125,15 @@ class Processor:
 
 
     def handle_inc_reg(self) -> None:
-        register = self.get_from_byte_code(1)
+        register = self.next_byte_code(1)
         self.registers[register] += 1
         
         self.set_arithmetical_flags(self.registers[register])
 
     
     def handle_inc_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address = self.registers[register]
         value = self.memory.get_data(address, size) + 1
         self.memory.store_data(self.register, value, size)
@@ -142,8 +142,8 @@ class Processor:
 
 
     def handle_inc_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
         value = self.memory.get_data(address, size) + 1
         self.memory.store_data(address, value, size)
 
@@ -151,15 +151,15 @@ class Processor:
 
     
     def handle_dec_reg(self) -> None:
-        register = self.get_from_byte_code(1)
+        register = self.next_byte_code(1)
         self.registers[register] -= 1
 
         self.set_arithmetical_flags(self.registers[register])
     
 
     def handle_dec_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address = self.registers[register]
         value = self.memory.get_data(address, size) - 1
         self.memory.store_data(address, value, size)
@@ -168,8 +168,8 @@ class Processor:
 
     
     def handle_dec_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
         value = self.memory.get_data(address, size) - 1
         self.memory.store_data(address, value, size)
 
@@ -181,178 +181,178 @@ class Processor:
     
 
     def handle_move_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
+        register1 = self.next_byte_code(1)
+        register2 = self.next_byte_code(1)
         self.registers[register1] = self.registers[register2]
     
 
     def handle_move_reg_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register1 = self.next_byte_code(1)
+        register2 = self.next_byte_code(1)
         address = self.registers[register2]
         self.registers[register1] = self.memory.get_data(address, size)
     
 
     def handle_move_reg_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
-        self.registers[register] = self.get_from_byte_code(size)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
+        self.registers[register] = self.next_byte_code(size)
 
     
     def handle_move_reg_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
+        address = self.next_byte_code(8)
         self.registers[register] = self.memory.get_data(address, size)
     
 
     def handle_move_addr_in_reg_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register1 = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register1 = self.next_byte_code(1)
         address = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
+        register2 = self.next_byte_code(1)
         self.memory.store_data(address, self.registers[register2], size)
     
 
     def handle_move_addr_in_reg_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register1 = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register1 = self.next_byte_code(1)
         address1 = self.registers[register1]
-        register2 = self.get_from_byte_code(1)
+        register2 = self.next_byte_code(1)
         address2 = self.registers[register2]
         self.memory.store_data(address1, self.memory.get_data(address2, size), size)
         
 
     def handle_move_addr_in_reg_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address = self.registers[register]
-        value = self.get_from_byte_code(size)
+        value = self.next_byte_code(size)
         self.memory.store_data(address, value, size)
     
 
     def handle_move_addr_in_reg_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address1 = self.registers[register]
-        address2 = self.get_from_byte_code(8)
+        address2 = self.next_byte_code(8)
         self.memory.store_data(address1, self.memory.get_data(address2, size), size)
 
     
     def handle_move_addr_literal_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
+        register = self.next_byte_code(1)
         self.memory.store_data(address, self.registers[register], size)
     
 
     def handle_move_addr_literal_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        address1 = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        address1 = self.next_byte_code(8)
+        register = self.next_byte_code(1)
         address2 = self.registers[register]
         self.memory.store_data(address1, self.memory.get_data(address2, size), size)
     
 
     def handle_move_addr_literal_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
-        value = self.get_from_byte_code(size)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
+        value = self.next_byte_code(size)
         self.memory.store_data(address, value, size)
     
 
     def handle_move_addr_literal_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        address1 = self.get_from_byte_code(8)
-        address2 = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        address1 = self.next_byte_code(8)
+        address2 = self.next_byte_code(8)
         self.memory.store_data(address1, self.memory.get_data(address2, size), size)
 
     
     def handle_push_reg(self) -> None:
-        register = self.get_from_byte_code(1)
+        register = self.next_byte_code(1)
         self.push_stack(self.registers[register], 8)
     
 
     def handle_push_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address = self.registers[register]
         self.push_stack(self.memory.get_data(address, size), size)
     
 
     def handle_push_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(size)
+        size = self.next_byte_code(1)
+        value = self.next_byte_code(size)
         self.push_stack(value, size)
     
 
     def handle_push_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
         self.push_stack(self.memory.get_data(address, size), size)
 
 
     def handle_pop_reg(self) -> None:
-        register = self.get_from_byte_code(1)
+        register = self.next_byte_code(1)
         self.registers[register] = self.pop_stack(8)
 
 
     def handle_pop_addr_in_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
         address = self.registers[register]
         self.memory.store_data(address, self.pop_stack(size), size)
 
 
     def handle_pop_addr_literal(self) -> None:
-        size = self.get_from_byte_code(1)
-        address = self.get_from_byte_code(8)
+        size = self.next_byte_code(1)
+        address = self.next_byte_code(8)
         self.memory.store_data(address, self.pop_stack(size), size)
 
     
     def handle_jump(self) -> None:
-        self.registers[Registers.PROGRAM_COUNTER] = self.get_from_byte_code(8)
+        self.registers[Registers.PROGRAM_COUNTER] = self.next_byte_code(8)
     
 
     def handle_jump_if_true_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
+        address = self.next_byte_code(8)
+        register = self.next_byte_code(1)
         if self.registers[register] != 0:
             self.registers[Registers.PROGRAM_COUNTER] = address
     
 
     def handle_jump_if_false_reg(self) -> None:
-        address = self.get_from_byte_code(8)
-        register = self.get_from_byte_code(1)
+        address = self.next_byte_code(8)
+        register = self.next_byte_code(1)
         if self.registers[register] == 0:
             self.registers[Registers.PROGRAM_COUNTER] = address
 
 
     def handle_compare_reg_reg(self) -> None:
-        register1 = self.get_from_byte_code(1)
-        register2 = self.get_from_byte_code(1)
+        register1 = self.next_byte_code(1)
+        register2 = self.next_byte_code(1)
         self.set_arithmetical_flags(register1 - register2)
 
 
     def handle_compare_reg_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        register = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(size)
+        size = self.next_byte_code(1)
+        register = self.next_byte_code(1)
+        value = self.next_byte_code(size)
         self.set_arithmetical_flags(self.registers[register] - value)
     
 
     def handle_compare_const_reg(self) -> None:
-        size = self.get_from_byte_code(1)
-        value = self.get_from_byte_code(size)
-        register = self.get_from_byte_code(1)
+        size = self.next_byte_code(1)
+        value = self.next_byte_code(size)
+        register = self.next_byte_code(1)
         self.set_arithmetical_flags(value - self.registers[register])
     
 
     def handle_compare_const_const(self) -> None:
-        size = self.get_from_byte_code(1)
-        value1 = self.get_from_byte_code(size)
-        value2 = self.get_from_byte_code(size)
+        size = self.next_byte_code(1)
+        value1 = self.next_byte_code(size)
+        value2 = self.next_byte_code(size)
         self.set_arithmetical_flags(value1 - value2)
 
     

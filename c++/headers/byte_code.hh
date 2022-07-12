@@ -77,9 +77,14 @@ namespace byte_code {
         INPUT_INT,
         INPUT_STRING,
 
-        EXIT
+        EXIT,
+
+        ENUM_COUNT
 
     };
+
+
+    #define BYTE_CODES_COUNT static_cast<Byte>(ByteCodes::ENUM_COUNT)
 
 
     bool isJumpInstruction(ByteCodes instruction);
