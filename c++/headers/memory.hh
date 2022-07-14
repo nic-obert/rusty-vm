@@ -5,7 +5,7 @@
 
 namespace memory {
 
-    typedef unsigned int Address;
+    typedef uint64 Address;
 
 
     class Memory {
@@ -19,10 +19,10 @@ namespace memory {
             ~Memory();
 
             void setByte(Address address, Byte data);
-            void setBytes(Address address, Byte* data, size_t size);
+            void setBytes(Address address, const Byte* data, size_t size);
 
             Byte getByte(Address address) const;
-            Byte* getBytes(Address addrss, size_t size) const;
+            const Byte* getBytes(Address addrss, size_t size) const;
 
     };
 

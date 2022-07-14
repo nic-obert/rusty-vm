@@ -40,11 +40,12 @@ namespace processor {
             void clearVolatileRegisters();
             void setArithmeticalFlags(int64 result, uint64 remainder);
 
+            Byte nextByteCode();
             const Byte* nextByteCode(Byte size);
 
             void pushStack(uint64 value);
-            void pushStackBytes(Byte* bytes, size_t size);
-            Byte* popStackBytes(size_t size);
+            void pushStackBytes(const Byte* bytes, size_t size);
+            const Byte* popStackBytes(size_t size);
 
             constexpr uint64* getRegister(Registers reg) {
                 return &registers[static_cast<Byte>(reg)];
