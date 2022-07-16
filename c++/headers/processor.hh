@@ -47,9 +47,10 @@ namespace processor {
             void pushStackBytes(const Byte* bytes, size_t size);
             const Byte* popStackBytes(size_t size);
 
-            constexpr uint64* getRegister(Registers reg) {
-                return &registers[static_cast<Byte>(reg)];
-            }
+            constexpr inline uint64* getRegister(Registers reg);
+
+            void run();
+            void runVerbose();
 
             // Instruction handlers
 
@@ -181,7 +182,7 @@ namespace processor {
             Processor() = delete;
             ~Processor();
 
-            void execute(Byte* byteCode, size_t size);
+            void execute(Byte* byteCode, size_t size, bool verbose = false);
 
     };
 

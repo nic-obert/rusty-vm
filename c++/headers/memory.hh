@@ -23,6 +23,7 @@ namespace memory {
 
             Byte getByte(Address address) const;
             const Byte* getBytes(Address addrss, size_t size) const;
+            Byte* getBytesMutable(Address address);
 
     };
 

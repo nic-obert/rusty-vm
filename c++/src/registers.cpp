@@ -7,7 +7,7 @@
 using namespace registers;
 
 
-static const char* const REGISTER_NAMES[] = {
+static constexpr const char* const REGISTER_NAMES[] = {
     "A",
     "B",
     
@@ -28,11 +28,11 @@ static const char* const REGISTER_NAMES[] = {
 };
 
 
-const char* registers::getRegisterName(Registers reg) {
+constexpr inline const char* registers::getRegisterName(Registers reg) {
     return REGISTER_NAMES[static_cast<Byte>(reg)];
 }
 
-static std::unordered_map<const char*, Registers> REGISTERS_TABLE = {
+static const std::unordered_map<const char*, const Registers> const REGISTERS_TABLE = {
     {"A", Registers::A},
     {"B", Registers::B},
     {"C", Registers::C},
@@ -49,7 +49,7 @@ static std::unordered_map<const char*, Registers> REGISTERS_TABLE = {
 };
 
 
-Registers registers::getRegisterByName(const char* name) {
+constexpr inline Registers registers::getRegisterByName(const char* name) {
     return REGISTERS_TABLE.at(name);
 }
 

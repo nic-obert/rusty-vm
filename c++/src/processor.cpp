@@ -1,7 +1,63 @@
 #include "processor.hh"
+#include <stdexcept>
+#include <iostream>
 
 
 using namespace processor;
+
+
+constexpr inline uint64* Processor::getRegister(Registers reg) {
+    return &registers[static_cast<Byte>(reg)];
+}
+
+
+inline Byte* uint64ToBytes(uint64* value) {
+    return (Byte*)value;
+}
+
+inline Byte* uint32ToBytes(uint32* value) {
+    return (Byte*)value;
+}
+
+inline Byte* uint16ToBytes(uint16* value) {
+    return (Byte*)value;
+}
+
+
+inline Byte* uint8ToBytes(uint8* value) {
+    return (Byte*)value;
+}
+
+
+typedef Byte* (*UintToBytes)(void* value);
+static constexpr const UintToBytes UINT_TO_BYTES_TABLE[] = {
+    nullptr,                        // 0
+    (UintToBytes) uint8ToBytes,     // 1
+    (UintToBytes) uint16ToBytes,    // 2
+    nullptr,                        // 3
+    (UintToBytes) uint32ToBytes,    // 4
+    nullptr,                        // 5
+    nullptr,                        // 6
+    nullptr,                        // 7
+    (UintToBytes) uint64ToBytes,    // 8
+};
+
+
+constexpr inline uint64* bytesToUint64(Byte* bytes) {
+    return (uint64*)bytes;
+}
+
+constexpr inline uint32* bytesToUint32(Byte* bytes) {
+    return (uint32*)bytes;
+}
+
+constexpr inline uint16* bytesToUint16(Byte* bytes) {
+    return (uint16*)bytes;
+}
+
+constexpr inline uint8* bytesToUint8(Byte* bytes) {
+    return (uint8*)bytes;
+}
 
 
 Processor::Processor(size_t memorySize) :
@@ -9,7 +65,6 @@ Processor::Processor(size_t memorySize) :
 {
 
 }
-
 
 
 Processor::~Processor() {
@@ -67,11 +122,22 @@ Byte Processor::nextByteCode() {
 }
 
 
-void Processor::execute(Byte* byteCode, size_t size) {
+void Processor::execute(Byte* byteCode, size_t size, bool verbose) {
     // Load the byte code into memory
     pushStackBytes(byteCode, size);
 
     running = true;
+    if (verbose) {
+        runVerbose();
+    } else {
+        run();
+    }
+
+    // TODO: implement exiting from the program
+}
+
+
+void Processor::run() {
     while (running) {
 
         Byte opCode = nextByteCode();
@@ -79,10 +145,22 @@ void Processor::execute(Byte* byteCode, size_t size) {
         (this->*INSTRUCTION_HANDLERS[opCode])();
 
         clearVolatileRegisters();
-
     }
+}
 
-    // TODO: implement exiting from the program
+
+void Processor::runVerbose() {
+    while (running) {
+
+        Byte opCode = nextByteCode();
+
+        std::cout << "PC: " << *getRegister(Registers::PROGRAM_COUNTER) << ", "
+            << "opcode: " << (ByteCodes)opCode << std::endl;
+
+        (this->*INSTRUCTION_HANDLERS[opCode])();
+
+        clearVolatileRegisters();
+    }
 }
 
 
@@ -128,32 +206,35 @@ void Processor::handle_inc_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers reg = static_cast<Registers>(nextByteCode());
     const Address address = *getRegister(reg);
-    const Byte* bytes = memory.getBytes(address, size);
-    // TODO: to check if works (also endianness)
-    // Convert the bytes to a uint64
-    uint64 value = 0;
-    for (int i = 0; i < size; i++) {
-        value += bytes[i] << (8 * i);
+    Byte* bytes = memory.getBytesMutable(address);
+    
+    switch (size) {
+        case 1:
+            *bytesToUint8(bytes) += 1;
+            setArithmeticalFlags(*bytesToUint8(bytes), 0);
+            break;
+        case 2:
+            *bytesToUint16(bytes) += 1;
+            setArithmeticalFlags(*bytesToUint16(bytes), 0);
+            break;
+        case 4:
+            *bytesToUint32(bytes) += 1;
+            setArithmeticalFlags(*bytesToUint32(bytes), 0);
+            break;
+        case 8:
+            *bytesToUint64(bytes) += 1;
+            setArithmeticalFlags(*bytesToUint64(bytes), 0);
+            break;
+        default:
+            throw std::runtime_error("Invalid size");
     }
-    value ++;
-    // Convert the uint64 to bytes
-    const Byte* newBytes = (Byte*)&value;
-    // Write the new bytes to memory
-    memory.setBytes(address, newBytes, size);
-    // TODO: check if works (also endianness)
-
-    setArithmeticalFlags(value, 0);
 }
 
 
 void Processor::handle_inc_addr_literal() {
     const Byte size = nextByteCode();
     const Byte* addressBytes = nextByteCode(sizeof(Address));
-    // TODO: to check if works (also endianness)
-    const Address address = *(Address*)addressBytes;
-    const Byte* bytes = memory.getBytes(address, size);
-
-    // Convert the bytes to a uint64
+    // TODO: implement
 
 }
 

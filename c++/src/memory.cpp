@@ -42,3 +42,8 @@ const Byte* Memory::getBytes(Address address, size_t size) const {
     return data;
 }
 
+
+Byte* Memory::getBytesMutable(Address address) {
+    return this->stack + address;
+}
+

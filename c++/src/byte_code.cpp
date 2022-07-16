@@ -1,7 +1,7 @@
 #include "byte_code.hh"
 
 
-static const char* const INSTRUCTION_NAMES[] = {
+static constexpr const char* const INSTRUCTION_NAMES[] = {
     "ADD",
     "SUB",
     "MUL",
@@ -68,12 +68,17 @@ static const char* const INSTRUCTION_NAMES[] = {
 };
 
 
-const char* byte_code::getInstructionName(byte_code::ByteCodes instruction) {
+constexpr inline const char* byte_code::getInstructionName(byte_code::ByteCodes instruction) {
     return INSTRUCTION_NAMES[static_cast<Byte>(instruction)];
 }
 
 
-bool byte_code::isJumpInstruction(byte_code::ByteCodes instruction) {
+constexpr inline bool byte_code::isJumpInstruction(byte_code::ByteCodes instruction) {
     return ByteCodes::JUMP <= instruction && instruction <= ByteCodes::JUMP_IF_FALSE_REG;
+}
+
+
+std::ostream& operator<<(std::ostream& os, byte_code::ByteCodes instruction) {
+    return os << byte_code::getInstructionName(instruction);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils.hh"
+#include <iostream>
 
 
 namespace byte_code {
@@ -93,4 +94,7 @@ namespace byte_code {
     const char* getInstructionName(ByteCodes instruction);
 
 }
+
+
+std::ostream& operator<<(std::ostream& os, byte_code::ByteCodes instruction);
 
