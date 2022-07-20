@@ -49,6 +49,13 @@ namespace processor {
 
             constexpr inline uint64* getRegister(Registers reg);
 
+            // Increments an unsigned integer and updates the arithmetical flags
+            void incrementUnsigned(Byte* bytes, Byte size);
+            // Decrements an unsigned integer and updates the arithmetical flags
+            void decrementUnsigned(Byte* bytes, Byte size);
+
+            void moveBytesIntoRegister(const Byte* bytes, Byte size, Registers reg);
+
             void run();
             void runVerbose();
 
