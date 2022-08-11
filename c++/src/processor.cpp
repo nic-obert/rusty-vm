@@ -6,6 +6,16 @@
 using namespace processor;
 
 
+Address Processor::addressFromByteCode() {
+    return *bytesToUint64(nextByteCode(sizeof(Address)));
+}
+
+
+constexpr inline Registers byteToRegister(Byte byte) {
+    return static_cast<Registers>(byte);
+}
+
+
 constexpr inline uint64* Processor::getRegister(Registers reg) {
     return &registers[static_cast<Byte>(reg)];
 }
@@ -196,9 +206,9 @@ void Processor::handle_mod() {
 
 
 void Processor::handle_inc_reg() {
-    const Registers reg = static_cast<Registers>(nextByteCode());
-    (*getRegister(reg)) ++;
-    setArithmeticalFlags(*getRegister(reg), 0);
+    const Registers destReg = byteToRegister(nextByteCode());
+    (*getRegister(destReg)) ++;
+    setArithmeticalFlags(*getRegister(destReg), 0);
 }
 
 
@@ -252,8 +262,8 @@ void Processor::decrementUnsigned(Byte* bytes, Byte size) {
 
 void Processor::handle_inc_addr_in_reg() {
     const Byte size = nextByteCode();
-    const Registers reg = static_cast<Registers>(nextByteCode());
-    const Address address = *getRegister(reg);
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address address = *getRegister(addressReg);
     Byte* bytes = memory.getBytesMutable(address);
     
     incrementUnsigned(bytes, size);
@@ -262,26 +272,25 @@ void Processor::handle_inc_addr_in_reg() {
 
 void Processor::handle_inc_addr_literal() {
     const Byte size = nextByteCode();
-    const Byte* addressBytes = nextByteCode(sizeof(Address));
-    const Address address = *bytesToUint64(addressBytes);
-    Byte* bytes = memory.getBytesMutable(address);
+    const Address destAddress = addressFromByteCode();
+    Byte* bytes = memory.getBytesMutable(destAddress);
 
     incrementUnsigned(bytes, size);
 }
 
 
 void Processor::handle_dec_reg() {
-    const Registers reg = static_cast<Registers>(nextByteCode());
-    (*getRegister(reg)) --;
-    setArithmeticalFlags(*getRegister(reg), 0);
+    const Registers destReg = byteToRegister(nextByteCode());
+    (*getRegister(destReg)) --;
+    setArithmeticalFlags(*getRegister(destReg), 0);
 }
 
 
 void Processor::handle_dec_addr_in_reg() {
     const Byte size = nextByteCode();
-    const Registers reg = static_cast<Registers>(nextByteCode());
-    const Address address = *getRegister(reg);
-    Byte* bytes = memory.getBytesMutable(address);
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(addressReg);
+    Byte* bytes = memory.getBytesMutable(destAddress);
     
     decrementUnsigned(bytes, size);
 }
@@ -289,9 +298,8 @@ void Processor::handle_dec_addr_in_reg() {
 
 void Processor::handle_dec_addr_literal() {
     const Byte size = nextByteCode();
-    const Byte* addressBytes = nextByteCode(sizeof(Address));
-    const Address address = *bytesToUint64(addressBytes);
-    Byte* bytes = memory.getBytesMutable(address);
+    const Address destAddress = addressFromByteCode();
+    Byte* bytes = memory.getBytesMutable(destAddress);
 
     decrementUnsigned(bytes, size);
 }
@@ -303,25 +311,25 @@ void Processor::handle_no_operation() {
 
 
 void Processor::handle_move_reg_reg() {
-    const Registers reg1 = static_cast<Registers>(nextByteCode());
-    const Registers reg2 = static_cast<Registers>(nextByteCode());
-    *getRegister(reg1) = *getRegister(reg2);
+    const Registers destReg = byteToRegister(nextByteCode());
+    const Registers srcReg = byteToRegister(nextByteCode());
+    *getRegister(destReg) = *getRegister(srcReg);
 }
 
 
-void Processor::moveBytesIntoRegister(const Byte* bytes, Byte size, Registers reg) {
+void Processor::moveBytesIntoRegister(const Byte* bytes, Byte size, Registers destReg) {
     switch (size) {
         case 1:
-            *getRegister(reg) = *bytesToUint8(bytes);
+            *getRegister(destReg) = *bytesToUint8(bytes);
             break;
         case 2:
-            *getRegister(reg) = *bytesToUint16(bytes);
+            *getRegister(destReg) = *bytesToUint16(bytes);
             break;
         case 4:
-            *getRegister(reg) = *bytesToUint32(bytes);
+            *getRegister(destReg) = *bytesToUint32(bytes);
             break;
         case 8:
-            *getRegister(reg) = *bytesToUint64(bytes);
+            *getRegister(destReg) = *bytesToUint64(bytes);
             break;
         default:
             throw std::runtime_error("Invalid size: " + std::to_string(size));
@@ -331,42 +339,254 @@ void Processor::moveBytesIntoRegister(const Byte* bytes, Byte size, Registers re
 
 void Processor::handle_move_reg_addr_in_reg() {
     const Byte size = nextByteCode();
-    const Registers reg1 = static_cast<Registers>(nextByteCode());
-    const Registers reg2 = static_cast<Registers>(nextByteCode());
-    const Address address = *getRegister(reg2);
-    Byte* bytes = memory.getBytesMutable(address);
+    const Registers destReg = byteToRegister(nextByteCode());
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address srcAddress = *getRegister(addressReg);
+    Byte* bytes = memory.getBytesMutable(srcAddress);
 
-    moveBytesIntoRegister(bytes, size, reg1);
+    moveBytesIntoRegister(bytes, size, destReg);
 }
 
 
 void Processor::handle_move_reg_const() {
     const Byte size = nextByteCode();
-    const Registers reg = static_cast<Registers>(nextByteCode());
+    const Registers destReg = byteToRegister(nextByteCode());
     const Byte* bytes = nextByteCode(size);
     
-    moveBytesIntoRegister(bytes, size, reg);
+    moveBytesIntoRegister(bytes, size, destReg);
 }
 
 
 void Processor::handle_move_reg_addr_literal() {
     const Byte size = nextByteCode();
-    const Registers reg = static_cast<Registers>(nextByteCode());
-    const Byte* addressBytes = nextByteCode(sizeof(Address));
-    const Address address = *bytesToUint64(addressBytes);
-    Byte* bytes = memory.getBytesMutable(address);
+    const Registers destReg = byteToRegister(nextByteCode());
+    const Address srcAddress = addressFromByteCode();
+    Byte* bytes = memory.getBytesMutable(srcAddress);
 
-    moveBytesIntoRegister(bytes, size, reg);
+    moveBytesIntoRegister(bytes, size, destReg);
+}
+
+
+void Processor::moveRegisterIntoAddress(const Registers srcReg, const Address destAddress, const Byte size) {
+    Byte* bytes = memory.getBytesMutable(destAddress);
+
+    switch (size) {
+        case 1:
+            *bytesToUint8(bytes) = *getRegister(srcReg);
+            break;
+        case 2:
+            *bytesToUint16(bytes) = *getRegister(srcReg);
+            break;
+        case 4:
+            *bytesToUint32(bytes) = *getRegister(srcReg);
+            break;
+        case 8:
+            *bytesToUint64(bytes) = *getRegister(srcReg);
+            break;
+        default:
+            throw std::runtime_error("Invalid size: " + std::to_string(size));
+    }
 }
 
 
 void Processor::handle_move_addr_in_reg_reg() {
     const Byte size = nextByteCode();
-    const Registers reg1 = static_cast<Registers>(nextByteCode());
-    const Registers reg2 = static_cast<Registers>(nextByteCode());
-    const Address address = *getRegister(reg1);
-    Byte* bytes = memory.getBytesMutable(address);
-    // TODO: to implement
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Registers srcReg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(addressReg);
+
+    moveRegisterIntoAddress(srcReg, destAddress, size);           
+}
+
+
+void Processor::handle_move_addr_in_reg_const() {
+    const Byte size = nextByteCode();
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(addressReg);
+    const Byte* bytes = nextByteCode(size);
     
+    memory.setBytes(destAddress, bytes, size);
+}
+
+
+void Processor::handle_move_addr_in_reg_addr_literal() {
+    const Byte size = nextByteCode();
+    const Registers reg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(reg);
+    const Address srcAddress = addressFromByteCode();
+
+    memory.setBytes(destAddress, memory.getBytes(srcAddress, size), size);
+}
+
+
+void Processor::handle_move_addr_literal_reg() {
+    const Byte size = nextByteCode();
+    const Address destAddress = addressFromByteCode();
+    const Registers srcReg = byteToRegister(nextByteCode());
+
+    memory.setBytes(destAddress, uint64ToBytes(getRegister(srcReg)), size);
+}
+
+
+void Processor::handle_move_addr_literal_addr_in_reg() {
+    const Byte size = nextByteCode();
+    const Address destAddress = addressFromByteCode();
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address srcAddress = *getRegister(addressReg);
+
+    memory.setBytes(destAddress, memory.getBytes(srcAddress, size), size);
+}
+
+
+void Processor::handle_move_addr_literal_const() {
+    const Byte size = nextByteCode();
+    const Address destAddress = addressFromByteCode();
+    const Byte* bytes = nextByteCode(size);
+    
+    memory.setBytes(destAddress, bytes, size);
+}
+
+
+void Processor::handle_move_addr_literal_addr_literal() {
+    const Byte size = nextByteCode();
+    const Address destAddress = addressFromByteCode();
+    const Address srcAddress = addressFromByteCode();
+
+    memory.setBytes(destAddress, memory.getBytes(srcAddress, size), size);
+}
+
+
+void Processor::handle_push_reg() {
+    const Registers srcReg = byteToRegister(nextByteCode());
+    pushStack(*getRegister(srcReg));
+}
+
+
+void Processor::handle_push_addr_in_reg() {
+    const Byte size = nextByteCode();
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address srcAddress = *getRegister(addressReg);
+
+    pushStackBytes(memory.getBytes(srcAddress, size), size);
+}
+
+
+void Processor::handle_push_const() {
+    const Byte size = nextByteCode();
+    const Byte* bytes = nextByteCode(size);
+
+    pushStackBytes(bytes, size);
+}
+
+
+void Processor::handle_push_addr_literal() {
+    const Byte size = nextByteCode();
+    const Address srcAddress = addressFromByteCode();
+
+    pushStackBytes(memory.getBytes(srcAddress, size), size);
+}
+
+
+void Processor::handle_pop_reg() {
+    const Registers destReg = byteToRegister(nextByteCode());
+    const Byte* bytes = popStackBytes(sizeof(uint64));
+    *getRegister(destReg) = *bytesToUint64(bytes);
+}
+
+
+void Processor::handle_pop_addr_in_reg() {
+    const Byte size = nextByteCode();
+    const Registers addressReg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(addressReg);
+
+    memory.setBytes(destAddress, popStackBytes(size), size);
+}
+
+
+void Processor::handle_pop_addr_literal() {
+    const Byte size = nextByteCode();
+    const Address destAddress = addressFromByteCode();
+
+    memory.setBytes(destAddress, popStackBytes(size), size);
+}
+
+
+void Processor::handle_jump() {
+    *getRegister(Registers::PROGRAM_COUNTER) = addressFromByteCode();
+}
+
+
+void Processor::handle_jump_if_true_reg() {
+    const Address target = addressFromByteCode();
+    const Registers testReg = byteToRegister(nextByteCode());
+
+    if (*getRegister(testReg)) {
+        *getRegister(Registers::PROGRAM_COUNTER) = target;
+    }
+}
+
+
+void Processor::handle_jump_if_false_reg() {
+    const Address target = addressFromByteCode();
+    const Registers testReg = byteToRegister(nextByteCode());
+
+    if (!*getRegister(testReg)) {
+        *getRegister(Registers::PROGRAM_COUNTER) = target;
+    }
+}
+
+
+void Processor::handle_compare_reg_reg() {
+    const Registers reg1 = byteToRegister(nextByteCode());
+    const Registers reg2 = byteToRegister(nextByteCode());
+
+    setArithmeticalFlags(*getRegister(reg1) - *getRegister(reg2), 0);
+}
+
+
+void Processor::handle_compare_reg_const() {
+    const Byte size = nextByteCode();
+    const Registers reg = byteToRegister(nextByteCode());
+    const uint64 value = *bytesToUint64(nextByteCode(size));
+
+    setArithmeticalFlags(*getRegister(reg) - value, 0);
+}
+
+
+void Processor::handle_compare_const_reg() {
+    const Byte size = nextByteCode();
+    const uint64 value = *bytesToUint64(nextByteCode(size));
+    const Registers reg = byteToRegister(nextByteCode());
+    
+    setArithmeticalFlags(value - *getRegister(reg), 0);
+}
+
+
+void Processor::handle_compare_const_const() {
+    const Byte size = nextByteCode();
+    const uint64 value1 = *bytesToUint64(nextByteCode(size));
+    const uint64 value2 = *bytesToUint64(nextByteCode(size));
+    
+    setArithmeticalFlags(value1 - value2, 0);
+}
+
+
+void Processor::handle_print() {
+    const uint64 value = *getRegister(Registers::PRINT);
+    std::cout << value;
+    std::flush(std::cout);
+}
+
+
+void Processor::handle_print_string() {
+    Address srcAddress = *getRegister(Registers::PRINT);
+    for (
+        Byte byte = memory.getByte(srcAddress);
+        byte != 0;
+        byte = memory.getByte(++srcAddress)
+    ) {
+        std::cout << (char) byte;
+    }
+    std::flush(std::cout);
 }
 

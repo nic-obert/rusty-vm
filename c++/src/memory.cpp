@@ -1,4 +1,5 @@
 #include "memory.hh"
+#include <string.h>
 
 
 using namespace memory;
@@ -23,9 +24,7 @@ void Memory::setByte(Address address, Byte data) {
 
 
 void Memory::setBytes(Address address, const Byte* data, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        this->stack[address + i] = data[i];
-    }
+    memcpy(this->stack + address, data, size);
 }
 
 
@@ -36,9 +35,7 @@ Byte Memory::getByte(Address address) const {
 
 const Byte* Memory::getBytes(Address address, size_t size) const {
     Byte* data = new Byte[size];
-    for (size_t i = 0; i < size; i++) {
-        data[i] = this->stack[address + i];
-    }
+    memcpy(data, this->stack + address, size);
     return data;
 }
 

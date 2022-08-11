@@ -42,6 +42,7 @@ namespace processor {
 
             Byte nextByteCode();
             const Byte* nextByteCode(Byte size);
+            Address addressFromByteCode();
 
             void pushStack(uint64 value);
             void pushStackBytes(const Byte* bytes, size_t size);
@@ -55,6 +56,7 @@ namespace processor {
             void decrementUnsigned(Byte* bytes, Byte size);
 
             void moveBytesIntoRegister(const Byte* bytes, Byte size, Registers reg);
+            void moveRegisterIntoAddress(const Registers reg, const Address address, const Byte size);
 
             void run();
             void runVerbose();

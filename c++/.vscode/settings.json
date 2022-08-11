@@ -3,6 +3,9 @@
     "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools",
     "files.associations": {
         "*.pde": "pde",
-        "stdexcept": "cpp"
+        "stdexcept": "cpp",
+        "ostream": "cpp",
+        "*.tcc": "cpp",
+        "iostream": "cpp"
     }
 }
