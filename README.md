@@ -1,6 +1,6 @@
 # **Virtual Machine**
 
-A simple virtual machine and related tools created in Python.  
+A simple virtual machine and related tools created in Python (I'm currently translating it into C++).  
 The toolchain includes:
 - the virtual machine
 - the assembler
