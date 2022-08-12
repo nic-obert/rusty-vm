@@ -313,7 +313,7 @@ void Processor::handle_no_operation() {
 }
 
 
-void Processor::handle_move_reg_reg() {
+void Processor::handle_move_into_reg_from_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     const Registers srcReg = byteToRegister(nextByteCode());
     *getRegister(destReg) = *getRegister(srcReg);
@@ -340,7 +340,7 @@ void Processor::moveBytesIntoRegister(const Byte* bytes, Byte size, Registers de
 }
 
 
-void Processor::handle_move_reg_addr_in_reg() {
+void Processor::handle_move_into_reg_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Registers addressReg = byteToRegister(nextByteCode());
@@ -351,7 +351,7 @@ void Processor::handle_move_reg_addr_in_reg() {
 }
 
 
-void Processor::handle_move_reg_const() {
+void Processor::handle_move_into_reg_from_const() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Byte* bytes = nextByteCode(size);
@@ -360,7 +360,7 @@ void Processor::handle_move_reg_const() {
 }
 
 
-void Processor::handle_move_reg_addr_literal() {
+void Processor::handle_move_into_reg_from_addr_literal() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Address srcAddress = addressFromByteCode();
@@ -392,7 +392,7 @@ void Processor::moveRegisterIntoAddress(const Registers srcReg, const Address de
 }
 
 
-void Processor::handle_move_addr_in_reg_reg() {
+void Processor::handle_move_into_addr_in_reg_from_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Registers srcReg = byteToRegister(nextByteCode());
@@ -402,7 +402,7 @@ void Processor::handle_move_addr_in_reg_reg() {
 }
 
 
-void Processor::handle_move_addr_in_reg_const() {
+void Processor::handle_move_into_addr_in_reg_from_const() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(addressReg);
@@ -412,7 +412,7 @@ void Processor::handle_move_addr_in_reg_const() {
 }
 
 
-void Processor::handle_move_addr_in_reg_addr_literal() {
+void Processor::handle_move_into_addr_in_reg_from_addr_literal() {
     const Byte size = nextByteCode();
     const Registers reg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(reg);
@@ -422,7 +422,7 @@ void Processor::handle_move_addr_in_reg_addr_literal() {
 }
 
 
-void Processor::handle_move_addr_literal_reg() {
+void Processor::handle_move_into_addr_literal_from_reg() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Registers srcReg = byteToRegister(nextByteCode());
@@ -431,7 +431,7 @@ void Processor::handle_move_addr_literal_reg() {
 }
 
 
-void Processor::handle_move_addr_literal_addr_in_reg() {
+void Processor::handle_move_into_addr_literal_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
@@ -441,7 +441,7 @@ void Processor::handle_move_addr_literal_addr_in_reg() {
 }
 
 
-void Processor::handle_move_addr_literal_const() {
+void Processor::handle_move_into_addr_literal_from_const() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Byte* bytes = nextByteCode(size);
@@ -450,7 +450,7 @@ void Processor::handle_move_addr_literal_const() {
 }
 
 
-void Processor::handle_move_addr_literal_addr_literal() {
+void Processor::handle_move_into_addr_literal_from_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Address srcAddress = addressFromByteCode();
@@ -459,13 +459,13 @@ void Processor::handle_move_addr_literal_addr_literal() {
 }
 
 
-void Processor::handle_push_reg() {
+void Processor::handle_push_from_reg() {
     const Registers srcReg = byteToRegister(nextByteCode());
     pushStack(*getRegister(srcReg));
 }
 
 
-void Processor::handle_push_addr_in_reg() {
+void Processor::handle_push_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address srcAddress = *getRegister(addressReg);
@@ -474,7 +474,7 @@ void Processor::handle_push_addr_in_reg() {
 }
 
 
-void Processor::handle_push_const() {
+void Processor::handle_push_from_const() {
     const Byte size = nextByteCode();
     const Byte* bytes = nextByteCode(size);
 
@@ -482,7 +482,7 @@ void Processor::handle_push_const() {
 }
 
 
-void Processor::handle_push_addr_literal() {
+void Processor::handle_push_from_addr_literal() {
     const Byte size = nextByteCode();
     const Address srcAddress = addressFromByteCode();
 
@@ -490,14 +490,14 @@ void Processor::handle_push_addr_literal() {
 }
 
 
-void Processor::handle_pop_reg() {
+void Processor::handle_pop_into_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     const Byte* bytes = popStackBytes(sizeof(uint64));
     *getRegister(destReg) = *bytesToUint64(bytes);
 }
 
 
-void Processor::handle_pop_addr_in_reg() {
+void Processor::handle_pop_into_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(addressReg);
@@ -506,7 +506,7 @@ void Processor::handle_pop_addr_in_reg() {
 }
 
 
-void Processor::handle_pop_addr_literal() {
+void Processor::handle_pop_into_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
 

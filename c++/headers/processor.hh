@@ -79,27 +79,27 @@ namespace processor {
 
             void handle_no_operation();
 
-            void handle_move_reg_reg();
-            void handle_move_reg_addr_in_reg();
-            void handle_move_reg_const();
-            void handle_move_reg_addr_literal();
-            void handle_move_addr_in_reg_reg();
-            void handle_move_addr_in_reg_addr_in_reg();
-            void handle_move_addr_in_reg_const();
-            void handle_move_addr_in_reg_addr_literal();
-            void handle_move_addr_literal_reg();
-            void handle_move_addr_literal_addr_in_reg();
-            void handle_move_addr_literal_const();
-            void handle_move_addr_literal_addr_literal();
+            void handle_move_into_reg_from_reg();
+            void handle_move_into_reg_from_addr_in_reg();
+            void handle_move_into_reg_from_const();
+            void handle_move_into_reg_from_addr_literal();
+            void handle_move_into_addr_in_reg_from_reg();
+            void handle_move_into_addr_in_reg_from_addr_in_reg();
+            void handle_move_into_addr_in_reg_from_const();
+            void handle_move_into_addr_in_reg_from_addr_literal();
+            void handle_move_into_addr_literal_from_reg();
+            void handle_move_into_addr_literal_from_addr_in_reg();
+            void handle_move_into_addr_literal_from_const();
+            void handle_move_into_addr_literal_from_addr_literal();
 
-            void handle_push_reg();
-            void handle_push_addr_in_reg();
-            void handle_push_const();
-            void handle_push_addr_literal();
+            void handle_push_from_reg();
+            void handle_push_from_addr_in_reg();
+            void handle_push_from_const();
+            void handle_push_from_addr_literal();
 
-            void handle_pop_reg();
-            void handle_pop_addr_in_reg();
-            void handle_pop_addr_literal();
+            void handle_pop_into_reg();
+            void handle_pop_into_addr_in_reg();
+            void handle_pop_into_addr_literal();
 
             // Labels don't get handled
 
@@ -142,27 +142,27 @@ namespace processor {
 
                 handle_no_operation,
 
-                handle_move_reg_reg,
-                handle_move_reg_addr_in_reg,
-                handle_move_reg_const,
-                handle_move_reg_addr_literal,
-                handle_move_addr_in_reg_reg,
-                handle_move_addr_in_reg_addr_in_reg,
-                handle_move_addr_in_reg_const,
-                handle_move_addr_in_reg_addr_literal,
-                handle_move_addr_literal_reg,
-                handle_move_addr_literal_addr_in_reg,
-                handle_move_addr_literal_const,
-                handle_move_addr_literal_addr_literal,
+                handle_move_into_reg_from_reg,
+                handle_move_into_reg_from_addr_in_reg,
+                handle_move_into_reg_from_const,
+                handle_move_into_reg_from_addr_literal,
+                handle_move_into_addr_in_reg_from_reg,
+                handle_move_into_addr_in_reg_from_addr_in_reg,
+                handle_move_into_addr_in_reg_from_const,
+                handle_move_into_addr_in_reg_from_addr_literal,
+                handle_move_into_addr_literal_from_reg,
+                handle_move_into_addr_literal_from_addr_in_reg,
+                handle_move_into_addr_literal_from_const,
+                handle_move_into_addr_literal_from_addr_literal,
 
-                handle_push_reg,
-                handle_push_addr_in_reg,
-                handle_push_const,
-                handle_push_addr_literal,
+                handle_push_from_reg,
+                handle_push_from_addr_in_reg,
+                handle_push_from_const,
+                handle_push_from_addr_literal,
 
-                handle_pop_reg,
-                handle_pop_addr_in_reg,
-                handle_pop_addr_literal,
+                handle_pop_into_reg,
+                handle_pop_into_addr_in_reg,
+                handle_pop_into_addr_literal,
 
                 nullptr, // Labels don't get handled
 
