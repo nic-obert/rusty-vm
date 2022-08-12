@@ -6,6 +6,9 @@ The toolchain includes:
 - the assembler
 - the disassembler
   
+This is just an amateur project and should not be used in a production environment.
+There are a few known vulnerabilities, plus it's not very efficient.
+
 ---
 
 ## Table of contents
