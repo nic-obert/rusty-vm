@@ -1,9 +1,11 @@
 #pragma once
 
+#include "utils.hh"
+
 
 namespace error {
 
-    enum class ErrorCodes : unsigned char {
+    enum class ErrorCodes : Byte {
 
         NO_ERROR,
 

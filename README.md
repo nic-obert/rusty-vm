@@ -32,6 +32,9 @@ The toolchain includes:
       - [`nop`](#nop)
     - [Memory instructions](#memory-instructions)
       - [`mov`](#mov)
+  - [Byte Code instructions](#byte-code-instructions)
+    - [Arithmetical operations](#arithmetical-operations)
+      - [`add`](#add-1)
 
 
 <br>
@@ -204,3 +207,14 @@ nop
 Copy the value stored in 
 
 
+## Byte Code instructions
+
+These are the byte code instructions that the virtual machine executes. 
+Each instruction is uniquely identified and represented by a 1-byte unisgned integer code.
+The instruction arguments are stored in the memory following the instruction code.
+
+### Arithmetical operations
+
+#### `add`
+
+(work in progress)

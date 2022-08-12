@@ -1,9 +1,12 @@
 #include "processor.hh"
+#include "errors.hh"
 #include <stdexcept>
 #include <iostream>
+#include <limits>
 
 
 using namespace processor;
+using namespace error;
 
 
 Address Processor::addressFromByteCode() {
@@ -588,5 +591,65 @@ void Processor::handle_print_string() {
         std::cout << (char) byte;
     }
     std::flush(std::cout);
+}
+
+
+void Processor::handle_input_int() {
+    std::cin >> *getRegister(Registers::INPUT);
+
+    if (std::cin.eof()) {
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::END_OF_FILE);
+        return;
+    }
+    
+    if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::INVALID_INPUT);
+        return;
+    }
+
+    if (std::cin.bad()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::GENERIC_ERROR);
+        return;
+    }
+
+    *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::NO_ERROR);
+}
+
+
+void Processor::handle_input_string() {
+    std::string input;
+    std::getline(std::cin, input);
+
+    if (std::cin.eof()) {
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::END_OF_FILE);
+        return;
+    }
+
+    if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::INVALID_INPUT);
+        return;
+    }
+
+    if (std::cin.bad()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::GENERIC_ERROR);
+        return;
+    }
+
+    *getRegister(Registers::ERROR) = static_cast<uint64>(ErrorCodes::NO_ERROR);
+    *getRegister(Registers::INPUT) = static_cast<uint64>(input.size());
+    pushStackBytes((const Byte*) input.c_str(), input.size());
+}
+
+
+void Processor::handle_exit() {
+    running = false;
 }
 

@@ -375,6 +375,7 @@ class Processor:
     def handle_input_int(self) -> None:
         try:
             self.registers[Registers.INPUT] = int(input())
+            self.registers[Registers.ERROR] = Errors.NO_ERROR
         except ValueError:
             self.registers[Registers.ERROR] = Errors.INVALID_INPUT
         except EOFError:
@@ -386,6 +387,10 @@ class Processor:
     def handle_input_string(self) -> None:
         try:
             data = input().encode('utf-8')
+            self.push_stack_bytes(data)
+            self.registers[Registers.INPUT] = len(data)
+            self.registers[Registers.ERROR] = Errors.NO_ERROR
+
         except EOFError:
             self.registers[Registers.ERROR] = Errors.END_OF_FILE
             return
@@ -395,9 +400,6 @@ class Processor:
         except:
             self.registers[Registers.ERROR] = Errors.GENERIC_ERROR
             return
-
-        self.push_stack_bytes(data)
-        self.registers[Registers.INPUT] = len(data)
 
 
     def handle_exit(self) -> None:
