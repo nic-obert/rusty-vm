@@ -10,11 +10,13 @@ namespace memory {
 
     class Memory {
         private:
-            size_t size;
+            size_t stackSize;
+            size_t videoSize;
             Byte* stack = nullptr;
+            Byte* video = nullptr;
 
         public:
-            Memory(size_t size);
+            Memory(size_t stackSize, size_t videoSize);
             Memory() = delete;
             ~Memory();
 

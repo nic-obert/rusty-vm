@@ -187,7 +187,7 @@ namespace processor {
 
         public:
 
-            Processor(size_t memorySize);
+            Processor(size_t stackSize, size_t videoSize);
             Processor() = delete;
             ~Processor();
 

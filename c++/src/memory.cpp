@@ -5,16 +5,18 @@
 using namespace memory;
 
 
-Memory::Memory(size_t size)
-{
-    this->size = size;
-    this->stack = new Byte[size];
+Memory::Memory(size_t stackSize, size_t videoSize) {
+    this->stackSize = stackSize;
+    this->videoSize = videoSize;
+    this->stack = new Byte[this->stackSize];
+    this->video = new Byte[this->videoSize];
 }
 
 
 Memory::~Memory()
 {
     delete[] this->stack;
+    delete[] this->video;
 }
 
 

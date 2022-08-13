@@ -73,8 +73,8 @@ constexpr inline uint8* bytesToUint8(const Byte* bytes) {
 }
 
 
-Processor::Processor(size_t memorySize) :
-    memory(memorySize)
+Processor::Processor(size_t stackSize, size_t videoSize)
+: memory(stackSize, videoSize) 
 {
 
 }
