@@ -135,7 +135,7 @@ Byte Processor::nextByteCode() {
 }
 
 
-void Processor::execute(Byte* byteCode, size_t size, bool verbose) {
+ErrorCodes Processor::execute(Byte* byteCode, size_t size, bool verbose) {
     // Load the byte code into memory
     pushStackBytes(byteCode, size);
 
@@ -146,7 +146,8 @@ void Processor::execute(Byte* byteCode, size_t size, bool verbose) {
         run();
     }
 
-    // TODO: implement exiting from the program
+    // Return the error code of the program at exit
+    return static_cast<ErrorCodes>(*getRegister(Registers::EXIT));
 }
 
 

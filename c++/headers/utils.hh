@@ -18,7 +18,8 @@ typedef char int8;
 /*
     Try to load a file into memory.
     Returns the size of the file in bytes if successful.
-    Returns 0 if the file could not be loaded or is empty.
+    Errors if file is not found or could not be read.
+    Errors if file is empty.
 */
-size_t loadFileBytes(const char* path, Byte* content);
+size_t loadFileBytes(const char* path, Byte** content);
 

@@ -4,6 +4,7 @@
 #include "utils.hh"
 #include "memory.hh"
 #include "byte_code.hh"
+#include "errors.hh"
 
 
 using namespace registers;
@@ -191,7 +192,7 @@ namespace processor {
             Processor() = delete;
             ~Processor();
 
-            void execute(Byte* byteCode, size_t size, bool verbose = false);
+            error::ErrorCodes execute(Byte* byteCode, size_t size, bool verbose = false);
 
     };
 

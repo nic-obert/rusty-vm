@@ -3,6 +3,8 @@
 
 
 using namespace argparser;
+using namespace processor;
+using namespace error;
 
 
 typedef struct Options {
@@ -49,8 +51,14 @@ int main(int argc, char** argv) {
     Parser parser = createParser(options);
     parser.parse(argc, argv);
 
-    
+    Byte* byteCode;
+    size_t size = loadFileBytes(options.file_name, &byteCode);
 
+    Processor processor(options.stack_size, options.video_size);
+    ErrorCodes errorCode = processor.execute(byteCode, size, options.verbose);
 
+    std::cout << "Program exited with code: " << errorCode << std::endl;
+
+    return 0;
 }
     
