@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils.hh"
+#include "video.hh"
 
 
 namespace memory {
@@ -13,7 +14,7 @@ namespace memory {
             size_t stackSize;
             size_t videoSize;
             Byte* stack = nullptr;
-            Byte* video = nullptr;
+            video::Pixel* video = nullptr;
 
         public:
             Memory(size_t stackSize, size_t videoSize);
@@ -27,6 +28,12 @@ namespace memory {
             const Byte* getBytes(Address addrss, size_t size) const;
             Byte* getBytesMutable(Address address);
 
+            void setPixel(video::VAddress address, const video::Pixel& pixel);
+            void setPixels(video::VAddress address, const video::Pixel* pixels, size_t count);
+
+            video::Pixel getPixel(video::VAddress address) const;
+            const video::Pixel* getPixels(video::VAddress address, size_t count) const;
+            video::Pixel* getPixelsMutable(video::VAddress address);
     };
 
 }

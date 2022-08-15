@@ -64,127 +64,64 @@ namespace processor {
 
             // Instruction handlers
 
-            void handle_add();
-            void handle_sub();
-            void handle_mul();
-            void handle_div();
-            void handle_mod();
+            inline void handle_add();
+            inline void handle_sub();
+            inline void handle_mul();
+            inline void handle_div();
+            inline void handle_mod();
 
-            void handle_inc_reg();
-            void handle_inc_addr_in_reg();
-            void handle_inc_addr_literal();
+            inline void handle_inc_reg();
+            inline void handle_inc_addr_in_reg();
+            inline void handle_inc_addr_literal();
 
-            void handle_dec_reg();
-            void handle_dec_addr_in_reg();
-            void handle_dec_addr_literal();
+            inline void handle_dec_reg();
+            inline void handle_dec_addr_in_reg();
+            inline void handle_dec_addr_literal();
 
-            void handle_no_operation();
+            inline void handle_no_operation();
 
-            void handle_move_into_reg_from_reg();
-            void handle_move_into_reg_from_addr_in_reg();
-            void handle_move_into_reg_from_const();
-            void handle_move_into_reg_from_addr_literal();
-            void handle_move_into_addr_in_reg_from_reg();
-            void handle_move_into_addr_in_reg_from_addr_in_reg();
-            void handle_move_into_addr_in_reg_from_const();
-            void handle_move_into_addr_in_reg_from_addr_literal();
-            void handle_move_into_addr_literal_from_reg();
-            void handle_move_into_addr_literal_from_addr_in_reg();
-            void handle_move_into_addr_literal_from_const();
-            void handle_move_into_addr_literal_from_addr_literal();
+            inline void handle_move_into_reg_from_reg();
+            inline void handle_move_into_reg_from_addr_in_reg();
+            inline void handle_move_into_reg_from_const();
+            inline void handle_move_into_reg_from_addr_literal();
+            inline void handle_move_into_addr_in_reg_from_reg();
+            inline void handle_move_into_addr_in_reg_from_addr_in_reg();
+            inline void handle_move_into_addr_in_reg_from_const();
+            inline void handle_move_into_addr_in_reg_from_addr_literal();
+            inline void handle_move_into_addr_literal_from_reg();
+            inline void handle_move_into_addr_literal_from_addr_in_reg();
+            inline void handle_move_into_addr_literal_from_const();
+            inline void handle_move_into_addr_literal_from_addr_literal();
 
-            void handle_push_from_reg();
-            void handle_push_from_addr_in_reg();
-            void handle_push_from_const();
-            void handle_push_from_addr_literal();
+            inline void handle_push_from_reg();
+            inline void handle_push_from_addr_in_reg();
+            inline void handle_push_from_const();
+            inline void handle_push_from_addr_literal();
 
-            void handle_pop_into_reg();
-            void handle_pop_into_addr_in_reg();
-            void handle_pop_into_addr_literal();
+            inline void handle_pop_into_reg();
+            inline void handle_pop_into_addr_in_reg();
+            inline void handle_pop_into_addr_literal();
 
             // Labels don't get handled
 
-            void handle_jump();
-            void handle_jump_if_true_reg();
-            void handle_jump_if_false_reg();
+            inline void handle_jump();
+            inline void handle_jump_if_true_reg();
+            inline void handle_jump_if_false_reg();
 
-            void handle_compare_reg_reg(); 
-            void handle_compare_reg_const();
-            void handle_compare_const_reg();
-            void handle_compare_const_const();
+            inline void handle_compare_reg_reg(); 
+            inline void handle_compare_reg_const();
+            inline void handle_compare_const_reg();
+            inline void handle_compare_const_const();
 
-            void handle_print();
-            void handle_print_string();
+            inline void handle_print();
+            inline void handle_print_string();
 
-            void handle_input_int();
-            void handle_input_string();
+            inline void handle_input_int();
+            inline void handle_input_string();
 
-            void handle_exit();
+            inline void handle_exit();
 
-
-            typedef void (processor::Processor::*InstructionHandler)();
-
-            // Use constexpr to initialize the lookup table at compile time
-            static constexpr InstructionHandler const INSTRUCTION_HANDLERS[BYTE_CODES_COUNT] = {
-
-                handle_add,
-                handle_sub,
-                handle_mul,
-                handle_div,
-                handle_mod,
-
-                handle_inc_reg,
-                handle_inc_addr_in_reg,
-                handle_inc_addr_literal,
-
-                handle_dec_reg,
-                handle_dec_addr_in_reg,
-                handle_dec_addr_literal,
-
-                handle_no_operation,
-
-                handle_move_into_reg_from_reg,
-                handle_move_into_reg_from_addr_in_reg,
-                handle_move_into_reg_from_const,
-                handle_move_into_reg_from_addr_literal,
-                handle_move_into_addr_in_reg_from_reg,
-                handle_move_into_addr_in_reg_from_addr_in_reg,
-                handle_move_into_addr_in_reg_from_const,
-                handle_move_into_addr_in_reg_from_addr_literal,
-                handle_move_into_addr_literal_from_reg,
-                handle_move_into_addr_literal_from_addr_in_reg,
-                handle_move_into_addr_literal_from_const,
-                handle_move_into_addr_literal_from_addr_literal,
-
-                handle_push_from_reg,
-                handle_push_from_addr_in_reg,
-                handle_push_from_const,
-                handle_push_from_addr_literal,
-
-                handle_pop_into_reg,
-                handle_pop_into_addr_in_reg,
-                handle_pop_into_addr_literal,
-
-                nullptr, // Labels don't get handled
-
-                handle_jump,
-                handle_jump_if_true_reg,
-                handle_jump_if_false_reg,
-
-                handle_compare_reg_reg, 
-                handle_compare_reg_const,
-                handle_compare_const_reg,
-                handle_compare_const_const,
-
-                handle_print,
-                handle_print_string,
-
-                handle_input_int,
-                handle_input_string,
-
-                handle_exit
-            };
-
+            inline void handle_instruction(Byte instruction);
 
         public:
 

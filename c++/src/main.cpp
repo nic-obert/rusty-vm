@@ -45,7 +45,7 @@ static Parser createParser(Options& options) {
 }
 
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
     
     Options options;
     Parser parser = createParser(options);

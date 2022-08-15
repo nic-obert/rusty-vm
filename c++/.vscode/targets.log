@@ -1,6 +1,4 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
-make: *** No rule to make target 'all'.  Stop.
-
 # GNU Make 4.3
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2020 Free Software Foundation, Inc.
@@ -8,10 +6,12 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Aug 11 08:02:49 2022
+# Make data base, printed on Mon Aug 15 09:20:52 2022
 
 # Variables
 
+# makefile (from 'Makefile', line 6)
+TARGET_DIR = target
 # environment
 GDK_BACKEND = x11
 # environment
@@ -24,6 +24,8 @@ SNAP_INSTANCE_KEY =
 TERMINATOR_DBUS_NAME = net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873
 # environment
 GNOME_KEYRING_CONTROL = /run/user/1000/keyring
+# makefile (from 'Makefile', line 4)
+SRC_DIR = src
 # environment
 LC_NAME = it_IT.UTF-8
 # environment
@@ -31,19 +33,21 @@ LC_NUMERIC = it_IT.UTF-8
 # environment
 VSCODE_CWD = /home/nic/dev/virtual-machine/c++
 # environment
-TERMINATOR_UUID = urn:uuid:75f2ee0a-5e19-4753-b534-dbaa328923a7
+TERMINATOR_UUID = urn:uuid:8945b534-a667-431f-b1ab-a7522e0d4abb
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
 MAKE_COMMAND := make
 # environment
 GTK3_MODULES = xapp-gtk3-module:xapp-gtk3-module
+# makefile (from 'Makefile', line 2)
+STD = c++17
 # automatic
 @D = $(patsubst %/,%,$(dir $@))
 # environment
 SNAP_INSTANCE_NAME = code
 # environment
-GDK_PIXBUF_MODULEDIR = /snap/code/103/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+GDK_PIXBUF_MODULEDIR = /snap/code/104/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
@@ -63,7 +67,7 @@ OLDPWD = /home/nic/dev/virtual-machine
 # automatic
 %F = $(notdir $%)
 # environment
-VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/da76f93349a72022ca4670c1b84860304616aaa2
+VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/6d9b74a70ca9c7733b29f0456fd8195364076dda
 # environment
 XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session2
 # environment
@@ -102,8 +106,10 @@ MAKEFILE_LIST := Makefile
 SNAP_REEXEC = 
 # automatic
 @F = $(notdir $@)
+# makefile (from 'Makefile', line 15)
+WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 34176
+VSCODE_PID = 79110
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -128,6 +134,8 @@ MAKE_HOST := x86_64-pc-linux-gnu
 SHELL = /bin/sh
 # default
 MAKECMDGOALS := all
+# makefile (from 'Makefile', line 10)
+HEADERS = $(shell find $(HEADHER_DIR) -type f -name "*.hh")
 # environment
 SHLVL = 2
 # environment
@@ -151,9 +159,9 @@ SNAP_USER_COMMON = /home/nic/snap/code/common
 # environment
 LC_TIME = it_IT.UTF-8
 # environment
-SNAP = /snap/code/103
+SNAP = /snap/code/104
 # environment
-SNAP_REVISION = 103
+SNAP_REVISION = 104
 # environment
 SNAP_REAL_HOME = /home/nic
 # environment
@@ -178,12 +186,14 @@ GNUMAKEFLAGS :=
 BROWSER = firefox
 # environment
 LOGNAME = nic
+# makefile (from 'Makefile', line 14)
+C_FLAGS = -std=$(STD) -I $(HEADER_DIR)
 # environment
 SNAP_ARCH = amd64
 # environment
 XDG_VTNR = 1
 # makefile
-.DEFAULT_GOAL := 
+.DEFAULT_GOAL := all
 # environment
 HISTCONTROL = ignoreboth:erasedups
 # environment
@@ -196,10 +206,14 @@ GTK_MODULES = canberra-gtk-module:canberra-gtk-module
 USER = nic
 # default
 MAKE_VERSION := 4.3
+# makefile (from 'Makefile', line 5)
+HEADER_DIR = headers
+# 'override' directive
+.SHELLSTATUS := 0
 # environment
 DISABLE_WAYLAND = 1
 # environment
-SNAP_DATA = /var/snap/code/103
+SNAP_DATA = /var/snap/code/104
 # environment
 SNAP_CONTEXT = HyJwN_zxXHTbFQUSxu6dPO3flayKUQNtFsGPb7ovM-4NnA8kg4x-
 # environment
@@ -229,13 +243,13 @@ HOME = /home/nic
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.70.0-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.70.1-main.sock
 # environment
 TERM = xterm-256color
 # environment
 SNAP_NAME = code
 # environment
-GSETTINGS_SCHEMA_DIR = /snap/code/103/usr/share/glib-2.0/schemas
+GSETTINGS_SCHEMA_DIR = /snap/code/104/usr/share/glib-2.0/schemas
 # environment
 XDG_SESSION_ID = 2
 # default
@@ -243,9 +257,11 @@ XDG_SESSION_ID = 2
 # automatic
 <F = $(notdir $<)
 # environment
-SNAP_VERSION = da76f933
+SNAP_VERSION = 6d9b74a7
 # default
 SUFFIXES := 
+# makefile (from 'Makefile', line 11)
+TARGET = $(TARGET_DIR)/vm
 # environment
 VSCODE_CLI = 1
 # environment
@@ -256,8 +272,12 @@ VTE_VERSION = 6800
 SNAP_COMMON = /var/snap/code/common
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell nocomment grouped-target extra-prereqs archives jobserver output-sync check-symlink guile load
+# makefile (from 'Makefile', line 1)
+CC = g++
+# makefile (from 'Makefile', line 9)
+SOURCES = $(shell find $(SRC_DIR) -type f -name "*.cpp")
 # environment
-SNAP_USER_DATA = /home/nic/snap/code/103
+SNAP_USER_DATA = /home/nic/snap/code/104
 # environment
 XDG_MENU_PREFIX = xfce-
 # environment
@@ -265,7 +285,7 @@ LC_IDENTIFICATION = it_IT.UTF-8
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
 # variable set hash-table stats:
-# Load=126/1024=12%, Rehash=0, Collisions=7/155=5%
+# Load=137/1024=13%, Rehash=0, Collisions=9/212=4%
 
 # Pattern-specific Variable Values
 
@@ -273,9 +293,9 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # Directories
 
-# . (device 2050, inode 668066): 6 files, no impossibilities.
+# . (device 2050, inode 668066): 7 files, no impossibilities.
 
-# 6 files, no impossibilities in 1 directories.
+# 7 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -284,7 +304,121 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 # Files
 
 # Not a target:
+src/utils.cpp:
+#  Implicit rule search has been done.
+ 
+#  Last modified 2022-08-14 09:20:21.53580285
+#  File has been updated.
+#  Successfully updated.
+
+# 'override' directive
+target/vm: .SHELLSTATUS := 0
+target/vm: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+#  Implicit rule search has not been done.
+#  Implicit/static pattern stem: ''
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := target/vm
+# automatic
+# * := 
+# automatic
+# < := src/main.cpp
+# automatic
+# + := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# automatic
+# % := 
+# automatic
+# ^ := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# automatic
+# ? := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# automatic
+# | := 
+# variable set hash-table stats:
+# Load=9/32=28%, Rehash=0, Collisions=4/24=17%
+#  recipe to execute (from 'Makefile', line 26):
+	time -f "\nTime elapsed: %E seconds" $(CC) $(C_FLAGS) $(WARNINGS) $(SOURCES) -O3 -o $(TARGET)
+
+# Not a target:
+headers/processor.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:27:25.222561622
+#  File has been updated.
+#  Successfully updated.
+
+count:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 38):
+	find . -name '*.cpp' -o -name '*.hh' | xargs wc -l | sort -nr
+
+# Not a target:
+headers/argparser.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-13 15:34:21.970496389
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+headers/registers.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-11 08:01:39.820396708
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+src/registers.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-11 08:01:39.820396708
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
 Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-15 09:18:17.685317267
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+src/main.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:32:02.075995318
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+headers/errors.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:32:25.752670274
+#  File has been updated.
+#  Successfully updated.
+
+clean:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 34):
+	rm -f $(TARGET)
+
+# Not a target:
+src/argparser.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:09:43.915748505
+#  File has been updated.
+#  Successfully updated.
+
+builddb: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 30):
+	time -f "\nTime elapsed: %E seconds" $(CC) -g $(C_FLAGS) $(WARNINGS) $(SOURCES) -o $(TARGET)
+
+# Not a target:
+src/byte_code.cpp:
 #  Implicit rule search has been done.
 #  Last modified 2022-08-11 08:01:39.820396708
 #  File has been updated.
@@ -294,30 +428,94 @@ Makefile:
 .DEFAULT:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
- 
 #  File has not been updated.
 
 # Not a target:
-all:
+headers/video.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-15 09:04:39.135589146
+#  File has been updated.
+#  Successfully updated.
+
+all: target/vm
 #  Command line target.
 #  Implicit rule search has been done.
 #  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/15=0%
+
+# Not a target:
+src/memory.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-15 09:05:08.925573832
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+headers/byte_code.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-11 08:01:39.820396708
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+headers/memory.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-15 09:03:59.368943128
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+src/errors.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:31:12.939311346
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+src/processor.cpp:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:28:31.505919536
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+headers/utils.hh:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-14 09:21:51.629103744
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
 #  File has not been updated.
 
+target:
+#  Implicit rule search has not been done.
+#  Last modified 2022-08-15 09:14:54.955285644
+#  File has been updated.
+#  Successfully updated.
+#  recipe to execute (from 'Makefile', line 22):
+	mkdir -p $(TARGET_DIR)
+
 # files hash-table stats:
-# Load=4/1024=0%, Rehash=0, Collisions=0/14=0%
+# Load=25/1024=2%, Rehash=0, Collisions=0/73=0%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 11 / storage = 89 B / avg = 8 B
-# current buf: size = 8162 B / used = 89 B / count = 11 / avg = 8 B
+# strcache buffers: 1 (0) / strings = 32 / storage = 409 B / avg = 12 B
+# current buf: size = 8162 B / used = 409 B / count = 32 / avg = 12 B
 
-# strcache performance: lookups = 15 / hit rate = 26%
+# strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
-# Load=11/8192=0%, Rehash=0, Collisions=0/15=0%
-# Finished Make data base on Thu Aug 11 08:02:49 2022
+# Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
+# Finished Make data base on Mon Aug 15 09:20:52 2022
 
  

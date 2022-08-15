@@ -9,11 +9,6 @@ using namespace processor;
 using namespace error;
 
 
-Address Processor::addressFromByteCode() {
-    return *bytesToUint64(nextByteCode(sizeof(Address)));
-}
-
-
 constexpr inline Registers byteToRegister(Byte byte) {
     return static_cast<Registers>(byte);
 }
@@ -42,34 +37,25 @@ inline Byte* uint8ToBytes(const uint8* value) {
 }
 
 
-typedef Byte* (*UintToBytes)(void* value);
-static constexpr const UintToBytes UINT_TO_BYTES_TABLE[] = {
-    nullptr,                        // 0
-    (UintToBytes) uint8ToBytes,     // 1
-    (UintToBytes) uint16ToBytes,    // 2
-    nullptr,                        // 3
-    (UintToBytes) uint32ToBytes,    // 4
-    nullptr,                        // 5
-    nullptr,                        // 6
-    nullptr,                        // 7
-    (UintToBytes) uint64ToBytes,    // 8
-};
-
-
-constexpr inline uint64* bytesToUint64(const Byte* bytes) {
+inline uint64* bytesToUint64(const Byte* bytes) {
     return (uint64*)bytes;
 }
 
-constexpr inline uint32* bytesToUint32(const Byte* bytes) {
+inline uint32* bytesToUint32(const Byte* bytes) {
     return (uint32*)bytes;
 }
 
-constexpr inline uint16* bytesToUint16(const Byte* bytes) {
+inline uint16* bytesToUint16(const Byte* bytes) {
     return (uint16*)bytes;
 }
 
-constexpr inline uint8* bytesToUint8(const Byte* bytes) {
+inline uint8* bytesToUint8(const Byte* bytes) {
     return (uint8*)bytes;
+}
+
+
+Address Processor::addressFromByteCode() {
+    return *bytesToUint64(nextByteCode(sizeof(Address)));
 }
 
 
@@ -156,7 +142,7 @@ void Processor::run() {
 
         Byte opCode = nextByteCode();
 
-        (this->*INSTRUCTION_HANDLERS[opCode])();
+        handle_instruction(opCode);
 
         clearVolatileRegisters();
     }
@@ -171,45 +157,171 @@ void Processor::runVerbose() {
         std::cout << "PC: " << *getRegister(Registers::PROGRAM_COUNTER) << ", "
             << "opcode: " << (ByteCodes)opCode << std::endl;
 
-        (this->*INSTRUCTION_HANDLERS[opCode])();
+        handle_instruction(opCode);
 
         clearVolatileRegisters();
     }
 }
 
 
-void Processor::handle_add() {
+inline void Processor::handle_instruction(Byte instruction) {
+    switch (instruction) {
+        case static_cast<int>(ByteCodes::ADD):
+            handle_add();
+            break;
+        case static_cast<int>(ByteCodes::SUB):
+            handle_sub();
+            break;
+        case static_cast<int>(ByteCodes::MUL):
+            handle_mul();
+            break;
+        case static_cast<int>(ByteCodes::DIV):
+            handle_div();
+            break;
+        case static_cast<int>(ByteCodes::MOD):
+            handle_mod();
+            break;
+        case static_cast<int>(ByteCodes::INC_REG):
+            handle_inc_reg();
+            break;
+        case static_cast<int>(ByteCodes::INC_ADDR_IN_REG):
+            handle_inc_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::INC_ADDR_LITERAL):
+            handle_inc_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::DEC_REG):
+            handle_dec_reg();
+            break;
+        case static_cast<int>(ByteCodes::DEC_ADDR_IN_REG):
+            handle_dec_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::DEC_ADDR_LITERAL):
+            handle_dec_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::NO_OPERATION):
+            handle_no_operation();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_REG_FROM_REG):
+            handle_move_into_reg_from_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG):
+            handle_move_into_reg_from_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_REG_FROM_CONST):
+            handle_move_into_reg_from_const();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL):
+            handle_move_into_reg_from_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG):   
+            handle_move_into_addr_in_reg_from_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG):
+            handle_move_into_addr_in_reg_from_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST):
+            handle_move_into_addr_in_reg_from_const();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL):
+            handle_move_into_addr_in_reg_from_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG):
+            handle_move_into_addr_literal_from_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG):
+            handle_move_into_addr_literal_from_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST):
+            handle_move_into_addr_literal_from_const();
+            break;
+        case static_cast<int>(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL):
+            handle_move_into_addr_literal_from_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::PUSH_FROM_REG):
+            handle_push_from_reg();
+            break;
+        case static_cast<int>(ByteCodes::PUSH_FROM_ADDR_IN_REG):
+            handle_push_from_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::PUSH_FROM_CONST):
+            handle_push_from_const();
+            break;
+        case static_cast<int>(ByteCodes::PUSH_FROM_ADDR_LITERAL):
+            handle_push_from_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::POP_INTO_REG):
+            handle_pop_into_reg();
+            break;
+        case static_cast<int>(ByteCodes::POP_INTO_ADDR_IN_REG):
+            handle_pop_into_addr_in_reg();
+            break;
+        case static_cast<int>(ByteCodes::POP_INTO_ADDR_LITERAL):
+            handle_pop_into_addr_literal();
+            break;
+        case static_cast<int>(ByteCodes::JUMP):
+            handle_jump();
+            break;
+        case static_cast<int>(ByteCodes::JUMP_IF_TRUE_REG):
+            handle_jump_if_true_reg();
+            break;
+        case static_cast<int>(ByteCodes::JUMP_IF_FALSE_REG):
+            handle_jump_if_false_reg();
+            break;
+        case static_cast<int>(ByteCodes::COMPARE_REG_REG):
+            handle_compare_reg_reg();
+            break;
+        case static_cast<int>(ByteCodes::PRINT):
+            handle_print();
+            break;
+        case static_cast<int>(ByteCodes::PRINT_STRING):
+            handle_print_string();
+            break;
+        case static_cast<int>(ByteCodes::INPUT_INT):
+            handle_input_int();
+            break;
+        case static_cast<int>(ByteCodes::INPUT_STRING):
+            handle_input_string();
+            break;
+        case static_cast<int>(ByteCodes::EXIT):
+            handle_exit();
+            break;
+    }
+}
+
+
+inline void Processor::handle_add() {
     *getRegister(Registers::A) += *getRegister(Registers::B);
     setArithmeticalFlags(*getRegister(Registers::A), 0);
 }
 
 
-void Processor::handle_sub() {
+inline void Processor::handle_sub() {
     *getRegister(Registers::A) -= *getRegister(Registers::B);
     setArithmeticalFlags(*getRegister(Registers::A), 0);
 }
 
 
-void Processor::handle_mul() {
+inline void Processor::handle_mul() {
     *getRegister(Registers::A) *= *getRegister(Registers::B);
     setArithmeticalFlags(*getRegister(Registers::A), 0);
 }
 
 
-void Processor::handle_div() {
+inline void Processor::handle_div() {
     const uint64 remainder = *getRegister(Registers::A) % *getRegister(Registers::B);
     *getRegister(Registers::A) /= *getRegister(Registers::B);
     setArithmeticalFlags(*getRegister(Registers::A), remainder);
 }
 
 
-void Processor::handle_mod() {
+inline void Processor::handle_mod() {
     *getRegister(Registers::A) %= *getRegister(Registers::B);
     setArithmeticalFlags(*getRegister(Registers::A), 0);
 }
 
 
-void Processor::handle_inc_reg() {
+inline void Processor::handle_inc_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     (*getRegister(destReg)) ++;
     setArithmeticalFlags(*getRegister(destReg), 0);
@@ -264,7 +376,7 @@ void Processor::decrementUnsigned(Byte* bytes, Byte size) {
 }
 
 
-void Processor::handle_inc_addr_in_reg() {
+inline void Processor::handle_inc_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address address = *getRegister(addressReg);
@@ -274,7 +386,7 @@ void Processor::handle_inc_addr_in_reg() {
 }
 
 
-void Processor::handle_inc_addr_literal() {
+inline void Processor::handle_inc_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     Byte* bytes = memory.getBytesMutable(destAddress);
@@ -283,14 +395,14 @@ void Processor::handle_inc_addr_literal() {
 }
 
 
-void Processor::handle_dec_reg() {
+inline void Processor::handle_dec_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     (*getRegister(destReg)) --;
     setArithmeticalFlags(*getRegister(destReg), 0);
 }
 
 
-void Processor::handle_dec_addr_in_reg() {
+inline void Processor::handle_dec_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(addressReg);
@@ -300,7 +412,7 @@ void Processor::handle_dec_addr_in_reg() {
 }
 
 
-void Processor::handle_dec_addr_literal() {
+inline void Processor::handle_dec_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     Byte* bytes = memory.getBytesMutable(destAddress);
@@ -309,12 +421,12 @@ void Processor::handle_dec_addr_literal() {
 }
 
 
-void Processor::handle_no_operation() {
+inline void Processor::handle_no_operation() {
     // Do nothing
 }
 
 
-void Processor::handle_move_into_reg_from_reg() {
+inline void Processor::handle_move_into_reg_from_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     const Registers srcReg = byteToRegister(nextByteCode());
     *getRegister(destReg) = *getRegister(srcReg);
@@ -341,7 +453,7 @@ void Processor::moveBytesIntoRegister(const Byte* bytes, Byte size, Registers de
 }
 
 
-void Processor::handle_move_into_reg_from_addr_in_reg() {
+inline void Processor::handle_move_into_reg_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Registers addressReg = byteToRegister(nextByteCode());
@@ -352,7 +464,7 @@ void Processor::handle_move_into_reg_from_addr_in_reg() {
 }
 
 
-void Processor::handle_move_into_reg_from_const() {
+inline void Processor::handle_move_into_reg_from_const() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Byte* bytes = nextByteCode(size);
@@ -361,7 +473,7 @@ void Processor::handle_move_into_reg_from_const() {
 }
 
 
-void Processor::handle_move_into_reg_from_addr_literal() {
+inline void Processor::handle_move_into_reg_from_addr_literal() {
     const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
     const Address srcAddress = addressFromByteCode();
@@ -393,7 +505,7 @@ void Processor::moveRegisterIntoAddress(const Registers srcReg, const Address de
 }
 
 
-void Processor::handle_move_into_addr_in_reg_from_reg() {
+inline void Processor::handle_move_into_addr_in_reg_from_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Registers srcReg = byteToRegister(nextByteCode());
@@ -403,7 +515,7 @@ void Processor::handle_move_into_addr_in_reg_from_reg() {
 }
 
 
-void Processor::handle_move_into_addr_in_reg_from_const() {
+inline void Processor::handle_move_into_addr_in_reg_from_const() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(addressReg);
@@ -413,7 +525,7 @@ void Processor::handle_move_into_addr_in_reg_from_const() {
 }
 
 
-void Processor::handle_move_into_addr_in_reg_from_addr_literal() {
+inline void Processor::handle_move_into_addr_in_reg_from_addr_literal() {
     const Byte size = nextByteCode();
     const Registers reg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(reg);
@@ -423,7 +535,7 @@ void Processor::handle_move_into_addr_in_reg_from_addr_literal() {
 }
 
 
-void Processor::handle_move_into_addr_literal_from_reg() {
+inline void Processor::handle_move_into_addr_literal_from_reg() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Registers srcReg = byteToRegister(nextByteCode());
@@ -432,7 +544,7 @@ void Processor::handle_move_into_addr_literal_from_reg() {
 }
 
 
-void Processor::handle_move_into_addr_literal_from_addr_in_reg() {
+inline void Processor::handle_move_into_addr_literal_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
@@ -442,7 +554,7 @@ void Processor::handle_move_into_addr_literal_from_addr_in_reg() {
 }
 
 
-void Processor::handle_move_into_addr_literal_from_const() {
+inline void Processor::handle_move_into_addr_literal_from_const() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Byte* bytes = nextByteCode(size);
@@ -451,7 +563,7 @@ void Processor::handle_move_into_addr_literal_from_const() {
 }
 
 
-void Processor::handle_move_into_addr_literal_from_addr_literal() {
+inline void Processor::handle_move_into_addr_literal_from_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
     const Address srcAddress = addressFromByteCode();
@@ -460,13 +572,13 @@ void Processor::handle_move_into_addr_literal_from_addr_literal() {
 }
 
 
-void Processor::handle_push_from_reg() {
+inline void Processor::handle_push_from_reg() {
     const Registers srcReg = byteToRegister(nextByteCode());
     pushStack(*getRegister(srcReg));
 }
 
 
-void Processor::handle_push_from_addr_in_reg() {
+inline void Processor::handle_push_from_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address srcAddress = *getRegister(addressReg);
@@ -475,7 +587,7 @@ void Processor::handle_push_from_addr_in_reg() {
 }
 
 
-void Processor::handle_push_from_const() {
+inline void Processor::handle_push_from_const() {
     const Byte size = nextByteCode();
     const Byte* bytes = nextByteCode(size);
 
@@ -483,7 +595,7 @@ void Processor::handle_push_from_const() {
 }
 
 
-void Processor::handle_push_from_addr_literal() {
+inline void Processor::handle_push_from_addr_literal() {
     const Byte size = nextByteCode();
     const Address srcAddress = addressFromByteCode();
 
@@ -491,14 +603,14 @@ void Processor::handle_push_from_addr_literal() {
 }
 
 
-void Processor::handle_pop_into_reg() {
+inline void Processor::handle_pop_into_reg() {
     const Registers destReg = byteToRegister(nextByteCode());
     const Byte* bytes = popStackBytes(sizeof(uint64));
     *getRegister(destReg) = *bytesToUint64(bytes);
 }
 
 
-void Processor::handle_pop_into_addr_in_reg() {
+inline void Processor::handle_pop_into_addr_in_reg() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
     const Address destAddress = *getRegister(addressReg);
@@ -507,7 +619,7 @@ void Processor::handle_pop_into_addr_in_reg() {
 }
 
 
-void Processor::handle_pop_into_addr_literal() {
+inline void Processor::handle_pop_into_addr_literal() {
     const Byte size = nextByteCode();
     const Address destAddress = addressFromByteCode();
 
@@ -515,12 +627,12 @@ void Processor::handle_pop_into_addr_literal() {
 }
 
 
-void Processor::handle_jump() {
+inline void Processor::handle_jump() {
     *getRegister(Registers::PROGRAM_COUNTER) = addressFromByteCode();
 }
 
 
-void Processor::handle_jump_if_true_reg() {
+inline void Processor::handle_jump_if_true_reg() {
     const Address target = addressFromByteCode();
     const Registers testReg = byteToRegister(nextByteCode());
 
@@ -530,7 +642,7 @@ void Processor::handle_jump_if_true_reg() {
 }
 
 
-void Processor::handle_jump_if_false_reg() {
+inline void Processor::handle_jump_if_false_reg() {
     const Address target = addressFromByteCode();
     const Registers testReg = byteToRegister(nextByteCode());
 
@@ -540,7 +652,7 @@ void Processor::handle_jump_if_false_reg() {
 }
 
 
-void Processor::handle_compare_reg_reg() {
+inline void Processor::handle_compare_reg_reg() {
     const Registers reg1 = byteToRegister(nextByteCode());
     const Registers reg2 = byteToRegister(nextByteCode());
 
@@ -548,7 +660,7 @@ void Processor::handle_compare_reg_reg() {
 }
 
 
-void Processor::handle_compare_reg_const() {
+inline void Processor::handle_compare_reg_const() {
     const Byte size = nextByteCode();
     const Registers reg = byteToRegister(nextByteCode());
     const uint64 value = *bytesToUint64(nextByteCode(size));
@@ -557,7 +669,7 @@ void Processor::handle_compare_reg_const() {
 }
 
 
-void Processor::handle_compare_const_reg() {
+inline void Processor::handle_compare_const_reg() {
     const Byte size = nextByteCode();
     const uint64 value = *bytesToUint64(nextByteCode(size));
     const Registers reg = byteToRegister(nextByteCode());
@@ -566,7 +678,7 @@ void Processor::handle_compare_const_reg() {
 }
 
 
-void Processor::handle_compare_const_const() {
+inline void Processor::handle_compare_const_const() {
     const Byte size = nextByteCode();
     const uint64 value1 = *bytesToUint64(nextByteCode(size));
     const uint64 value2 = *bytesToUint64(nextByteCode(size));
@@ -575,14 +687,14 @@ void Processor::handle_compare_const_const() {
 }
 
 
-void Processor::handle_print() {
+inline void Processor::handle_print() {
     const uint64 value = *getRegister(Registers::PRINT);
     std::cout << value;
     std::flush(std::cout);
 }
 
 
-void Processor::handle_print_string() {
+inline void Processor::handle_print_string() {
     Address srcAddress = *getRegister(Registers::PRINT);
     for (
         Byte byte = memory.getByte(srcAddress);
@@ -595,7 +707,7 @@ void Processor::handle_print_string() {
 }
 
 
-void Processor::handle_input_int() {
+inline void Processor::handle_input_int() {
     std::cin >> *getRegister(Registers::INPUT);
 
     if (std::cin.eof()) {
@@ -621,7 +733,7 @@ void Processor::handle_input_int() {
 }
 
 
-void Processor::handle_input_string() {
+inline void Processor::handle_input_string() {
     std::string input;
     std::getline(std::cin, input);
 
@@ -650,7 +762,7 @@ void Processor::handle_input_string() {
 }
 
 
-void Processor::handle_exit() {
+inline void Processor::handle_exit() {
     running = false;
 }
 
