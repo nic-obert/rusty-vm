@@ -33,7 +33,7 @@ namespace registers {
     #define REGISTERS_COUNT static_cast<Byte>(Registers::ENUM_COUNT)
 
 
-    const char* getRegisterName(Registers reg);
+    constexpr const char* getRegisterName(Registers reg);
 
 
     Registers getRegisterByName(const char* name);

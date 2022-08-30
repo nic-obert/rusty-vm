@@ -88,10 +88,10 @@ namespace byte_code {
     #define BYTE_CODES_COUNT static_cast<Byte>(ByteCodes::ENUM_COUNT)
 
 
-    bool isJumpInstruction(ByteCodes instruction);
+    constexpr inline bool isJumpInstruction(ByteCodes instruction);
 
 
-    const char* getInstructionName(ByteCodes instruction);
+    constexpr inline const char* getInstructionName(ByteCodes instruction);
 
 }
 

@@ -32,7 +32,7 @@ constexpr inline const char* registers::getRegisterName(Registers reg) {
     return REGISTER_NAMES[static_cast<Byte>(reg)];
 }
 
-static const std::unordered_map<const char*, const Registers> const REGISTERS_TABLE = {
+static const std::unordered_map<const char*, const Registers> REGISTERS_TABLE = {
     {"A", Registers::A},
     {"B", Registers::B},
     {"C", Registers::C},
@@ -49,7 +49,7 @@ static const std::unordered_map<const char*, const Registers> const REGISTERS_TA
 };
 
 
-constexpr inline Registers registers::getRegisterByName(const char* name) {
+Registers registers::getRegisterByName(const char* name) {
     return REGISTERS_TABLE.at(name);
 }
 

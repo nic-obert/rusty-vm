@@ -5,8 +5,9 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
+ 
 
-# Make data base, printed on Mon Aug 15 09:20:52 2022
+# Make data base, printed on Tue Aug 30 14:43:41 2022
 
 # Variables
 
@@ -33,7 +34,7 @@ LC_NUMERIC = it_IT.UTF-8
 # environment
 VSCODE_CWD = /home/nic/dev/virtual-machine/c++
 # environment
-TERMINATOR_UUID = urn:uuid:8945b534-a667-431f-b1ab-a7522e0d4abb
+TERMINATOR_UUID = urn:uuid:6ffedf8c-7bb0-4931-8d94-0ddc328f3f7f
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -47,7 +48,7 @@ STD = c++17
 # environment
 SNAP_INSTANCE_NAME = code
 # environment
-GDK_PIXBUF_MODULEDIR = /snap/code/104/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+GDK_PIXBUF_MODULEDIR = /snap/code/105/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
@@ -67,9 +68,9 @@ OLDPWD = /home/nic/dev/virtual-machine
 # automatic
 %F = $(notdir $%)
 # environment
-VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/6d9b74a70ca9c7733b29f0456fd8195364076dda
+VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/e4503b30fc78200f846c62cf8091b76ff5547662
 # environment
-XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session2
+XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session1
 # environment
 LANG = C
 # environment
@@ -109,13 +110,13 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 79110
+VSCODE_PID = 206036
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/lenovo:@/tmp/.ICE-unix/1040,unix/lenovo:/tmp/.ICE-unix/1040
+SESSION_MANAGER = local/asus:@/tmp/.ICE-unix/1097,unix/asus:/tmp/.ICE-unix/1097
 # automatic
 *F = $(notdir $*)
 # environment
@@ -143,9 +144,9 @@ MAKELEVEL := 0
 # default
 MAKE = $(MAKE_COMMAND)
 # environment
-SNAP_COOKIE = HyJwN_zxXHTbFQUSxu6dPO3flayKUQNtFsGPb7ovM-4NnA8kg4x-
+SNAP_COOKIE = Z5GtT_QDaEbM9AadYKjH6jaJwOvOWYLmyKINqNhHG-ZXOtNMRJz2
 # environment
-PATH = /home/nic/.bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/var/lib/snapd/snap/bin
+PATH = /home/nic/.local/bin:/home/nic/.bin:/home/nic/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/var/lib/snapd/snap/bin
 # default
 MAKEFILES := 
 # environment
@@ -159,9 +160,9 @@ SNAP_USER_COMMON = /home/nic/snap/code/common
 # environment
 LC_TIME = it_IT.UTF-8
 # environment
-SNAP = /snap/code/104
+SNAP = /snap/code/105
 # environment
-SNAP_REVISION = 104
+SNAP_REVISION = 105
 # environment
 SNAP_REAL_HOME = /home/nic
 # environment
@@ -213,9 +214,9 @@ HEADER_DIR = headers
 # environment
 DISABLE_WAYLAND = 1
 # environment
-SNAP_DATA = /var/snap/code/104
+SNAP_DATA = /var/snap/code/105
 # environment
-SNAP_CONTEXT = HyJwN_zxXHTbFQUSxu6dPO3flayKUQNtFsGPb7ovM-4NnA8kg4x-
+SNAP_CONTEXT = Z5GtT_QDaEbM9AadYKjH6jaJwOvOWYLmyKINqNhHG-ZXOtNMRJz2
 # environment
 LC_MEASUREMENT = it_IT.UTF-8
 # environment
@@ -243,13 +244,13 @@ HOME = /home/nic
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.70.1-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.70.2-main.sock
 # environment
 TERM = xterm-256color
 # environment
 SNAP_NAME = code
 # environment
-GSETTINGS_SCHEMA_DIR = /snap/code/104/usr/share/glib-2.0/schemas
+GSETTINGS_SCHEMA_DIR = /snap/code/105/usr/share/glib-2.0/schemas
 # environment
 XDG_SESSION_ID = 2
 # default
@@ -257,7 +258,7 @@ XDG_SESSION_ID = 2
 # automatic
 <F = $(notdir $<)
 # environment
-SNAP_VERSION = 6d9b74a7
+SNAP_VERSION = e4503b30
 # default
 SUFFIXES := 
 # makefile (from 'Makefile', line 11)
@@ -277,7 +278,7 @@ CC = g++
 # makefile (from 'Makefile', line 9)
 SOURCES = $(shell find $(SRC_DIR) -type f -name "*.cpp")
 # environment
-SNAP_USER_DATA = /home/nic/snap/code/104
+SNAP_USER_DATA = /home/nic/snap/code/105
 # environment
 XDG_MENU_PREFIX = xfce-
 # environment
@@ -285,6 +286,7 @@ LC_IDENTIFICATION = it_IT.UTF-8
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
 # variable set hash-table stats:
+ 
 # Load=137/1024=13%, Rehash=0, Collisions=9/212=4%
 
 # Pattern-specific Variable Values
@@ -293,7 +295,7 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # Directories
 
-# . (device 2050, inode 668066): 7 files, no impossibilities.
+# . (device 2050, inode 3411736): 7 files, no impossibilities.
 
 # 7 files, no impossibilities in 1 directories.
 
@@ -306,14 +308,13 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 # Not a target:
 src/utils.cpp:
 #  Implicit rule search has been done.
- 
-#  Last modified 2022-08-14 09:20:21.53580285
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
 # 'override' directive
 target/vm: .SHELLSTATUS := 0
-target/vm: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+target/vm: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 #  Implicit rule search has not been done.
 #  Implicit/static pattern stem: ''
 #  File does not exist.
@@ -326,13 +327,13 @@ target/vm: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/a
 # automatic
 # < := src/main.cpp
 # automatic
-# + := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# + := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 # automatic
 # % := 
 # automatic
-# ^ := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# ^ := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 # automatic
-# ? := src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+# ? := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 # automatic
 # | := 
 # variable set hash-table stats:
@@ -343,7 +344,7 @@ target/vm: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/a
 # Not a target:
 headers/processor.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:27:25.222561622
+#  Last modified 2022-08-30 14:40:51.76743192
 #  File has been updated.
 #  Successfully updated.
 
@@ -357,42 +358,42 @@ count:
 # Not a target:
 headers/argparser.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-13 15:34:21.970496389
+#  Last modified 2022-08-30 14:40:51.76743192
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 headers/registers.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-11 08:01:39.820396708
+#  Last modified 2022-07-11 10:45:32.880425526
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/registers.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-11 08:01:39.820396708
+#  Last modified 2022-07-16 10:37:51.641859664
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-15 09:18:17.685317267
+#  Last modified 2022-08-30 14:42:08.590180352
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/main.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:32:02.075995318
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 headers/errors.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:32:25.752670274
+#  Last modified 2022-08-30 14:40:51.76743192
 #  File has been updated.
 #  Successfully updated.
 
@@ -406,11 +407,11 @@ clean:
 # Not a target:
 src/argparser.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:09:43.915748505
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
-builddb: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/argparser.cpp src/memory.cpp src/registers.cpp src/utils.cpp headers/registers.hh headers/video.hh headers/byte_code.hh headers/processor.hh headers/utils.hh headers/argparser.hh headers/errors.hh headers/memory.hh target
+builddb: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -420,7 +421,7 @@ builddb: src/main.cpp src/errors.cpp src/processor.cpp src/byte_code.cpp src/arg
 # Not a target:
 src/byte_code.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-11 08:01:39.820396708
+#  Last modified 2022-07-16 11:21:14.072607246
 #  File has been updated.
 #  Successfully updated.
 
@@ -433,7 +434,7 @@ src/byte_code.cpp:
 # Not a target:
 headers/video.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-15 09:04:39.135589146
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
@@ -449,42 +450,42 @@ all: target/vm
 # Not a target:
 src/memory.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-15 09:05:08.925573832
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 headers/byte_code.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-11 08:01:39.820396708
+#  Last modified 2022-08-30 14:40:51.76743192
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 headers/memory.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-15 09:03:59.368943128
+#  Last modified 2022-08-30 14:40:51.76743192
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/errors.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:31:12.939311346
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/processor.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:28:31.505919536
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 headers/utils.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-14 09:21:51.629103744
+#  Last modified 2022-08-30 14:40:51.770765373
 #  File has been updated.
 #  Successfully updated.
 
@@ -496,7 +497,7 @@ headers/utils.hh:
 
 target:
 #  Implicit rule search has not been done.
-#  Last modified 2022-08-15 09:14:54.955285644
+#  Last modified 2022-08-30 14:41:34.538962263
 #  File has been updated.
 #  Successfully updated.
 #  recipe to execute (from 'Makefile', line 22):
@@ -516,6 +517,6 @@ target:
 # strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
 # Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Mon Aug 15 09:20:52 2022
+# Finished Make data base on Tue Aug 30 14:43:41 2022
 
  

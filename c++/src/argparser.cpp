@@ -27,9 +27,9 @@ Parameter::Parameter(TypeName type, void *store, bool required, std::string &&de
 
 
 Parser::Parser(size_t argNumber, std::string &&description)
-:   description(std::move(description)),
-    positionals(std::vector<Parameter>()),
-    flagsMap(std::unordered_map<std::string, Parameter>()) 
+:   positionals(std::vector<Parameter>()),
+    flagsMap(std::unordered_map<std::string, Parameter>()),
+    description(std::move(description))
 {
     positionals.reserve(argNumber);
 }

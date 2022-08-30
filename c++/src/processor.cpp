@@ -515,6 +515,17 @@ inline void Processor::handle_move_into_addr_in_reg_from_reg() {
 }
 
 
+inline void Processor::handle_move_into_addr_in_reg_from_addr_in_reg() {
+    const Byte size = nextByteCode();
+    const Registers destAddressReg = byteToRegister(nextByteCode());
+    const Registers srcAddressReg = byteToRegister(nextByteCode());
+    const Address destAddress = *getRegister(destAddressReg);
+    const Address srcAddress = *getRegister(srcAddressReg);
+    
+    memory.setBytes(destAddress, memory.getBytes(srcAddress, size), size);
+}
+
+
 inline void Processor::handle_move_into_addr_in_reg_from_const() {
     const Byte size = nextByteCode();
     const Registers addressReg = byteToRegister(nextByteCode());
