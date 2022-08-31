@@ -35,6 +35,33 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`nop`](#nop)
     - [Memory instructions](#memory-instructions)
       - [`mov`](#mov)
+      - [`push`](#push)
+      - [`push1`](#push1)
+      - [`push2`](#push2)
+      - [`push4`](#push4)
+      - [`push8`](#push8)
+      - [`pop`](#pop)
+      - [`pop1`](#pop1)
+      - [`pop2`](#pop2)
+      - [`pop4`](#pop4)
+      - [`pop8`](#pop8)
+    - [Flow control instructions](#flow-control-instructions)
+      - [`jmp`](#jmp)
+      - [`jmpnz`](#jmpnz)
+      - [`jmpz`](#jmpz)
+    - [Comparison instructions](#comparison-instructions)
+      - [`cmp`](#cmp)
+      - [`cmp1`](#cmp1)
+      - [`cmp2`](#cmp2)
+      - [`cmp4`](#cmp4)
+      - [`cmp8`](#cmp8)
+    - [IO instructions](#io-instructions)
+      - [`print`](#print)
+      - [`prints`](#prints)
+      - [`ini`](#ini)
+      - [`ins`](#ins)
+    - [Other instructions](#other-instructions)
+      - [`exit`](#exit)
   - [Byte Code instructions](#byte-code-instructions)
     - [Arithmetical operations](#arithmetical-operations)
       - [`add`](#add-1)
@@ -207,7 +234,220 @@ nop
 ### Memory instructions
 
 #### `mov`
-Copy the value stored in 
+Copy the second operand (value or value at the specified address or register) into the first operand (register or address).
+
+```
+mov a, b
+mov [a], b
+mov a, [b]
+```
+
+#### `push`
+Push the value stored in the specified register onto the stack.
+
+```
+push a
+```
+
+#### `push1`
+Push the 1-byte specified value (or the value stored at the specified address) onto the stack.
+
+```
+push1 [a]
+push1 [1234]
+push1 43
+```
+
+#### `push2`
+Push the 2-byte specified value (or the value stored at the specified address) onto the stack.
+
+```
+push2 [a]
+push2 [1234]
+push2 43
+```
+
+#### `push4`
+Push the 4-byte specified value (or the value stored at the specified address) onto the stack.
+
+```
+push4 [a]
+push4 [1234]
+push4 43
+```
+
+#### `push8`
+Push the 8-byte specified value (or the value stored at the specified address) onto the stack.
+
+```
+push8 [a]
+push8 [1234]
+push8 43
+```
+
+#### `pop`
+Pop the first 8 bytes from the top of the stack and store them in the specified register.
+
+```
+pop a
+```
+
+#### `pop1`
+Pop the 1-byte value from the top of the stack and store it in the specified address.
+
+```
+pop1 [a]
+pop1 [1234]
+```
+
+#### `pop2`
+Pop the 2-byte value from the top of the stack and store it in the specified address.
+
+```
+pop2 [a]
+pop2 [1234]
+```
+
+#### `pop4`
+Pop the 4-byte value from the top of the stack and store it in the specified address.
+
+```
+pop4 [a]
+pop4 [1234]
+```
+
+#### `pop8`
+Pop the 8-byte value from the top of the stack and store it in the specified address.
+
+```
+pop8 [a]
+pop8 [1234]
+```
+
+### Flow control instructions
+
+#### `jmp`
+Jump to the specified label.
+
+```
+jmp label
+```
+
+#### `jmpnz`
+Jump to the specified label if the specified register is true (not zero).
+
+```
+jmpt label, a
+```
+
+#### `jmpz`
+Jump to the specified label if the specified register is false (zero).
+
+```
+jmpf label, a
+```
+
+### Comparison instructions
+
+#### `cmp`
+Compare the values stored in the specified registers.  
+If the values are equal, set register `zf` to `1`.
+Else, set register `zf` to `0`.
+
+```
+cmp a, b
+```
+
+#### `cmp1`
+Compare the 1-byte values (literals or stored in the specified register).
+If the values are equal, set register `zf` to `1`.
+Else, set register `zf` to `0`.
+
+```
+cmp1 a, 14
+cmp1 14, a
+cmp1 14, 14
+```
+
+#### `cmp2`
+Compare the 2-byte values (literals or stored in the specified register).
+If the values are equal, set register `zf` to `1`.
+Else, set register `zf` to `0`.
+
+```
+cmp2 a, 14
+cmp2 14, a
+cmp2 14, 14
+```
+
+#### `cmp4`
+Compare the 4-byte values (literals or stored in the specified register).
+If the values are equal, set register `zf` to `1`.
+Else, set register `zf` to `0`.
+
+```
+cmp4 a, 14
+cmp4 14, a
+cmp4 14, 14
+```
+
+#### `cmp8`
+Compare the 8-byte values (literals or stored in the specified register).
+If the values are equal, set register `zf` to `1`.
+Else, set register `zf` to `0`.
+
+```
+cmp8 a, 14
+cmp8 14, a
+cmp8 14, 14
+```
+
+### IO instructions
+
+#### `print`
+Print the value stored in the `print` register.
+
+```
+print
+```
+
+#### `prints`
+Print the string at the address stored in the `print` register.
+
+```
+prints
+```
+
+#### `ini`
+Get the next integer input from the console and store it in the `input` register.
+If the input is not a valid integer, set `error` register to `INVALID_INPUT`.
+If the EOF is encountered, set `error` register to `END_OF_FILE`.
+If another error is encountered, set `error` register to `GENERIC_ERROR`.
+If no error is encountered, set `error` register to `NO_ERROR`.
+
+```
+ini
+```
+
+#### `ins`
+Get the next string input from the console, push it onto the stack, and store its address in the `input` register.
+If the input is not a valid string, set `error` register to `INVALID_INPUT`.
+If the EOF is encountered, set `error` register to `END_OF_FILE`.
+If another error is encountered, set `error` register to `GENERIC_ERROR`.
+If no error is encountered, set `error` register to `NO_ERROR`.
+
+```
+ins
+```
+
+### Other instructions
+
+#### `exit`
+Exit the program with the exit code stored in the `exit` register.
+
+```
+exit
+```
 
 
 ## Byte Code instructions

@@ -5,9 +5,8 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
- 
 
-# Make data base, printed on Tue Aug 30 14:43:41 2022
+# Make data base, printed on Wed Aug 31 12:13:04 2022
 
 # Variables
 
@@ -32,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine/c++
+VSCODE_CWD = /home/nic/dev/virtual-machine
 # environment
-TERMINATOR_UUID = urn:uuid:6ffedf8c-7bb0-4931-8d94-0ddc328f3f7f
+TERMINATOR_UUID = urn:uuid:0f838f87-d8b6-405c-a5ad-28cea998afa0
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -54,7 +53,7 @@ VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
 .VARIABLES := 
 # environment
-PWD = /home/nic/dev/virtual-machine/c++
+PWD = /home/nic/dev/virtual-machine/vm
 # automatic
 %D = $(patsubst %/,%,$(dir $%))
 # environment
@@ -62,7 +61,7 @@ MAIL = /var/spool/mail/nic
 # environment
 XDG_DATA_DIRS = /home/nic/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop:/usr/share
 # environment
-OLDPWD = /home/nic/dev/virtual-machine
+OLDPWD = /home/nic/dev/virtual-machine/assembler
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # automatic
@@ -84,9 +83,9 @@ MAKEFLAGS = pqrR
 # environment
 TERMINATOR_DBUS_PATH = /net/tenshu/Terminator2
 # makefile
-CURDIR := /home/nic/dev/virtual-machine/c++
+CURDIR := /home/nic/dev/virtual-machine/vm
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
 # automatic
 *D = $(patsubst %/,%,$(dir $*))
 # environment
@@ -110,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 206036
+VSCODE_PID = 232388
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -286,8 +285,8 @@ LC_IDENTIFICATION = it_IT.UTF-8
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
 # variable set hash-table stats:
+# Load=137/1024=13%, Rehash=0, Collisions=9/197=5%
  
-# Load=137/1024=13%, Rehash=0, Collisions=9/212=4%
 
 # Pattern-specific Variable Values
 
@@ -312,32 +311,11 @@ src/utils.cpp:
 #  File has been updated.
 #  Successfully updated.
 
-# 'override' directive
-target/vm: .SHELLSTATUS := 0
 target/vm: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 #  Implicit rule search has not been done.
-#  Implicit/static pattern stem: ''
-#  File does not exist.
+#  Last modified 2022-08-30 15:05:34.936946938
 #  File has been updated.
-#  Needs to be updated (-q is set).
-# automatic
-# @ := target/vm
-# automatic
-# * := 
-# automatic
-# < := src/main.cpp
-# automatic
-# + := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
-# automatic
-# % := 
-# automatic
-# ^ := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
-# automatic
-# ? := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
-# automatic
-# | := 
-# variable set hash-table stats:
-# Load=9/32=28%, Rehash=0, Collisions=4/24=17%
+#  Successfully updated.
 #  recipe to execute (from 'Makefile', line 26):
 	time -f "\nTime elapsed: %E seconds" $(CC) $(C_FLAGS) $(WARNINGS) $(SOURCES) -O3 -o $(TARGET)
 
@@ -365,14 +343,14 @@ headers/argparser.hh:
 # Not a target:
 headers/registers.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-07-11 10:45:32.880425526
+#  Last modified 2022-08-30 14:47:22.278057887
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/registers.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-07-16 10:37:51.641859664
+#  Last modified 2022-08-30 14:47:15.971165998
 #  File has been updated.
 #  Successfully updated.
 
@@ -407,7 +385,7 @@ clean:
 # Not a target:
 src/argparser.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:40:51.770765373
+#  Last modified 2022-08-30 14:50:23.834538275
 #  File has been updated.
 #  Successfully updated.
 
@@ -434,7 +412,7 @@ src/byte_code.cpp:
 # Not a target:
 headers/video.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:40:51.770765373
+#  Last modified 2022-08-30 14:58:15.958030681
 #  File has been updated.
 #  Successfully updated.
 
@@ -443,9 +421,7 @@ all: target/vm
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has been updated.
-#  Needs to be updated (-q is set).
-# variable set hash-table stats:
-# Load=0/32=0%, Rehash=0, Collisions=0/15=0%
+#  Successfully updated.
 
 # Not a target:
 src/memory.cpp:
@@ -457,7 +433,7 @@ src/memory.cpp:
 # Not a target:
 headers/byte_code.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:40:51.76743192
+#  Last modified 2022-08-30 14:45:04.873149461
 #  File has been updated.
 #  Successfully updated.
 
@@ -478,7 +454,7 @@ src/errors.cpp:
 # Not a target:
 src/processor.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:40:51.770765373
+#  Last modified 2022-08-30 15:05:28.33004923
 #  File has been updated.
 #  Successfully updated.
 
@@ -489,22 +465,16 @@ headers/utils.hh:
 #  File has been updated.
 #  Successfully updated.
 
-# Not a target:
-.SUFFIXES:
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
 target:
 #  Implicit rule search has not been done.
-#  Last modified 2022-08-30 14:41:34.538962263
+#  Last modified 2022-08-30 15:05:34.830276541
 #  File has been updated.
 #  Successfully updated.
 #  recipe to execute (from 'Makefile', line 22):
 	mkdir -p $(TARGET_DIR)
 
 # files hash-table stats:
-# Load=25/1024=2%, Rehash=0, Collisions=0/73=0%
+# Load=25/1024=2%, Rehash=0, Collisions=0/72=0%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
@@ -514,9 +484,9 @@ target:
 # strcache buffers: 1 (0) / strings = 32 / storage = 409 B / avg = 12 B
 # current buf: size = 8162 B / used = 409 B / count = 32 / avg = 12 B
 
-# strcache performance: lookups = 64 / hit rate = 50%
+# strcache performance: lookups = 63 / hit rate = 49%
 # hash-table stats:
-# Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Tue Aug 30 14:43:41 2022
+# Load=32/8192=0%, Rehash=0, Collisions=0/63=0%
+# Finished Make data base on Wed Aug 31 12:13:04 2022
 
  
