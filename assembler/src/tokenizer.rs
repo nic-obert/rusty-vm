@@ -1,5 +1,6 @@
-use shared::registers::get_register;
-use shared::token::{Token, TokenValue};
+use crate::registers::get_register;
+use crate::token::{Token, TokenValue};
+use std::mem;
 
 
 fn is_name_character(c: char) -> bool {
@@ -7,9 +8,9 @@ fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(operands: &String) -> Vec<Token> {
+pub fn tokenize_operands(operands: &mut String) -> Vec<Token> {
 
-    let tokens: Vec<Token> = Vec::new();
+    let mut tokens: Vec<Token> = Vec::new();
 
     // Add a semicolon at the end in order to make the loop iterate one more time for simplicity
     operands.push(';');
@@ -18,11 +19,11 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
 
     for c in operands.chars() {
 
-        if let Some(token) = current_token {
 
-            let token: &mut Token = current_token.as_mut().unwrap();
+        /*
+        if let Some(mut token) = current_token {
 
-            match token.value {
+            match &mut token.value {
                 TokenValue::AddressGeneric(value) => {
                     if c.is_digit(10) {
                         current_token = Some(
@@ -31,7 +32,7 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
                     }
                     else if is_name_character(c) {
                         current_token = Some(
-                            Token::new(TokenValue::AddressInRegister(c))
+                            Token::new(TokenValue::Name(c.to_string()))
                         );
                     }
 
@@ -56,8 +57,8 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
                     if c == ' ' {
                         continue;
                     }
-                    if char != ']' {
-                        panic!(format!("Expected ']' after address in argument list \"{}\", but '{}' was provided", operands, c));
+                    if c != ']' {
+                        panic!("Expected ']' after address in argument list \"{}\", but '{}' was provided", operands, c);
                     }
 
                     if let Some(register) = get_register(value) {
@@ -65,7 +66,7 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
                         current_token = None;
                     }
                     else {
-                        panic!(format!("Unknown register \"{}\" in argument list \"{}\"", value, operands));
+                        panic!("Unknown register \"{}\" in argument list \"{}\"", value, operands);
                     }
 
                     continue;
@@ -77,12 +78,12 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
                         continue;
                     }
                     if c == ':' {
-                        tokens.push(Token::new(TokenValue::Label(value)));
+                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
                         current_token = None;
                         continue;
                     }
 
-                    if let Some(register) = get_register(value) {
+                    if let Some(register) = get_register(&value) {
                         tokens.push(Token::new(TokenValue::Register(register)));
                         current_token = None;
                     }
@@ -93,7 +94,7 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
                    
                 TokenValue::Number(value) => {
                     if c.is_digit(10) {
-                        *value = *value * 10 + c.to_digit(10).unwrap() as u64;
+                        *value = *value * 10 + c.to_digit(10).unwrap() as i64;
                         continue;
                     }
 
@@ -107,7 +108,7 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
 
 
         if c == '[' {
-            current_token = Some(Token::new(TokenType::AddressGeneric(0)));
+            current_token = Some(Token::new(TokenValue::AddressGeneric(0)));
             continue;
         }
 
@@ -122,20 +123,21 @@ pub fn tokenize_operands(operands: &String) -> Vec<Token> {
         }
 
         match c {
-            ' ' |
-            '\t' \
             ' ' 
-            => continue,
+            | '\t'
+            | ' ' => continue,
 
             ';' => break,
 
             '[' => {
-                current_token = Some(Token::new(TokenType::AddressGeneric(0)));
+                current_token = Some(Token::new(TokenValue::AddressGeneric(0)));
                 continue;
             },
 
-            _ => panic!(format!("Unhaldled character '{}' in operands \"{}\"", c, operands))
+            _ => panic!("Unhaldled character '{}' in operands \"{}\"", c, operands)
         }
+
+        */
     }   
 
     tokens

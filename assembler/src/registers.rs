@@ -52,19 +52,19 @@ pub static REGISTER_NAMES: [&str; 13] = [
 
 pub fn get_register(name: &str) -> Option<Registers> {
     match name {
-        "a" => Registers::A,
-        "b" => Registers::B,
-        "c" => Registers::C,
-        "d" => Registers::D,
-        "exit" => Registers::EXIT,
-        "input" => Registers::INPUT,
-        "error" => Registers::ERROR,
-        "print" => Registers::PRINT,
-        "sp" => Registers::STACK_POINTER,
-        "pc" => Registers::PROGRAM_COUNTER,
-        "zf" => Registers::ZERO_FLAG,
-        "sf" => Registers::SIGN_FLAG,
-        "rf" => Registers::REMAINDER_FLAG,
+        "a" => Some(Registers::A),
+        "b" => Some(Registers::B),
+        "c" => Some(Registers::C),
+        "d" => Some(Registers::D),
+        "exit" => Some(Registers::EXIT),
+        "input" => Some(Registers::INPUT),
+        "error" => Some(Registers::ERROR),
+        "print" => Some(Registers::PRINT),
+        "sp" => Some(Registers::STACK_POINTER),
+        "pc" => Some(Registers::PROGRAM_COUNTER),
+        "zf" => Some(Registers::ZERO_FLAG),
+        "sf" => Some(Registers::SIGN_FLAG),
+        "rf" => Some(Registers::REMAINDER_FLAG),
         _ => None
     }
 }

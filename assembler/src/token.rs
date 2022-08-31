@@ -1,5 +1,5 @@
 use std::fmt;
-use super::registers::Registers;
+use crate::registers::Registers;
 
 
 // TODO: check if this is correct
@@ -19,6 +19,17 @@ pub enum TokenValue {
 
 pub struct Token {
     pub value: TokenValue
+}
+
+
+impl Token {
+
+    pub fn new(value: TokenValue) -> Token {
+        Token {
+            value
+        }
+    }
+
 }
 
 
