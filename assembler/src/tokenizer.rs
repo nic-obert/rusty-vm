@@ -8,12 +8,12 @@ fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(operands: &mut String) -> Vec<Token> {
+pub fn tokenize_operands(operands: &String) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
     // Add a semicolon at the end in order to make the loop iterate one more time for simplicity
-    operands.push(';');
+    //operands.push(';');
 
     let mut current_token: Option<Token> = None;
 

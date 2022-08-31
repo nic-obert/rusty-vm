@@ -19,7 +19,7 @@ fn main() {
 
     let input_file = &args[1];
     let assembly = files::load_assembly(input_file);
-
+    let byte_code = assembler::assemble(assembly);
     
 }
 

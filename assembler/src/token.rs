@@ -3,7 +3,7 @@ use crate::registers::Registers;
 
 
 // TODO: check if this is correct
-#[allow(dead_code)]
+#[derive(Debug)]
 pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
@@ -17,6 +17,7 @@ pub enum TokenValue {
 }
 
 
+#[derive(Debug)]
 pub struct Token {
     pub value: TokenValue
 }

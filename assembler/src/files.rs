@@ -1,7 +1,8 @@
 use std::fs;
+use crate::assembler::{AssemblyCode, ByteCode};
 
 
-pub fn load_assembly(file_path: &str) -> Vec<String> {
+pub fn load_assembly(file_path: &str) -> AssemblyCode {
     let file_content = fs::read_to_string(file_path)
         .expect(format!("Could not read file {}", file_path).as_str());
     
@@ -16,7 +17,7 @@ pub fn load_assembly(file_path: &str) -> Vec<String> {
 }
 
 
-pub fn load_byte_code(file_path: &str) -> Vec<u8> {
+pub fn load_byte_code(file_path: &str) -> ByteCode {
     match fs::read(file_path) {
         Ok(bytes) => bytes,
         Err(e) => panic!("Could not read file {}: {}", file_path, e)
@@ -24,7 +25,7 @@ pub fn load_byte_code(file_path: &str) -> Vec<u8> {
 }
 
 
-pub fn save_byte_code(byte_code: &[u8], file_path: &str) {
+pub fn save_byte_code(byte_code: ByteCode, file_path: &str) {
     match fs::write(file_path, byte_code) {
         Ok(_) => (),
         Err(e) => panic!("Could not write file {}: {}", file_path, e)
