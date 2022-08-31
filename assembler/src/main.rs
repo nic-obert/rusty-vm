@@ -5,6 +5,7 @@ mod token;
 mod registers;
 mod byte_code;
 mod tokenizer;
+mod argmuments_table;
 use std::env;
 
 

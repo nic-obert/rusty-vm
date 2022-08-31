@@ -30,7 +30,7 @@ impl fmt::Display for Registers {
 }
 
 
-pub static REGISTER_NAMES: [&str; 13] = [
+pub const REGISTER_NAMES: [&str; 13] = [
     "a",
     "b",
     "c",
@@ -41,7 +41,6 @@ pub static REGISTER_NAMES: [&str; 13] = [
     "print",
 
     "sp",
-
     "pc",
 
     "zf",

@@ -55,12 +55,11 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`cmp2`](#cmp2)
       - [`cmp4`](#cmp4)
       - [`cmp8`](#cmp8)
-    - [IO instructions](#io-instructions)
+    - [Interrupts](#interrupts)
       - [`print`](#print)
       - [`prints`](#prints)
       - [`ini`](#ini)
       - [`ins`](#ins)
-    - [Other instructions](#other-instructions)
       - [`exit`](#exit)
   - [Byte Code instructions](#byte-code-instructions)
     - [Arithmetical operations](#arithmetical-operations)
@@ -237,9 +236,9 @@ nop
 Copy the second operand (value or value at the specified address or register) into the first operand (register or address).
 
 ```
-mov a, b
-mov [a], b
-mov a, [b]
+mov a b
+mov [a] b
+mov a [b]
 ```
 
 #### `push`
@@ -337,14 +336,14 @@ jmp label
 Jump to the specified label if the specified register is true (not zero).
 
 ```
-jmpt label, a
+jmpt label a
 ```
 
 #### `jmpz`
 Jump to the specified label if the specified register is false (zero).
 
 ```
-jmpf label, a
+jmpf label a
 ```
 
 ### Comparison instructions
@@ -355,7 +354,7 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```
-cmp a, b
+cmp a b
 ```
 
 #### `cmp1`
@@ -364,9 +363,9 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```
-cmp1 a, 14
-cmp1 14, a
-cmp1 14, 14
+cmp1 a 14
+cmp1 14 a
+cmp1 14 14
 ```
 
 #### `cmp2`
@@ -375,9 +374,9 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```
-cmp2 a, 14
-cmp2 14, a
-cmp2 14, 14
+cmp2 a 14
+cmp2 14 a
+cmp2 14 14
 ```
 
 #### `cmp4`
@@ -386,9 +385,9 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```
-cmp4 a, 14
-cmp4 14, a
-cmp4 14, 14
+cmp4 a 14
+cmp4 14 a
+cmp4 14 14
 ```
 
 #### `cmp8`
@@ -397,12 +396,12 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```
-cmp8 a, 14
-cmp8 14, a
-cmp8 14, 14
+cmp8 a 14
+cmp8 14 a
+cmp8 14 14
 ```
 
-### IO instructions
+### Interrupts
 
 #### `print`
 Print the value stored in the `print` register.
@@ -439,8 +438,6 @@ If no error is encountered, set `error` register to `NO_ERROR`.
 ```
 ins
 ```
-
-### Other instructions
 
 #### `exit`
 Exit the program with the exit code stored in the `exit` register.

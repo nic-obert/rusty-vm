@@ -80,6 +80,7 @@ namespace byte_code {
 
         EXIT,
 
+        // ENUM_COUNT should always be the last element of the enum
         ENUM_COUNT
 
     };

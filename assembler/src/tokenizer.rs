@@ -1,6 +1,8 @@
+use crate::byte_code::ByteCodes;
 use crate::registers::get_register;
 use crate::token::{Token, TokenValue};
 use std::mem;
+use std::fmt;
 
 
 fn is_name_character(c: char) -> bool {

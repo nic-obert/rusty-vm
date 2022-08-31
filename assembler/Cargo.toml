@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.2.1"
+lazy_static = "1.4.0"
