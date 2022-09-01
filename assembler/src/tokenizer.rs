@@ -10,7 +10,7 @@ fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(operands: &String) -> Vec<Token> {
+pub fn tokenize_operands(operands: &str) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 

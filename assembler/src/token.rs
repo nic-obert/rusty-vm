@@ -8,12 +8,31 @@ pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
     Number(i64),
-    AddressLiteral(u64),
+    AddressLiteral(usize),
     Label(String),
     Name(String),
-    AddressGeneric(u64),
-    CurrentPosition(u64),
+    AddressGeneric(usize),
+    CurrentPosition(usize),
     AddressInRegisterIncomplete(String),
+}
+
+
+impl TokenValue {
+
+    pub fn to_ordinal(&self) -> u8 {
+        match self {
+            TokenValue::Register(_) => 0,
+            TokenValue::AddressInRegister(_) => 1,
+            TokenValue::Number(_) => 2,
+            TokenValue::AddressLiteral(_) => 3,
+            TokenValue::Label(_) => 4,
+            TokenValue::Name(_) => 5,
+            TokenValue::AddressGeneric(_) => 6,
+            TokenValue::CurrentPosition(_) => 7,
+            TokenValue::AddressInRegisterIncomplete(_) => 8,
+        }
+    }
+    
 }
 
 

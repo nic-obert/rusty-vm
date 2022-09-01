@@ -46,6 +46,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`pop4`](#pop4)
       - [`pop8`](#pop8)
     - [Flow control instructions](#flow-control-instructions)
+      - [`label`](#label)
       - [`jmp`](#jmp)
       - [`jmpnz`](#jmpnz)
       - [`jmpz`](#jmpz)
@@ -324,6 +325,13 @@ pop8 [1234]
 ```
 
 ### Flow control instructions
+
+#### `label`
+Declare a label.
+
+```
+label:
+```
 
 #### `jmp`
 Jump to the specified label.

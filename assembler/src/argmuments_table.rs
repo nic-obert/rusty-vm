@@ -7,7 +7,7 @@ type OneArgument = Vec<Option<Operation>>;
 type TwoArguments = Vec<Option<OneArgument>>;
 
 
-enum Args {
+pub enum Args {
     Zero(Operation),
     One(OneArgument),
     Two(TwoArguments),
@@ -16,7 +16,7 @@ enum Args {
 
 lazy_static! {
 
-static ref ARGUMENTS_TREE: HashMap<&'static str, Args> = HashMap::from([
+pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
 
     // Arithmetic
 
