@@ -1,8 +1,6 @@
-use crate::byte_code::ByteCodes;
 use crate::registers::get_register;
 use crate::token::{Token, TokenValue};
 use std::mem;
-use std::fmt;
 
 
 fn is_name_character(c: char) -> bool {
@@ -10,26 +8,24 @@ fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(operands: &str) -> Vec<Token> {
+pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
     // Add a semicolon at the end in order to make the loop iterate one more time for simplicity
-    //operands.push(';');
+    operands.push(';');
 
     let mut current_token: Option<Token> = None;
 
     for c in operands.chars() {
-
-
-        /*
-        if let Some(mut token) = current_token {
+        
+        if let Some(token) = &mut current_token {
 
             match &mut token.value {
-                TokenValue::AddressGeneric(value) => {
+                TokenValue::AddressGeneric(_value) => {
                     if c.is_digit(10) {
                         current_token = Some(
-                            Token::new(TokenValue::AddressLiteral(c.to_digit(10).unwrap() as u64))
+                            Token::new(TokenValue::AddressLiteral(c.to_digit(10).unwrap() as usize))
                         );
                     }
                     else if is_name_character(c) {
@@ -43,7 +39,7 @@ pub fn tokenize_operands(operands: &str) -> Vec<Token> {
                 
                 TokenValue::AddressLiteral(value) => {
                     if c.is_digit(10) {
-                        *value = *value * 10 + c.to_digit(10).unwrap() as u64;
+                        *value = *value * 10 + c.to_digit(10).unwrap() as usize;
                         continue;
                     }
 
@@ -125,9 +121,7 @@ pub fn tokenize_operands(operands: &str) -> Vec<Token> {
         }
 
         match c {
-            ' ' 
-            | '\t'
-            | ' ' => continue,
+            ' ' | '\t' => continue,
 
             ';' => break,
 
@@ -139,7 +133,6 @@ pub fn tokenize_operands(operands: &str) -> Vec<Token> {
             _ => panic!("Unhaldled character '{}' in operands \"{}\"", c, operands)
         }
 
-        */
     }   
 
     tokens

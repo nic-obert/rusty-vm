@@ -31,7 +31,7 @@ pub fn assemble(assembly: AssemblyCode) -> ByteCode {
         
         if let Some(tokens) = raw_tokens {
             // Operator has operands, tokenize the operands
-            let mut operands = tokenize_operands(tokens.1);
+            let mut operands = tokenize_operands(tokens.1.to_string());
             let operator = tokens.0;
 
             let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(

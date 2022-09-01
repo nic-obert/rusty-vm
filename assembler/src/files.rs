@@ -17,14 +17,6 @@ pub fn load_assembly(file_path: &str) -> AssemblyCode {
 }
 
 
-pub fn load_byte_code(file_path: &str) -> ByteCode {
-    match fs::read(file_path) {
-        Ok(bytes) => bytes,
-        Err(e) => panic!("Could not read file {}: {}", file_path, e)
-    }
-}
-
-
 pub fn save_byte_code(byte_code: ByteCode, file_path: &str) {
     match fs::write(file_path, byte_code) {
         Ok(_) => (),

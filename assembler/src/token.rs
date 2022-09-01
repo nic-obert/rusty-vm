@@ -2,7 +2,6 @@ use std::fmt;
 use crate::registers::Registers;
 
 
-// TODO: check if this is correct
 #[derive(Debug)]
 pub enum TokenValue {
     Register(Registers),
@@ -69,5 +68,4 @@ impl fmt::Display for Token {
         }
     }
 }
-
 
