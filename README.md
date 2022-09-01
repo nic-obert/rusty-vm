@@ -1,10 +1,10 @@
 # **Virtual Machine**
 
-A simple virtual machine and related tools created in Python (I'm currently translating it into C++).  
+A simple virtual machine and related tools.  
 The toolchain includes:
-- the virtual machine
-- the assembler
-- the disassembler
+- the **virtual machine** (written in C++)
+- the **assembler** (written in Rust)
+- the **disassembler** (work in progress)
   
 This is just an amateur project and should not be used in a production environment.
 There are a few known vulnerabilities, plus it's not very efficient.
@@ -62,9 +62,6 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`ini`](#ini)
       - [`ins`](#ins)
       - [`exit`](#exit)
-  - [Byte Code instructions](#byte-code-instructions)
-    - [Arithmetical operations](#arithmetical-operations)
-      - [`add`](#add-1)
 
 
 <br>
@@ -454,15 +451,3 @@ Exit the program with the exit code stored in the `exit` register.
 exit
 ```
 
-
-## Byte Code instructions
-
-These are the byte code instructions that the virtual machine executes. 
-Each instruction is uniquely identified and represented by a 1-byte unisgned integer code.
-The instruction arguments are stored in the memory following the instruction code.
-
-### Arithmetical operations
-
-#### `add`
-
-(work in progress)

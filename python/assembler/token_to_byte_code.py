@@ -34,15 +34,6 @@ def number_to_bytes(number: int, size: int) -> bytes:
     return bytes(value)
 
 
-def sized_operator_bytes_handled(operator: str) -> int:
-    """
-    Returns the number of bytes a sized operator handles.
-    The output size should always be representable in a single byte.
-    """
-    return int(operator[-1])
-
-
-
 """
 The following functions are used to convert the operand tokens to bytes.
 """

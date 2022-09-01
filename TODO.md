@@ -9,7 +9,7 @@
 
 ### In Progress ···
 
-- rewrite the assembler
 
 ### Done ✅
 
+- rewrite the assembler

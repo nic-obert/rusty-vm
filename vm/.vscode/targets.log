@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Aug 31 13:17:41 2022
+# Make data base, printed on Thu Sep  1 14:53:23 2022
 
 # Variables
 
@@ -31,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine
+VSCODE_CWD = /home/nic/dev/virtual-machine/vm
 # environment
-TERMINATOR_UUID = urn:uuid:0f838f87-d8b6-405c-a5ad-28cea998afa0
+TERMINATOR_UUID = urn:uuid:c2b21a21-1115-4945-b09f-fe1db46f7bd4
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -61,7 +61,7 @@ MAIL = /var/spool/mail/nic
 # environment
 XDG_DATA_DIRS = /home/nic/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop:/usr/share
 # environment
-OLDPWD = /home/nic/dev/virtual-machine/assembler
+OLDPWD = /home/nic/dev/virtual-machine
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # automatic
@@ -109,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 232388
+VSCODE_PID = 284702
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -282,14 +282,14 @@ SNAP_USER_DATA = /home/nic/snap/code/105
 XDG_MENU_PREFIX = xfce-
 # environment
 LC_IDENTIFICATION = it_IT.UTF-8
+ 
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
 # variable set hash-table stats:
-# Load=137/1024=13%, Rehash=0, Collisions=9/197=5%
+# Load=137/1024=13%, Rehash=0, Collisions=9/212=4%
 
 # Pattern-specific Variable Values
 
- 
 # No pattern-specific variable values.
 
 # Directories
@@ -311,11 +311,32 @@ src/utils.cpp:
 #  File has been updated.
 #  Successfully updated.
 
+# 'override' directive
+target/vm: .SHELLSTATUS := 0
 target/vm: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 #  Implicit rule search has not been done.
+#  Implicit/static pattern stem: ''
 #  Last modified 2022-08-30 15:05:34.936946938
 #  File has been updated.
-#  Successfully updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := target/vm
+# automatic
+# * := 
+# automatic
+# < := src/main.cpp
+# automatic
+# + := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
+# automatic
+# % := 
+# automatic
+# ^ := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
+# automatic
+# ? := headers/byte_code.hh
+# automatic
+# | := 
+# variable set hash-table stats:
+# Load=9/32=28%, Rehash=0, Collisions=4/24=17%
 #  recipe to execute (from 'Makefile', line 26):
 	time -f "\nTime elapsed: %E seconds" $(CC) $(C_FLAGS) $(WARNINGS) $(SOURCES) -O3 -o $(TARGET)
 
@@ -421,7 +442,9 @@ all: target/vm
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has been updated.
-#  Successfully updated.
+#  Needs to be updated (-q is set).
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/15=0%
 
 # Not a target:
 src/memory.cpp:
@@ -433,7 +456,7 @@ src/memory.cpp:
 # Not a target:
 headers/byte_code.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:45:04.873149461
+#  Last modified 2022-08-31 13:19:38.22953395
 #  File has been updated.
 #  Successfully updated.
 
@@ -465,6 +488,12 @@ headers/utils.hh:
 #  File has been updated.
 #  Successfully updated.
 
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
 target:
 #  Implicit rule search has not been done.
 #  Last modified 2022-08-30 15:05:34.830276541
@@ -474,7 +503,7 @@ target:
 	mkdir -p $(TARGET_DIR)
 
 # files hash-table stats:
-# Load=25/1024=2%, Rehash=0, Collisions=0/72=0%
+# Load=25/1024=2%, Rehash=0, Collisions=0/73=0%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
@@ -484,9 +513,9 @@ target:
 # strcache buffers: 1 (0) / strings = 32 / storage = 409 B / avg = 12 B
 # current buf: size = 8162 B / used = 409 B / count = 32 / avg = 12 B
 
-# strcache performance: lookups = 63 / hit rate = 49%
+# strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
-# Load=32/8192=0%, Rehash=0, Collisions=0/63=0%
-# Finished Make data base on Wed Aug 31 13:17:42 2022
+# Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
+# Finished Make data base on Thu Sep  1 14:53:23 2022
 
  

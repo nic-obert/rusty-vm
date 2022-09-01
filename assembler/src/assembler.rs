@@ -2,6 +2,7 @@ use crate::byte_code::{ByteCodes, is_jump_instruction};
 use crate::tokenizer::tokenize_operands;
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use crate::token::TokenValue;
+use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
 use std::collections::HashMap;
 
 
@@ -129,7 +130,19 @@ pub fn assemble(assembly: AssemblyCode) -> ByteCode {
                 }
             }
 
-            // TODO: convert the operands to byte code and append them to the byte code
+            // Convert the operands to byte code and append them to the byte code
+            let converter = INSTRUCTION_CONVERSION_TABLE.get(instruction_code as usize).unwrap_or_else(
+                || panic!("Unknown instruction \"{}\" at line {} \"{}\"", operator, line_number, line)
+            );
+
+            // Add the instruction code to the byte code
+            byte_code.push(instruction_code as u8);
+            // Add the operands to the byte code
+            if let Some(operand_bytes) = converter(&operands, handled_size) {
+                byte_code.extend(operand_bytes);
+            } else {
+                panic!("Operands for instruction \"{}\" at line {} \"{}\" are invalid", operator, line_number, line);
+            }
 
         } else {
             // Operator has no operands
