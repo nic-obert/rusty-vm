@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 python/assembler/main.py "$@"
+cd assembler && cargo run $@

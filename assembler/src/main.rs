@@ -10,8 +10,8 @@ use std::env;
 use std::path::Path;
 
 
-fn generate_output_name(input_name: &str) -> &str {
-    Path::new(input_name).file_stem().unwrap().to_str().unwrap()
+fn generate_output_name(input_name: &str) -> String {
+    Path::new(input_name).file_stem().unwrap().to_str().unwrap().to_owned() + ".bc"
 }
 
 
@@ -30,7 +30,7 @@ fn main() {
     let byte_code = assembler::assemble(assembly);
 
     let output_name = generate_output_name(input_file);
-    files::save_byte_code(byte_code, output_name);
+    files::save_byte_code(byte_code, &output_name);
     
 }
 
