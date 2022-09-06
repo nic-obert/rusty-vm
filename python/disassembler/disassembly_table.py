@@ -30,11 +30,11 @@ disassembly_table: Tuple[
     ('mod', (), (), None),
 
     
-    ('inc', (TokenType.REGISTER), (1,), None),
+    ('inc', (TokenType.REGISTER,), (1,), None),
     ('inc', (TokenType.ADDRESS_IN_REGISTER,), (None,), (0,)),
     ('inc', (TokenType.ADDRESS_LITERAL,), (8,), ()),
 
-    ('dec', (TokenType.REGISTER), (1,), None),
+    ('dec', (TokenType.REGISTER,), (1,), None),
     ('dec', (TokenType.ADDRESS_IN_REGISTER,), (1,), (0,)),
     ('dec', (TokenType.ADDRESS_LITERAL,), (8,), ()),
 

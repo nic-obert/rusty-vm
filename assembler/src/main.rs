@@ -1,7 +1,6 @@
 mod assembler;
 mod files;
 mod token_to_byte_code;
-mod token;
 mod tokenizer;
 mod argmuments_table;
 use std::env;

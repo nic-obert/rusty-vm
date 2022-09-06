@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Sep  1 14:53:23 2022
+# Make data base, printed on Tue Sep  6 14:21:41 2022
 
 # Variables
 
@@ -31,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine/vm
+VSCODE_CWD = /home/nic/dev/virtual-machine/assembler
 # environment
-TERMINATOR_UUID = urn:uuid:c2b21a21-1115-4945-b09f-fe1db46f7bd4
+TERMINATOR_UUID = urn:uuid:66c5b040-a811-41ee-a2fd-e3d75c5ba196
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -47,7 +47,7 @@ STD = c++17
 # environment
 SNAP_INSTANCE_NAME = code
 # environment
-GDK_PIXBUF_MODULEDIR = /snap/code/105/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+GDK_PIXBUF_MODULEDIR = /snap/code/106/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
@@ -67,7 +67,7 @@ OLDPWD = /home/nic/dev/virtual-machine
 # automatic
 %F = $(notdir $%)
 # environment
-VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/e4503b30fc78200f846c62cf8091b76ff5547662
+VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/784b0177c56c607789f9638da7b6bf3230d47a8c
 # environment
 XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session1
 # environment
@@ -109,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 284702
+VSCODE_PID = 409732
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -159,9 +159,9 @@ SNAP_USER_COMMON = /home/nic/snap/code/common
 # environment
 LC_TIME = it_IT.UTF-8
 # environment
-SNAP = /snap/code/105
+SNAP = /snap/code/106
 # environment
-SNAP_REVISION = 105
+SNAP_REVISION = 106
 # environment
 SNAP_REAL_HOME = /home/nic
 # environment
@@ -211,9 +211,7 @@ HEADER_DIR = headers
 # 'override' directive
 .SHELLSTATUS := 0
 # environment
-DISABLE_WAYLAND = 1
-# environment
-SNAP_DATA = /var/snap/code/105
+SNAP_DATA = /var/snap/code/106
 # environment
 SNAP_CONTEXT = Z5GtT_QDaEbM9AadYKjH6jaJwOvOWYLmyKINqNhHG-ZXOtNMRJz2
 # environment
@@ -243,13 +241,13 @@ HOME = /home/nic
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.70.2-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.71.0-main.sock
 # environment
 TERM = xterm-256color
 # environment
 SNAP_NAME = code
 # environment
-GSETTINGS_SCHEMA_DIR = /snap/code/105/usr/share/glib-2.0/schemas
+GSETTINGS_SCHEMA_DIR = /snap/code/106/usr/share/glib-2.0/schemas
 # environment
 XDG_SESSION_ID = 2
 # default
@@ -257,7 +255,7 @@ XDG_SESSION_ID = 2
 # automatic
 <F = $(notdir $<)
 # environment
-SNAP_VERSION = e4503b30
+SNAP_VERSION = 784b0177
 # default
 SUFFIXES := 
 # makefile (from 'Makefile', line 11)
@@ -277,20 +275,20 @@ CC = g++
 # makefile (from 'Makefile', line 9)
 SOURCES = $(shell find $(SRC_DIR) -type f -name "*.cpp")
 # environment
-SNAP_USER_DATA = /home/nic/snap/code/105
+SNAP_USER_DATA = /home/nic/snap/code/106
 # environment
 XDG_MENU_PREFIX = xfce-
 # environment
 LC_IDENTIFICATION = it_IT.UTF-8
- 
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
 # variable set hash-table stats:
-# Load=137/1024=13%, Rehash=0, Collisions=9/212=4%
+# Load=136/1024=13%, Rehash=0, Collisions=9/211=4%
 
 # Pattern-specific Variable Values
 
 # No pattern-specific variable values.
+ 
 
 # Directories
 
@@ -516,6 +514,6 @@ target:
 # strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
 # Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Thu Sep  1 14:53:23 2022
+# Finished Make data base on Tue Sep  6 14:21:41 2022
 
  

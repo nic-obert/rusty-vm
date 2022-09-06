@@ -1,7 +1,7 @@
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
 use crate::tokenizer::tokenize_operands;
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
-use crate::token::TokenValue;
+use rust_vm_lib::token::TokenValue;
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
 use std::collections::HashMap;
 

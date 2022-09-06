@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 bytes = "1.2.1"
 lazy_static = "1.4.0"
-rust_vm_lib = { path = "../rust_vm_lib" }
+
+[dependencies.rust_vm_lib]
+path = "../rust_vm_lib"

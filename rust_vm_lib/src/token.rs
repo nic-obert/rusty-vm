@@ -1,5 +1,5 @@
 use std::fmt;
-use rust_vm_lib::registers::Registers;
+use crate::registers::Registers;
 
 
 #[derive(Debug)]
@@ -13,6 +13,40 @@ pub enum TokenValue {
     AddressGeneric(usize),
     CurrentPosition(usize),
     AddressInRegisterIncomplete(String),
+}
+
+
+#[derive(Debug, Clone, Copy)]
+
+pub enum TokenTypes {
+    Register = 0,
+    AddressInRegister = 1,
+    Number = 2,
+    AddressLiteral = 3,
+    Label = 4,
+    Name = 5,
+    AddressGeneric = 6,
+    CurrentPosition = 7,
+    AddressInRegisterIncomplete = 8,
+}
+
+
+impl TokenTypes {
+
+    pub fn size(&self) -> u8 {
+        match self {
+            TokenTypes::Register => 1,
+            TokenTypes::AddressInRegister => 1,
+            TokenTypes::Number => 8, // Number is variable size, with 8 bytes being the default
+            TokenTypes::AddressLiteral => 8,
+            TokenTypes::Label => panic!("Label size is not defined"),
+            TokenTypes::Name => panic!("Name size is not defined"),
+            TokenTypes::AddressGeneric => panic!("AddressGeneric size is not defined"),
+            TokenTypes::CurrentPosition => panic!("CurrentPosition size is not defined"),
+            TokenTypes::AddressInRegisterIncomplete => panic!("AddressInRegisterIncomplete size is not defined"),
+        }
+    }
+
 }
 
 
@@ -67,5 +101,24 @@ impl fmt::Display for Token {
             TokenValue::AddressInRegisterIncomplete(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
         }
     }
+}
+
+
+impl fmt::Display for TokenTypes {
+    
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenTypes::Register => write!(f, "REGISTER"),
+            TokenTypes::AddressInRegister => write!(f, "ADDRESS_IN_REGISTER"),
+            TokenTypes::Number => write!(f, "NUMBER"),
+            TokenTypes::AddressLiteral => write!(f, "ADDRESS_LITERAL"),
+            TokenTypes::Label => write!(f, "LABEL"),
+            TokenTypes::Name => write!(f, "NAME"),
+            TokenTypes::AddressGeneric => write!(f, "ADDRESS_GENERIC"),
+            TokenTypes::CurrentPosition => write!(f, "CURRENT_POSITION"),
+            TokenTypes::AddressInRegisterIncomplete => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE"),
+        }
+    }
+
 }
 

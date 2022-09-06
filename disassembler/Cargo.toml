@@ -1,6 +1,10 @@
 [package]
 name = "disassembler"
 version = "1.0.0"
+edition = "2021"
 
-[depencencies]
+[dependencies]
+lazy_static = "1.4.0"
 
+[dependencies.rust_vm_lib]
+path = "../rust_vm_lib"

@@ -18,9 +18,7 @@ pub fn load_assembly(file_path: &str) -> AssemblyCode {
 
 
 pub fn save_byte_code(byte_code: ByteCode, file_path: &str) {
-    match fs::write(file_path, byte_code) {
-        Ok(_) => (),
-        Err(e) => panic!("Could not write file {}: {}", file_path, e)
-    }
+    fs::write(file_path, byte_code)
+       .expect(format!("Could not write to file {}", file_path).as_str());
 }
 

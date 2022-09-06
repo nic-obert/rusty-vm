@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenValue};
+use rust_vm_lib::token::{Token, TokenValue};
 use rust_vm_lib::byte_code::ByteCodes;
 use bytes::{BytesMut, Bytes, BufMut};
 use std::mem::size_of;
