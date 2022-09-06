@@ -2,8 +2,6 @@ mod assembler;
 mod files;
 mod token_to_byte_code;
 mod token;
-mod registers;
-mod byte_code;
 mod tokenizer;
 mod argmuments_table;
 use std::env;

@@ -1,4 +1,4 @@
-use crate::registers::get_register;
+use rust_vm_lib::registers::get_register;
 use crate::token::{Token, TokenValue};
 use std::mem;
 

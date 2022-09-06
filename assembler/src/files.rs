@@ -1,5 +1,5 @@
 use std::fs;
-use crate::assembler::{AssemblyCode, ByteCode};
+use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 
 
 pub fn load_assembly(file_path: &str) -> AssemblyCode {

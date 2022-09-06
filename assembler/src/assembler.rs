@@ -1,4 +1,4 @@
-use crate::byte_code::{ByteCodes, is_jump_instruction};
+use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
 use crate::tokenizer::tokenize_operands;
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use crate::token::TokenValue;

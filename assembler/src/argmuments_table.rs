@@ -1,4 +1,4 @@
-use crate::byte_code::ByteCodes;
+use rust_vm_lib::byte_code::ByteCodes;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 

@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::registers::Registers;
+use rust_vm_lib::registers::Registers;
 
 
 #[derive(Debug)]
