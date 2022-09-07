@@ -75,7 +75,7 @@ pub static ref DISASSEMBLY_TABLE:
     ])),
     ("mov", None, Some(vec![
         Argument::new(TokenTypes::AddressInRegister),
-        Argument::new(TokenTypes::AddressGeneric)
+        Argument::new(TokenTypes::AddressInRegister)
     ])),
     ("mov", Some(vec![1]), Some(vec![
         Argument::new(TokenTypes::AddressInRegister),
@@ -165,7 +165,7 @@ pub static ref DISASSEMBLY_TABLE:
     ("ini", None, None),
     ("ins", None, None),
 
-    ("exit", None, None),
+    ("exit", None, None)
 
 ];
 
@@ -200,7 +200,7 @@ pub static ref OPERATOR_DISASSEMBLY_TABLE:
             number = (number << 8) | *byte as u32;
         }
         format!("[0x {:x}]", number)
-    },
+    }
 
 ];
 

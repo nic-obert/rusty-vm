@@ -1,6 +1,5 @@
 make --dry-run --always-make --keep-going --print-directory
 make: Entering directory '/home/nic/dev/virtual-machine/vm'
- 
 mkdir -p target
 time -f "\nTime elapsed: %E seconds" g++ -std=c++17 -I headers -Wall -Wextra -Werror src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp -O3 -o target/vm
 make: Leaving directory '/home/nic/dev/virtual-machine/vm'

@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Tue Sep  6 14:21:41 2022
+# Make data base, printed on Wed Sep  7 17:56:06 2022
 
 # Variables
 
@@ -31,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine/assembler
+VSCODE_CWD = /home/nic/dev/virtual-machine
 # environment
-TERMINATOR_UUID = urn:uuid:66c5b040-a811-41ee-a2fd-e3d75c5ba196
+TERMINATOR_UUID = urn:uuid:b7a07630-817d-4f08-a4a6-b0271111b099
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -61,7 +61,7 @@ MAIL = /var/spool/mail/nic
 # environment
 XDG_DATA_DIRS = /home/nic/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop:/usr/share
 # environment
-OLDPWD = /home/nic/dev/virtual-machine
+OLDPWD = /home/nic
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # automatic
@@ -109,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 409732
+VSCODE_PID = 429433
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -282,13 +282,13 @@ XDG_MENU_PREFIX = xfce-
 LC_IDENTIFICATION = it_IT.UTF-8
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
+ 
 # variable set hash-table stats:
 # Load=136/1024=13%, Rehash=0, Collisions=9/211=4%
 
 # Pattern-specific Variable Values
 
 # No pattern-specific variable values.
- 
 
 # Directories
 
@@ -514,6 +514,6 @@ target:
 # strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
 # Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Tue Sep  6 14:21:41 2022
+# Finished Make data base on Wed Sep  7 17:56:06 2022
 
  

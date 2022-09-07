@@ -8,7 +8,7 @@ fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
+pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -30,8 +30,12 @@ pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
                     }
                     else if is_name_character(c) {
                         current_token = Some(
-                            Token::new(TokenValue::Name(c.to_string()))
+                            Token::new(TokenValue::AddressInRegisterIncomplete(c.to_string()))
                         );
+                    } else if c == ']' {
+                        panic!("Empty address at line {}:\n{}", line_number, line);
+                    } else {
+                        panic!("Invalid character \"{}\" in token AddressGeneric at line {}:\n{}", c, line_number, line);
                     }
 
                     continue;
@@ -40,10 +44,13 @@ pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
                 TokenValue::AddressLiteral(value) => {
                     if c.is_digit(10) {
                         *value = *value * 10 + c.to_digit(10).unwrap() as usize;
-                        continue;
+                    } else if c == ']' {
+                        tokens.push(current_token.take().unwrap());                    
+                    } else {
+                        panic!("Invalid character \"{}\" in token AddressLiteral at line {}:\n{}", c, line_number, line);
                     }
 
-                    tokens.push(current_token.take().unwrap());                    
+                    continue;
                 },
 
                 TokenValue::AddressInRegisterIncomplete(value) => {
@@ -52,19 +59,15 @@ pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
                         continue;
                     }
 
-                    if c == ' ' {
-                        continue;
-                    }
                     if c != ']' {
-                        panic!("Expected ']' after address in argument list \"{}\", but '{}' was provided", operands, c);
+                        panic!("Expected ']' after address in argument list \"{}\", but '{}' was provided at line {}:\n{}", operands, c, line_number, line);
                     }
 
                     if let Some(register) = get_register(value) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
-                    }
-                    else {
-                        panic!("Unknown register \"{}\" in argument list \"{}\"", value, operands);
+                    } else {
+                        panic!("Unknown register \"{}\" in argument list \"{}\" at line {}:\n{}", value, operands, line_number, line);
                     }
 
                     continue;
@@ -105,11 +108,6 @@ pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
         }
 
 
-        if c == '[' {
-            current_token = Some(Token::new(TokenValue::AddressGeneric(0)));
-            continue;
-        }
-
         if is_name_character(c) {
             current_token = Some(Token::new(TokenValue::Name(c.to_string())));
             continue;
@@ -130,7 +128,7 @@ pub fn tokenize_operands(mut operands: String) -> Vec<Token> {
                 continue;
             },
 
-            _ => panic!("Unhaldled character '{}' in operands \"{}\"", c, operands)
+            _ => panic!("Unhandled character '{}' at line {}, in operands \"{}\":\n{}", c, line_number, operands, line)
         }
 
     }   

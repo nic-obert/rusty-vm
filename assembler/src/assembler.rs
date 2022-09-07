@@ -10,7 +10,7 @@ pub type AssemblyCode = Vec<String>;
 pub type ByteCode = Vec<u8>;
 
 
-pub fn assemble(assembly: AssemblyCode) -> ByteCode {
+pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
 
     let mut byte_code = ByteCode::new();
 
@@ -20,8 +20,14 @@ pub fn assemble(assembly: AssemblyCode) -> ByteCode {
     for line in assembly {
         line_number += 1;
 
+        if verbose {
+            println!("Line {}: {}", line_number, line);
+        }
+
         // Remove redundant whitespaces
-        let stripped_line = line.strip_prefix(' ').unwrap().strip_suffix(' ').unwrap();
+        let stripped_line = line.strip_prefix(' ').unwrap_or(&line);
+        let stripped_line = stripped_line.strip_suffix(' ').unwrap_or(stripped_line);
+
         if stripped_line.is_empty() || stripped_line.starts_with(';') {
             // The line is either empty or a comment, skip it
             continue;
@@ -32,7 +38,7 @@ pub fn assemble(assembly: AssemblyCode) -> ByteCode {
         
         if let Some(tokens) = raw_tokens {
             // Operator has operands, tokenize the operands
-            let mut operands = tokenize_operands(tokens.1.to_string());
+            let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line);
             let operator = tokens.0;
 
             let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(

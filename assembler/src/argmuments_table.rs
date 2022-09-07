@@ -244,25 +244,29 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
     ])),
     
     ("pop1", Args::One(vec![
-        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 1)), // Register
+        None, // Register
+        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 1)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 1)), // Address literal
     ])),
     
     ("pop2", Args::One(vec![
-        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 2)), // Register
+        None, // Register
+        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 2)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 2)), // Address literal
     ])),
     
     ("pop4", Args::One(vec![
-        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 4)), // Register
+        None, // Register
+        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 4)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 4)), // Address literal
     ])),
     
     ("pop8", Args::One(vec![
-        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 8)), // Register
+        None, // Register
+        Some((ByteCodes::POP_INTO_ADDR_IN_REG, 8)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 8)), // Address literal
     ])),

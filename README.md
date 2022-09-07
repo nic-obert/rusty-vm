@@ -35,6 +35,10 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`nop`](#nop)
     - [Memory instructions](#memory-instructions)
       - [`mov`](#mov)
+      - [`mov1`](#mov1)
+      - [`mov2`](#mov2)
+      - [`mov4`](#mov4)
+      - [`mov8`](#mov8)
       - [`push`](#push)
       - [`push1`](#push1)
       - [`push2`](#push2)
@@ -231,12 +235,74 @@ nop
 ### Memory instructions
 
 #### `mov`
-Copy the second operand (value or value at the specified address or register) into the first operand (register or address).
+Copy the second register value into the first register.
 
 ```
 mov a b
-mov [a] b
-mov a [b]
+```
+
+#### `mov1`
+Copy the 1-byte literal or value stored at the specified location into the specified location.
+
+```
+mov1 a [b]
+mov1 [a] [123]
+mov1 a 123
+mov1 [a] b
+mov1 [a] [b]
+mov1 [a] [123]
+mov1 [a] 123
+mov1 [123] a
+mov1 [123] [a]
+mov1 [123] 123
+```
+
+#### `mov2`
+Copy the 2-byte literal or value stored at the specified location into the specified location.
+
+```
+mov2 a [b]
+mov2 [a] [123]
+mov2 a 123
+mov2 [a] b
+mov2 [a] [b]
+mov2 [a] [123]
+mov2 [a] 123
+mov2 [123] a
+mov2 [123] [a]
+mov2 [123] 123
+```
+
+#### `mov4`
+Copy the 4-byte literal or value stored at the specified location into the specified location.
+
+```
+mov4 a [b]
+mov4 [a] [123]
+mov4 a 123
+mov4 [a] b
+mov4 [a] [b]
+mov4 [a] [123]
+mov4 [a] 123
+mov4 [123] a
+mov4 [123] [a]
+mov4 [123] 123
+```
+
+#### `mov8`
+Copy the 8-byte literal or value stored at the specified location into the specified location.
+
+```
+mov8 a [b]
+mov8 [a] [123]
+mov8 a 123
+mov8 [a] b
+mov8 [a] [b]
+mov8 [a] [123]
+mov8 [a] 123
+mov8 [123] a
+mov8 [123] [a]
+mov8 [123] 123
 ```
 
 #### `push`

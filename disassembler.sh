@@ -1,2 +1,2 @@
 #!/bin/bash
-cd disassembler && cargo run $@
+./disassembler/target/debug/disassembler $@
