@@ -26,146 +26,145 @@ lazy_static! {
 pub static ref DISASSEMBLY_TABLE: 
     [ (&'static str, Option<Vec<u8>>, Option<Vec<Argument>>); 44 ]
 = [
-    ("add", None, None),
-    ("sub", None, None),
-    ("mul", None, None),
-    ("div", None, None),
+    ("add", None, None), // ByteCodes::ADD
+    ("sub", None, None), // ByteCodes::SUB
+    ("mul", None, None), // ByteCodes::MUL
+    ("div", None, None), // ByteCodes::DIV
+    ("mod", None, None), // ByteCodes::MOD
 
     ("inc", None, Some(vec![
-        Argument::new(TokenTypes::Register)
+        Argument::new(TokenTypes::Register) // ByteCodes::INC_REG
     ])),
     ("inc", None, Some(vec![
-        Argument::new(TokenTypes::AddressInRegister)
+        Argument::new(TokenTypes::AddressInRegister) // ByteCodes::INC_ADDR_IN_REG
     ])),
     ("inc", None, Some(vec![
-        Argument::new(TokenTypes::AddressLiteral)
+        Argument::new(TokenTypes::AddressLiteral) // ByteCodes::INC_ADDR_LITERAL
     ])),
 
     ("dec", None, Some(vec![
-        Argument::new(TokenTypes::Register)
+        Argument::new(TokenTypes::Register) // ByteCodes::DEC_REG
     ])),
     ("dec", None, Some(vec![
-        Argument::new(TokenTypes::AddressInRegister)
+        Argument::new(TokenTypes::AddressInRegister) // ByteCodes::DEC_ADDR_IN_REG
     ])),
     ("dec", None, Some(vec![
-        Argument::new(TokenTypes::AddressLiteral)
+        Argument::new(TokenTypes::AddressLiteral) // ByteCodes::DEC_ADDR_LITERAL
     ])),
 
-    ("nop", None, None),
+    ("nop", None, None), // ByteCodes::NO_OPERATION
 
-    ("mov", None, Some(vec![
-        Argument::new(TokenTypes::Register),
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_REG_FROM_REG
+        Argument::new(TokenTypes::Register), 
         Argument::new(TokenTypes::Register)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG
         Argument::new(TokenTypes::Register),
         Argument::new(TokenTypes::AddressInRegister)
     ])),
-    ("mov", Some(vec![1]), Some(vec![
+    ("mov", Some(vec![1]), Some(vec![ // ByteCodes::MOVE_INTO_REG_FROM_CONST
         Argument::new(TokenTypes::Register),
-        Argument::new(TokenTypes::AddressInRegister)
+        Argument::new(TokenTypes::Number)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL
         Argument::new(TokenTypes::Register),
         Argument::new(TokenTypes::AddressLiteral)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG
         Argument::new(TokenTypes::AddressInRegister),
         Argument::new(TokenTypes::Register)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG
         Argument::new(TokenTypes::AddressInRegister),
         Argument::new(TokenTypes::AddressInRegister)
     ])),
-    ("mov", Some(vec![1]), Some(vec![
+    ("mov", Some(vec![1]), Some(vec![ // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST
         Argument::new(TokenTypes::AddressInRegister),
         Argument::new(TokenTypes::Number)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL
         Argument::new(TokenTypes::AddressInRegister),
         Argument::new(TokenTypes::AddressLiteral)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::Register)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::AddressInRegister)
     ])),
-    ("mov", Some(vec![1]), Some(vec![
+    ("mov", Some(vec![1]), Some(vec![ // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::Number)
     ])),
-    ("mov", None, Some(vec![
+    ("mov", None, Some(vec![ // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::AddressLiteral)
     ])),
 
-    ("push", None, Some(vec![
+    ("push", None, Some(vec![ // ByteCodes::PUSH_FROM_REG
         Argument::new(TokenTypes::Register)
     ])),
-    ("push", None, Some(vec![
+    ("push", None, Some(vec![ // ByteCodes::PUSH_FROM_ADDR_IN_REG
         Argument::new(TokenTypes::AddressInRegister)
     ])),
-    ("push", Some(vec![0]), Some(vec![
+    ("push", Some(vec![0]), Some(vec![ // ByteCodes::PUSH_FROM_CONST
         Argument::new(TokenTypes::Number)
     ])),
-    ("push", None, Some(vec![
+    ("push", None, Some(vec![ // ByteCodes::PUH_FROM_ADDR_LITERAL
         Argument::new(TokenTypes::AddressLiteral)
     ])),
 
-    ("pop", None, Some(vec![
+    ("pop", None, Some(vec![ // ByteCodes::POP_INTO_REG
         Argument::new(TokenTypes::Register)
     ])),
-    ("pop", None, Some(vec![
+    ("pop", None, Some(vec![ // ByteCodes::POP_INTO_ADDR_IN_REG
         Argument::new(TokenTypes::AddressInRegister)
     ])),
-    ("pop", Some(vec![0]), Some(vec![
-        Argument::new(TokenTypes::Number)
-    ])),
-    ("pop", None, Some(vec![
+    ("pop", None, Some(vec![ // ByteCodes::POP_INTO_ADDR_LITERAL
         Argument::new(TokenTypes::AddressLiteral)
     ])),
 
-    ("@", None, None), // Doesn't get used, but it's here for keeping the index correct
+    // Doesn't get used, but it's here for keeping the index correct
+    ("@", None, None), // ByteCodes::LABEL
 
-    ("jmp", None, Some(vec![
+    ("jmp", None, Some(vec![ // ByteCodes::JUMP
         Argument::new(TokenTypes::AddressLiteral)
     ])),
-    ("jmpnz", None, Some(vec![
+    ("jmpnz", None, Some(vec![ // ByteCodes::JUMP_IF_TRUE_REG
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::Register)
     ])),
-    ("jmpz", None, Some(vec![
+    ("jmpz", None, Some(vec![ // ByteCodes::JUMP_IF_FALSE_REG
         Argument::new(TokenTypes::AddressLiteral),
         Argument::new(TokenTypes::Register)
     ])),
 
-    ("cmp", None, Some(vec![
+    ("cmp", None, Some(vec![ // ByteCodes::COMPARE_REG_REG
         Argument::new(TokenTypes::Register),
         Argument::new(TokenTypes::Register)
     ])),
-    ("cmp", Some(vec![1]), Some(vec![
+    ("cmp", Some(vec![1]), Some(vec![ // ByteCodes::COMPARE_REG_CONST
         Argument::new(TokenTypes::Register),
         Argument::new(TokenTypes::Number)
     ])),
-    ("cmp", Some(vec![0]), Some(vec![
+    ("cmp", Some(vec![0]), Some(vec![ // ByteCodes::COMPARE_CONST_REG
         Argument::new(TokenTypes::Number),
         Argument::new(TokenTypes::Register)
     ])),
-    ("cmp", Some(vec![0, 1]), Some(vec![
+    ("cmp", Some(vec![0, 1]), Some(vec![ // ByteCodes::COMPARE_CONST_CONST
         Argument::new(TokenTypes::Number),
         Argument::new(TokenTypes::Number)
     ])),
 
-    ("print", None, None),
-    ("prints", None, None),
+    ("print", None, None), // ByteCodes::PRINT
+    ("prints", None, None), // ByteCodes::PRINT_STRING
 
-    ("ini", None, None),
-    ("ins", None, None),
+    ("ini", None, None), // ByteCodes::INPUT_INT
+    ("ins", None, None), // ByteCodes::INPUT_STRING
 
-    ("exit", None, None)
+    ("exit", None, None) // ByteCodes::EXIT
 
 ];
 
