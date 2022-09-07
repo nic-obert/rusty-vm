@@ -1,3 +1,3 @@
 #!/bin/bash
-cd assembler && cargo run $@
+cargo run --manifest-path assembler/Cargo.toml $@
 

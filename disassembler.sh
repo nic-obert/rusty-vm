@@ -1,2 +1,2 @@
 #!/bin/bash
-./disassembler/target/debug/disassembler $@
+cargo run --manifest-path disassembler/Cargo.toml $@

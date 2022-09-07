@@ -4,22 +4,22 @@ use std::fmt;
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
 pub enum Registers {
-    A,
-    B,
-    C,
-    D,
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
 
-    EXIT,
-    INPUT,
-    ERROR,
-    PRINT,
+    EXIT = 4,
+    INPUT = 5,
+    ERROR = 6,
+    PRINT = 7,
 
-    STACK_POINTER,
-    PROGRAM_COUNTER,
+    STACK_POINTER = 8,
+    PROGRAM_COUNTER = 9,
 
-    ZERO_FLAG,
-    SIGN_FLAG,
-    REMAINDER_FLAG,
+    ZERO_FLAG = 10,
+    SIGN_FLAG = 11,
+    REMAINDER_FLAG = 12,
 }
 
 
