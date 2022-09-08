@@ -43,7 +43,11 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                 
                 TokenValue::AddressLiteral(value) => {
                     if c.is_digit(10) {
-                        *value = *value * 10 + c.to_digit(10).unwrap() as usize;
+                        *value = value.checked_mul(10).unwrap_or_else(
+                            || panic!("Address literal too large at line {}:\n{}", line_number, line)
+                        ).checked_add(c.to_digit(10).unwrap() as usize).unwrap_or_else(
+                            || panic!("Address literal too large at line {}:\n{}", line_number, line)
+                        );
                     } else if c == ']' {
                         tokens.push(current_token.take().unwrap());                    
                     } else {
@@ -95,7 +99,11 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                    
                 TokenValue::Number(value) => {
                     if c.is_digit(10) {
-                        *value = *value * 10 + c.to_digit(10).unwrap() as i64;
+                        *value = value.checked_mul(10).unwrap_or_else(
+                            || panic!("Number too large at line {}:\n{}", line_number, line)
+                        ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
+                            || panic!("Number too large at line {}:\n{}", line_number, line)
+                        );
                         continue;
                     }
 
