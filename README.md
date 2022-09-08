@@ -4,7 +4,7 @@ A simple virtual machine and related tools.
 The toolchain includes:
 - the **virtual machine** (written in C++)
 - the **assembler** (written in Rust)
-- the **disassembler** (work in progress)
+- the **disassembler** (written in Rust)
   
 This is just an amateur project and should not be used in a production environment.
 There are a few known vulnerabilities, plus it's not very efficient.
