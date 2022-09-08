@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Sep  7 17:56:06 2022
+# Make data base, printed on Thu Sep  8 12:40:45 2022
 
 # Variables
 
@@ -282,12 +282,12 @@ XDG_MENU_PREFIX = xfce-
 LC_IDENTIFICATION = it_IT.UTF-8
 # environment
 SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
- 
 # variable set hash-table stats:
 # Load=136/1024=13%, Rehash=0, Collisions=9/211=4%
 
 # Pattern-specific Variable Values
 
+ 
 # No pattern-specific variable values.
 
 # Directories
@@ -514,6 +514,6 @@ target:
 # strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
 # Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Wed Sep  7 17:56:06 2022
+# Finished Make data base on Thu Sep  8 12:40:45 2022
 
  

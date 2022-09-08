@@ -1,7 +1,6 @@
 use rust_vm_lib::token::{Token, TokenValue};
 use rust_vm_lib::byte_code::ByteCodes;
 use bytes::{BytesMut, Bytes, BufMut};
-use std::mem::size_of;
 
 
 const SIZE_OF_REGISTER: usize = 1;
@@ -24,7 +23,7 @@ pub const fn number_size(mut number: u64) -> usize {
 }
 
 
-/// Returns the bytes representation of the number.
+/// Returns the bytes representation of the number using little endian.
 pub fn number_to_bytes(mut number: u64, size: usize) -> Bytes {
     
     if number_size(number) > size {
@@ -32,8 +31,9 @@ pub fn number_to_bytes(mut number: u64, size: usize) -> Bytes {
     }
 
     let mut value = BytesMut::with_capacity(size);
+    // Perform a reverse loop for little endian
     for _ in 0..size {
-        value.put_u8((number % 256).try_into().unwrap());
+        value.put_u8((number % 256) as u8);
         number /= 256;
     }
 
@@ -141,7 +141,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], _handled_size: u8 | {
         if let TokenValue::Register(dest_reg) = operands[0].value {
             if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2);
+                let mut bytes = BytesMut::with_capacity(2 * SIZE_OF_REGISTER);
                 bytes.put_u8(dest_reg as u8);
                 bytes.put_u8(src_reg as u8);
                 return Some(bytes.freeze());
@@ -154,7 +154,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Register(dest_reg) = operands[0].value {
             if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(3);
+                let mut bytes = BytesMut::with_capacity(1 + 2 * SIZE_OF_REGISTER);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
                 bytes.put_u8(src_reg as u8);
@@ -167,11 +167,11 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::MOVE_INTO_REG_FROM_CONST
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Register(dest_reg) = operands[0].value {
-            if let TokenValue::Number(address) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(3);
+            if let TokenValue::Number(number) = operands[1].value {
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + handled_size as usize);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
-                bytes.put_u64(address as u64);
+                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }
@@ -182,10 +182,10 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Register(dest_reg) = operands[0].value {
             if let TokenValue::AddressLiteral(address) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 + SIZE_OF_ADDRESS);
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + SIZE_OF_ADDRESS);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
-                bytes.put_u64(address as u64);
+                bytes.put_u64_le(address as u64);
                 return Some(bytes.freeze());
             }
         }
@@ -196,7 +196,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
             if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(3);
+                let mut bytes = BytesMut::with_capacity(1 + 2 * SIZE_OF_REGISTER);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
                 bytes.put_u8(src_reg as u8);
@@ -210,7 +210,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
             if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(3);
+                let mut bytes = BytesMut::with_capacity(1 + 2 * SIZE_OF_REGISTER);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
                 bytes.put_u8(src_reg as u8);
@@ -223,11 +223,11 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            if let TokenValue::Number(value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 + SIZE_OF_ADDRESS);
+            if let TokenValue::Number(number) = operands[1].value {
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_ADDRESS + handled_size as usize);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
-                bytes.put_u64(value as u64);
+                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }
@@ -238,10 +238,10 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
             if let TokenValue::AddressLiteral(value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 + SIZE_OF_ADDRESS);
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + SIZE_OF_ADDRESS);
                 bytes.put_u8(handled_size);
                 bytes.put_u8(dest_reg as u8);
-                bytes.put_u64(value as u64);
+                bytes.put_u64_le(value as u64);
                 return Some(bytes.freeze());
             }
         }
@@ -252,9 +252,9 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
             if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 + SIZE_OF_ADDRESS);
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + SIZE_OF_ADDRESS);
                 bytes.put_u8(handled_size);
-                bytes.put_u64(dest_address as u64);
+                bytes.put_u64_le(dest_address as u64);
                 bytes.put_u8(src_reg as u8);
                 return Some(bytes.freeze());
             }
@@ -266,9 +266,9 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
             if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 + SIZE_OF_ADDRESS);
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + SIZE_OF_ADDRESS);
                 bytes.put_u8(handled_size);
-                bytes.put_u64(dest_address as u64);
+                bytes.put_u64_le(dest_address as u64);
                 bytes.put_u8(src_reg as u8);
                 return Some(bytes.freeze());
             }
@@ -279,11 +279,11 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            if let TokenValue::Number(value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_ADDRESS + size_of::<u64>());
+            if let TokenValue::Number(number) = operands[1].value {
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_ADDRESS + handled_size as usize);
                 bytes.put_u8(handled_size);
-                bytes.put_u64(dest_address as u64);
-                bytes.put_u64(value as u64);
+                bytes.put_u64_le(dest_address as u64);
+                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }
@@ -294,10 +294,10 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
             if let TokenValue::AddressLiteral(src_address) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + 2*SIZE_OF_ADDRESS);
+                let mut bytes = BytesMut::with_capacity(1 + 2 * SIZE_OF_ADDRESS);
                 bytes.put_u8(handled_size);
-                bytes.put_u64(dest_address as u64);
-                bytes.put_u64(src_address as u64);
+                bytes.put_u64_le(dest_address as u64);
+                bytes.put_u64_le(src_address as u64);
                 return Some(bytes.freeze());
             }
         }
@@ -317,7 +317,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::PUSH_FROM_ADDR_IN_REG
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(src_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(2);
+            let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER);
             bytes.put_u8(handled_size);
             bytes.put_u8(src_reg as u8);
             return Some(bytes.freeze());
@@ -328,9 +328,9 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::PUSH_FROM_CONST
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Number(value) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + size_of::<u64>());
+            let mut bytes = BytesMut::with_capacity(1 + handled_size as usize);
             bytes.put_u8(handled_size);
-            bytes.put_u64(value as u64);
+            bytes.extend(number_to_bytes(value as u64, handled_size as usize));
             return Some(bytes.freeze());
         }
         panic!("Invalid operands for instruction {}: {:#?}", ByteCodes::PUSH_FROM_CONST, operands);
@@ -341,7 +341,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
         if let TokenValue::AddressLiteral(value) = operands[0].value {
             let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_ADDRESS);
             bytes.put_u8(handled_size);
-            bytes.put_u64(value as u64);
+            bytes.put_u64_le(value as u64);
             return Some(bytes.freeze());
         }
         panic!("Invalid operands for instruction {}: {:#?}", ByteCodes::PUSH_FROM_ADDR_LITERAL, operands);
@@ -360,7 +360,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // ByteCodes::POP_INTO_ADDR_IN_REG
     | operands: &[Token], handled_size: u8 | {
         if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(2);
+            let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER);
             bytes.put_u8(handled_size);
             bytes.put_u8(dest_reg as u8);
             return Some(bytes.freeze());
@@ -373,7 +373,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
         if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
             let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_ADDRESS);
             bytes.put_u8(handled_size);
-            bytes.put_u64(dest_address as u64);
+            bytes.put_u64_le(dest_address as u64);
             return Some(bytes.freeze());
         }
         panic!("Invalid operands for instruction {}: {:#?}", ByteCodes::POP_INTO_ADDR_LITERAL, operands);
@@ -390,7 +390,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], _handled_size: u8 | {
         if let TokenValue::AddressLiteral(target) = operands[0].value {
             let mut bytes = BytesMut::with_capacity(SIZE_OF_ADDRESS);
-            bytes.put_u64(target as u64);
+            bytes.put_u64_le(target as u64);
             return Some(bytes.freeze());
         }
         panic!("Invalid operands for instruction {}: {:#?}", ByteCodes::JUMP, operands);
@@ -401,7 +401,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
         if let TokenValue::AddressLiteral(target) = operands[0].value {
             if let TokenValue::Register(check_reg) = operands[1].value {
                 let mut bytes = BytesMut::with_capacity(SIZE_OF_ADDRESS + SIZE_OF_REGISTER);
-                bytes.put_u64(target as u64);
+                bytes.put_u64_le(target as u64);
                 bytes.put_u8(check_reg as u8);
                 return Some(bytes.freeze());
             }
@@ -414,7 +414,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
         if let TokenValue::AddressLiteral(target) = operands[0].value {
             if let TokenValue::Register(check_reg) = operands[1].value {
                 let mut bytes = BytesMut::with_capacity(SIZE_OF_ADDRESS + SIZE_OF_REGISTER);
-                bytes.put_u64(target as u64);
+                bytes.put_u64_le(target as u64);
                 bytes.put_u8(check_reg as u8);
                 return Some(bytes.freeze());
             }
@@ -428,7 +428,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     | operands: &[Token], _handled_size: u8 | {
         if let TokenValue::Register(left_reg) = operands[0].value {
             if let TokenValue::Register(right_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(SIZE_OF_REGISTER * 2);
+                let mut bytes = BytesMut::with_capacity(2 * SIZE_OF_REGISTER);
                 bytes.put_u8(left_reg as u8);
                 bytes.put_u8(right_reg as u8);
                 return Some(bytes.freeze());
@@ -438,12 +438,13 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     },
 
     // ByteCodes::COMPARE_REG_CONST
-    | operands: &[Token], _handled_size: u8 | {
+    | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Register(left_reg) = operands[0].value {
             if let TokenValue::Number(right_value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(SIZE_OF_REGISTER + size_of::<u64>());
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + handled_size as usize);
+                bytes.put_u8(handled_size);
                 bytes.put_u8(left_reg as u8);
-                bytes.put_u64(right_value as u64);
+                bytes.extend(number_to_bytes(right_value as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }
@@ -451,12 +452,13 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     },
 
     // ByteCodes::COMPARE_CONST_REG
-    | operands: &[Token], _handled_size: u8 | {
+    | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Number(left_value) = operands[0].value {
             if let TokenValue::Register(right_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(SIZE_OF_REGISTER + size_of::<u64>());
+                let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER + handled_size as usize);
+                bytes.put_u8(handled_size);
                 bytes.put_u8(right_reg as u8);
-                bytes.put_u64(left_value as u64);
+                bytes.extend(number_to_bytes(left_value as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }
@@ -464,12 +466,13 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     },
 
     // ByteCodes::COMPARE_CONST_CONST
-    | operands: &[Token], _handled_size: u8 | {
+    | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Number(left_value) = operands[0].value {
             if let TokenValue::Number(right_value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(size_of::<u64>() * 2);
-                bytes.put_u64(left_value as u64);
-                bytes.put_u64(right_value as u64);
+                let mut bytes = BytesMut::with_capacity(1 + handled_size as usize * 2);
+                bytes.put_u8(handled_size);
+                bytes.extend(number_to_bytes(left_value as u64, handled_size as usize));
+                bytes.extend(number_to_bytes(right_value as u64, handled_size as usize));
                 return Some(bytes.freeze());
             }
         }

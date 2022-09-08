@@ -5,21 +5,21 @@ use std::fmt;
 #[derive(Clone, Copy, Debug)]
 pub enum Registers {
     A = 0,
-    B = 1,
-    C = 2,
-    D = 3,
+    B,
+    C,
+    D,
 
-    EXIT = 4,
-    INPUT = 5,
-    ERROR = 6,
-    PRINT = 7,
+    EXIT,
+    INPUT,
+    ERROR,
+    PRINT,
 
-    STACK_POINTER = 8,
-    PROGRAM_COUNTER = 9,
+    STACK_POINTER,
+    PROGRAM_COUNTER,
 
-    ZERO_FLAG = 10,
-    SIGN_FLAG = 11,
-    REMAINDER_FLAG = 12,
+    ZERO_FLAG,
+    SIGN_FLAG,
+    REMAINDER_FLAG,
 }
 
 
@@ -30,7 +30,7 @@ impl fmt::Display for Registers {
 }
 
 
-pub const REGISTER_NAMES: [&str; 13] = [
+const REGISTER_NAMES: [&str; 13] = [
     "a",
     "b",
     "c",
