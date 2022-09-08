@@ -1,9 +1,8 @@
 use rust_vm_lib::registers::get_register;
 use rust_vm_lib::token::{Token, TokenValue};
-use std::mem;
 
 
-fn is_name_character(c: char) -> bool {
+pub fn is_name_character(c: char) -> bool {
     c.is_alphabetic() || c == '_'
 }
 
@@ -80,11 +79,6 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                 TokenValue::Name(value) => {
                     if is_name_character(c) {
                         value.push(c);
-                        continue;
-                    }
-                    if c == ':' {
-                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
-                        current_token = None;
                         continue;
                     }
 

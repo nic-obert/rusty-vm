@@ -1,5 +1,5 @@
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
-use crate::tokenizer::tokenize_operands;
+use crate::tokenizer::{tokenize_operands, is_name_character};
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use rust_vm_lib::token::TokenValue;
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
@@ -30,6 +30,22 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
 
         if stripped_line.is_empty() || stripped_line.starts_with(';') {
             // The line is either empty or a comment, skip it
+            continue;
+        }
+
+        if stripped_line.starts_with('@') {
+            // The line is a label, add it to the label map
+            // Check if the label is a valid name
+            let label = stripped_line.strip_prefix('@').unwrap();
+            
+            for c in label.chars() {
+                if !is_name_character(c) {
+                    panic!("Invalid character \"{}\" in label at line {}:\n{}", c, line_number, line);
+                }
+            }
+            
+            let label = stripped_line[1..].to_string();
+            label_map.insert(label, byte_code.len());
             continue;
         }
 
@@ -113,21 +129,9 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                 }
             }
 
-            // If the operator is a label, store its byte code location
-            if matches!(instruction_code, ByteCodes::LABEL) {
-                // Remove because the operand won't be used anymore and the loop will continue (or panic)
-                if let TokenValue::Label(label) = operands.remove(0).value {
-                    label_map.insert(label, byte_code.len());
-                    // Labels are not part of the byte code, so skip the rest of the loop
-                    continue;
-                } else {
-                    panic!("Invalid label at line {} \"{}\"", line_number, line);
-                }
-            }
-
             // Substitute the label with the byte code location for jump instructions
             if is_jump_instruction(instruction_code) {
-                if let TokenValue::Label(label) = &operands[0].value {
+                if let TokenValue::Name(label) = &operands[0].value {
                     operands[0].value = TokenValue::AddressLiteral(*label_map.get(label).unwrap_or_else(
                         || panic!("Unknown label \"{}\" at line {} \"{}\"", label, line_number, line)
                     ));

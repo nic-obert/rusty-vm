@@ -390,10 +390,10 @@ pop8 [1234]
 ### Flow control instructions
 
 #### `label`
-Declare a label.
+Declare a label whose name is the string after the `@` sign (in this case, "label").
 
 ```
-label:
+@label
 ```
 
 #### `jmp`
