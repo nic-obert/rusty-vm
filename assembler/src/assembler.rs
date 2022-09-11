@@ -1,4 +1,5 @@
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
+use crate::error;
 use crate::tokenizer::{tokenize_operands, is_name_character};
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use rust_vm_lib::token::TokenValue;
@@ -40,7 +41,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             
             for c in label.chars() {
                 if !is_name_character(c) {
-                    panic!("Invalid character \"{}\" in label at line {}:\n{}", c, line_number, line);
+                    error::invalid_character(c, line_number, &line, "Labels can only contain letters and underscores.");
                 }
             }
             
@@ -58,7 +59,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             let operator = tokens.0;
 
             let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
-                || panic!("Unknown instruction \"{}\" at line {} \"{}\"", operator, line_number, line)
+                || error::invalid_instruction_name(operator, line_number, &line)
             );
 
             let instruction_code: ByteCodes;
@@ -71,7 +72,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                     // The operator has one argument
                     // Check if the operand number is valid
                     if operands.len() != 1 {
-                        panic!("Invalid number of arguments for instruction \"{}\" at line {} \"{}\", expected 1", operator, line_number, line);
+                        error::invalid_arg_number(operands.len(), 1, line_number, &line, operator);
                     }
 
                     if let Some(possible) = argument.get(operands[0].value.to_ordinal() as usize) {
@@ -79,12 +80,12 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                             instruction_code = instruction.0;
                             handled_size = instruction.1;
                         } else {
-                            panic!("Invalid argument for instruction \"{}\" at line {} \"{}\"", operator, line_number, line);
+                            error::invalid_token_argument(operator, &operands[0], line_number, &line);
                         }
 
                     } else {
                         // The operand type is not valid for the operation
-                        panic!("Unknown operand \"{}\" for instruction \"{}\" in line {} \"{}\"", operands[0], operator, line_number, line);
+                        error::invalid_token_argument(operator, &operands[0], line_number, &line);
                     }
 
                 }
@@ -93,7 +94,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                     // The operator has two arguments
                     // Check if the operand number is valid
                     if operands.len() != 2 {
-                        panic!("Invalid number of arguments for instruction \"{}\" at line {} \"{}\", expected 2", operator, line_number, line);
+                        error::invalid_arg_number(operands.len(), 2, line_number, &line, operator);
                     }
 
                     if let Some(possible) = argument.get(operands[0].value.to_ordinal() as usize) {
@@ -105,27 +106,27 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                                     instruction_code = instruction.0;
                                     handled_size = instruction.1;
                                 } else {
-                                    panic!("Invalid argument for instruction \"{}\" at line {} \"{}\"", operator, line_number, line);
+                                    error::invalid_token_argument(operator, &operands[1], line_number, &line);
                                 }
 
                             } else {
                                 // The operand type is not valid for the operation
-                                panic!("Unknown operand \"{}\" for instruction \"{}\" in line {} \"{}\"", operands[0], operator, line_number, line);
+                                error::invalid_token_argument(operator, &operands[1], line_number, &line);
                             }
 
                         } else {
-                            panic!("Invalid argument for instruction \"{}\" at line {} \"{}\"", operator, line_number, line);
+                            error::invalid_token_argument(operator, &operands[0], line_number, &line);
                         }
 
                     } else {
                         // The operand type is not valid for the operation
-                        panic!("Unknown operand \"{}\" for instruction \"{}\" in line {} \"{}\"", operands[0], operator, line_number, line);
+                        error::invalid_token_argument(operator, &operands[0], line_number, &line);
                     }
                 }
 
                 _ => {
                     // In this branch, the operator has arguments, so Args::Zero is not a valid case
-                    panic!("Invalid number of arguments for instruction \"{}\" at line {} \"{}\", expected 0", operator, line_number, line);
+                    panic!("Args::Zero is not valid in this branch since the instruction `{}` must have arguments at line {} \n{}\nThis is a bug.", operator, line_number, line);
                 }
             }
 
@@ -133,25 +134,32 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             if is_jump_instruction(instruction_code) {
                 if let TokenValue::Name(label) = &operands[0].value {
                     operands[0].value = TokenValue::AddressLiteral(*label_map.get(label).unwrap_or_else(
-                        || panic!("Unknown label \"{}\" at line {} \"{}\"", label, line_number, line)
+                        || error::undeclared_label(label, line_number, &line)
                     ));
                 } else {
-                    panic!("Invalid label at line {} \"{}\"", line_number, line);
+                    error::invalid_token(&operands[0], line_number, &line, "Jump instructions can only take valid label names as arguments.");
                 }
             }
 
             // Convert the operands to byte code and append them to the byte code
             let converter = INSTRUCTION_CONVERSION_TABLE.get(instruction_code as usize).unwrap_or_else(
-                || panic!("Unknown instruction \"{}\" at line {} \"{}\"", operator, line_number, line)
+                || panic!("Unknown instruction \"{}\" at line {} \"{}\". This is a bug.", operator, line_number, line)
             );
 
             // Add the instruction code to the byte code
             byte_code.push(instruction_code as u8);
+
             // Add the operands to the byte code
-            if let Some(operand_bytes) = converter(&operands, handled_size) {
-                byte_code.extend(operand_bytes);
-            } else {
-                panic!("Operands for instruction \"{}\" at line {} \"{}\" are invalid", operator, line_number, line);
+            match converter(&operands, handled_size) {
+                Ok(converted) => {
+                    if let Some(operand_bytes) = converted {
+                        byte_code.extend(operand_bytes);
+                    } else {
+                        // The instruction should have operands, but they could not be converted to bytecode
+                        panic!("Operands for instruction \"{}\" at line {} \"{}\" could not be converted to bytecode. This is a bug.", operator, line_number, line);
+                    }
+                },
+                Err(message) => error::invalid_instruction_arguments(operator, line_number, &line, &message)
             }
 
         } else {
@@ -159,7 +167,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             let operator = stripped_line;
 
             let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
-                || panic!("Unknown instruction \"{}\" at line {} \"{}\"", operator, line_number, line)
+                || error::invalid_instruction_name(operator, line_number, &line)
             );
 
             // In this branch possible_instructions is just a Tuple of ByteCodes and a u8

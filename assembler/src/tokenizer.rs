@@ -1,5 +1,6 @@
 use rust_vm_lib::registers::get_register;
 use rust_vm_lib::token::{Token, TokenValue};
+use crate::error;
 
 
 pub fn is_name_character(c: char) -> bool {
@@ -27,14 +28,14 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                             Token::new(TokenValue::AddressLiteral(c.to_digit(10).unwrap() as usize))
                         );
                     }
-                    else if is_name_character(c) {
+                    else if c.is_alphabetic() {
                         current_token = Some(
                             Token::new(TokenValue::AddressInRegisterIncomplete(c.to_string()))
                         );
                     } else if c == ']' {
-                        panic!("Empty address at line {}:\n{}", line_number, line);
+                        error::invalid_character(c, line_number, line, "Addresses cannot be empty.");
                     } else {
-                        panic!("Invalid character \"{}\" in token AddressGeneric at line {}:\n{}", c, line_number, line);
+                        error::invalid_character(c, line_number, line, "Addresses can only be numeric or register names.");
                     }
 
                     continue;
@@ -43,14 +44,14 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                 TokenValue::AddressLiteral(value) => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
-                            || panic!("Address literal too large at line {}:\n{}", line_number, line)
+                            || error::invalid_address(*value, line_number, line, "Address literal is too large.")
                         ).checked_add(c.to_digit(10).unwrap() as usize).unwrap_or_else(
-                            || panic!("Address literal too large at line {}:\n{}", line_number, line)
+                            || error::invalid_address(*value, line_number, line, "Address literal is too large.")
                         );
                     } else if c == ']' {
                         tokens.push(current_token.take().unwrap());                    
                     } else {
-                        panic!("Invalid character \"{}\" in token AddressLiteral at line {}:\n{}", c, line_number, line);
+                        error::invalid_character(c, line_number, line, "Address literals can only be numeric.");
                     }
 
                     continue;
@@ -63,14 +64,14 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                     }
 
                     if c != ']' {
-                        panic!("Expected ']' after address in argument list \"{}\", but '{}' was provided at line {}:\n{}", operands, c, line_number, line);
+                        error::invalid_character(c, line_number, line, format!("Expected a closing address ']', got '{}' instead.", c).as_str());
                     }
 
                     if let Some(register) = get_register(value) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
                     } else {
-                        panic!("Unknown register \"{}\" in argument list \"{}\" at line {}:\n{}", value, operands, line_number, line);
+                        error::invalid_register_name(value, line_number, line);
                     }
 
                     continue;
@@ -94,9 +95,9 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                 TokenValue::Number(value) => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
-                            || panic!("Number too large at line {}:\n{}", line_number, line)
+                            || error::number_out_of_range(*value, line_number, line)
                         ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
-                            || panic!("Number too large at line {}:\n{}", line_number, line)
+                            || error::number_out_of_range(*value, line_number, line)
                         );
                         continue;
                     }
@@ -130,12 +131,11 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                 continue;
             },
 
-            _ => panic!("Unhandled character '{}' at line {}, in operands \"{}\":\n{}", c, line_number, operands, line)
+            _ => error::invalid_character(c, line_number, line, "The given character wans't expected in this context.")
         }
 
     }   
 
     tokens
 }
-
 

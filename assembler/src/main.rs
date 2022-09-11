@@ -3,13 +3,13 @@ mod files;
 mod token_to_byte_code;
 mod tokenizer;
 mod argmuments_table;
+mod error;
 use std::path::Path;
 use clap::Parser;
 
 
 fn generate_output_name(input_name: &str) -> String {
     Path::new(input_name).with_extension("bc").to_str().unwrap().to_string()
-   
 }
 
 
