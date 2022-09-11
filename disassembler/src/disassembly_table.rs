@@ -21,6 +21,13 @@ impl Argument {
 }
 
 
+impl std::fmt::Display for Argument {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Type: {}, size: {}", self.kind, self.size)
+    }
+}
+
+
 lazy_static! {
 
 pub static ref DISASSEMBLY_TABLE: 
@@ -170,19 +177,31 @@ pub static ref DISASSEMBLY_TABLE:
 
 
 pub static ref OPERATOR_DISASSEMBLY_TABLE:
-    [ fn(&[u8]) -> String; 4 ]
+    [ fn(&[u8]) -> Result<String, String>; 4 ]
 = [
 
     | byte_code | {
-        REGISTER_NAMES.get(byte_code[0] as usize).unwrap_or_else(
-            || panic!("Invalid register index: {}", byte_code[0])
-        ).to_string()
+        if let Some(name) = REGISTER_NAMES.get(byte_code[0] as usize) {
+            Ok(name.to_string())
+        } else {
+            Err(format!("Invalid register code: {}", byte_code[0]))
+        }
     },
 
     | byte_code | {
-        format!("[{}]", REGISTER_NAMES.get(byte_code[0] as usize).unwrap_or_else(
-            || panic!("Invalid register index: {}", byte_code[0])
-        ))
+        if let Some(name) = REGISTER_NAMES.get(byte_code[0] as usize) {
+            Ok(format!("{}[{}]", name, byte_code[1]))
+        } else {
+            Err(format!("Invalid register code: {}", byte_code[0]))
+        }
+    },
+
+    | byte_code | {
+        let mut number: i64 = 0;
+        for byte in byte_code.iter() {
+            number = (number << 8) | (*byte as i64);
+        }
+        Ok(number.to_string())
     },
 
     | byte_code | {
@@ -190,15 +209,7 @@ pub static ref OPERATOR_DISASSEMBLY_TABLE:
         for byte in byte_code.iter() {
             number = (number << 8) | *byte as u32;
         }
-        number.to_string()
-    },
-
-    | byte_code | {
-        let mut number = 0;
-        for byte in byte_code.iter() {
-            number = (number << 8) | *byte as u32;
-        }
-        format!("[0x {:x}]", number)
+        Ok(format!("[0x {:x}]", number))
     }
 
 ];

@@ -2,7 +2,6 @@
 
 ### Todo
 
-- Add proper errors to disassembler  
 - add the overflow flag register to the processor  
 - add printc to print the unicode character stored in print  
 - add sized pop into register  
@@ -13,6 +12,7 @@
 
 ### Done ✅
 
+- Add proper errors to disassembler  
 - Add proper errors to assembler  
 - refactor the project to have only one implementation of each component  
 - rewrite the disassembler  

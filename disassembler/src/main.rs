@@ -1,6 +1,7 @@
 mod files;
 mod disassembler;
 mod disassembly_table;
+mod error;
 use clap::Parser;
 use std::path::Path;
 

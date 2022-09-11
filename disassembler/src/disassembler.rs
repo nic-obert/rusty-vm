@@ -1,6 +1,7 @@
 use rust_vm_lib::assembly::{ByteCode, AssemblyCode};
 use rust_vm_lib::byte_code::ByteCodes;
 use crate::disassembly_table::{DISASSEMBLY_TABLE, OPERATOR_DISASSEMBLY_TABLE, Argument};
+use crate::error;
 
 
 pub fn disassemble(byte_code: ByteCode, verbose: bool) -> AssemblyCode {
@@ -17,8 +18,8 @@ pub fn disassemble(byte_code: ByteCode, verbose: bool) -> AssemblyCode {
         let (base_name, sizes, args) 
             = DISASSEMBLY_TABLE.get(operator as usize)
             .unwrap_or_else(
-            || panic!("Invalid operator: {} at byte {}", operator, start_index)
-        );
+                || error::invalid_instruction_code(operator, start_index)
+        );   
 
         if verbose {
             println!("{}: {} ({})", start_index, ByteCodes::try_from(operator).unwrap(), operator);
@@ -47,11 +48,16 @@ pub fn disassemble(byte_code: ByteCode, verbose: bool) -> AssemblyCode {
 
             // Disassemble the operands
             for arg in args {
-                let operand_string 
-                    = OPERATOR_DISASSEMBLY_TABLE.get(arg.kind as usize)
-                    .unwrap_or_else(
-                    || panic!("Invalid operand: {}", arg.kind as u8)
-                )(&byte_code[i..i + arg.size as usize]);
+                let disassembler = match OPERATOR_DISASSEMBLY_TABLE.get(arg.kind as usize) {
+                    Some(disassembler) => disassembler,
+                    None => panic!("Invalid argument type: {}. This is a bug.", arg.kind)
+                };
+                
+                let operand_string = match disassembler(&byte_code[i..i + arg.size as usize]) {
+                    Ok(operand_string) => operand_string,
+                    Err(message) => error::invalid_arguments(&arg, &byte_code[i..i + arg.size as usize], i, &message)
+                };
+                
                 i += arg.size as usize;
 
                 line += &format!(" {}", operand_string);
