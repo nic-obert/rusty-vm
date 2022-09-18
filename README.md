@@ -44,7 +44,6 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`push2`](#push2)
       - [`push4`](#push4)
       - [`push8`](#push8)
-      - [`pop`](#pop)
       - [`pop1`](#pop1)
       - [`pop2`](#pop2)
       - [`pop4`](#pop4)
@@ -62,6 +61,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`cmp8`](#cmp8)
     - [Interrupts](#interrupts)
       - [`print`](#print)
+      - [`printc`](#printc)
       - [`prints`](#prints)
       - [`ini`](#ini)
       - [`ins`](#ins)
@@ -348,41 +348,38 @@ push8 [1234]
 push8 43
 ```
 
-#### `pop`
-Pop the first 8 bytes from the top of the stack and store them in the specified register.
-
-```
-pop a
-```
-
 #### `pop1`
-Pop the 1-byte value from the top of the stack and store it in the specified address.
+Pop the 1-byte value from the top of the stack and store it in the specified address or register.
 
 ```
+pop1 a
 pop1 [a]
 pop1 [1234]
 ```
 
 #### `pop2`
-Pop the 2-byte value from the top of the stack and store it in the specified address.
+Pop the 2-byte value from the top of the stack and store it in the specified address or register.
 
 ```
+pop2 a
 pop2 [a]
 pop2 [1234]
 ```
 
 #### `pop4`
-Pop the 4-byte value from the top of the stack and store it in the specified address.
+Pop the 4-byte value from the top of the stack and store it in the specified address or register.
 
 ```
+pop4 a
 pop4 [a]
 pop4 [1234]
 ```
 
 #### `pop8`
-Pop the 8-byte value from the top of the stack and store it in the specified address.
+Pop the 8-byte value from the top of the stack and store it in the specified address or register.
 
 ```
+pop8 a
 pop8 [a]
 pop8 [1234]
 ```
@@ -479,6 +476,13 @@ Print the value stored in the `print` register.
 
 ```
 print
+```
+
+#### `printc`
+Print the unicode character stored in the `print` register.
+
+```
+printc
 ```
 
 #### `prints`

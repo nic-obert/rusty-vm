@@ -1,5 +1,5 @@
 use rust_vm_lib::token::{Token, TokenValue};
-use rust_vm_lib::byte_code::ByteCodes;
+use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use bytes::{BytesMut, Bytes, BufMut};
 
 
@@ -43,7 +43,7 @@ pub fn number_to_bytes(mut number: u64, size: usize) -> Result<Bytes, String> {
 
 /// The following functions are used to convert the operand tokens to bytes.
 pub const INSTRUCTION_CONVERSION_TABLE:
-    [ fn(&[Token], u8) -> Result<Option<Bytes>, String>; 44 ]
+    [ fn(&[Token], u8) -> Result<Option<Bytes>, String>; BYTE_CODE_COUNT ]
 = [
 
     // Arithmetic
@@ -348,9 +348,10 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     },
 
     // ByteCodes::POP_INTO_REG
-    | operands: &[Token], _handled_size: u8 | {
+    | operands: &[Token], handled_size: u8 | {
         if let TokenValue::Register(dest_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1);
+            let mut bytes = BytesMut::with_capacity(1 + SIZE_OF_REGISTER);
+            bytes.put_u8(handled_size);
             bytes.put_u8(dest_reg as u8);
             return Ok(Some(bytes.freeze()));
         }
@@ -482,6 +483,11 @@ pub const INSTRUCTION_CONVERSION_TABLE:
     // Interrupts
 
     // ByteCodes::PRINT
+    | _operands: &[Token], _handled_size: u8 | {
+        Ok(None)
+    },
+
+    // ByteCodes::PRINT_CHAR
     | _operands: &[Token], _handled_size: u8 | {
         Ok(None)
     },

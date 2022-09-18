@@ -2,7 +2,11 @@ use std::fmt;
 use std::convert::TryFrom;
 
 
-pub const BYTE_CODE_NAMES: [&str; 44] = [
+// Max is 255
+pub const BYTE_CODE_COUNT: usize = 45;
+
+
+pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "ADD",
     "SUB",
     "MUL",
@@ -53,6 +57,7 @@ pub const BYTE_CODE_NAMES: [&str; 44] = [
     "COMPARE_CONST_CONST",
 
     "PRINT",
+    "PRINT_CHAR",
     "PRINT_STRING",
 
     "INPUT_INT",
@@ -115,6 +120,7 @@ pub enum ByteCodes {
     COMPARE_CONST_CONST,
 
     PRINT,
+    PRINT_CHAR,
     PRINT_STRING,
 
     INPUT_INT,
@@ -131,7 +137,7 @@ impl fmt::Display for ByteCodes {
 }
 
 
-const BYTE_CODE_FROM_U8_TABLE: [ByteCodes; 44] = [
+const BYTE_CODE_FROM_U8_TABLE: [ByteCodes; BYTE_CODE_COUNT] = [
     ByteCodes::ADD,
     ByteCodes::SUB,
     ByteCodes::MUL,
@@ -182,6 +188,7 @@ const BYTE_CODE_FROM_U8_TABLE: [ByteCodes; 44] = [
     ByteCodes::COMPARE_CONST_CONST,
 
     ByteCodes::PRINT,
+    ByteCodes::PRINT_CHAR,
     ByteCodes::PRINT_STRING,
 
     ByteCodes::INPUT_INT,

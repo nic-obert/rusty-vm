@@ -73,6 +73,7 @@ namespace byte_code {
         // Interrupts
 
         PRINT,
+        PRINT_CHAR,
         PRINT_STRING,
 
         INPUT_INT,

@@ -114,6 +114,7 @@ namespace processor {
             inline void handle_compare_const_const();
 
             inline void handle_print();
+            inline void handle_print_char();
             inline void handle_print_string();
 
             inline void handle_input_int();

@@ -59,6 +59,7 @@ static constexpr const char* const INSTRUCTION_NAMES[] = {
 
 
     "PRINT",
+    "PRINT_CHAR",
     "PRINT_STRING",
 
     "INPUT_INT",

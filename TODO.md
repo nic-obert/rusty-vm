@@ -2,9 +2,7 @@
 
 ### Todo
 
-- add the overflow flag register to the processor  
-- add printc to print the unicode character stored in print  
-- add sized pop into register  
+- [ ] rewrite the virtual machine in rust  
 
 ### In Progress ···
 
@@ -12,6 +10,8 @@
 
 ### Done ✅
 
+- add sized pop into register and remove unsized pop  
+- add printc to print the unicode character stored in print  
 - Add proper errors to disassembler  
 - Add proper errors to assembler  
 - refactor the project to have only one implementation of each component  

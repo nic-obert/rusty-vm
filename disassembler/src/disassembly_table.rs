@@ -1,5 +1,6 @@
 use rust_vm_lib::token::TokenTypes;
 use rust_vm_lib::registers::REGISTER_NAMES;
+use rust_vm_lib::byte_code::BYTE_CODE_COUNT;
 use lazy_static::lazy_static;
 
 
@@ -31,7 +32,7 @@ impl std::fmt::Display for Argument {
 lazy_static! {
 
 pub static ref DISASSEMBLY_TABLE: 
-    [ (&'static str, Option<Vec<u8>>, Option<Vec<Argument>>); 44 ]
+    [ (&'static str, Option<Vec<u8>>, Option<Vec<Argument>>); BYTE_CODE_COUNT ]
 = [
     ("add", None, None), // ByteCodes::ADD
     ("sub", None, None), // ByteCodes::SUB
@@ -166,6 +167,7 @@ pub static ref DISASSEMBLY_TABLE:
     ])),
 
     ("print", None, None), // ByteCodes::PRINT
+    ("printc", None, None), // ByteCodes::PRINT_CHAR
     ("prints", None, None), // ByteCodes::PRINT_STRING
 
     ("ini", None, None), // ByteCodes::INPUT_INT

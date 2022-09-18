@@ -2,6 +2,8 @@ use rust_vm_lib::byte_code::ByteCodes;
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 
+
+/// A pair of operation code and handled size
 type Operation = (ByteCodes, u8);
 type OneArgument = Vec<Option<Operation>>;
 type TwoArguments = Vec<Option<OneArgument>>;
@@ -238,34 +240,30 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
         Some((ByteCodes::PUSH_FROM_CONST, 8)), // Constant
         Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 8)), // Address literal
     ])),
-
-    ("pop", Args::One(vec![
-        Some((ByteCodes::POP_INTO_REG, 0)), // Register
-    ])),
     
     ("pop1", Args::One(vec![
-        None, // Register
+        Some((ByteCodes::POP_INTO_REG, 1)), // Register
         Some((ByteCodes::POP_INTO_ADDR_IN_REG, 1)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 1)), // Address literal
     ])),
     
     ("pop2", Args::One(vec![
-        None, // Register
+        Some((ByteCodes::POP_INTO_REG, 2)), // Register
         Some((ByteCodes::POP_INTO_ADDR_IN_REG, 2)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 2)), // Address literal
     ])),
     
     ("pop4", Args::One(vec![
-        None, // Register
+        Some((ByteCodes::POP_INTO_REG, 4)), // Register
         Some((ByteCodes::POP_INTO_ADDR_IN_REG, 4)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 4)), // Address literal
     ])),
     
     ("pop8", Args::One(vec![
-        None, // Register
+        Some((ByteCodes::POP_INTO_REG, 8)), // Register
         Some((ByteCodes::POP_INTO_ADDR_IN_REG, 8)), // Address in register
         None, // Constant
         Some((ByteCodes::POP_INTO_ADDR_LITERAL, 8)), // Address literal
@@ -388,6 +386,8 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
 
     ("print", Args::Zero((ByteCodes::PRINT, 0))), // No arguments
 
+    ("printc", Args::Zero((ByteCodes::PRINT_CHAR, 0))), // No arguments
+
     ("prints", Args::Zero((ByteCodes::PRINT_STRING, 0))), // No argumets
 
     ("ini", Args::Zero((ByteCodes::INPUT_INT, 0))), // No arguments
@@ -399,3 +399,4 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
 ]);
 
 }
+

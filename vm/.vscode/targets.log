@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Sep  8 12:40:45 2022
+# Make data base, printed on Sun Sep 18 17:32:01 2022
 
 # Variables
 
@@ -31,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine
+VSCODE_CWD = /home/nic/dev/virtual-machine/vm
 # environment
-TERMINATOR_UUID = urn:uuid:b7a07630-817d-4f08-a4a6-b0271111b099
+TERMINATOR_UUID = urn:uuid:db9e5d38-e627-4d81-a398-9d9156c0011c
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -47,7 +47,7 @@ STD = c++17
 # environment
 SNAP_INSTANCE_NAME = code
 # environment
-GDK_PIXBUF_MODULEDIR = /snap/code/106/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+GDK_PIXBUF_MODULEDIR = /snap/code/108/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
@@ -61,15 +61,15 @@ MAIL = /var/spool/mail/nic
 # environment
 XDG_DATA_DIRS = /home/nic/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop:/usr/share
 # environment
-OLDPWD = /home/nic
+OLDPWD = /home/nic/dev/virtual-machine
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # automatic
 %F = $(notdir $%)
 # environment
-VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/784b0177c56c607789f9638da7b6bf3230d47a8c
+VSCODE_CODE_CACHE_PATH = /home/nic/.config/Code/CachedData/74b1f979648cc44d385a2286793c226e611f59e7
 # environment
-XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session1
+XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session2
 # environment
 LANG = C
 # environment
@@ -109,13 +109,13 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 429433
+VSCODE_PID = 103439
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/asus:@/tmp/.ICE-unix/1097,unix/asus:/tmp/.ICE-unix/1097
+SESSION_MANAGER = local/asus:@/tmp/.ICE-unix/1449,unix/asus:/tmp/.ICE-unix/1449
 # automatic
 *F = $(notdir $*)
 # environment
@@ -145,7 +145,7 @@ MAKE = $(MAKE_COMMAND)
 # environment
 SNAP_COOKIE = Z5GtT_QDaEbM9AadYKjH6jaJwOvOWYLmyKINqNhHG-ZXOtNMRJz2
 # environment
-PATH = /home/nic/.local/bin:/home/nic/.bin:/home/nic/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/var/lib/snapd/snap/bin
+PATH = /home/nic/.local/bin:/home/nic/.bin:/home/nic/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/var/lib/flatpak/exports/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/var/lib/snapd/snap/bin
 # default
 MAKEFILES := 
 # environment
@@ -159,9 +159,9 @@ SNAP_USER_COMMON = /home/nic/snap/code/common
 # environment
 LC_TIME = it_IT.UTF-8
 # environment
-SNAP = /snap/code/106
+SNAP = /snap/code/108
 # environment
-SNAP_REVISION = 106
+SNAP_REVISION = 108
 # environment
 SNAP_REAL_HOME = /home/nic
 # environment
@@ -211,7 +211,7 @@ HEADER_DIR = headers
 # 'override' directive
 .SHELLSTATUS := 0
 # environment
-SNAP_DATA = /var/snap/code/106
+SNAP_DATA = /var/snap/code/108
 # environment
 SNAP_CONTEXT = Z5GtT_QDaEbM9AadYKjH6jaJwOvOWYLmyKINqNhHG-ZXOtNMRJz2
 # environment
@@ -241,13 +241,13 @@ HOME = /home/nic
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.71.0-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-7fdfc031-1.71.2-main.sock
 # environment
 TERM = xterm-256color
 # environment
 SNAP_NAME = code
 # environment
-GSETTINGS_SCHEMA_DIR = /snap/code/106/usr/share/glib-2.0/schemas
+GSETTINGS_SCHEMA_DIR = /snap/code/108/usr/share/glib-2.0/schemas
 # environment
 XDG_SESSION_ID = 2
 # default
@@ -255,7 +255,7 @@ XDG_SESSION_ID = 2
 # automatic
 <F = $(notdir $<)
 # environment
-SNAP_VERSION = 784b0177
+SNAP_VERSION = 74b1f979
 # default
 SUFFIXES := 
 # makefile (from 'Makefile', line 11)
@@ -275,9 +275,10 @@ CC = g++
 # makefile (from 'Makefile', line 9)
 SOURCES = $(shell find $(SRC_DIR) -type f -name "*.cpp")
 # environment
-SNAP_USER_DATA = /home/nic/snap/code/106
+SNAP_USER_DATA = /home/nic/snap/code/108
 # environment
 XDG_MENU_PREFIX = xfce-
+ 
 # environment
 LC_IDENTIFICATION = it_IT.UTF-8
 # environment
@@ -287,7 +288,6 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # Pattern-specific Variable Values
 
- 
 # No pattern-specific variable values.
 
 # Directories
@@ -330,7 +330,7 @@ target/vm: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp sr
 # automatic
 # ^ := src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/memory.cpp src/processor.cpp src/errors.cpp src/utils.cpp headers/utils.hh headers/byte_code.hh headers/argparser.hh headers/processor.hh headers/memory.hh headers/registers.hh headers/errors.hh headers/video.hh target
 # automatic
-# ? := headers/byte_code.hh
+# ? := src/byte_code.cpp src/registers.cpp src/processor.cpp headers/byte_code.hh headers/processor.hh headers/registers.hh
 # automatic
 # | := 
 # variable set hash-table stats:
@@ -341,7 +341,7 @@ target/vm: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp sr
 # Not a target:
 headers/processor.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:40:51.76743192
+#  Last modified 2022-09-18 16:30:35.100324858
 #  File has been updated.
 #  Successfully updated.
 
@@ -362,14 +362,14 @@ headers/argparser.hh:
 # Not a target:
 headers/registers.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:47:22.278057887
+#  Last modified 2022-09-18 16:28:02.25196699
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 src/registers.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 14:47:15.971165998
+#  Last modified 2022-09-18 16:28:02.255300433
 #  File has been updated.
 #  Successfully updated.
 
@@ -418,7 +418,7 @@ builddb: src/main.cpp src/byte_code.cpp src/registers.cpp src/argparser.cpp src/
 # Not a target:
 src/byte_code.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-07-16 11:21:14.072607246
+#  Last modified 2022-09-18 16:33:52.356808356
 #  File has been updated.
 #  Successfully updated.
 
@@ -454,7 +454,7 @@ src/memory.cpp:
 # Not a target:
 headers/byte_code.hh:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-31 13:19:38.22953395
+#  Last modified 2022-09-18 16:33:46.883295145
 #  File has been updated.
 #  Successfully updated.
 
@@ -475,7 +475,7 @@ src/errors.cpp:
 # Not a target:
 src/processor.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-30 15:05:28.33004923
+#  Last modified 2022-09-18 17:20:18.801690219
 #  File has been updated.
 #  Successfully updated.
 
@@ -514,6 +514,6 @@ target:
 # strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
 # Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Thu Sep  8 12:40:45 2022
+# Finished Make data base on Sun Sep 18 17:32:01 2022
 
  

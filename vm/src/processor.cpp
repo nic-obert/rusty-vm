@@ -615,9 +615,11 @@ inline void Processor::handle_push_from_addr_literal() {
 
 
 inline void Processor::handle_pop_into_reg() {
+    const Byte size = nextByteCode();
     const Registers destReg = byteToRegister(nextByteCode());
-    const Byte* bytes = popStackBytes(sizeof(uint64));
-    *getRegister(destReg) = *bytesToUint64(bytes);
+    const Byte* bytes = popStackBytes(size);
+
+    moveBytesIntoRegister(bytes, size, destReg);
 }
 
 
@@ -701,6 +703,13 @@ inline void Processor::handle_compare_const_const() {
 inline void Processor::handle_print() {
     const uint64 value = *getRegister(Registers::PRINT);
     std::cout << value;
+    std::flush(std::cout);
+}
+
+
+inline void Processor::handle_print_char() {
+    const uint64 value = *getRegister(Registers::PRINT);
+    std::cout << (char)value;
     std::flush(std::cout);
 }
 
