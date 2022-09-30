@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sun Sep 18 17:32:01 2022
+# Make data base, printed on Fri Sep 30 15:51:20 2022
 
 # Variables
 
@@ -31,9 +31,9 @@ LC_NAME = it_IT.UTF-8
 # environment
 LC_NUMERIC = it_IT.UTF-8
 # environment
-VSCODE_CWD = /home/nic/dev/virtual-machine/vm
+VSCODE_CWD = /home/nic/dev/virtual-machine/vm_cpp
 # environment
-TERMINATOR_UUID = urn:uuid:db9e5d38-e627-4d81-a398-9d9156c0011c
+TERMINATOR_UUID = urn:uuid:13281710-4348-4b8d-b166-7f05ac94598e
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -53,7 +53,7 @@ VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
 .VARIABLES := 
 # environment
-PWD = /home/nic/dev/virtual-machine/vm
+PWD = /home/nic/dev/virtual-machine/vm_cpp
 # automatic
 %D = $(patsubst %/,%,$(dir $%))
 # environment
@@ -83,7 +83,7 @@ MAKEFLAGS = pqrR
 # environment
 TERMINATOR_DBUS_PATH = /net/tenshu/Terminator2
 # makefile
-CURDIR := /home/nic/dev/virtual-machine/vm
+CURDIR := /home/nic/dev/virtual-machine/vm_cpp
 # environment
 APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
 # automatic
@@ -109,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 103439
+VSCODE_PID = 279656
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -292,9 +292,9 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # Directories
 
-# . (device 2050, inode 3411736): 7 files, no impossibilities.
+# . (device 2050, inode 3411736): 8 files, no impossibilities.
 
-# 7 files, no impossibilities in 1 directories.
+# 8 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -508,12 +508,12 @@ target:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 32 / storage = 409 B / avg = 12 B
-# current buf: size = 8162 B / used = 409 B / count = 32 / avg = 12 B
+# strcache buffers: 1 (0) / strings = 33 / storage = 420 B / avg = 12 B
+# current buf: size = 8162 B / used = 420 B / count = 33 / avg = 12 B
 
-# strcache performance: lookups = 64 / hit rate = 50%
+# strcache performance: lookups = 65 / hit rate = 49%
 # hash-table stats:
-# Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
-# Finished Make data base on Sun Sep 18 17:32:01 2022
+# Load=33/8192=0%, Rehash=0, Collisions=0/65=0%
+# Finished Make data base on Fri Sep 30 15:51:20 2022
 
  

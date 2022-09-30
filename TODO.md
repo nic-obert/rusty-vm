@@ -2,10 +2,10 @@
 
 ### Todo
 
-- [ ] rewrite the virtual machine in rust  
 
 ### In Progress ···
 
+- [ ] rewrite the virtual machine in rust  
 - Test the assembler and the disassembler for compatibility  
 
 ### Done ✅
