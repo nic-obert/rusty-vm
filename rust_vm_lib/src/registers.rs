@@ -25,6 +25,20 @@ pub enum Registers {
 }
 
 
+impl std::convert::From<u8> for Registers {
+
+    fn from(value: u8) -> Self {
+        if value < REGISTER_COUNT as u8 {
+            unsafe { std::mem::transmute(value) }
+        } else {
+            panic!("Invalid register number: {}", value);
+        }
+    }
+
+}
+
+
+
 impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", REGISTER_NAMES[*self as usize])
