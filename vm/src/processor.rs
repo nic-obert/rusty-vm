@@ -1,6 +1,6 @@
 
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
-use crate::memory::{Memory, Size, Byte, Address};
+use crate::memory::{Memory, Size, Byte, Address, ADDRESS_SIZE};
 use crate::errors::ErrorCodes;
 
 
@@ -12,44 +12,6 @@ pub struct Processor {
 
     running: bool,
 
-}
-
-
-fn increment_bytes(bytes: &mut [Byte], size: Byte) {
-    match size {
-        1 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u8) += 1;
-        },
-        2 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u16) += 1;
-        },
-        4 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u32) += 1;
-        },
-        8 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u64) += 1;
-        },
-        _ => panic!("Invalid size for incrementing bytes"),
-    }
-}
-
-
-fn decrement_bytes(bytes: &mut [Byte], size: Byte) {
-    match size {
-        1 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u8) -= 1;
-        },
-        2 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u16) -= 1;
-        },
-        4 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u32) -= 1;
-        },
-        8 => unsafe {
-            *(bytes.as_mut_ptr() as *mut u64) -= 1;
-        },
-        _ => panic!("Invalid size for decrementing bytes"),
-    }
 }
 
 
@@ -92,6 +54,96 @@ impl Processor {
         self.set_register(Registers::ZERO_FLAG, (result == 0) as u64);
         self.set_register(Registers::SIGN_FLAG, (result < 0) as u64);
         self.set_register(Registers::REMAINDER_FLAG, remainder as u64);
+    }
+
+
+    #[inline(always)]
+    fn get_next_address(&mut self) -> Address {
+        unsafe {
+            * (self.get_next_bytes(ADDRESS_SIZE).as_ptr() as *const Address)
+        }
+    }
+
+
+    fn increment_bytes(&mut self, address: Address, size: Byte) {
+        let bytes = self.memory.get_bytes_mut(address, size as Size);
+
+        match size {
+            1 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u8) += 1;
+                let result = *(bytes.as_ptr() as *const i8);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            2 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u16) += 1;
+                let result = *(bytes.as_ptr() as *const i16);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            4 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u32) += 1;
+                let result = *(bytes.as_ptr() as *const i32);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            8 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u64) += 1;
+                let result = *(bytes.as_ptr() as *const i64);
+                self.set_arithmetical_flags(
+                    result,
+                    0
+                );
+            },
+            _ => panic!("Invalid size for incrementing bytes"),
+        }
+    }
+    
+    
+    fn decrement_bytes(&mut self, address: Address, size: Byte) {
+        let bytes = self.memory.get_bytes_mut(address, size as Size);
+
+        match size {
+            1 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u8) -= 1;
+                let result = *(bytes.as_ptr() as *const i8);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            2 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u16) -= 1;
+                let result = *(bytes.as_ptr() as *const i16);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            4 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u32) -= 1;
+                let result = *(bytes.as_ptr() as *const i32);
+                self.set_arithmetical_flags(
+                    result as i64,
+                    0
+                );
+            },
+            8 => unsafe {
+                *(bytes.as_mut_ptr() as *mut u64) -= 1;
+                let result = *(bytes.as_ptr() as *const i64);
+                self.set_arithmetical_flags(
+                    result,
+                    0
+                );
+            },
+            _ => panic!("Invalid size for decrementing bytes"),
+        }
     }
 
 
@@ -203,11 +255,49 @@ impl Processor {
         let size = self.get_next_byte();
         let address_reg = Registers::from(self.get_next_byte());
         let address: Address = self.get_register(address_reg) as Address;
-        let bytes = self.memory.get_bytes_mut(address, size as Size);
         
-        increment_bytes(bytes, size);
+        self.increment_bytes(address, size);
     }
 
+
+    fn handle_inc_addr_literal(&mut self) {
+        let size = self.get_next_byte();
+        let dest_address = self.get_next_address();
+        
+        self.increment_bytes(dest_address, size);
+    }
+
+
+    fn handle_dec_reg(&mut self) {
+        let dest_reg = Registers::from(self.get_next_byte());
+        *self.get_register_mut(dest_reg) -= 1;
+        self.set_arithmetical_flags(
+            self.get_register(dest_reg) as i64, 
+            0
+        )
+    }
+
+
+    fn handle_dec_addr_in_reg(&mut self) {
+        let size = self.get_next_byte();
+        let address_reg = Registers::from(self.get_next_byte());
+        let address: Address = self.get_register(address_reg) as Address;
+        
+        self.decrement_bytes(address, size);
+    }
+
+
+    fn handle_dec_addr_literal(&mut self) {
+        let size = self.get_next_byte();
+        let dest_address = self.get_next_address();
+        
+        self.decrement_bytes(dest_address, size);
+    }
+
+
+    fn handle_no_operation(&mut self) {
+        // Do nothing
+    }
 
 }
 

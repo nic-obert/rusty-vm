@@ -1,8 +1,11 @@
+use std::mem::size_of;
+
 use crate::video::Pixel;
 
 
 pub type Byte = u8;
 pub type Address = usize;
+pub const ADDRESS_SIZE: usize = size_of::<Address>();
 pub type Size = usize;
 
 
