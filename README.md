@@ -2,7 +2,7 @@
 
 A simple virtual machine and related tools.  
 The toolchain includes:
-- the **virtual machine** (written in C++)
+- the **virtual machine** (written in Rust)
 - the **assembler** (written in Rust)
 - the **disassembler** (written in Rust)
   
