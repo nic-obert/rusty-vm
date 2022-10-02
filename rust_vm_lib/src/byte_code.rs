@@ -1,5 +1,4 @@
 use std::fmt;
-use std::convert::TryFrom;
 
 
 // Max is 255
@@ -48,8 +47,8 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "LABEL",
 
     "JUMP",
-    "JUMP_IF_TRUE_REG",
-    "JUMP_IF_FALSE_REG",
+    "JUMP_IF_NOT_ZERO_REG",
+    "JUMP_IF_ZERO_REG",
 
     "COMPARE_REG_REG",
     "COMPARE_REG_CONST",
@@ -111,8 +110,8 @@ pub enum ByteCodes {
     LABEL,
 
     JUMP,
-    JUMP_IF_TRUE_REG,
-    JUMP_IF_FALSE_REG,
+    JUMP_IF_NOT_ZERO_REG,
+    JUMP_IF_ZERO_REG,
 
     COMPARE_REG_REG,
     COMPARE_REG_CONST,
@@ -137,81 +136,19 @@ impl fmt::Display for ByteCodes {
 }
 
 
-const BYTE_CODE_FROM_U8_TABLE: [ByteCodes; BYTE_CODE_COUNT] = [
-    ByteCodes::ADD,
-    ByteCodes::SUB,
-    ByteCodes::MUL,
-    ByteCodes::DIV,
-    ByteCodes::MOD,
+impl std::convert::From<u8> for ByteCodes {
 
-    ByteCodes::INC_REG,
-    ByteCodes::INC_ADDR_IN_REG,
-    ByteCodes::INC_ADDR_LITERAL,
-
-    ByteCodes::DEC_REG,
-    ByteCodes::DEC_ADDR_IN_REG,
-    ByteCodes::DEC_ADDR_LITERAL,
-
-    ByteCodes::NO_OPERATION,
-
-    ByteCodes::MOVE_INTO_REG_FROM_REG,
-    ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG,
-    ByteCodes::MOVE_INTO_REG_FROM_CONST,
-    ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL,
-    ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG,
-    ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG,
-    ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST,
-    ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL,
-    ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG,
-    ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG,
-    ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST,
-    ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
-
-    ByteCodes::PUSH_FROM_REG,
-    ByteCodes::PUSH_FROM_ADDR_IN_REG,
-    ByteCodes::PUSH_FROM_CONST,
-    ByteCodes::PUSH_FROM_ADDR_LITERAL,
-
-    ByteCodes::POP_INTO_REG,
-    ByteCodes::POP_INTO_ADDR_IN_REG,
-    ByteCodes::POP_INTO_ADDR_LITERAL,
-
-    ByteCodes::LABEL,
-
-    ByteCodes::JUMP,
-    ByteCodes::JUMP_IF_TRUE_REG,
-    ByteCodes::JUMP_IF_FALSE_REG,
-
-    ByteCodes::COMPARE_REG_REG,
-    ByteCodes::COMPARE_REG_CONST,
-    ByteCodes::COMPARE_CONST_REG,
-    ByteCodes::COMPARE_CONST_CONST,
-
-    ByteCodes::PRINT,
-    ByteCodes::PRINT_CHAR,
-    ByteCodes::PRINT_STRING,
-
-    ByteCodes::INPUT_INT,
-    ByteCodes::INPUT_STRING,
-
-    ByteCodes::EXIT
-];
-
-
-impl TryFrom<u8> for ByteCodes {
-    type Error = &'static str;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value < BYTE_CODE_FROM_U8_TABLE.len() as u8 {
-            Ok(BYTE_CODE_FROM_U8_TABLE[value as usize])
+    fn from(value: u8) -> Self {
+        if value < BYTE_CODE_COUNT as u8 {
+            unsafe { std::mem::transmute(value) }
         } else {
-            Err("Invalid byte code")
+            panic!("Invalid byte code: {}", value);
         }
     }
 }
 
 
 pub fn is_jump_instruction(instruction: ByteCodes) -> bool {
-    ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::JUMP_IF_FALSE_REG as usize
+    ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::JUMP_IF_ZERO_REG as usize
 }
 

@@ -22,7 +22,7 @@ pub fn disassemble(byte_code: ByteCode, verbose: bool) -> AssemblyCode {
         );   
 
         if verbose {
-            println!("{}: {} ({})", start_index, ByteCodes::try_from(operator).unwrap(), operator);
+            println!("{}: {} ({})", start_index, ByteCodes::from(operator), operator);
         }
         
         let mut line = base_name.to_string();

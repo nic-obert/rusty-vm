@@ -38,7 +38,6 @@ impl std::convert::From<u8> for Registers {
 }
 
 
-
 impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", REGISTER_NAMES[*self as usize])

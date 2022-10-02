@@ -294,7 +294,7 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
         None, // Address literal
         // Label
         Some(vec![
-            Some((ByteCodes::JUMP_IF_TRUE_REG, 0)) // Register
+            Some((ByteCodes::JUMP_IF_NOT_ZERO_REG, 0)) // Register
         ])
     ])),
 
@@ -305,7 +305,7 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
         None, // Address literal
         // Label
         Some(vec![
-            Some((ByteCodes::JUMP_IF_FALSE_REG, 0)) // Register
+            Some((ByteCodes::JUMP_IF_ZERO_REG, 0)) // Register
         ])
     ])),
 

@@ -401,17 +401,17 @@ jmp label
 ```
 
 #### `jmpnz`
-Jump to the specified label if the specified register is true (not zero).
+Jump to the specified label if the specified register not zero.
 
 ```
-jmpt label a
+jmpnz label a
 ```
 
 #### `jmpz`
-Jump to the specified label if the specified register is false (zero).
+Jump to the specified label if the specified register is zero.
 
 ```
-jmpf label a
+jmpz label a
 ```
 
 ### Comparison instructions

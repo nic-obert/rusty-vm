@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Fri Sep 30 15:51:20 2022
+# Make data base, printed on Sun Oct  2 18:26:34 2022
 
 # Variables
 
@@ -33,7 +33,7 @@ LC_NUMERIC = it_IT.UTF-8
 # environment
 VSCODE_CWD = /home/nic/dev/virtual-machine/vm_cpp
 # environment
-TERMINATOR_UUID = urn:uuid:13281710-4348-4b8d-b166-7f05ac94598e
+TERMINATOR_UUID = urn:uuid:bf1ceaee-b5c3-4f76-abb3-b76262bc071f
 # environment
 LC_ADDRESS = it_IT.UTF-8
 # default
@@ -109,7 +109,7 @@ SNAP_REEXEC =
 # makefile (from 'Makefile', line 15)
 WARNINGS = -Wall -Wextra -Werror
 # environment
-VSCODE_PID = 279656
+VSCODE_PID = 322299
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -292,9 +292,9 @@ SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd
 
 # Directories
 
-# . (device 2050, inode 3411736): 8 files, no impossibilities.
+# . (device 2050, inode 3411736): 7 files, no impossibilities.
 
-# 8 files, no impossibilities in 1 directories.
+# 7 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -475,7 +475,7 @@ src/errors.cpp:
 # Not a target:
 src/processor.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-09-18 17:20:18.801690219
+#  Last modified 2022-09-30 22:03:23.389437785
 #  File has been updated.
 #  Successfully updated.
 
@@ -508,12 +508,12 @@ target:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 33 / storage = 420 B / avg = 12 B
-# current buf: size = 8162 B / used = 420 B / count = 33 / avg = 12 B
+# strcache buffers: 1 (0) / strings = 32 / storage = 409 B / avg = 12 B
+# current buf: size = 8162 B / used = 409 B / count = 32 / avg = 12 B
 
-# strcache performance: lookups = 65 / hit rate = 49%
+# strcache performance: lookups = 64 / hit rate = 50%
 # hash-table stats:
-# Load=33/8192=0%, Rehash=0, Collisions=0/65=0%
-# Finished Make data base on Fri Sep 30 15:51:20 2022
+# Load=32/8192=0%, Rehash=0, Collisions=0/64=0%
+# Finished Make data base on Sun Oct  2 18:26:34 2022
 
  

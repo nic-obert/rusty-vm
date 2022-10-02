@@ -2,14 +2,15 @@
 
 ### Todo
 
+- [ ] test the new vm  
 
 ### In Progress ···
 
-- [ ] rewrite the virtual machine in rust  
 - Test the assembler and the disassembler for compatibility  
 
 ### Done ✅
 
+- [ ] rewrite the virtual machine in rust  
 - add sized pop into register and remove unsized pop  
 - add printc to print the unicode character stored in print  
 - Add proper errors to disassembler  

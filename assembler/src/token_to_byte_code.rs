@@ -407,7 +407,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
                 return Ok(Some(bytes.freeze()));
             }
         }
-        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_TRUE_REG))
+        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_NOT_ZERO_REG))
     },
 
     // ByteCodes::JUMP_IF_FALSE_REG
@@ -420,7 +420,7 @@ pub const INSTRUCTION_CONVERSION_TABLE:
                 return Ok(Some(bytes.freeze()));
             }
         }
-        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_FALSE_REG))
+        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_ZERO_REG))
     }, 
 
     // Comparison

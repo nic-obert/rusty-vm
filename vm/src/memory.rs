@@ -44,6 +44,13 @@ impl Memory {
     }
 
 
+    pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: Size) {
+        for i in 0..size {
+            self.stack[dest_address + i] = self.stack[src_address + i];
+        }
+    }
+
+
     pub fn get_byte(&self, address: Address) -> Byte {
         self.stack[address]
     }
