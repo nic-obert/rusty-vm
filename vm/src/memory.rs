@@ -11,9 +11,6 @@ pub type Size = usize;
 
 pub struct Memory {
 
-    stack_size: Size,
-    video_size: Size,
-
     stack: Vec<Byte>,
     video: Vec<Pixel>,
 
@@ -24,8 +21,6 @@ impl Memory {
 
     pub fn new(stack_size: Size, video_size: Size) -> Memory {
         Memory {
-            stack_size: stack_size,
-            video_size: video_size,
             stack: vec![0; stack_size as usize],
             video: vec![Pixel::new(); video_size as usize],
         }

@@ -4,9 +4,9 @@ use crate::memory::Byte;
 
 #[derive(Clone)]
 pub struct Pixel {
-    red: Byte,
-    green: Byte,
-    blue: Byte,
+    pub red: Byte,
+    pub green: Byte,
+    pub blue: Byte,
 }
 
 

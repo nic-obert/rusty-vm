@@ -1,2 +1,2 @@
 #!/bin/bash
-./vm/target/vm $@
+cargo run --manifest-path vm/Cargo.toml $@
