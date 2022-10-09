@@ -1,6 +1,7 @@
 use rust_vm_lib::token::TokenTypes;
 use rust_vm_lib::registers::REGISTER_NAMES;
 use rust_vm_lib::byte_code::BYTE_CODE_COUNT;
+use rust_vm_lib::vm::Address;
 use lazy_static::lazy_static;
 
 
@@ -182,7 +183,8 @@ pub static ref DISASSEMBLY_TABLE:
 pub static ref OPERATOR_DISASSEMBLY_TABLE:
     [ fn(&[u8]) -> Result<String, String>; 4 ]
 = [
-
+    
+    // Register
     | byte_code | {
         if let Some(name) = REGISTER_NAMES.get(byte_code[0] as usize) {
             Ok(name.to_string())
@@ -191,6 +193,7 @@ pub static ref OPERATOR_DISASSEMBLY_TABLE:
         }
     },
 
+    // Address in register
     | byte_code | {
         if let Some(name) = REGISTER_NAMES.get(byte_code[0] as usize) {
             Ok(format!("{}[{}]", name, byte_code[1]))
@@ -199,20 +202,22 @@ pub static ref OPERATOR_DISASSEMBLY_TABLE:
         }
     },
 
+    // Constant
     | byte_code | {
         let mut number: i64 = 0;
-        for byte in byte_code.iter() {
+        for byte in byte_code.iter().rev() {
             number = (number << 8) | (*byte as i64);
         }
         Ok(number.to_string())
     },
 
+    // Address literal
     | byte_code | {
-        let mut number = 0;
-        for byte in byte_code.iter() {
-            number = (number << 8) | *byte as u32;
+        let mut number: Address = 0;
+        for byte in byte_code.iter().rev() {
+            number = (number << 8) | *byte as Address;
         }
-        Ok(format!("[0x {:x}]", number))
+        Ok(format!("[0x{:x}]", number))
     }
 
 ];

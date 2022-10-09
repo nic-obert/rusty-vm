@@ -3,7 +3,8 @@ use std::io::Write;
 
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
-use crate::memory::{Memory, Size, Byte, Address, ADDRESS_SIZE};
+use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+use crate::memory::{Memory, Size, Byte};
 use crate::errors::ErrorCodes;
 
 

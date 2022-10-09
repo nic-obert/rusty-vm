@@ -22,8 +22,9 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         line_number += 1;
 
         if verbose {
-            println!("Line {}: {}", line_number, line);
+            print!("\nLine {}\t: {}", line_number, line);
         }
+        let last_byte_code_length = byte_code.len();
 
         // Remove redundant whitespaces
         let stripped_line = line.strip_prefix(' ').unwrap_or(&line);
@@ -46,7 +47,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             }
             
             let label = stripped_line[1..].to_string();
-            label_map.insert(label, byte_code.len());
+            label_map.insert(label, last_byte_code_length);
             continue;
         }
 
@@ -176,6 +177,10 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                 byte_code.push(operation.0 as u8);
             }
             
+        }
+
+        if verbose {
+            print!("\t\t=> pos {}: {:?}", last_byte_code_length, &byte_code[last_byte_code_length..byte_code.len()]);
         }
         
     }

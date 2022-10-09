@@ -41,9 +41,19 @@ fn main() {
     
     if let Some(output) = &args.output {
         files::save_byte_code(byte_code, &output);
+        
+        if args.verbose {
+            println!("\n\nAssembly saved to {}", output);
+        }
+
     } else {
         let output = generate_output_name(&args.input_file);
         files::save_byte_code(byte_code, &output);
+
+        if args.verbose {
+            println!("\n\nAssembly saved to {}", output);
+        }
+
     };
     
 }
