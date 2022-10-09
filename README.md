@@ -14,6 +14,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
 ## Table of contents
 - [**Virtual Machine**](#virtual-machine)
   - [Table of contents](#table-of-contents)
+  - [Project structure](#project-structure)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
       - [`add`](#add)
@@ -60,20 +61,31 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`cmp4`](#cmp4)
       - [`cmp8`](#cmp8)
     - [Interrupts](#interrupts)
-      - [`print`](#print)
+      - [`sprint`](#sprint)
+      - [`uprint`](#uprint)
       - [`printc`](#printc)
-      - [`prints`](#prints)
-      - [`ini`](#ini)
-      - [`ins`](#ins)
+      - [`printstr`](#printstr)
+      - [`inputint`](#inputint)
+      - [`inputstr`](#inputstr)
       - [`exit`](#exit)
 
 
 <br>
 
 
+## Project structure
+
+- The [`vm`](vm) directory contains the code for the virtual machine.
+- The [`assembler`](assembler) directory contains the code for the assembler.
+- The [`disassembler`](disassembler) directory contains the code for the disassembler.
+- The [`rust_vm_lib`](rust_vm_lib) directory contains the code for the shared library used across all rust tools.
+- The [`impl`](impl) directory contains examples of programs written in the VM's assembly language.
+- The [`tests`](tests) directory contains tests for the VM tools.
+
+
 ## Assembly instructions
 
-Every assembly intruction can be represented as a 1-byte integer code that identifies a set of operations to be performed by the virtual machine. The precise machine instruction it gets traslated to depends on its arguments.
+Every assembly intruction can be represented as a 1-byte integer code, internally identifie with the `ByteCodes` enum, that identifies a set of operations to be performed by the virtual machine. The precise machine instruction it gets traslated to depends on its arguments.
 
 The first operand is treated as the destination by the processor, whereas the second operand is treated as the source.
 
@@ -471,11 +483,18 @@ cmp8 14 14
 
 ### Interrupts
 
-#### `print`
-Print the value stored in the `print` register.
+#### `sprint`
+Print the signed integer value stored in the `print` register.
 
 ```
 print
+```
+
+#### `uprint`
+Print the unsigned integer value stored in the `print` register.
+
+```
+uprint
 ```
 
 #### `printc`
@@ -485,14 +504,14 @@ Print the unicode character stored in the `print` register.
 printc
 ```
 
-#### `prints`
+#### `printstr`
 Print the string at the address stored in the `print` register.
 
 ```
-prints
+printstr
 ```
 
-#### `ini`
+#### `inputint`
 Get the next integer input from the console and store it in the `input` register.
 If the input is not a valid integer, set `error` register to `INVALID_INPUT`.
 If the EOF is encountered, set `error` register to `END_OF_FILE`.
@@ -500,10 +519,10 @@ If another error is encountered, set `error` register to `GENERIC_ERROR`.
 If no error is encountered, set `error` register to `NO_ERROR`.
 
 ```
-ini
+inputint
 ```
 
-#### `ins`
+#### `inputstr`
 Get the next string input from the console, push it onto the stack, and store its address in the `input` register.
 If the input is not a valid string, set `error` register to `INVALID_INPUT`.
 If the EOF is encountered, set `error` register to `END_OF_FILE`.
@@ -511,7 +530,7 @@ If another error is encountered, set `error` register to `GENERIC_ERROR`.
 If no error is encountered, set `error` register to `NO_ERROR`.
 
 ```
-ins
+inputstr
 ```
 
 #### `exit`

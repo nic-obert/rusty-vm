@@ -7,17 +7,17 @@ use crate::memory::{Memory, Size, Byte, Address, ADDRESS_SIZE};
 use crate::errors::ErrorCodes;
 
 
-fn bytes_to_u64(bytes: &[Byte], handled_size: Byte) -> u64 {
+fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> i64 {
     match handled_size {
-        1 => bytes[0] as u64,
+        1 => bytes[0] as i64,
         2 => unsafe {
-            *(bytes.as_ptr() as *const u16) as u64
+            *(bytes.as_ptr() as *const u16) as i64
         },
         4 => unsafe {
-            *(bytes.as_ptr() as *const u32) as u64
+            *(bytes.as_ptr() as *const u32) as i64
         },
         8 => unsafe {
-            *(bytes.as_ptr() as *const u64) as u64
+            *(bytes.as_ptr() as *const u64) as i64
         },
         _ => panic!("Invalid size for compare: {}", handled_size),
     }
@@ -26,7 +26,7 @@ fn bytes_to_u64(bytes: &[Byte], handled_size: Byte) -> u64 {
 
 pub struct Processor {
 
-    registers: [u64; REGISTER_COUNT],
+    registers: [i64; REGISTER_COUNT],
 
     memory: Memory,
 
@@ -65,7 +65,7 @@ impl Processor {
     /// Move the program counter by the given offset.
     #[inline(always)]
     fn move_pc(&mut self, offset: i64) {
-        self.registers[Registers::PROGRAM_COUNTER as usize] = (self.registers[Registers::PROGRAM_COUNTER as usize] as i64 + offset) as u64;
+        self.registers[Registers::PROGRAM_COUNTER as usize] = self.registers[Registers::PROGRAM_COUNTER as usize] + offset;
     }
 
 
@@ -77,34 +77,34 @@ impl Processor {
 
 
     #[inline(always)]
-    fn get_register(&self, register: Registers) -> u64 {
+    fn get_register(&self, register: Registers) -> i64 {
         self.registers[register as usize]
     }
 
 
     #[inline(always)]
-    fn get_register_mut(&mut self, register: Registers) -> &mut u64 {
+    fn get_register_mut(&mut self, register: Registers) -> &mut i64 {
         &mut self.registers[register as usize]
     }
 
 
     #[inline(always)]
-    fn set_register(&mut self, register: Registers, value: u64) {
+    fn set_register(&mut self, register: Registers, value: i64) {
         self.registers[register as usize] = value;
     }
 
 
     #[inline(always)]
     fn set_error(&mut self, error: ErrorCodes) {
-        self.registers[Registers::ERROR as usize] = error as u64;
+        self.registers[Registers::ERROR as usize] = error as i64;
     }
 
 
     #[inline(always)]
     fn set_arithmetical_flags(&mut self, result: i64, remainder: i64) {
-        self.set_register(Registers::ZERO_FLAG, (result == 0) as u64);
-        self.set_register(Registers::SIGN_FLAG, (result < 0) as u64);
-        self.set_register(Registers::REMAINDER_FLAG, remainder as u64);
+        self.set_register(Registers::ZERO_FLAG, (result == 0) as i64);
+        self.set_register(Registers::SIGN_FLAG, (result < 0) as i64);
+        self.set_register(Registers::REMAINDER_FLAG, remainder);
     }
 
 
@@ -203,24 +203,24 @@ impl Processor {
             self.get_register(Registers::STACK_POINTER) as Size,
             bytes,
         );
-        *self.get_register_mut(Registers::STACK_POINTER) += bytes.len() as u64;
+        *self.get_register_mut(Registers::STACK_POINTER) += bytes.len() as i64;
     }
 
 
     fn push_stack_from_address(&mut self, src_address: Address, size: Size) {
         let dest_address = self.get_register(Registers::STACK_POINTER) as Size;
         self.memory.memcpy(dest_address, src_address, size);
-        *self.get_register_mut(Registers::STACK_POINTER) += size as u64;
+        *self.get_register_mut(Registers::STACK_POINTER) += size as i64;
     }
 
 
-    fn push_stack(&mut self, value: u64) {
+    fn push_stack(&mut self, value: i64) {
         self.push_stack_bytes(&value.to_le_bytes());
     }
 
 
     fn pop_stack_bytes(&mut self, size: Size) -> &[Byte] {
-        *self.get_register_mut(Registers::STACK_POINTER) -= size as u64;
+        *self.get_register_mut(Registers::STACK_POINTER) -= size as i64;
 
         self.memory.get_bytes(
             self.get_register(Registers::STACK_POINTER) as Size,
@@ -272,7 +272,7 @@ impl Processor {
     fn handle_add(&mut self) {
         *self.get_register_mut(Registers::A) += self.get_register(Registers::B);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A) as i64, 
+            self.get_register(Registers::A), 
             0
         )
     }
@@ -281,7 +281,7 @@ impl Processor {
     fn handle_sub(&mut self) {
         *self.get_register_mut(Registers::A) -= self.get_register(Registers::B);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A) as i64, 
+            self.get_register(Registers::A), 
             0
         )
     }
@@ -290,7 +290,7 @@ impl Processor {
     fn handle_mul(&mut self) {
         *self.get_register_mut(Registers::A) *= self.get_register(Registers::B);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A) as i64, 
+            self.get_register(Registers::A), 
             0
         )
     }
@@ -300,7 +300,7 @@ impl Processor {
         let remainder = self.get_register(Registers::A) % self.get_register(Registers::B);
         *self.get_register_mut(Registers::A) /= self.get_register(Registers::B);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A) as i64, 
+            self.get_register(Registers::A), 
             remainder as i64
         )
     }
@@ -309,7 +309,7 @@ impl Processor {
     fn handle_mod(&mut self) {
         *self.get_register_mut(Registers::A) %= self.get_register(Registers::B);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A) as i64, 
+            self.get_register(Registers::A), 
             0
         )
     }
@@ -319,7 +319,7 @@ impl Processor {
         let dest_reg = Registers::from(self.get_next_byte());
         *self.get_register_mut(dest_reg) += 1;
         self.set_arithmetical_flags(
-            self.get_register(dest_reg) as i64, 
+            self.get_register(dest_reg), 
             0
         )
     }
@@ -346,7 +346,7 @@ impl Processor {
         let dest_reg = Registers::from(self.get_next_byte());
         *self.get_register_mut(dest_reg) -= 1;
         self.set_arithmetical_flags(
-            self.get_register(dest_reg) as i64, 
+            self.get_register(dest_reg), 
             0
         )
     }
@@ -386,16 +386,16 @@ impl Processor {
 
         match handled_size {
             1 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u8) as u64);
+                self.set_register(dest_reg, *(bytes.as_ptr() as *const u8) as i64);
             },
             2 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u16) as u64);
+                self.set_register(dest_reg, *(bytes.as_ptr() as *const u16) as i64);
             },
             4 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u32) as u64);
+                self.set_register(dest_reg, *(bytes.as_ptr() as *const u32) as i64);
             },
             8 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u64) as u64);
+                self.set_register(dest_reg, *(bytes.as_ptr() as *const u64) as i64);
             },
             _ => panic!("Invalid size for move instruction"),
         }
@@ -572,15 +572,15 @@ impl Processor {
 
         // Access registers directly to get around the borrow checker
         match size {
-            1 => self.registers[dest_reg as usize] = bytes[0] as u64,
+            1 => self.registers[dest_reg as usize] = bytes[0] as i64,
             2 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u16) as u64;
+                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u16) as i64;
             },
             4 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u32) as u64;
+                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u32) as i64;
             },
             8 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u64) as u64;
+                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u64) as i64;
             },
             _ => panic!("Invalid size for pop: {}", size),
         }
@@ -614,7 +614,7 @@ impl Processor {
 
     fn handle_jump(&mut self) {
         let address = self.get_next_address();
-        self.set_register(Registers::PROGRAM_COUNTER, address as u64);
+        self.set_register(Registers::PROGRAM_COUNTER, address as i64);
     }
 
 
@@ -623,7 +623,7 @@ impl Processor {
         let test_reg = Registers::from(self.get_next_byte());
 
         if self.get_register(test_reg) != 0 {
-            self.set_register(Registers::PROGRAM_COUNTER, address as u64);
+            self.set_register(Registers::PROGRAM_COUNTER, address as i64);
         }
     }
 
@@ -633,7 +633,7 @@ impl Processor {
         let test_reg = Registers::from(self.get_next_byte());
 
         if self.get_register(test_reg) == 0 {
-            self.set_register(Registers::PROGRAM_COUNTER, address as u64);
+            self.set_register(Registers::PROGRAM_COUNTER, address as i64);
         }
     }
 
@@ -643,7 +643,7 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
     
         self.set_arithmetical_flags(
-            (self.get_register(left_reg) - self.get_register(right_reg)) as i64,
+            self.get_register(left_reg) - self.get_register(right_reg),
             0
         );
     }
@@ -653,10 +653,10 @@ impl Processor {
         let size = self.get_next_byte();
         let left_reg = Registers::from(self.get_next_byte());
         let right_address = self.get_next_bytes(size as Size);
-        let right_value = bytes_to_u64(right_address, size);
+        let right_value = bytes_to_int(right_address, size);
         
         self.set_arithmetical_flags(
-            (self.get_register(left_reg) - right_value) as i64,
+            self.get_register(left_reg) - right_value,
             0
         );
     }
@@ -665,11 +665,11 @@ impl Processor {
     fn handle_compare_const_reg(&mut self) {
         let size = self.get_next_byte();
         let left_address = self.get_next_bytes(size as Size);
-        let left_value = bytes_to_u64(left_address, size);
+        let left_value = bytes_to_int(left_address, size);
         let right_reg = Registers::from(self.get_next_byte());
         
         self.set_arithmetical_flags(
-            (left_value - self.get_register(right_reg)) as i64,
+            left_value - self.get_register(right_reg),
             0
         );
     }
@@ -678,20 +678,27 @@ impl Processor {
     fn handle_compare_const_const(&mut self) {
         let size = self.get_next_byte();
         let left_address = self.get_next_bytes(size as Size);
-        let left_value = bytes_to_u64(left_address, size);
+        let left_value = bytes_to_int(left_address, size);
         let right_address = self.get_next_bytes(size as Size);
-        let right_value = bytes_to_u64(right_address, size);
+        let right_value = bytes_to_int(right_address, size);
         
         self.set_arithmetical_flags(
-            (left_value - right_value) as i64,
+            left_value - right_value,
             0
         );
     }
 
 
-    fn handle_print(&mut self) {
+    fn handle_print_signed(&mut self) {
         let value = self.get_register(Registers::PRINT);
-        print!("{}", value as u8);
+        print!("{}", value);
+        std::io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_print_unsigned(&mut self) {
+        let value = self.get_register(Registers::PRINT) as u64;
+        print!("{}", value);
         std::io::stdout().flush().expect("Failed to flush stdout");
     }
 
@@ -727,7 +734,7 @@ impl Processor {
                     return;
                 }
 
-                match input.parse::<u64>() {
+                match input.parse::<i64>() {
                     Ok(value) => {
                         self.set_register(Registers::INPUT, value);
                         self.set_error(ErrorCodes::NoError);
@@ -755,7 +762,7 @@ impl Processor {
                     return;
                 }
 
-                self.set_register(Registers::INPUT, input.len() as u64);
+                self.set_register(Registers::INPUT, input.len() as i64);
                 self.push_stack_bytes(input.as_bytes());
                 self.set_error(ErrorCodes::NoError); 
             },
@@ -821,7 +828,8 @@ impl Processor {
         Self::handle_compare_const_reg,
         Self::handle_compare_const_const,
 
-        Self::handle_print,
+        Self::handle_print_signed,
+        Self::handle_print_unsigned,
         Self::handle_print_char,
         Self::handle_print_string,
 

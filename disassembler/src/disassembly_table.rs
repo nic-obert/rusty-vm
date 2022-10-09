@@ -166,12 +166,13 @@ pub static ref DISASSEMBLY_TABLE:
         Argument::new(TokenTypes::Number)
     ])),
 
-    ("print", None, None), // ByteCodes::PRINT
+    ("sprint", None, None), // ByteCodes::PRINT_SIGNED
+    ("uprint", None, None), // ByteCodes::PRINT_UNSIGNED
     ("printc", None, None), // ByteCodes::PRINT_CHAR
-    ("prints", None, None), // ByteCodes::PRINT_STRING
+    ("printstr", None, None), // ByteCodes::PRINT_STRING
 
-    ("ini", None, None), // ByteCodes::INPUT_INT
-    ("ins", None, None), // ByteCodes::INPUT_STRING
+    ("inputint", None, None), // ByteCodes::INPUT_INT
+    ("inputstr", None, None), // ByteCodes::INPUT_STRING
 
     ("exit", None, None) // ByteCodes::EXIT
 

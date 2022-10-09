@@ -482,7 +482,12 @@ pub const INSTRUCTION_CONVERSION_TABLE:
 
     // Interrupts
 
-    // ByteCodes::PRINT
+    // ByteCodes::PRINT_SIGNED
+    | _operands: &[Token], _handled_size: u8 | {
+        Ok(None)
+    },
+
+    // ByteCodes::PRINT_UNSIGNED
     | _operands: &[Token], _handled_size: u8 | {
         Ok(None)
     },

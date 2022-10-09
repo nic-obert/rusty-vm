@@ -42,7 +42,7 @@ fn main() {
 
     let error_code = processor.execute(&byte_code, args.verbose);
 
-    println!("Program exited with code {}", error_code);
+    println!("Program exited with code {} ({})", error_code as u8, error_code);
 
 }
 

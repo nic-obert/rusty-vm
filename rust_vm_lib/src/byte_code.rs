@@ -2,7 +2,7 @@ use std::fmt;
 
 
 // Max is 255
-pub const BYTE_CODE_COUNT: usize = 45;
+pub const BYTE_CODE_COUNT: usize = 46;
 
 
 pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
@@ -55,7 +55,8 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "COMPARE_CONST_REG",
     "COMPARE_CONST_CONST",
 
-    "PRINT",
+    "PRINT_SIGNED",
+    "PRINT_UNSIGNED",
     "PRINT_CHAR",
     "PRINT_STRING",
 
@@ -118,7 +119,8 @@ pub enum ByteCodes {
     COMPARE_CONST_REG,
     COMPARE_CONST_CONST,
 
-    PRINT,
+    PRINT_SIGNED,
+    PRINT_UNSIGNED,
     PRINT_CHAR,
     PRINT_STRING,
 

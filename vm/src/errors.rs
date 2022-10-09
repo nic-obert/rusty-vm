@@ -3,6 +3,7 @@
 const ERROR_CODES_COUNT: usize = 4;
 
 
+#[derive(Clone, Copy)]
 pub enum ErrorCodes {
     NoError = 0,
 
@@ -16,10 +17,10 @@ impl std::fmt::Display for ErrorCodes {
 
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
-            ErrorCodes::NoError => write!(f, "No Error (0)"),
-            ErrorCodes::EndOfFile => write!(f, "End of File (1)"),
-            ErrorCodes::InvalidInput => write!(f, "Invalid Input (2)"),
-            ErrorCodes::GenericError => write!(f, "Generic Error (3)"),
+            ErrorCodes::NoError => write!(f, "No Error"),
+            ErrorCodes::EndOfFile => write!(f, "End of File"),
+            ErrorCodes::InvalidInput => write!(f, "Invalid Input"),
+            ErrorCodes::GenericError => write!(f, "Generic Error"),
         }
     }
 
