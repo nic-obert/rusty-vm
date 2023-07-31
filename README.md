@@ -1,4 +1,4 @@
-# **Virtual Machine**
+# **Easy Virtual Machine**
 
 A simple virtual machine and related tools.  
 The toolchain includes:
