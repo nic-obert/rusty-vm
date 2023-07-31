@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add programs written in asm  
 - [ ] test the new vm  
 
 ### In Progress ···

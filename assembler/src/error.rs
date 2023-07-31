@@ -2,13 +2,13 @@ use rust_vm_lib::token::Token;
 
 
 
-pub fn invalid_character(c: char, line_number: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_character(c: char, line_number: usize, index: usize, line: &str, hint: &str) -> ! {
     println!(
-        "Invalid character '{}' at line {}:
+        "Invalid character '{}' at line {};{}:
         {}
         
         {}
-        ", c, line_number, line, hint
+        ", c, line_number, index, line, hint
     );
     std::process::exit(1);
 }

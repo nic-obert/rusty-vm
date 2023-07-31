@@ -1,4 +1,4 @@
-; this is a comment
+# this is a comment
 
 mov2 a 80
 mov2 b 81

@@ -30,7 +30,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         let stripped_line = line.strip_prefix(' ').unwrap_or(&line);
         let stripped_line = stripped_line.strip_suffix(' ').unwrap_or(stripped_line);
 
-        if stripped_line.is_empty() || stripped_line.starts_with(';') {
+        if stripped_line.is_empty() || stripped_line.starts_with('#') {
             // The line is either empty or a comment, skip it
             continue;
         }
@@ -40,9 +40,11 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             // Check if the label is a valid name
             let label = stripped_line.strip_prefix('@').unwrap();
             
-            for c in label.chars() {
+            for (char_index, c) in label.chars().enumerate() {
                 if !is_name_character(c) {
-                    error::invalid_character(c, line_number, &line, "Labels can only contain letters and underscores.");
+                    // Kind of a hacky way to get the index of the character in the line
+                    let i = line.find("@").unwrap() + 1 + char_index;
+                    error::invalid_character(c, line_number, i, &line, "Label names can only contain letters and underscores.");
                 }
             }
             
@@ -126,8 +128,8 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                 }
 
                 _ => {
-                    // In this branch, the operator has arguments, so Args::Zero is not a valid case
-                    panic!("Args::Zero is not valid in this branch since the instruction `{}` must have arguments at line {} \n{}\nThis is a bug.", operator, line_number, line);
+                    // The operator has no arguments, but some were given
+                    error::invalid_arg_number(operands.len(), 0, line_number, &line, operator);
                 }
             }
 
@@ -184,6 +186,9 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         }
         
     }
+
+    // Append the exit instruction to the end of the binary
+    byte_code.push(ByteCodes::EXIT as u8);
 
     byte_code
 }
