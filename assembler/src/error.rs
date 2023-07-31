@@ -1,6 +1,40 @@
 use rust_vm_lib::token::Token;
 
 
+pub fn invalid_data_declaration(line_number: usize, line: &str, hint: &str) -> ! {
+    println!(
+        "Invalid data declaration at line {}:
+        {}
+        
+        {}
+        ", line_number, line, hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn out_of_section(line_number: usize, line: &str) -> ! {
+    println!(
+        "Instruction or data declaration outside of a section at line {}:
+        {}
+        
+        ", line_number, line
+    );
+    std::process::exit(1);
+}
+
+
+pub fn invalid_section_declaration(name: &str, line_number: usize, line: &str, hint: &str) -> ! {
+    println!(
+        "Invalid section declaration \"{}\" at line {}:
+        {}
+        
+        {}
+        ", name, line_number, line, hint
+    );
+    std::process::exit(1);
+}
+
 
 pub fn invalid_character(c: char, line_number: usize, index: usize, line: &str, hint: &str) -> ! {
     println!(

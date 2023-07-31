@@ -4,6 +4,7 @@ mod token_to_byte_code;
 mod tokenizer;
 mod argmuments_table;
 mod error;
+mod data_types;
 use std::path::Path;
 use clap::Parser;
 

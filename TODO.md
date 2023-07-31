@@ -2,7 +2,7 @@
 
 ### Todo
 
-- [ ] add literal chars to asm code  
+- [ ] write asm libraries to include or call  
 - [ ] add data section  
 - [ ] add programs written in asm  
 - [ ] test the new vm  
@@ -13,6 +13,7 @@
 
 ### Done ✅
 
+- [ ] add literal chars to asm code  
 - [ ] rewrite the virtual machine in rust  
 - add sized pop into register and remove unsized pop  
 - add printc to print the unicode character stored in print  
