@@ -2,6 +2,8 @@
 
 ### Todo
 
+- [ ] add literal chars to asm code  
+- [ ] add data section  
 - [ ] add programs written in asm  
 - [ ] test the new vm  
 

@@ -1,3 +1,5 @@
+
+
 # Take the first string as input
 
 inputstr
@@ -12,9 +14,10 @@ inputstr
 
 mov print a 
 printstr
+uprint
 
-mov1 print 10
+mov1 print 'a'
 printc
 
 mov print input
-printstr input
+printstr

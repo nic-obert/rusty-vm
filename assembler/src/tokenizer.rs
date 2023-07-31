@@ -17,11 +17,60 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
 
     let mut current_token: Option<Token> = None;
 
+    let mut escape_char = false;
+    let mut string_length: usize = 0;
+
     for (char_index, c) in operands.chars().enumerate() {
         
         if let Some(token) = &mut current_token {
 
             match &mut token.value {
+
+                TokenValue::Char(value) => {
+
+                    if string_length > 1 {
+                        error::invalid_character(c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
+                    }
+
+                    // Check for escape characters
+                    
+                    if c == '\\' {
+                        if escape_char {
+                            *value = '\\';
+                            escape_char = false;
+                        } else {
+                            escape_char = true;
+                            continue;
+                        }
+                    } 
+                    string_length += 1;
+
+                    if escape_char {
+                        match c {
+                            'n' => *value = '\n',
+                            't' => *value = '\t',
+                            'r' => *value = '\r',
+                            '0' => *value = '\0',
+                            '\'' => *value = '\'',
+                            _ => error::invalid_character(c, line_number, char_index, line, "Invalid escape character.")
+                        }
+                        escape_char = false;
+                    } else if c == '\'' {
+                        // The character literal is complete
+                        if string_length == 0 {
+                            error::invalid_character(c, line_number, char_index, line, "Character literals cannot be empty.");
+                        }
+                        string_length = 0;
+                        // Convert the character to a byte
+                        tokens.push(Token::new(TokenValue::Number(*value as i64)));
+                        current_token = None;
+                    } else {
+                        *value = c;
+                    }
+
+                    continue;
+                },
+
                 TokenValue::AddressGeneric(_value) => {
                     if c.is_digit(10) {
                         current_token = Some(
@@ -123,6 +172,12 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
 
         match c {
             ' ' | '\t' => continue,
+
+            '\'' => {
+                // Use a null character to represent an empty char literal that will be filled later
+                current_token = Some(Token::new(TokenValue::Char('\0')));
+                continue;
+            }
 
             '#' => break,
 
