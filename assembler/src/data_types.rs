@@ -1,5 +1,4 @@
-use crate::assembler::ByteCode;
-
+use rust_vm_lib::assembly::ByteCode;
 
 
 pub enum DataType {
@@ -47,18 +46,19 @@ impl DataType {
 
             DataType::Char => {
                 // Remove the single quotes
-                let c = string.strip_prefix('\'').unwrap_or_else(
+                let string = string.strip_prefix('\'').unwrap_or_else(
                     || crate::error::invalid_data_declaration(line_number, line, "Expected a character literal.")
                 ).strip_suffix('\'').unwrap_or_else(
                     || crate::error::invalid_data_declaration(line_number, line, "Expected a character literal.")
                 );
 
                 // Check if the character literal is only one character long
-                if c.len() != 1 {
+                if string.len() != 1 {
                     crate::error::invalid_data_declaration(line_number, line, "Character literals can only be one character long.");
                 }
 
-                vec![c.chars().next().unwrap() as u8]
+                // Get the character after the first single quote
+                vec![string.chars().next().unwrap() as u8]
             },
 
             DataType::String => {
@@ -70,6 +70,7 @@ impl DataType {
                 );
 
                 // Handle escape characters and encode the string
+
                 let mut byte_string = Vec::with_capacity(string.len());
 
                 let mut escape_char = false;

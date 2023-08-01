@@ -1,7 +1,10 @@
 use std::fmt;
 
 
+pub const REGISTER_ID_SIZE: usize = 1;
+
 pub const REGISTER_COUNT: usize = 13;
+
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]

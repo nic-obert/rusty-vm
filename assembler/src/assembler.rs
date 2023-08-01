@@ -1,3 +1,4 @@
+use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
 use crate::data_types::DataType;
 use crate::error;
@@ -6,10 +7,6 @@ use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use rust_vm_lib::token::TokenValue;
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
 use std::collections::HashMap;
-
-
-pub type AssemblyCode = Vec<String>;
-pub type ByteCode = Vec<u8>;
 
 
 enum Section {

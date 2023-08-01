@@ -5,13 +5,8 @@ mod tokenizer;
 mod argmuments_table;
 mod error;
 mod data_types;
-use std::path::Path;
+mod encoding;
 use clap::Parser;
-
-
-fn generate_output_name(input_name: &str) -> String {
-    Path::new(input_name).with_extension("bc").to_str().unwrap().to_string()
-}
 
 
 #[derive(Parser)]
@@ -44,15 +39,14 @@ fn main() {
         files::save_byte_code(byte_code, &output);
         
         if args.verbose {
-            println!("\n\nAssembly saved to {}", output);
+            println!("\n\nAssembly code saved to {}", output);
         }
 
     } else {
-        let output = generate_output_name(&args.input_file);
-        files::save_byte_code(byte_code, &output);
+        let output_file = files::save_byte_code(byte_code, &args.input_file);
 
         if args.verbose {
-            println!("\n\nAssembly saved to {}", output);
+            println!("\n\nAssembly code saved to {}", output_file);
         }
 
     };
