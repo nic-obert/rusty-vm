@@ -39,7 +39,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         line_number += 1;
 
         if verbose {
-            println!("\nLine {}\t: {}", line_number, line);
+            println!("Line {}\t| {}", line_number, line);
         }
         let last_byte_code_length: Address = byte_code.len();
 
@@ -281,7 +281,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         }
         
         if verbose {
-            println!("\t\t=> pos {}| {:?}", last_byte_code_length, &byte_code[last_byte_code_length..byte_code.len()]);
+            println!("\t\t=> pos {}: {:?}", last_byte_code_length, &byte_code[last_byte_code_length..byte_code.len()]);
         }
         
     }

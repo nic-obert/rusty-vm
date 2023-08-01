@@ -1,4 +1,3 @@
-
 use std::io::Write;
 
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
@@ -28,10 +27,7 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> i64 {
 pub struct Processor {
 
     registers: [i64; REGISTER_COUNT],
-
     memory: Memory,
-
-    running: bool,
 
 }
 
@@ -42,24 +38,29 @@ impl Processor {
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(stack_size, video_size),
-            running: false,
         }
     }
 
 
-    pub fn execute(&mut self, byte_code: &[Byte], verbose: bool) -> ErrorCodes {
-        // Load the bytecode into memory
+    pub fn execute(&mut self, byte_code: &[Byte], verbose: bool) {
+
+        // Load the program into memory
         self.push_stack_bytes(byte_code);
 
-        self.running = true;
+        // Set the program counter to the start of the program
+
+        if byte_code.len() < ADDRESS_SIZE {
+            panic!("Bytecode is too small to contain a start address");
+        }
+
+        let program_start: Address = bytes_to_int(&byte_code[byte_code.len() - ADDRESS_SIZE..], ADDRESS_SIZE as Byte) as Address;
+        self.set_register(Registers::PROGRAM_COUNTER, program_start as i64);
+
         if verbose {
             self.run_verbose();
         } else {
             self.run();
         }
-
-        // Return the error code of the program at exit
-        ErrorCodes::from(self.registers[Registers::ERROR as usize] as u8)
     }
 
 
@@ -77,30 +78,35 @@ impl Processor {
     }
 
 
+    /// Get the value of the given register
     #[inline(always)]
     fn get_register(&self, register: Registers) -> i64 {
         self.registers[register as usize]
     }
 
 
+    /// Get a mutable reference to the given register
     #[inline(always)]
     fn get_register_mut(&mut self, register: Registers) -> &mut i64 {
         &mut self.registers[register as usize]
     }
 
 
+    /// Set the value of the given register
     #[inline(always)]
     fn set_register(&mut self, register: Registers, value: i64) {
         self.registers[register as usize] = value;
     }
 
 
+    /// Set the error register
     #[inline(always)]
     fn set_error(&mut self, error: ErrorCodes) {
         self.registers[Registers::ERROR as usize] = error as i64;
     }
 
 
+    /// Update the arithmetical register flags based on the given operation result
     #[inline(always)]
     fn set_arithmetical_flags(&mut self, result: i64, remainder: i64) {
         self.set_register(Registers::ZERO_FLAG, (result == 0) as i64);
@@ -109,14 +115,17 @@ impl Processor {
     }
 
 
+    /// Get the next address in the bytecode
     #[inline(always)]
     fn get_next_address(&mut self) -> Address {
         unsafe {
+            // Interpret the next ADDRESS_SIZE bytes as an address
             * (self.get_next_bytes(ADDRESS_SIZE).as_ptr() as *const Address)
         }
     }
 
 
+    /// Increment the `size`-sized value at the given address
     fn increment_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
@@ -158,6 +167,7 @@ impl Processor {
     }
     
     
+    /// Decrement the `size`-sized value at the given address
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
@@ -199,30 +209,41 @@ impl Processor {
     }
 
 
+    /// Copy the bytes onto the stack
     fn push_stack_bytes(&mut self, bytes: &[Byte]) {
+        // Copy the bytes onto the stack
         self.memory.set_bytes(
             self.get_register(Registers::STACK_POINTER) as Size,
             bytes,
         );
+        // Move the stack pointer
         *self.get_register_mut(Registers::STACK_POINTER) += bytes.len() as i64;
     }
 
 
+    /// Copy the bytes at the given address onto the stack
     fn push_stack_from_address(&mut self, src_address: Address, size: Size) {
+        // Get the tos
         let dest_address = self.get_register(Registers::STACK_POINTER) as Size;
+        // Copy the bytes onto the stack
         self.memory.memcpy(dest_address, src_address, size);
+        // Move the stack pointer
         *self.get_register_mut(Registers::STACK_POINTER) += size as i64;
     }
 
 
+    /// Push an 8-byte value onto the stack
     fn push_stack(&mut self, value: i64) {
         self.push_stack_bytes(&value.to_le_bytes());
     }
 
 
+    /// Pop `size` bytes from the stack
     fn pop_stack_bytes(&mut self, size: Size) -> &[Byte] {
+        // Move the stack pointer
         *self.get_register_mut(Registers::STACK_POINTER) -= size as i64;
 
+        // Return the tos
         self.memory.get_bytes(
             self.get_register(Registers::STACK_POINTER) as Size,
             size,
@@ -230,6 +251,7 @@ impl Processor {
     }
         
     
+    /// Get the next `size` bytes in the bytecode
     fn get_next_bytes(&mut self, size: Size) -> &[Byte] {
         let pc = self.get_pc();
         self.move_pc(size as i64);
@@ -237,6 +259,7 @@ impl Processor {
     }
 
 
+    /// Get the next byte in the bytecode
     fn get_next_byte(&mut self) -> Byte {
         let pc = self.get_pc();
         self.move_pc(1);
@@ -245,7 +268,7 @@ impl Processor {
 
 
     fn run(&mut self) {
-        while self.running {
+        loop {
             let opcode = ByteCodes::from(self.get_next_byte());
             self.handle_instruction(opcode);
         }
@@ -253,7 +276,7 @@ impl Processor {
 
 
     fn run_verbose(&mut self) {
-        while self.running {
+        loop {
             let opcode = ByteCodes::from(self.get_next_byte());
             println!("PC: {}, opcode: {}", self.get_pc(), opcode);
             self.handle_instruction(opcode);
@@ -775,7 +798,8 @@ impl Processor {
 
 
     fn handle_exit(&mut self) {
-        self.running = false;
+        let exit_code = self.get_register(Registers::EXIT);
+        std::process::exit(exit_code as i32);
     }
 
 

@@ -40,9 +40,7 @@ fn main() {
 
     let mut processor = processor::Processor::new(args.stack_size, args.video_size);
 
-    let error_code = processor.execute(&byte_code, args.verbose);
-
-    println!("Program exited with code {} ({})", error_code as u8, error_code);
+    processor.execute(&byte_code, args.verbose);
 
 }
 
