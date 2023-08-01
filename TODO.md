@@ -2,6 +2,8 @@
 
 ### Todo
 
+- [ ] implement program start in the vm (last 8 bytes in the binary)  
+- [ ] implement library file inclusion  
 - [ ] write asm libraries to include or call  
 - [ ] add data section  
 - [ ] add programs written in asm  

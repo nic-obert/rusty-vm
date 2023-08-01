@@ -1,6 +1,8 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
+use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 use crate::data_types::DataType;
+use crate::encoding::number_to_bytes;
 use crate::error;
 use crate::tokenizer::{tokenize_operands, is_name_character};
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
@@ -21,21 +23,25 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
     let mut byte_code = ByteCode::new();
 
     // Stores the binary location of all the labels
-    let mut label_map: HashMap<String, usize> = HashMap::new();
+    let mut label_map: HashMap<String, Address> = HashMap::new();
     // Stores the binary location of all the data variables
-    let mut data_map: HashMap<String, usize> = HashMap::new();
+    let mut data_map: HashMap<String, Address> = HashMap::new();
 
     let mut current_section = Section::None;
 
+    let mut program_start: Address = 0;
+
+    let mut has_data_section = false;
+    let mut has_text_section = false;
 
     let mut line_number: usize = 0;
     for line in assembly {
         line_number += 1;
 
         if verbose {
-            print!("\nLine {}\t: {}", line_number, line);
+            println!("\nLine {}\t: {}", line_number, line);
         }
-        let last_byte_code_length = byte_code.len();
+        let last_byte_code_length: Address = byte_code.len();
 
         // Remove redundant whitespaces
         let stripped_line = line.strip_prefix(' ').unwrap_or(&line);
@@ -54,13 +60,39 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
             );
 
             match section_name {
+
                 "data" => {
+                    // Check for duplicate sections
+                    if has_data_section {
+                        error::invalid_section_declaration(section_name, line_number, &line, "A binary can only have one data section.")
+                    }
                     current_section = Section::Data;
+                    has_data_section = true;
+                    
+                    if verbose {
+                        println!(".data:\n");
+                    }
+
+                    continue;
                 },
+
                 "text" => {
+                    // Check for duplicate sections
+                    if has_text_section {
+                        error::invalid_section_declaration(section_name, line_number, &line, "A binary can only have one text section.")
+                    }
                     current_section = Section::Text;
+                    program_start = last_byte_code_length;
+                    has_text_section = true;
+
+                    if verbose {
+                        println!(".text:\n");
+                    }
+
+                    continue;
                 },
-                _ => error::invalid_section_declaration(section_name, line_number, &line, "Unknown section name.")
+
+                _ => error::invalid_section_declaration(section_name, line_number, &line, format!("Unknown section name: \"{}\"", section_name).as_str())
             }
             
         }
@@ -69,6 +101,8 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         match current_section {
 
             Section::Data => {
+
+                // Parse the data declaration
 
                 let (name, other) = stripped_line.split_once(' ').unwrap_or_else(
                     || error::invalid_data_declaration(line_number, &line, "Data declarations must have a name")
@@ -82,7 +116,12 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                     || error::invalid_data_declaration(line_number, &line, format!("Unknown data type \"{}\"", data_type).as_str())
                 );
 
-                let encoded_data = data_type.encode(data, line_number, &line);
+                // Encode the string data into byte code
+                let encoded_data: ByteCode = data_type.encode(data, line_number, &line);
+
+                byte_code.extend(encoded_data);
+                // Add the data name and its address in the binary to the data map
+                data_map.insert(name.to_string(), last_byte_code_length);
 
             },
 
@@ -97,7 +136,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                         if !is_name_character(c) {
                             // Kind of a hacky way to get the index of the character in the line
                             let i = line.find("@").unwrap() + 1 + char_index;
-                            error::invalid_character(c, line_number, i, &line, "Label names can only contain letters and underscores.");
+                            error::invalid_character(c, line_number, i, &line, format!("Invalid label name \"{}\". Label names can only contain letters and underscores.", label).as_str());
                         }
                     }
                     
@@ -242,13 +281,17 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         }
         
         if verbose {
-            print!("\t\t=> pos {}: {:?}", last_byte_code_length, &byte_code[last_byte_code_length..byte_code.len()]);
+            println!("\t\t=> pos {}| {:?}", last_byte_code_length, &byte_code[last_byte_code_length..byte_code.len()]);
         }
         
     }
 
     // Append the exit instruction to the end of the binary
     byte_code.push(ByteCodes::EXIT as u8);
+
+    // Append the address of the program start to the end of the binary
+    // Assume that the byte encoding is always successful
+    byte_code.extend(number_to_bytes(program_start as u64, ADDRESS_SIZE).unwrap());
 
     byte_code
 }
