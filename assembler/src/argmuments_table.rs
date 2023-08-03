@@ -384,7 +384,7 @@ pub static ref ARGUMENTS_TABLE: HashMap<&'static str, Args> = HashMap::from([
 
     // Interrupts
 
-    ("sprint", Args::Zero((ByteCodes::PRINT_SIGNED, 0))), // No arguments
+    ("iprint", Args::Zero((ByteCodes::PRINT_SIGNED, 0))), // No arguments
 
     ("uprint", Args::Zero((ByteCodes::PRINT_UNSIGNED, 0))), // No arguments
 

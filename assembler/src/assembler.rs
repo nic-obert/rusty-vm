@@ -1,33 +1,131 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rust_vm_lib::token::TokenValue;
+
 use crate::data_types::DataType;
 use crate::encoding::number_to_bytes;
-use crate::error;
-use crate::tokenizer::{tokenize_operands, is_name_character};
+use crate::error::{self, invalid_label_name};
+use crate::tokenizer::{tokenize_operands, is_label_name};
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
-use rust_vm_lib::token::TokenValue;
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
+
 use std::collections::HashMap;
 
 
-enum Section {
+pub type LabelMap = HashMap<String, Address>;
+
+
+/// Represents a section in the assembly code
+enum ProgramSection {
     Data,
     Text,
     None,
 }
 
 
+/// Evaluates special compile time assembly symbols and returns the evaluated line
+/// Substitutes $ symbols with the current binary address
+/// Does not substitute $ symbols inside strings or character literals
+/// Does not evaluate escape characters inside strings or character literals
+fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_number: usize) -> String {
+
+    enum TextType {
+        Asm,
+        String { starts_at: (usize, usize) },
+        Char {starts_at: (usize, usize) },
+    }
+
+    let mut evaluated_line = String::with_capacity(line.len());
+
+    let mut text_type = TextType::Asm;
+    let mut escape_char = false;
+
+    for (char_index, c) in line.chars().enumerate() {
+
+        match text_type {
+
+            TextType::Asm => {
+                
+                match c {
+                    '$' => {
+                        evaluated_line.push_str(format!("{}", current_binary_address).as_str());
+                    },
+                    '"' => {
+                        evaluated_line.push('"');
+                        text_type = TextType::String { starts_at: (line_number, char_index) };
+                    },
+                    '\'' => {
+                        evaluated_line.push('\'');
+                        text_type = TextType::Char { starts_at: (line_number, char_index) };
+                    },
+                    _ => {
+                        evaluated_line.push(c);
+                    }
+                }
+
+            },
+
+            TextType::String {..} => {
+
+                evaluated_line.push(c);
+
+                if escape_char {
+                    escape_char = false;
+                } else {
+                    if c == '"' {
+                        text_type = TextType::Asm;
+                    } else if c == '\\' {
+                        escape_char = true;
+                    }
+                }
+            },
+
+            TextType::Char {..} => {
+
+                evaluated_line.push(c);
+
+                if escape_char {
+                    escape_char = false;
+                } else {
+                    if c == '\'' {
+                        text_type = TextType::Asm;
+                    } else if c == '\\' {
+                        escape_char = true;
+                    }
+                }
+
+            }
+
+        }
+    }
+
+    // Check for unclosed delimited literals
+    match text_type {
+        TextType::Asm => {
+            // If the text type is Asm, then there were no unclosed strings or character literals
+        },
+        TextType::Char { starts_at } => {
+            error::unclosed_char_literal(starts_at.0, starts_at.1, line);
+        },
+        TextType::String { starts_at } => {
+            error::unclosed_string_literal(starts_at.0, starts_at.1, line);
+        }
+    }
+
+    evaluated_line
+}
+
+
+/// Assembles the assembly code into byte code
 pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
 
     let mut byte_code = ByteCode::new();
 
     // Stores the binary location of all the labels
-    let mut label_map: HashMap<String, Address> = HashMap::new();
-    // Stores the binary location of all the data variables
-    let mut data_map: HashMap<String, Address> = HashMap::new();
+    let mut label_map = LabelMap::new();
 
-    let mut current_section = Section::None;
+    let mut current_section = ProgramSection::None;
 
     let mut program_start: Address = 0;
 
@@ -43,18 +141,20 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         }
         let last_byte_code_length: Address = byte_code.len();
 
-        // Remove redundant whitespaces
-        let stripped_line = line.strip_prefix(' ').unwrap_or(&line);
-        let stripped_line = stripped_line.strip_suffix(' ').unwrap_or(stripped_line);
+        // Evaluate the compile-time special symbols
+        let line = evaluate_special_symbols(&line, last_byte_code_length, line_number);
 
-        if stripped_line.is_empty() || stripped_line.starts_with('#') {
+        // Remove redundant whitespaces
+        let trimmed_line = line.trim();
+
+        if trimmed_line.is_empty() || trimmed_line.starts_with('#') {
             // The line is either empty or a comment, skip it
             continue;
         }
 
-        if stripped_line.starts_with('.') {
+        if trimmed_line.starts_with('.') {
             // This line specifies a program section
-            let section_name = stripped_line.strip_prefix('.').unwrap();
+            let section_name = trimmed_line.strip_prefix('.').unwrap();
             let section_name = section_name.strip_suffix(':').unwrap_or_else(
                 || error::invalid_section_declaration(section_name, line_number, &line, "Binary sections must end with a colon.")
             );
@@ -66,7 +166,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                     if has_data_section {
                         error::invalid_section_declaration(section_name, line_number, &line, "A binary can only have one data section.")
                     }
-                    current_section = Section::Data;
+                    current_section = ProgramSection::Data;
                     has_data_section = true;
                     
                     if verbose {
@@ -81,7 +181,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
                     if has_text_section {
                         error::invalid_section_declaration(section_name, line_number, &line, "A binary can only have one text section.")
                     }
-                    current_section = Section::Text;
+                    current_section = ProgramSection::Text;
                     program_start = last_byte_code_length;
                     has_text_section = true;
 
@@ -100,57 +200,63 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         // Handle the assembly code depending on the current section
         match current_section {
 
-            Section::Data => {
+            ProgramSection::Data => {
 
-                // Parse the data declaration
+                // Parse the static data declaration
 
-                let (name, other) = stripped_line.split_once(' ').unwrap_or_else(
-                    || error::invalid_data_declaration(line_number, &line, "Data declarations must have a name")
+                let mut statement_iter = trimmed_line.split_whitespace();
+
+                let label = statement_iter.next().unwrap_or_else(
+                    || error::invalid_data_declaration(line_number, &line, "Static data declarations must have a label")
                 );
 
-                let (data_type, data) = other.split_once(' ').unwrap_or_else(
-                    || error::invalid_data_declaration(line_number, &line, "Data declarations must have a type")
+                let data_type_name = statement_iter.next().unwrap_or_else(
+                    || error::invalid_data_declaration(line_number, &line, "Static data declarations must have a type")
                 );
 
-                let data_type = DataType::from_name(data_type).unwrap_or_else(
-                    || error::invalid_data_declaration(line_number, &line, format!("Unknown data type \"{}\"", data_type).as_str())
+                let data_type = DataType::from_name(data_type_name).unwrap_or_else(
+                    || error::invalid_data_declaration(line_number, &line, format!("Unknown data type \"{}\"", data_type_name).as_str())
                 );
 
+                let data_string = statement_iter.next().unwrap_or_else(
+                    || error::invalid_data_declaration(line_number, &line, "Static data declarations must have a value")
+                );
+
+                if statement_iter.next().is_some() {
+                    error::invalid_data_declaration(line_number, &line, "Static data declarations can only have a label, a type and a value");
+                }
+                
                 // Encode the string data into byte code
-                let encoded_data: ByteCode = data_type.encode(data, line_number, &line);
+                let encoded_data: ByteCode = data_type.encode(data_string, line_number, &line);
 
                 byte_code.extend(encoded_data);
                 // Add the data name and its address in the binary to the data map
-                data_map.insert(name.to_string(), last_byte_code_length);
+                label_map.insert(label.to_string(), last_byte_code_length);
 
             },
 
-            Section::Text => {
+            ProgramSection::Text => {
 
-                if stripped_line.starts_with('@') {
+                if trimmed_line.starts_with('@') {
                     // The line is a label, add it to the label map
-                    // Check if the label is a valid name
-                    let label = stripped_line.strip_prefix('@').unwrap();
+
+                    let label = trimmed_line.strip_prefix('@').unwrap();
                     
-                    for (char_index, c) in label.chars().enumerate() {
-                        if !is_name_character(c) {
-                            // Kind of a hacky way to get the index of the character in the line
-                            let i = line.find("@").unwrap() + 1 + char_index;
-                            error::invalid_character(c, line_number, i, &line, format!("Invalid label name \"{}\". Label names can only contain letters and underscores.", label).as_str());
-                        }
+                    if !is_label_name(label) {
+                        invalid_label_name(label, line_number, &line);
                     }
                     
-                    let label = stripped_line[1..].to_string();
-                    label_map.insert(label, last_byte_code_length);
+                    label_map.insert(label.to_string(), last_byte_code_length);
                     continue;
                 }
         
                 // List containing either a single operator or an operator and its arguments
-                let raw_tokens = stripped_line.split_once(' ');
+                // TODO: handle non-strctly spaces
+                let raw_tokens = trimmed_line.split_once(' ');
                 
                 if let Some(tokens) = raw_tokens {
                     // Operator has operands, tokenize the operands
-                    let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line);
+                    let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line, &label_map);
                     let operator = tokens.0;
         
                     let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
@@ -259,7 +365,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         
                 } else {
                     // Operator has no operands
-                    let operator = stripped_line;
+                    let operator = trimmed_line;
         
                     let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
                         || error::invalid_instruction_name(operator, line_number, &line)
@@ -275,8 +381,8 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool) -> ByteCode {
         
             },
 
-            // Code cannot be put outside of a section
-            Section::None => error::out_of_section(line_number, &line)
+            // Code cannot be put outside of a program section
+            ProgramSection::None => error::out_of_section(line_number, &line)
 
         }
         

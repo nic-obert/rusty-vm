@@ -17,6 +17,9 @@ There are a few known vulnerabilities, plus it's not very efficient.
 - [**Easy Virtual Machine**](#easy-virtual-machine)
   - [Table of contents](#table-of-contents)
   - [Project structure](#project-structure)
+  - [Assembly operators and symbols](#assembly-operators-and-symbols)
+    - [$: current address](#-current-address)
+    - [Address literals](#address-literals)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
       - [`add`](#add)
@@ -70,15 +73,39 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`inputint`](#inputint)
       - [`inputstr`](#inputstr)
       - [`exit`](#exit)
+  - [Binary program structure](#binary-program-structure)
+    - [Data section](#data-section)
+    - [Text section](#text-section)
+    - [Program start address](#program-start-address)
 
 ## Project structure
 
 - The [`vm`](vm) directory contains the code for the virtual machine.
 - The [`assembler`](assembler) directory contains the code for the assembler.
 - The [`disassembler`](disassembler) directory contains the code for the disassembler.
-- The [`rust_vm_lib`](rust_vm_lib) directory contains the code for the shared library used across all rust tools.
+- The [`rust_vm_lib`](rust_vm_lib) directory contains the code for the shared library used across all Rust tools.
 - The [`impl`](impl) directory contains examples of programs written in the VM's assembly language.
 - The [`tests`](tests) directory contains tests for the VM tools.
+
+## Assembly operators and symbols
+
+### $: current address
+
+The `$` symbol represents the current address in the binary as it's being assembled.  
+The assembler will replace every `$` symbol with the literal current address at the time of the assembly.
+
+```asm
+mov1 a $
+```
+
+### Address literals
+
+Address literals are used to specify a memory address in the binary.
+Address lierals are 8-byte unsigned integers enclosed in square brackets.
+
+```asm
+mov1 a [1234]
+```
 
 ## Assembly instructions
 
@@ -524,7 +551,7 @@ cmp8 14 14
 Print the signed integer value stored in the `print` register.
 
 ```asm
-print
+iprint
 ```
 
 #### `uprint`
@@ -582,3 +609,43 @@ Exit the program with the exit code stored in the `exit` register.
 ```asm
 exit
 ```
+
+## Binary program structure
+
+A binary program is composed of three main sections: the data, the text, and the start address.
+
+### Data section
+
+The data section contains static data that can be accessed by the program. The data section should be immutable and should not be modified by the program.  
+The data section is declared in the assembly code using the `.data:` diretive.  
+A static data declaration is composed of a label, a data type, and a value.
+
+```asm
+.data:
+  my_string string "Hello, world!"
+  my_char char 'a'
+  number i4 42
+```
+
+Available data types are:
+
+- `string`: a string literal
+- `char`: a character literal
+- `i1`: a signed 1-byte integer
+- `i2`: a signed 2-byte integer
+- `i4`: a signed 4-byte integer
+- `i8`: a signed 8-byte integer
+- `u1`: an unsigned 1-byte integer
+- `u2`: an unsigned 2-byte integer
+- `u4`: an unsigned 4-byte integer
+- `u8`: an unsigned 8-byte integer
+
+### Text section
+
+The text section contains the bytecode instructions that will be executed by the virtual machine. The text section should be immutable and should not be modified by the program.
+
+### Program start address
+
+The program start address is the address of the first instruction to be executed by the virtual machine. The start address should be immutable and should not be modified by the program.  
+The program start address is automatically set by the assembler to the address if the first instruction in the `.text` section.
+The program start address is equivalent to the main function in other programming languages.

@@ -1,6 +1,8 @@
 use rust_vm_lib::registers::get_register;
 use rust_vm_lib::token::{Token, TokenValue};
+
 use crate::error;
+use crate::assembler::LabelMap;
 
 
 pub fn is_name_character(c: char) -> bool {
@@ -8,7 +10,65 @@ pub fn is_name_character(c: char) -> bool {
 }
 
 
-pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -> Vec<Token> {
+pub fn is_label_name(name: &str) -> bool {
+    for c in name.chars() {
+        if !is_name_character(c) {
+            return false;
+        }
+    }
+    true
+}
+
+
+/// Returns the evaluated escape character
+fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str) -> char {
+    match c {
+        '\\' => '\\',
+        'n' => '\n',
+        't' => '\t',
+        'r' => '\r',
+        '0' => '\0',
+        '\'' => '\'',
+        _ => error::invalid_character(c, line_number, char_index, line, "Invalid escape character.")
+    }
+}
+
+
+/// Evaluates escape characters in a string literal
+pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str) -> String {
+    
+    let mut evaluated_string = String::with_capacity(string.len());
+
+    let mut escape_char = false;
+
+    for (char_index, c) in string.chars().enumerate() {
+
+        if escape_char {
+            evaluated_string.push(
+                match_escape_char(c, line_number, char_index, line)
+            );
+            escape_char = false;
+            continue;
+        }
+
+        if c == '\\' {
+            escape_char = true;
+            continue;
+        }
+
+        if c == delimiter {
+            break;
+        }
+
+        evaluated_string.push(c);
+    }
+
+    evaluated_string
+}
+
+
+
+pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -32,28 +92,12 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                         error::invalid_character(c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
                     }
 
-                    // Check for escape characters
-                    
-                    if c == '\\' {
-                        if escape_char {
-                            *value = '\\';
-                            escape_char = false;
-                        } else {
-                            escape_char = true;
-                            continue;
-                        }
-                    } 
+                    // Handle escape characters
+                   
                     string_length += 1;
 
                     if escape_char {
-                        match c {
-                            'n' => *value = '\n',
-                            't' => *value = '\t',
-                            'r' => *value = '\r',
-                            '0' => *value = '\0',
-                            '\'' => *value = '\'',
-                            _ => error::invalid_character(c, line_number, char_index, line, "Invalid escape character.")
-                        }
+                        *value = match_escape_char(c, line_number, char_index, line);
                         escape_char = false;
                     } else if c == '\'' {
                         // The character literal is complete
@@ -132,11 +176,16 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str) -
                         continue;
                     }
 
-                    if let Some(register) = get_register(&value) {
+                    // Check if the name is a special name (labels, registers, reserved names...)
+
+                    if let Some(register) = get_register(value) {
                         tokens.push(Token::new(TokenValue::Register(register)));
                         current_token = None;
                     }
-                    else {
+                    else if let Some(label) = label_map.get(value) {
+                        // Don't mind the primitive type conversion. The underlying bytes are the same.
+                        tokens.push(Token::new(TokenValue::Number(*label as i64)));
+                    } else {
                         tokens.push(current_token.take().unwrap());
                     }
                 }

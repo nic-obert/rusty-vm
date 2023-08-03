@@ -28,10 +28,10 @@ pub fn invalid_section_declaration(name: &str, line_number: usize, line: &str, h
 }
 
 
-pub fn invalid_character(c: char, line_number: usize, index: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_character(c: char, line_number: usize, char_index: usize, line: &str, hint: &str) -> ! {
     println!(
         "Invalid character '{}' at line {};{}:\n{}\n\n{}",
-        c, line_number, index, line, hint
+        c, line_number, char_index, line, hint
     );
     std::process::exit(1);
 }
@@ -64,6 +64,15 @@ pub fn undeclared_label(label: &str, line_number: usize, line: &str) -> ! {
 }
 
 
+pub fn invalid_label_name(name: &str, line_number: usize, line: &str) -> ! {
+    println!(
+        "Invalid label name \"{}\" at line {}:\n{}",
+        name, line_number, line
+    );
+    std::process::exit(1);
+}
+
+
 pub fn invalid_token(token: &Token, line_number: usize, line: &str, hint: &str) -> ! {
     println!(
         "Invalid token \"{:?}\" at line {}:\n{}\n\n{}",
@@ -75,7 +84,7 @@ pub fn invalid_token(token: &Token, line_number: usize, line: &str, hint: &str) 
 
 pub fn invalid_token_argument(instruction: &str, arg: &Token, line_number: usize, line: &str) -> ! {
     println!(
-        "Invalid argument \"{:?}\" for instruction `{}` at line {}:\n{}",
+        "Invalid argument \"{}\" for instruction `{}` at line {}:\n{}",
         arg, instruction, line_number, line
     );
     std::process::exit(1);
@@ -113,6 +122,24 @@ pub fn number_out_of_range(number: i64, line_number: usize, line: &str) -> ! {
     println!(
         "Number {} is out of range at line {}:\n{}",
         number, line_number, line
+    );
+    std::process::exit(1);
+}
+
+
+pub fn unclosed_string_literal(line_number: usize, char_index: usize, line: &str) -> ! {
+    println!(
+        "Unclosed string literal at line {};{}:\n{}",
+        line_number, char_index, line
+    );
+    std::process::exit(1);
+}
+
+
+pub fn unclosed_char_literal(line_number: usize, char_index: usize, line: &str) -> ! {
+    println!(
+        "Unclosed character literal at line {};{}:\n{}",
+        line_number, char_index, line
     );
     std::process::exit(1);
 }

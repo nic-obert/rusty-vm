@@ -3,10 +3,12 @@ use std::io::Write;
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+
 use crate::memory::{Memory, Size, Byte};
 use crate::errors::ErrorCodes;
 
 
+/// Converts a byte array to an integer
 fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> i64 {
     match handled_size {
         1 => bytes[0] as i64,
@@ -42,6 +44,7 @@ impl Processor {
     }
 
 
+    /// Execute the given bytecode
     pub fn execute(&mut self, byte_code: &[Byte], verbose: bool) {
 
         // Load the program into memory

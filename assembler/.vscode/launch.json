@@ -17,7 +17,7 @@
             },
             "program": "${cargo:program}",
             "args": [
-                "../impl/assembly.asm"
+                "../impl/test.asm"
             ]
         }
 
