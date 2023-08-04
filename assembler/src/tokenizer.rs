@@ -21,7 +21,7 @@ pub fn is_label_name(name: &str) -> bool {
 
 
 /// Returns the evaluated escape character
-fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str) -> char {
+fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str, unit_path: &str) -> char {
     match c {
         '\\' => '\\',
         'n' => '\n',
@@ -29,13 +29,13 @@ fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str)
         'r' => '\r',
         '0' => '\0',
         '\'' => '\'',
-        _ => error::invalid_character(c, line_number, char_index, line, "Invalid escape character.")
+        _ => error::invalid_character(unit_path, c, line_number, char_index, line, "Invalid escape character.")
     }
 }
 
 
 /// Evaluates escape characters in a string literal
-pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str) -> String {
+pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str, unit_path: &str) -> String {
     
     let mut evaluated_string = String::with_capacity(string.len());
 
@@ -45,7 +45,7 @@ pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: 
 
         if escape_char {
             evaluated_string.push(
-                match_escape_char(c, line_number, char_index, line)
+                match_escape_char(c, line_number, char_index, line, unit_path)
             );
             escape_char = false;
             continue;
@@ -68,7 +68,7 @@ pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: 
 
 
 
-pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap) -> Vec<Token> {
+pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &str) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -89,7 +89,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 TokenValue::Char(value) => {
 
                     if string_length > 1 {
-                        error::invalid_character(c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
+                        error::invalid_character(unit_path, c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
                     }
 
                     // Handle escape characters
@@ -97,12 +97,12 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                     string_length += 1;
 
                     if escape_char {
-                        *value = match_escape_char(c, line_number, char_index, line);
+                        *value = match_escape_char(c, line_number, char_index, line, unit_path);
                         escape_char = false;
                     } else if c == '\'' {
                         // The character literal is complete
                         if string_length == 0 {
-                            error::invalid_character(c, line_number, char_index, line, "Character literals cannot be empty.");
+                            error::invalid_character(unit_path, c, line_number, char_index, line, "Character literals cannot be empty.");
                         }
                         string_length = 0;
                         // Convert the character to a byte
@@ -126,9 +126,9 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                             Token::new(TokenValue::AddressInRegisterIncomplete(c.to_string()))
                         );
                     } else if c == ']' {
-                        error::invalid_character(c, line_number, char_index, line, "Addresses cannot be empty.");
+                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses cannot be empty.");
                     } else {
-                        error::invalid_character(c, line_number, char_index, line, "Addresses can only be numeric or register names.");
+                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses can only be numeric or register names.");
                     }
 
                     continue;
@@ -137,14 +137,14 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 TokenValue::AddressLiteral(value) => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
-                            || error::invalid_address(*value, line_number, line, "Address literal is too large.")
+                            || error::invalid_address(unit_path, *value, line_number, line, "Address literal is too large.")
                         ).checked_add(c.to_digit(10).unwrap() as usize).unwrap_or_else(
-                            || error::invalid_address(*value, line_number, line, "Address literal is too large.")
+                            || error::invalid_address(unit_path, *value, line_number, line, "Address literal is too large.")
                         );
                     } else if c == ']' {
                         tokens.push(current_token.take().unwrap());                    
                     } else {
-                        error::invalid_character(c, line_number, char_index, line, "Address literals can only be numeric.");
+                        error::invalid_character(unit_path, c, line_number, char_index, line, "Address literals can only be numeric.");
                     }
 
                     continue;
@@ -157,14 +157,14 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                     }
 
                     if c != ']' {
-                        error::invalid_character(c, line_number, char_index, line, format!("Expected a closing address ']', got '{}' instead.", c).as_str());
+                        error::invalid_character(unit_path, c, line_number, char_index, line, format!("Expected a closing address ']', got '{}' instead.", c).as_str());
                     }
 
                     if let Some(register) = get_register(value) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
                     } else {
-                        error::invalid_register_name(value, line_number, line);
+                        error::invalid_register_name(unit_path, value, line_number, line);
                     }
 
                     continue;
@@ -193,9 +193,9 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 TokenValue::Number(value) => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
-                            || error::number_out_of_range(*value, line_number, line)
+                            || error::number_out_of_range(unit_path, *value, line_number, line)
                         ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
-                            || error::number_out_of_range(*value, line_number, line)
+                            || error::number_out_of_range(unit_path, *value, line_number, line)
                         );
                         continue;
                     }
@@ -235,7 +235,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 continue;
             },
 
-            _ => error::invalid_character(c, line_number, char_index, line, "The given character wans't expected in this context.")
+            _ => error::invalid_character(unit_path, c, line_number, char_index, line, "The given character wans't expected in this context.")
         }
 
     }   

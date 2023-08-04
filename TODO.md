@@ -2,17 +2,21 @@
 
 ### Todo
 
-- [ ] implement library file inclusion  
+- [ ] implement standard assembly library  
+- [ ] add compiletime arithmetics in the data section  
 - [ ] write asm libraries to include or call  
 - [ ] add programs written in asm  
 - [ ] test the new vm  
 
 ### In Progress ···
 
+- [ ] add export directive  
 - Test the assembler and the disassembler for compatibility  
+- [ ] add include directive  
 
 ### Done ✅
 
+- [ ] identify assembly unit in assembler error messages  
 - [ ] add data section  
 - [ ] implement program start in the vm (last 8 bytes in the binary)  
 - [ ] add literal chars to asm code  

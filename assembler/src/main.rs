@@ -31,19 +31,43 @@ fn main() {
 
     let args = Cli::parse();
 
-    let assembly = files::load_assembly(&args.input_file);
+    let assembly = match files::load_assembly(&args.input_file) {
 
-    let byte_code = assembler::assemble(assembly, args.verbose);
+        Ok(assembly) => assembly,
+
+        Err(error) => {
+            error::io_error("_start_", &error, format!("Failed to load assembly file \"{}\"", &args.input_file).as_str());
+        }
+
+    };
+
+    let byte_code = assembler::assemble(assembly, args.verbose, &args.input_file);
     
     if let Some(output) = &args.output {
-        files::save_byte_code(byte_code, &output);
+        match files::save_byte_code(byte_code, &output) {
+
+            Ok(_) => {}
+
+            Err(error) => {
+                error::io_error("_start_", &error, format!("Failed to save byte code to \"{}\"", &output).as_str());
+            }
+
+        };
         
         if args.verbose {
             println!("\n\nAssembly code saved to {}", output);
         }
 
     } else {
-        let output_file = files::save_byte_code(byte_code, &args.input_file);
+        let output_file = match files::save_byte_code(byte_code, &args.input_file) {
+
+            Ok(output_file) => output_file,
+
+            Err(error) => {
+                error::io_error("_start_", &error, format!("Failed to save byte code to \"{}\"", &args.input_file).as_str());
+            }
+
+        };
 
         if args.verbose {
             println!("\n\nAssembly code saved to {}", output_file);

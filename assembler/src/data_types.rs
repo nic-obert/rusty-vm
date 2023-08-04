@@ -43,24 +43,24 @@ impl DataType {
 
 
     /// Encodes a string into a byte code vector based on the data type
-    pub fn encode(&self, string: &str, line_number: usize, line: &str) -> ByteCode {
+    pub fn encode(&self, string: &str, line_number: usize, line: &str, unit_path: &str) -> ByteCode {
 
         match self {
 
             DataType::Char => {
                 // Remove the enclosing single quotes
                 let string = string.strip_prefix('\'').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(line_number, line, "Expected a character literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a character literal.")
                 ).strip_suffix('\'').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(line_number, line, "Expected a character literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a character literal.")
                 );
 
                 // Evaluate the string by escaping characters
-                let evaluated_string = evaluate_string(string, '\'', line_number, line);
+                let evaluated_string = evaluate_string(string, '\'', line_number, line, unit_path);
 
                 // Check if the character literal is only one character long
                 if evaluated_string.len() != 1 {
-                    crate::error::invalid_data_declaration(line_number, line, "Character literals must be exactly one character long.");
+                    crate::error::invalid_data_declaration(unit_path, line_number, line, "Character literals must be exactly one character long.");
                 }
 
                 // Return the byte representation of the character assuming the string is only one character long
@@ -70,67 +70,67 @@ impl DataType {
             DataType::String => {
                 // Remove the enclosing double quotes
                 let string = string.strip_prefix('"').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(line_number, line, "Expected a string literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a string literal.")
                 ).strip_suffix('"').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(line_number, line, "Expected a string literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a string literal.")
                 );
 
                 // Return the evaluated and encoded string
-                evaluate_string(string, '"', line_number, line).into_bytes()
+                evaluate_string(string, '"', line_number, line, unit_path).into_bytes()
             },
 
             DataType::Unsigned1 => {
                 let number = string.parse::<u8>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected an unsigned 1 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an unsigned 1 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number]
             },
 
             DataType::Unsigned2 => {
                 let number = string.parse::<u16>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected an unsigned 2 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an unsigned 2 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8]
             },
 
             DataType::Unsigned4 => {
                 let number = string.parse::<u32>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected an unsigned 4 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an unsigned 4 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8, (number >> 16) as u8, (number >> 24) as u8]
             },
 
             DataType::Unsigned8 => {
                 let number = string.parse::<u64>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected an unsigned 8 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an unsigned 8 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8, (number >> 16) as u8, (number >> 24) as u8, (number >> 32) as u8, (number >> 40) as u8, (number >> 48) as u8, (number >> 56) as u8]
             }
 
             DataType::Signed1 => {
                 let number = string.parse::<i8>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected a signed 1 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a signed 1 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8]
             },
 
             DataType::Signed2 => {
                 let number = string.parse::<i16>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected a signed 2 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a signed 2 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8]
             },
 
             DataType::Signed4 => {
                 let number = string.parse::<i32>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected a signed 4 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a signed 4 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8, (number >> 16) as u8, (number >> 24) as u8]
             },
 
             DataType::Signed8 => {
                 let number = string.parse::<i64>().unwrap_or_else(
-                    |_| crate::error::invalid_data_declaration(line_number, line, format!("Expected a signed 8 byte integer. Got \"{}\"", string).as_str())
+                    |_| crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a signed 8 byte integer. Got \"{}\"", string).as_str())
                 );
                 vec![number as u8, (number >> 8) as u8, (number >> 16) as u8, (number >> 24) as u8, (number >> 32) as u8, (number >> 40) as u8, (number >> 48) as u8, (number >> 56) as u8]
             }

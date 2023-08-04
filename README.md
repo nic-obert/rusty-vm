@@ -73,10 +73,10 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`inputint`](#inputint)
       - [`inputstr`](#inputstr)
       - [`exit`](#exit)
-  - [Binary program structure](#binary-program-structure)
+  - [Assembly unit sections](#assembly-unit-sections)
     - [Data section](#data-section)
     - [Text section](#text-section)
-    - [Program start address](#program-start-address)
+    - [Include section](#include-section)
 
 ## Project structure
 
@@ -610,13 +610,11 @@ Exit the program with the exit code stored in the `exit` register.
 exit
 ```
 
-## Binary program structure
-
-A binary program is composed of three main sections: the data, the text, and the start address.
+## Assembly unit sections
 
 ### Data section
 
-The data section contains static data that can be accessed by the program. The data section should be immutable and should not be modified by the program.  
+The data section contains static data that can be accessed by the program.
 The data section is declared in the assembly code using the `.data:` diretive.  
 A static data declaration is composed of a label, a data type, and a value.
 
@@ -642,10 +640,13 @@ Available data types are:
 
 ### Text section
 
-The text section contains the bytecode instructions that will be executed by the virtual machine. The text section should be immutable and should not be modified by the program.
+The text section contains the bytecode instructions that will be executed by the virtual machine.
 
-### Program start address
+### Include section
 
-The program start address is the address of the first instruction to be executed by the virtual machine. The start address should be immutable and should not be modified by the program.  
-The program start address is automatically set by the assembler to the address if the first instruction in the `.text` section.
-The program start address is equivalent to the main function in other programming languages.
+The include section, declared with the `.include:` directive, is used to include other assembly files in the current assembly file. Assembly units are included in the order they are declared. Any assembly unit will be included only once in the final binary program.
+
+```asm
+.include:
+  "my_file.asm"
+```
