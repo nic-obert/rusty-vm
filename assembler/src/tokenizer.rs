@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rust_vm_lib::registers::get_register;
 use rust_vm_lib::token::{Token, TokenValue};
 
@@ -5,14 +7,17 @@ use crate::error;
 use crate::assembler::LabelMap;
 
 
-pub fn is_name_character(c: char) -> bool {
+/// Return whether the given character is a valid identifier character.
+/// 
+/// Identifiers can only contain letters and underscores.
+pub fn is_identifier_char(c: char) -> bool {
     c.is_alphabetic() || c == '_'
 }
 
 
 pub fn is_label_name(name: &str) -> bool {
     for c in name.chars() {
-        if !is_name_character(c) {
+        if !is_identifier_char(c) {
             return false;
         }
     }
@@ -21,7 +26,7 @@ pub fn is_label_name(name: &str) -> bool {
 
 
 /// Returns the evaluated escape character
-fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str, unit_path: &str) -> char {
+fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str, unit_path: &Path) -> char {
     match c {
         '\\' => '\\',
         'n' => '\n',
@@ -35,7 +40,7 @@ fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str,
 
 
 /// Evaluates escape characters in a string literal
-pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str, unit_path: &str) -> String {
+pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str, unit_path: &Path) -> String {
     
     let mut evaluated_string = String::with_capacity(string.len());
 
@@ -67,8 +72,10 @@ pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: 
 }
 
 
-
-pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &str) -> Vec<Token> {
+/// Tokenizes the operands of an instruction and returns a vector of tokens.
+/// 
+/// The tokenizer handles eventual labels and converts them to their address.
+pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &Path) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -123,7 +130,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                     }
                     else if c.is_alphabetic() {
                         current_token = Some(
-                            Token::new(TokenValue::AddressInRegisterIncomplete(c.to_string()))
+                            Token::new(TokenValue::AddressAtIdentifier(c.to_string()))
                         );
                     } else if c == ']' {
                         error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses cannot be empty.");
@@ -150,8 +157,8 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                     continue;
                 },
 
-                TokenValue::AddressInRegisterIncomplete(value) => {
-                    if is_name_character(c) {
+                TokenValue::AddressAtIdentifier(value) => {
+                    if is_identifier_char(c) {
                         value.push(c);
                         continue;
                     }
@@ -160,18 +167,24 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                         error::invalid_character(unit_path, c, line_number, char_index, line, format!("Expected a closing address ']', got '{}' instead.", c).as_str());
                     }
 
+                    // Determine what kind of identifier it is
                     if let Some(register) = get_register(value) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
+
+                    } else if let Some(label) = label_map.get(value) {
+                        tokens.push(Token::new(TokenValue::AddressLiteral(*label)));
+                        current_token = None;
+
                     } else {
-                        error::invalid_register_name(unit_path, value, line_number, line);
+                        error::invalid_address_identifier(unit_path, &value, line_number, line);
                     }
 
                     continue;
                 },
 
                 TokenValue::Name(value) => {
-                    if is_name_character(c) {
+                    if is_identifier_char(c) {
                         value.push(c);
                         continue;
                     }
@@ -209,7 +222,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
         }
 
 
-        if is_name_character(c) {
+        if is_identifier_char(c) {
             current_token = Some(Token::new(TokenValue::Name(c.to_string())));
             continue;
         }

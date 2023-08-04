@@ -1,8 +1,12 @@
-.data:
 
-    mystr string "ciao\0"
+
+.include:
+
+    lib_test.asm
 
 .text:
 
-    mov8 print mystr
-    printstr
+@start
+
+    
+

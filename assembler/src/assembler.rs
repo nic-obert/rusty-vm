@@ -1,5 +1,6 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
+use rust_vm_lib::registers;
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 use rust_vm_lib::token::TokenValue;
 
@@ -10,9 +11,12 @@ use crate::tokenizer::{tokenize_operands, is_label_name};
 use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
 use crate::files;
+use crate::argmuments_table;
+use crate::configs;
 
 use std::collections::HashMap;
 use std::io;
+use std::path::{Path, PathBuf};
 
 
 pub type LabelMap = HashMap<String, Address>;
@@ -23,17 +27,61 @@ enum ProgramSection {
     Data,
     Text,
     Include,
-    Export,
     None,
 }
 
 
+/// Returns whether the name is a reserved name by the assembler
+/// Reserved names are register names and instruction names
+fn is_reserved_name(name: &str) -> bool {
+    if let Some(_) = registers::get_register(name) {
+        true
+    } else if argmuments_table::ARGUMENTS_TABLE.contains_key(name) {
+        true
+    } else {
+        false
+    }
+    
+}
+
+
 /// Try to load an assembly unit
-fn load_asm_unit(unit_name: &str) -> io::Result<AssemblyCode> {
+/// 
+/// If successful, return the assembly code and the absolute path to the unit
+fn load_asm_unit(unit_name: &str, current_unit_path: &Path) -> io::Result<(PathBuf, AssemblyCode)> {
 
     // TODO: search in standard assembly library first
 
-    files::load_assembly(unit_name)
+    let unit_path = Path::new(unit_name);
+
+    if unit_path.is_absolute() {
+        // The unit path is absolute, try to load it directly
+        return Ok((unit_path.to_path_buf(), files::load_assembly(unit_path)?));
+    }
+
+    // The unit path is relative
+
+    // Try to load the unit from the standard library
+    {
+        let unit_path = configs::INCLUDE_LIB_PATH.join(unit_path);
+        match files::load_assembly(&unit_path) {
+            Ok(assembly) => return Ok((unit_path.canonicalize().unwrap(), assembly)),
+            Err(_) => {}
+        }
+    }
+
+    // Finally, try to load the unit from the current assembly unit directory
+
+    let parent_dir = current_unit_path.parent().unwrap_or_else(
+        || panic!("Failed to get parent directory of \"{}\"", current_unit_path.display())
+    );  
+
+    // Get the absolute path of the include unit
+    let unit_path = parent_dir.join(unit_name).canonicalize()?;
+
+    let assembly = files::load_assembly(&unit_path)?;
+
+    Ok((unit_path, assembly))
 }
 
 
@@ -41,7 +89,7 @@ fn load_asm_unit(unit_name: &str) -> io::Result<AssemblyCode> {
 /// Substitutes $ symbols with the current binary address
 /// Does not substitute $ symbols inside strings or character literals
 /// Does not evaluate escape characters inside strings or character literals
-fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_number: usize, unit_path: &str) -> String {
+fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_number: usize, unit_path: &Path) -> String {
 
     enum TextType {
         Asm,
@@ -131,25 +179,32 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 
 
 /// Assemble recursively an assembly unit and its dependencies
-fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_code: &mut ByteCode, export_label_map: &mut LabelMap, included_units: &mut Vec<String>) {
+fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_code: &mut ByteCode, export_label_map: &mut LabelMap, included_units: &mut Vec<String>, is_main_unit: bool) {
 
     // Check if the assembly unit has already been included
-    let unit_path_owned = unit_path.to_string();
-    if included_units.contains(&unit_path_owned) {
+    let unit_path_string = unit_path.to_string_lossy().to_string();
+    if included_units.contains(&unit_path_string) {
         // The assembly unit has already been included, skip it
         return;
     }
-    included_units.push(unit_path_owned);
+    included_units.push(unit_path_string);
+
+    if verbose {
+        if is_main_unit {
+            println!("\nMain assembly unit: {} ({})\n", unit_path.file_name().unwrap().to_string_lossy(), unit_path.display());
+        } else {
+            println!("\nAssembly unit: {} ({})\n", unit_path.file_name().unwrap().to_string_lossy(), unit_path.display());
+        }
+    }
     
     // Stores the binary location of all the local labels
-    let mut label_map = LabelMap::new();
+    let mut local_label_map = LabelMap::new();
 
     let mut current_section = ProgramSection::None;
 
     let mut has_data_section = false;
     let mut has_text_section = false;
     let mut has_include_section = false;
-    let mut has_export_section = false;
 
     let mut line_number: usize = 0;
     for line in assembly {
@@ -171,29 +226,13 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
             continue;
         }
 
-        if trimmed_line.starts_with('.') {
+        if let Some(mut section_name) = trimmed_line.strip_prefix('.') {
             // This line specifies a program section
-            let section_name = trimmed_line.strip_prefix('.').unwrap();
-            let section_name = section_name.strip_suffix(':').unwrap_or_else(
+            section_name = section_name.strip_suffix(':').unwrap_or_else(
                 || error::invalid_section_declaration(unit_path, section_name, line_number, &line, "Assembly sections must end with a colon.")
             );
 
             match section_name {
-
-                "export" => {
-                    // Check for duplicate sections
-                    if has_export_section {
-                        error::invalid_section_declaration(unit_path, section_name, line_number, &line, "An assembly unit can only have one export section.")
-                    }
-                    current_section = ProgramSection::Export;
-                    has_export_section = true;
-
-                    if verbose {
-                        println!(".export:\n");
-                    }
-
-                    continue;
-                },
 
                 "include" => {
                     // Check for duplicate sections
@@ -248,21 +287,17 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
         // Handle the assembly code depending on the current section
         match current_section {
 
-            ProgramSection::Export => {
-                todo!()
-            },
-
             ProgramSection::Include => {
 
-                let include_path = trimmed_line;
+                let include_unit_raw = trimmed_line;
 
-                let include_asm: AssemblyCode = match load_asm_unit(include_path) {
-                    Ok(asm) => asm,
-                    Err(error) => error::include_error(unit_path, &error, include_path, line_number, &line)
+                let (include_path, include_asm) = match load_asm_unit(include_unit_raw, unit_path) {
+                    Ok(x) => x,
+                    Err(error) => error::include_error(unit_path, &error, include_unit_raw, line_number, &line)
                 };
 
                 // Assemble the included assembly unit
-                assemble_unit(include_asm, verbose, include_path, byte_code, export_label_map, included_units);
+                assemble_unit(include_asm, verbose, &include_path, byte_code, &mut local_label_map, included_units, false);
 
             },
 
@@ -270,11 +305,24 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
 
                 // Parse the static data declaration
 
-                let mut statement_iter = trimmed_line.split_whitespace();
+                // Check if the data label has to be exported (double consecutive @)
+                // Also, return an iterator over the statement
+                let (mut statement_iter, to_export) = {
+                    if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
+                        (trimmed_line.split_whitespace(), true)
+                    } else {
+                        (trimmed_line.split_whitespace(), false)
+                    }
+                };
 
                 let label = statement_iter.next().unwrap_or_else(
                     || error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations must have a label")
                 );
+
+                // Check if the label is reserved
+                if is_reserved_name(label) {
+                    error::invalid_label_name(unit_path, label, line_number, &line, format!("\"{}\" is a reserved name.", label).as_str());
+                }
 
                 let data_type_name = statement_iter.next().unwrap_or_else(
                     || error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations must have a type")
@@ -296,23 +344,42 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
                 let encoded_data: ByteCode = data_type.encode(data_string, line_number, &line, unit_path);
 
                 byte_code.extend(encoded_data);
+
                 // Add the data name and its address in the binary to the data map
-                label_map.insert(label.to_string(), last_byte_code_length);
+                local_label_map.insert(label.to_string(), last_byte_code_length);
+
+                if to_export {
+                    export_label_map.insert(label.to_string(), last_byte_code_length);
+                }
 
             },
 
             ProgramSection::Text => {
 
-                if trimmed_line.starts_with('@') {
+                if let Some(label) = trimmed_line.strip_prefix('@') {
                     // The line is a label, add it to the label map
 
-                    let label = trimmed_line.strip_prefix('@').unwrap();
+                    // Check if the label is to be exported (double consecutive @)
+                    let (label, to_export): (&str, bool) = {
+                        if let Some(label) = label.strip_prefix('@') {
+                            (label.trim(), true)
+                        } else {
+                            (label.trim(), false)
+                        }
+                    };
                     
                     if !is_label_name(label) {
-                        error::invalid_label_name(unit_path, label, line_number, &line);
+                        error::invalid_label_name(unit_path, label, line_number, &line, "Label names can only contain alphabetic characters and underscores.");
+                    }
+
+                    if is_main_unit && label == "start" {
+                        // Automatically export the @start label if this is the main assembly unit
+                        export_label_map.insert(label.to_string(), last_byte_code_length);
+                    } else if to_export {
+                        export_label_map.insert(label.to_string(), last_byte_code_length);
                     }
                     
-                    label_map.insert(label.to_string(), last_byte_code_length);
+                    local_label_map.insert(label.to_string(), last_byte_code_length);
                     continue;
                 }
         
@@ -322,7 +389,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
                 
                 if let Some(tokens) = raw_tokens {
                     // Operator has operands, tokenize the operands
-                    let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line, &label_map, unit_path);
+                    let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line, &local_label_map, unit_path);
                     let operator = tokens.0;
         
                     let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
@@ -400,7 +467,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
                     // Substitute the label with the byte code location for jump instructions
                     if is_jump_instruction(instruction_code) {
                         if let TokenValue::Name(label) = &operands[0].value {
-                            operands[0].value = TokenValue::AddressLiteral(*label_map.get(label).unwrap_or_else(
+                            operands[0].value = TokenValue::AddressLiteral(*local_label_map.get(label).unwrap_or_else(
                                 || error::undeclared_label(unit_path, label, line_number, &line)
                             ));
                         } else {
@@ -460,11 +527,20 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &str, byte_co
         
     }
 
+    if verbose {
+        if is_main_unit {
+            println!("\nEnd of main assembly unit {} ({})\n", unit_path.file_name().unwrap().to_string_lossy(), unit_path.display());
+        } else {
+            println!("\nEnd of assembly unit {} ({})", unit_path.file_name().unwrap().to_string_lossy(), unit_path.display());
+            println!("Exported labels: {:?}\n", export_label_map);
+        }
+    }
+
 }
 
 
 /// Assembles the assembly code into byte code
-pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &str) -> ByteCode {
+pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> ByteCode {
 
     // Keep track of all the assembly units included to avoid duplicates
     let mut included_units: Vec<String> = Vec::new();
@@ -474,7 +550,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &str) -> ByteC
     let mut label_map = LabelMap::new();
 
     // Assemble recursively the main assembly unit and its dependencies
-    assemble_unit(assembly, verbose, unit_path, &mut byte_code, &mut label_map, &mut included_units);
+    assemble_unit(assembly, verbose, unit_path, &mut byte_code, &mut label_map, &mut included_units, true);
 
     // Append the exit instruction to the end of the binary
     byte_code.push(ByteCodes::EXIT as u8);

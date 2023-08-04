@@ -2,7 +2,7 @@
 
 ### Todo
 
-- [ ] implement standard assembly library  
+- [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
 - [ ] write asm libraries to include or call  
 - [ ] add programs written in asm  
@@ -10,12 +10,13 @@
 
 ### In Progress ···
 
-- [ ] add export directive  
 - Test the assembler and the disassembler for compatibility  
-- [ ] add include directive  
 
 ### Done ✅
 
+- [ ] implement standard assembly library  
+- [ ] add include directive  
+- [ ] add export directive  
 - [ ] identify assembly unit in assembler error messages  
 - [ ] add data section  
 - [ ] implement program start in the vm (last 8 bytes in the binary)  

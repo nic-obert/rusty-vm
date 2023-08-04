@@ -644,9 +644,10 @@ The text section contains the bytecode instructions that will be executed by the
 
 ### Include section
 
-The include section, declared with the `.include:` directive, is used to include other assembly files in the current assembly file. Assembly units are included in the order they are declared. Any assembly unit will be included only once in the final binary program.
+The include section, declared with the `.include:` directive, is used to include other assembly files in the current assembly file. Assembly units are included in the order they are declared. Any assembly unit will be included only once in the final binary program.  
+Assembly units to include are searched for in the same directory as the current assembly file.
 
 ```asm
 .include:
-  "my_file.asm"
+  my_file.asm
 ```

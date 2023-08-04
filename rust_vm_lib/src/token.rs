@@ -12,7 +12,7 @@ pub enum TokenValue {
     Name(String),
     AddressGeneric(usize),
     CurrentPosition(usize),
-    AddressInRegisterIncomplete(String),
+    AddressAtIdentifier(String),
     Char(char),
 }
 
@@ -63,7 +63,7 @@ impl TokenValue {
             TokenValue::Name(_) => 5,
             TokenValue::AddressGeneric(_) => 6,
             TokenValue::CurrentPosition(_) => 7,
-            TokenValue::AddressInRegisterIncomplete(_) => 8,
+            TokenValue::AddressAtIdentifier(_) => 8,
             TokenValue::Char(_) => panic!("Char does not have an ordinal value"),
         }
     }
@@ -100,7 +100,7 @@ impl fmt::Display for Token {
             TokenValue::Name(ref name) => write!(f, "NAME({})", name),
             TokenValue::AddressGeneric(num) => write!(f, "ADDRESS_GENERIC({})", num),
             TokenValue::CurrentPosition(num) => write!(f, "CURRENT_POSITION({})", num),
-            TokenValue::AddressInRegisterIncomplete(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
+            TokenValue::AddressAtIdentifier(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
             TokenValue::Char(c) => write!(f, "CHAR({})", c),
         }
     }

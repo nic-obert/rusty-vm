@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rust_vm_lib::assembly::ByteCode;
 
 use crate::tokenizer::evaluate_string;
@@ -43,7 +45,7 @@ impl DataType {
 
 
     /// Encodes a string into a byte code vector based on the data type
-    pub fn encode(&self, string: &str, line_number: usize, line: &str, unit_path: &str) -> ByteCode {
+    pub fn encode(&self, string: &str, line_number: usize, line: &str, unit_path: &Path) -> ByteCode {
 
         match self {
 
