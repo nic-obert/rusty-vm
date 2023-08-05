@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] improve argument errors by displaying which arguments are required by operators  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
 - [ ] write asm libraries to include or call  
@@ -14,6 +15,7 @@
 
 ### Done ✅
 
+- [ ] update documentation with new register names  
 - [ ] implement standard assembly library  
 - [ ] add include directive  
 - [ ] add export directive  

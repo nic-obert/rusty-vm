@@ -297,46 +297,46 @@ impl Processor {
 
 
     fn handle_add(&mut self) {
-        *self.get_register_mut(Registers::A) += self.get_register(Registers::B);
+        *self.get_register_mut(Registers::R1) += self.get_register(Registers::R2);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A), 
+            self.get_register(Registers::R1), 
             0
         )
     }
 
 
     fn handle_sub(&mut self) {
-        *self.get_register_mut(Registers::A) -= self.get_register(Registers::B);
+        *self.get_register_mut(Registers::R1) -= self.get_register(Registers::R2);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A), 
+            self.get_register(Registers::R1), 
             0
         )
     }
 
 
     fn handle_mul(&mut self) {
-        *self.get_register_mut(Registers::A) *= self.get_register(Registers::B);
+        *self.get_register_mut(Registers::R1) *= self.get_register(Registers::R2);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A), 
+            self.get_register(Registers::R1), 
             0
         )
     }
 
 
     fn handle_div(&mut self) {
-        let remainder = self.get_register(Registers::A) % self.get_register(Registers::B);
-        *self.get_register_mut(Registers::A) /= self.get_register(Registers::B);
+        let remainder = self.get_register(Registers::R1) % self.get_register(Registers::R2);
+        *self.get_register_mut(Registers::R1) /= self.get_register(Registers::R2);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A), 
+            self.get_register(Registers::R1), 
             remainder as i64
         )
     }
 
 
     fn handle_mod(&mut self) {
-        *self.get_register_mut(Registers::A) %= self.get_register(Registers::B);
+        *self.get_register_mut(Registers::R1) %= self.get_register(Registers::R2);
         self.set_arithmetical_flags(
-            self.get_register(Registers::A), 
+            self.get_register(Registers::R1), 
             0
         )
     }

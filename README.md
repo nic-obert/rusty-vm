@@ -17,9 +17,11 @@ There are a few known vulnerabilities, plus it's not very efficient.
 - [**Easy Virtual Machine**](#easy-virtual-machine)
   - [Table of contents](#table-of-contents)
   - [Project structure](#project-structure)
+  - [Registers](#registers)
   - [Assembly operators and symbols](#assembly-operators-and-symbols)
     - [$: current address](#-current-address)
     - [Address literals](#address-literals)
+    - [Labels](#labels)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
       - [`add`](#add)
@@ -55,7 +57,6 @@ There are a few known vulnerabilities, plus it's not very efficient.
       - [`pop4`](#pop4)
       - [`pop8`](#pop8)
     - [Flow control instructions](#flow-control-instructions)
-      - [`label`](#label)
       - [`jmp`](#jmp)
       - [`jmpnz`](#jmpnz)
       - [`jmpz`](#jmpz)
@@ -87,6 +88,30 @@ There are a few known vulnerabilities, plus it's not very efficient.
 - The [`impl`](impl) directory contains examples of programs written in the VM's assembly language.
 - The [`tests`](tests) directory contains tests for the VM tools.
 
+## Registers
+
+The virtual machine has 17 8-byte registers. Registers are identified by their name in the assembly code. In bytecode, they are identified by their 1-byte index in the `Registers` enum.
+
+| Name    | Index | Description                                                                 |
+| ------- | ----- | --------------------------------------------------------------------------- |
+| `r1`    | 0     | General purpose register. Also used for most built-in operations. |
+| `r2`    | 1     | General purpose register. Also used for most built-in operations. |
+| `r3`    | 2     | General purpose register. |
+| `r4`    | 3     | General purpose register. |
+| `r5`    | 4     | General purpose register. |
+| `r6`    | 5     | General purpose register. |
+| `r7`    | 6     | General purpose register. |
+| `r8`    | 7     | General purpose register. |
+| `exit`  | 4     | Stores the program's exit code. |
+| `input` | 5     | Stores the input from the console. |
+| `error` | 6     | Stores the last error code. |
+| `print` | 7     | Stores the value to print. |
+| `sp`    | 8     | Stores the stack pointer. |
+| `pc`    | 9     | Stores the program counter. |
+| `zf`    | 10    | Stores the zero flag. |
+| `sf`    | 11    | Stores the sign flag. |
+| `rf`    | 12    | Stores the remainder flag. |
+
 ## Assembly operators and symbols
 
 ### $: current address
@@ -95,7 +120,7 @@ The `$` symbol represents the current address in the binary as it's being assemb
 The assembler will replace every `$` symbol with the literal current address at the time of the assembly.
 
 ```asm
-mov1 a $
+mov1 r1 $
 ```
 
 ### Address literals
@@ -104,7 +129,20 @@ Address literals are used to specify a memory address in the binary.
 Address lierals are 8-byte unsigned integers enclosed in square brackets.
 
 ```asm
-mov1 a [1234]
+mov1 r1 [1234]
+```
+
+### Labels
+
+A label is a compile time symbol that represents a memory address in the binary. Labels are declared in the assembly code using the `@` symbol. To export a label, prefix it with `@@` instead.  
+Label names can only contain alphabetic characters and underscores. Also, they must not overwrite any of the reserved assembly instructions or registers.
+
+```asm
+# Regular label
+@my_label
+
+# Exported label
+@@my_exported_label
 ```
 
 ## Assembly instructions
@@ -117,7 +155,7 @@ The first operand is treated as the destination by the processor, whereas the se
 
 #### `add`
 
-Add the values stored in registers `a` and `b`. Store the result in register `a`.  
+Add the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
 If the result is 0, set register `zf` to `1`.  
 If the result is negative, set register `sf` to `1`.
 
@@ -127,7 +165,7 @@ add
 
 #### `sub`
 
-Subtract the values stored in registers `a` and `b`. Store the result in register `a`.  
+Subtract the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
 If the result is 0, set register `zf` to `1`.  
 If the result is negative, set register `sf` to `1`.
 
@@ -137,7 +175,7 @@ sub
 
 #### `mul`
 
-Multiply the values stored in registers `a` and `b`. Store the result in register `a`.  
+Multiply the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
 If the result is 0, set register `zf` to `1`.  
 If the result is negative, set register `sf` to `1`.
 
@@ -147,7 +185,7 @@ mul
 
 #### `div`
 
-Divide the values stored in registers `a` and `b`. Store the result in register `a`.  
+Divide the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
 If the result is 0, set register `zf` to `1`.  
 If the result is negative, set register `sf` to `1`.
 Store the eventual integer remainder in register `rf`.
@@ -158,7 +196,7 @@ div
 
 #### `mod`
 
-Store the remainder of the division between the values stored in registers `a` and `b` in register `a`.  
+Store the remainder of the division between the values stored in registers `r1` and `r2` in register `r1`.  
 If the result is 0, set register `zf` to `1`.  
 If the result is negative, set register `sf` to `1`.
 
@@ -173,7 +211,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-inc a
+inc r1
 ```
 
 #### `inc1`
@@ -183,7 +221,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-inc1 [a]
+inc1 [r1]
 inc1 [1234]
 ```
 
@@ -194,7 +232,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-inc2 [a]
+inc2 [r1]
 inc2 [1234]
 ```
 
@@ -205,7 +243,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-inc4 [a]
+inc4 [r1]
 inc4 [1234]
 ```
 
@@ -216,7 +254,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-inc8 [a]
+inc8 [r1]
 inc8 [1234]
 ```
 
@@ -227,7 +265,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-dec a
+dec r1
 ```
 
 #### `dec1`
@@ -237,7 +275,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-dec1 [a]
+dec1 [r1]
 dec1 [1234]
 ```
 
@@ -248,7 +286,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-dec2 [a]
+dec2 [r1]
 dec2 [1234]
 ```
 
@@ -259,7 +297,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-dec4 [a]
+dec4 [r1]
 dec4 [1234]
 ```
 
@@ -270,7 +308,7 @@ If the result is 0, set register `zf` to `1`.
 If the result is negative, set register `sf` to `1`.
 
 ```asm
-dec8 [a]
+dec8 [r1]
 dec8 [1234]
 ```
 
@@ -291,7 +329,7 @@ nop
 Copy the second register value into the first register.
 
 ```asm
-mov a b
+mov r1 r2
 ```
 
 #### `mov1`
@@ -299,15 +337,15 @@ mov a b
 Copy the 1-byte literal or value stored at the specified location into the specified location.
 
 ```asm
-mov1 a [b]
-mov1 [a] [123]
-mov1 a 123
-mov1 [a] b
-mov1 [a] [b]
-mov1 [a] [123]
-mov1 [a] 123
-mov1 [123] a
-mov1 [123] [a]
+mov1 r1 [r2]
+mov1 [r1] [123]
+mov1 r1 123
+mov1 [r1] r2
+mov1 [r1] [r2]
+mov1 [r1] [123]
+mov1 [r1] 123
+mov1 [123] r1
+mov1 [123] [r1]
 mov1 [123] 123
 ```
 
@@ -316,15 +354,15 @@ mov1 [123] 123
 Copy the 2-byte literal or value stored at the specified location into the specified location.
 
 ```asm
-mov2 a [b]
-mov2 [a] [123]
-mov2 a 123
-mov2 [a] b
-mov2 [a] [b]
-mov2 [a] [123]
-mov2 [a] 123
-mov2 [123] a
-mov2 [123] [a]
+mov2 r1 [r2]
+mov2 [r1] [123]
+mov2 r1 123
+mov2 [r1] r2
+mov2 [r1] [r2]
+mov2 [r1] [123]
+mov2 [r1] 123
+mov2 [123] r1
+mov2 [123] [r1]
 mov2 [123] 123
 ```
 
@@ -333,15 +371,15 @@ mov2 [123] 123
 Copy the 4-byte literal or value stored at the specified location into the specified location.
 
 ```asm
-mov4 a [b]
-mov4 [a] [123]
-mov4 a 123
-mov4 [a] b
-mov4 [a] [b]
-mov4 [a] [123]
-mov4 [a] 123
-mov4 [123] a
-mov4 [123] [a]
+mov4 r1 [r2]
+mov4 [r1] [123]
+mov4 r1 123
+mov4 [r1] r2
+mov4 [r1] [r2]
+mov4 [r1] [123]
+mov4 [r1] 123
+mov4 [123] r1
+mov4 [123] [r1]
 mov4 [123] 123
 ```
 
@@ -350,15 +388,15 @@ mov4 [123] 123
 Copy the 8-byte literal or value stored at the specified location into the specified location.
 
 ```asm
-mov8 a [b]
-mov8 [a] [123]
-mov8 a 123
-mov8 [a] b
-mov8 [a] [b]
-mov8 [a] [123]
-mov8 [a] 123
-mov8 [123] a
-mov8 [123] [a]
+mov8 r1 [r2]
+mov8 [r1] [123]
+mov8 r1 123
+mov8 [r1] r2
+mov8 [r1] [r2]
+mov8 [r1] [123]
+mov8 [r1] 123
+mov8 [123] r1
+mov8 [123] [r1]
 mov8 [123] 123
 ```
 
@@ -367,7 +405,7 @@ mov8 [123] 123
 Push the value stored in the specified register onto the stack.
 
 ```asm
-push a
+push r1
 ```
 
 #### `push1`
@@ -375,7 +413,7 @@ push a
 Push the 1-byte specified value (or the value stored at the specified address) onto the stack.
 
 ```asm
-push1 [a]
+push1 [r1]
 push1 [1234]
 push1 43
 ```
@@ -385,7 +423,7 @@ push1 43
 Push the 2-byte specified value (or the value stored at the specified address) onto the stack.
 
 ```asm
-push2 [a]
+push2 [r1]
 push2 [1234]
 push2 43
 ```
@@ -395,7 +433,7 @@ push2 43
 Push the 4-byte specified value (or the value stored at the specified address) onto the stack.
 
 ```asm
-push4 [a]
+push4 [r1]
 push4 [1234]
 push4 43
 ```
@@ -405,7 +443,7 @@ push4 43
 Push the 8-byte specified value (or the value stored at the specified address) onto the stack.
 
 ```asm
-push8 [a]
+push8 [r1]
 push8 [1234]
 push8 43
 ```
@@ -415,8 +453,8 @@ push8 43
 Pop the 1-byte value from the top of the stack and store it in the specified address or register.
 
 ```asm
-pop1 a
-pop1 [a]
+pop1 r1
+pop1 [r1]
 pop1 [1234]
 ```
 
@@ -425,8 +463,8 @@ pop1 [1234]
 Pop the 2-byte value from the top of the stack and store it in the specified address or register.
 
 ```asm
-pop2 a
-pop2 [a]
+pop2 r1
+pop2 [r1]
 pop2 [1234]
 ```
 
@@ -435,8 +473,8 @@ pop2 [1234]
 Pop the 4-byte value from the top of the stack and store it in the specified address or register.
 
 ```asm
-pop4 a
-pop4 [a]
+pop4 r1
+pop4 [r1]
 pop4 [1234]
 ```
 
@@ -445,20 +483,12 @@ pop4 [1234]
 Pop the 8-byte value from the top of the stack and store it in the specified address or register.
 
 ```asm
-pop8 a
-pop8 [a]
+pop8 r1
+pop8 [r1]
 pop8 [1234]
 ```
 
 ### Flow control instructions
-
-#### `label`
-
-Declare a label whose name is the string after the `@` sign (in this case, "label").
-
-```asm
-@label
-```
 
 #### `jmp`
 
@@ -473,7 +503,7 @@ jmp label
 Jump to the specified label if the specified register not zero.
 
 ```asm
-jmpnz label a
+jmpnz label r1
 ```
 
 #### `jmpz`
@@ -481,7 +511,7 @@ jmpnz label a
 Jump to the specified label if the specified register is zero.
 
 ```asm
-jmpz label a
+jmpz label r1
 ```
 
 ### Comparison instructions
@@ -493,7 +523,7 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```asm
-cmp a b
+cmp r1 r2
 ```
 
 #### `cmp1`
@@ -503,8 +533,8 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```asm
-cmp1 a 14
-cmp1 14 a
+cmp1 r1 14
+cmp1 14 r1
 cmp1 14 14
 ```
 
@@ -515,8 +545,8 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```asm
-cmp2 a 14
-cmp2 14 a
+cmp2 r1 14
+cmp2 14 r1
 cmp2 14 14
 ```
 
@@ -527,8 +557,8 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```asm
-cmp4 a 14
-cmp4 14 a
+cmp4 r1 14
+cmp4 14 r1
 cmp4 14 14
 ```
 
@@ -539,8 +569,8 @@ If the values are equal, set register `zf` to `1`.
 Else, set register `zf` to `0`.
 
 ```asm
-cmp8 a 14
-cmp8 14 a
+cmp8 r1 14
+cmp8 14 r1
 cmp8 14 14
 ```
 

@@ -9,18 +9,39 @@ use crate::assembler::LabelMap;
 
 /// Return whether the given character is a valid identifier character.
 /// 
-/// Identifiers can only contain letters and underscores.
-pub fn is_identifier_char(c: char) -> bool {
-    c.is_alphabetic() || c == '_'
+/// Identifiers can only contain letters, numbers, and underscores.
+/// The first character cannot be a number.
+pub fn is_identifier_char(c: char, is_first_char: bool) -> bool {
+    if is_first_char {
+        c.is_alphabetic() || c == '_'
+    } else {
+        c.is_alphanumeric() || c == '_'
+    }
 }
 
 
+/// Returns whether the given string is a valid label name.
+/// 
+/// Label names can only contain letters, numbers, and underscores.
+/// The first character cannot be a number.
 pub fn is_label_name(name: &str) -> bool {
-    for c in name.chars() {
-        if !is_identifier_char(c) {
+
+    if name.is_empty() {
+        return false;
+    }
+
+    let mut it = name.chars();
+
+    if !is_identifier_char(it.next().unwrap(), true) {
+        return false;
+    }
+
+    for c in it {
+        if !is_identifier_char(c, false) {
             return false;
         }
     }
+
     true
 }
 
@@ -158,7 +179,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 },
 
                 TokenValue::AddressAtIdentifier(value) => {
-                    if is_identifier_char(c) {
+                    if is_identifier_char(c, false) {
                         value.push(c);
                         continue;
                     }
@@ -184,7 +205,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
                 },
 
                 TokenValue::Name(value) => {
-                    if is_identifier_char(c) {
+                    if is_identifier_char(c, false) {
                         value.push(c);
                         continue;
                     }
@@ -222,7 +243,7 @@ pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, l
         }
 
 
-        if is_identifier_char(c) {
+        if is_identifier_char(c, true) {
             current_token = Some(Token::new(TokenValue::Name(c.to_string())));
             continue;
         }

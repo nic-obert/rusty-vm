@@ -52,9 +52,9 @@ impl DataType {
             DataType::Char => {
                 // Remove the enclosing single quotes
                 let string = string.strip_prefix('\'').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a character literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a character literal. Got \"{}\"", string).as_str())
                 ).strip_suffix('\'').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a character literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a character literal. Got \"{}\"", string).as_str())
                 );
 
                 // Evaluate the string by escaping characters
@@ -72,9 +72,9 @@ impl DataType {
             DataType::String => {
                 // Remove the enclosing double quotes
                 let string = string.strip_prefix('"').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a string literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a string literal. Got \"{}\"", string).as_str())
                 ).strip_suffix('"').unwrap_or_else(
-                    || crate::error::invalid_data_declaration(unit_path, line_number, line, "Expected a string literal.")
+                    || crate::error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a string literal. Got \"{}\"", string).as_str())
                 );
 
                 // Return the evaluated and encoded string

@@ -3,16 +3,20 @@ use std::fmt;
 
 pub const REGISTER_ID_SIZE: usize = 1;
 
-pub const REGISTER_COUNT: usize = 13;
+pub const REGISTER_COUNT: usize = 17;
 
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
 pub enum Registers {
-    A = 0,
-    B,
-    C,
-    D,
+    R1 = 0,
+    R2,
+    R3,
+    R4,
+    R5,
+    R6,
+    R7,
+    R8,
 
     EXIT,
     INPUT,
@@ -49,10 +53,14 @@ impl fmt::Display for Registers {
 
 
 pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
-    "a",
-    "b",
-    "c",
-    "d",
+    "r1",
+    "r2",
+    "r3",
+    "r4",
+    "r5",
+    "r6",
+    "r7",
+    "r8",
     "exit",
     "input",
     "error",
@@ -69,10 +77,14 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
 
 pub fn get_register(name: &str) -> Option<Registers> {
     match name {
-        "a" => Some(Registers::A),
-        "b" => Some(Registers::B),
-        "c" => Some(Registers::C),
-        "d" => Some(Registers::D),
+        "r1" => Some(Registers::R1),
+        "r2" => Some(Registers::R2),
+        "r3" => Some(Registers::R3),
+        "r4" => Some(Registers::R4),
+        "r5" => Some(Registers::R5),
+        "r6" => Some(Registers::R6),
+        "r7" => Some(Registers::R7),
+        "r8" => Some(Registers::R8),
         "exit" => Some(Registers::EXIT),
         "input" => Some(Registers::INPUT),
         "error" => Some(Registers::ERROR),

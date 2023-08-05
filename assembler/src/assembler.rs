@@ -8,7 +8,7 @@ use crate::data_types::DataType;
 use crate::encoding::number_to_bytes;
 use crate::error;
 use crate::tokenizer::{tokenize_operands, is_label_name};
-use crate::argmuments_table::{ARGUMENTS_TABLE, Args};
+use crate::argmuments_table::{get_arguments_table, ArgTable};
 use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
 use crate::files;
 use crate::argmuments_table;
@@ -36,7 +36,7 @@ enum ProgramSection {
 fn is_reserved_name(name: &str) -> bool {
     if let Some(_) = registers::get_register(name) {
         true
-    } else if argmuments_table::ARGUMENTS_TABLE.contains_key(name) {
+    } else if argmuments_table::get_arguments_table(name).is_some() {
         true
     } else {
         false
@@ -307,7 +307,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 
                 // Check if the data label has to be exported (double consecutive @)
                 // Also, return an iterator over the statement
-                let (mut statement_iter, to_export) = {
+                let (mut statement_iter,  to_export) = {
                     if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
                         (trimmed_line.split_whitespace(), true)
                     } else {
@@ -332,14 +332,10 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     || error::invalid_data_declaration(unit_path, line_number, &line, format!("Unknown data type \"{}\"", data_type_name).as_str())
                 );
 
-                let data_string = statement_iter.next().unwrap_or_else(
-                    || error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations must have a value")
-                );
+                // The data string is everything following the data type (kind of a shitty hacky way to do this)
+                // TODO: improve this mess
+                let data_string = trimmed_line.split_once(data_type_name).unwrap().1.trim();
 
-                if statement_iter.next().is_some() {
-                    error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations can only have a label, a type and a value");
-                }
-                
                 // Encode the string data into byte code
                 let encoded_data: ByteCode = data_type.encode(data_string, line_number, &line, unit_path);
 
@@ -384,7 +380,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 }
         
                 // List containing either a single operator or an operator and its arguments
-                // TODO: handle non-strctly spaces
+                // TODO: handle non-strctly spaces in instructions
                 let raw_tokens = trimmed_line.split_once(' ');
                 
                 if let Some(tokens) = raw_tokens {
@@ -392,7 +388,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     let mut operands = tokenize_operands(tokens.1.to_string(), line_number, &line, &local_label_map, unit_path);
                     let operator = tokens.0;
         
-                    let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
+                    let arg_table = get_arguments_table(operator).unwrap_or_else(
                         || error::invalid_instruction_name(unit_path, operator, line_number, &line)
                     );
         
@@ -401,8 +397,8 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         
                     // Filter out all the possible byte code instructions associated with the operator
                     // This match statement is a mess, but I didn't want to rewrite the ARGUMENTS_TABLE
-                    match possible_instructions {
-                        Args::One(argument) => {
+                    match arg_table {
+                        ArgTable::One(argument) => {
                             // The operator has one argument
                             // Check if the operand number is valid
                             if operands.len() != 1 {
@@ -424,7 +420,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         
                         }
         
-                        Args::Two(argument) => {
+                        ArgTable::Two(argument) => {
                             // The operator has two arguments
                             // Check if the operand number is valid
                             if operands.len() != 2 {
@@ -502,14 +498,18 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     // Operator has no operands
                     let operator = trimmed_line;
         
-                    let possible_instructions = ARGUMENTS_TABLE.get(operator).unwrap_or_else(
+                    let arg_table = get_arguments_table(operator).unwrap_or_else(
                         || error::invalid_instruction_name(unit_path, operator, line_number, &line)
                     );
         
                     // In this branch possible_instructions is just a Tuple of ByteCodes and a u8
-                    if let Args::Zero(operation) = possible_instructions {
+                    if let ArgTable::Zero(operation) = arg_table {
                         // Push the operator to the byte_code with no arguments
                         byte_code.push(operation.0 as u8);
+                    } else {
+                        // The operator requires arguments, but none were given
+                        // TODO: make this modular
+                        error::invalid_arg_number(unit_path, 0, arg_table.required_args(), line_number, &line, operator);
                     }
                     
                 }
