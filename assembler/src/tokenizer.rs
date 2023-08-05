@@ -96,19 +96,23 @@ pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: 
 /// Tokenizes the operands of an instruction and returns a vector of tokens.
 /// 
 /// The tokenizer handles eventual labels and converts them to their address.
-pub fn tokenize_operands(mut operands: String, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &Path) -> Vec<Token> {
+pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &Path) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
-
-    // Add a semicolon at the end in order to make the loop iterate one more time for simplicity
-    operands.push('#');
 
     let mut current_token: Option<Token> = None;
 
     let mut escape_char = false;
     let mut string_length: usize = 0;
 
-    for (char_index, c) in operands.chars().enumerate() {
+    let mut chars_iter = operands.chars();
+
+    // Iterate one additional time to handle the end of the string
+    for char_index in 0..=operands.len() {
+
+        // Get the next character
+        // chars_iter.next() will fail only at the end of the string
+        let c = chars_iter.next().unwrap_or('#');
         
         if let Some(token) = &mut current_token {
 

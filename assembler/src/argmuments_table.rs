@@ -1,4 +1,8 @@
-use rust_vm_lib::byte_code::ByteCodes;
+use std::path::Path;
+
+use rust_vm_lib::{byte_code::ByteCodes, token::Token};
+
+use crate::error;
 
 
 /// A pair of operation code and handled size
@@ -7,6 +11,7 @@ type OneArgument = Vec<Option<Operation>>;
 type TwoArguments = Vec<Option<OneArgument>>;
 
 
+/// Represents all the arguments an operator can take
 pub enum ArgTable {
     Zero(Operation),
     One(OneArgument),
@@ -16,21 +21,70 @@ pub enum ArgTable {
 
 impl ArgTable {
 
-    pub fn required_args(&self) -> usize {
+    /// Return the bytecode instruction and handled size for the given operands
+    pub fn get_instruction(&self, operator_name: &str, operands: &[Token], unit_path: &Path, line_number: usize, line: &str) -> (ByteCodes, u8) {
+
         match self {
-            ArgTable::Zero(_) => 0,
-            ArgTable::One(_) => 1,
-            ArgTable::Two(_) => 2,
+            
+            ArgTable::Zero(op) => {
+
+                // The operator requires zero arguments
+                if !operands.is_empty() {
+                    error::invalid_arg_number(unit_path, operands.len(), 0, line_number, line, operator_name);
+                }
+
+                *op
+            },
+
+            ArgTable::One(required_arg) => {
+
+                // The operator requires one argument
+                if operands.len() != 1 {
+                    error::invalid_arg_number(unit_path, operands.len(), 1, line_number, line, operator_name);
+                }
+
+                // Return the instruction and handled size for the given operand
+                required_arg.get(operands[0].value.to_ordinal() as usize).unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line)
+                ).unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line)
+                )
+            },
+
+            ArgTable::Two(required_arg1) => {
+
+                // The operator requires two arguments
+                if operands.len() != 2 {
+                    error::invalid_arg_number(unit_path, operands.len(), 2, line_number, line, operator_name);
+                }
+
+                // Get the second required argument from the argument table
+                let required_arg_2 = required_arg1.get(operands[0].value.to_ordinal() as usize).unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line)
+                ).as_ref().unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line)
+                );
+
+                // Return the instruction and handled size for the given operand pair
+                required_arg_2.get(operands[1].value.to_ordinal() as usize).unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[1], line_number, line)
+                ).unwrap_or_else(
+                    || error::invalid_token_argument(unit_path, operator_name, &operands[1], line_number, line)
+                )
+            
+            },
+
         }
+
     }
 
 }
 
 
 /// Return the arguments table for the given operator
-pub fn get_arguments_table(operator: &str) -> Option<ArgTable> {
+pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
 
-    match operator {
+    match operator_name {
 
         // Arithmetic
 
@@ -407,5 +461,4 @@ pub fn get_arguments_table(operator: &str) -> Option<ArgTable> {
     }
 
 }
-
 
