@@ -1,10 +1,11 @@
+use std::mem;
 use std::path::Path;
 
-use rust_vm_lib::registers::get_register;
+use rust_vm_lib::registers;
 use rust_vm_lib::token::{Token, TokenValue};
 
 use crate::error;
-use crate::assembler::LabelMap;
+use crate::assembler::is_reserved_name;
 
 
 /// Return whether the given character is a valid identifier character.
@@ -96,7 +97,7 @@ pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: 
 /// Tokenizes the operands of an instruction and returns a vector of tokens.
 /// 
 /// The tokenizer handles eventual labels and converts them to their address.
-pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, label_map: &LabelMap, unit_path: &Path) -> Vec<Token> {
+pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_path: &Path) -> Vec<Token> {
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -193,16 +194,16 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, label_m
                     }
 
                     // Determine what kind of identifier it is
-                    if let Some(register) = get_register(value) {
+                    if let Some(register) = registers::get_register(value) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
 
-                    } else if let Some(label) = label_map.get(value) {
-                        tokens.push(Token::new(TokenValue::AddressLiteral(*label)));
-                        current_token = None;
-
-                    } else {
+                    } else if is_reserved_name(value) {
+                        // Check if the name is a reserved keyword
                         error::invalid_address_identifier(unit_path, &value, line_number, line);
+                    } else {
+                        // The name is probably a label
+                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
                     }
 
                     continue;
@@ -214,18 +215,15 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, label_m
                         continue;
                     }
 
-                    // Check if the name is a special name (labels, registers, reserved names...)
+                    // Check if the name is a special register name 
 
-                    if let Some(register) = get_register(value) {
+                    if let Some(register) = registers::get_register(value) {
                         tokens.push(Token::new(TokenValue::Register(register)));
-                        current_token = None;
-                    }
-                    else if let Some(label) = label_map.get(value) {
-                        // Don't mind the primitive type conversion. The underlying bytes are the same.
-                        tokens.push(Token::new(TokenValue::Number(*label as i64)));
                     } else {
-                        tokens.push(current_token.take().unwrap());
+                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
                     }
+
+                    current_token = None;
                 }
                    
                 TokenValue::Number(value) => {

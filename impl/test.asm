@@ -1,12 +1,14 @@
 
+.data:
 
-.include:
-
-    lib_test.asm
+    s string "Jumping\n"
 
 .text:
 
 @start
 
-    
+    mov8 print s
+    printstr        
+
+    jmp start
 

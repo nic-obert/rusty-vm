@@ -1,4 +1,5 @@
 use std::fmt;
+
 use crate::registers::Registers;
 
 
@@ -9,11 +10,34 @@ pub enum TokenValue {
     Number(i64),
     AddressLiteral(usize),
     Label(String),
+    AddressAtLabel(String),
     Name(String),
     AddressGeneric(usize),
     CurrentPosition(usize),
     AddressAtIdentifier(String),
     Char(char),
+}
+
+
+impl TokenValue {
+
+    /// Converts the token value enum to an ordinal value to be used in lookup tables
+    pub fn to_ordinal(&self) -> u8 {
+        match self {
+            TokenValue::Register(_) => 0,
+            TokenValue::AddressInRegister(_) => 1,
+            TokenValue::Number(_) => 2,
+            TokenValue::AddressLiteral(_) => 3,
+            TokenValue::Label(_) => 4,
+            TokenValue::AddressAtLabel(_) => 5,
+            TokenValue::Name(_) => panic!("Name does not have an ordinal value"),
+            TokenValue::AddressGeneric(_) => panic!("AddressGeneric does not have an ordinal value"),
+            TokenValue::CurrentPosition(_) => panic!("CurrentPosition does not have an ordinal value"),
+            TokenValue::AddressAtIdentifier(_) => panic!("AddressAtIdentifier does not have an ordinal value"),
+            TokenValue::Char(_) => panic!("Char does not have an ordinal value"),
+        }
+    }
+    
 }
 
 
@@ -34,6 +58,18 @@ pub enum TokenTypes {
 
 impl TokenTypes {
 
+    pub fn from_ordinal(ordinal: u8) -> TokenTypes {
+        match ordinal {
+            0 => TokenTypes::Register,
+            1 => TokenTypes::AddressInRegister,
+            2 => TokenTypes::Number,
+            3 => TokenTypes::AddressLiteral,
+            4 => TokenTypes::Label,
+            _ => panic!("Invalid ordinal value for token type"),
+        }
+    }
+
+    /// Return the size in bytes needed to represent the value in the bytecode
     pub fn size(&self) -> u8 {
         match self {
             TokenTypes::Register => 1,
@@ -48,26 +84,6 @@ impl TokenTypes {
         }
     }
 
-}
-
-
-impl TokenValue {
-
-    pub fn to_ordinal(&self) -> u8 {
-        match self {
-            TokenValue::Register(_) => 0,
-            TokenValue::AddressInRegister(_) => 1,
-            TokenValue::Number(_) => 2,
-            TokenValue::AddressLiteral(_) => 3,
-            TokenValue::Label(_) => 4,
-            TokenValue::Name(_) => 5,
-            TokenValue::AddressGeneric(_) => 6,
-            TokenValue::CurrentPosition(_) => 7,
-            TokenValue::AddressAtIdentifier(_) => 8,
-            TokenValue::Char(_) => panic!("Char does not have an ordinal value"),
-        }
-    }
-    
 }
 
 
@@ -88,8 +104,8 @@ impl Token {
 }
 
 
-// Implement printing for Token
 impl fmt::Display for Token {
+
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {
             TokenValue::Register(reg) => write!(f, "REGISTER({})", reg),
@@ -102,8 +118,10 @@ impl fmt::Display for Token {
             TokenValue::CurrentPosition(num) => write!(f, "CURRENT_POSITION({})", num),
             TokenValue::AddressAtIdentifier(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
             TokenValue::Char(c) => write!(f, "CHAR({})", c),
+            TokenValue::AddressAtLabel(ref label) => write!(f, "ADDRESS_AT_LABEL({})", label),
         }
     }
+
 }
 
 
@@ -117,9 +135,9 @@ impl fmt::Display for TokenTypes {
             TokenTypes::AddressLiteral => write!(f, "ADDRESS_LITERAL"),
             TokenTypes::Label => write!(f, "LABEL"),
             TokenTypes::Name => write!(f, "NAME"),
-            TokenTypes::AddressGeneric => write!(f, "ADDRESS_GENERIC"),
-            TokenTypes::CurrentPosition => write!(f, "CURRENT_POSITION"),
-            TokenTypes::AddressInRegisterIncomplete => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE"),
+            TokenTypes::AddressGeneric => panic!("AddressGeneric does not have a display value"),
+            TokenTypes::CurrentPosition => panic!("CurrentPosition does not have a display value"),
+            TokenTypes::AddressInRegisterIncomplete => panic!("AddressInRegisterIncomplete does not have a display value"),
         }
     }
 

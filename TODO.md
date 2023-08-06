@@ -2,6 +2,9 @@
 
 ### Todo
 
+- [ ] add compare at address bytecode instructions (and update argument table)  
+- [ ] Add jump at address in register and jump at address literal bytecode instructions (and update arguments table to include jumping at addresses)  
+- [ ] update the disassembler  
 - [ ] improve argument errors by displaying which arguments are required by operators  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
@@ -11,7 +14,6 @@
 
 ### In Progress ···
 
-- Test the assembler and the disassembler for compatibility  
 
 ### Done ✅
 

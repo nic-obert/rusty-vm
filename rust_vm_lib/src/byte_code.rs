@@ -1,10 +1,11 @@
 use std::fmt;
 
 
-// Max is 255
+/// Number of byte code instructions. Max is 255.
 pub const BYTE_CODE_COUNT: usize = 46;
 
 
+/// String representation of byte code instructions
 pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "ADD",
     "SUB",
@@ -67,6 +68,7 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
 ];
 
 
+/// Represents the byte code instruction set
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
 pub enum ByteCodes {
@@ -150,6 +152,7 @@ impl std::convert::From<u8> for ByteCodes {
 }
 
 
+/// Return whether the given instruction is a jump instruction
 pub fn is_jump_instruction(instruction: ByteCodes) -> bool {
     ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::JUMP_IF_ZERO_REG as usize
 }
