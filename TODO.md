@@ -2,8 +2,7 @@
 
 ### Todo
 
-- [ ] add compare at address bytecode instructions (and update argument table)  
-- [ ] Add jump at address in register and jump at address literal bytecode instructions (and update arguments table to include jumping at addresses)  
+- [ ] substitute vectors for static arrays in arguments table for performance and safety  
 - [ ] update the disassembler  
 - [ ] improve argument errors by displaying which arguments are required by operators  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
@@ -17,6 +16,9 @@
 
 ### Done ✅
 
+- [ ] Add jump at address in register and jump at address literal bytecode instructions (and update arguments table to include jumping at addresses)  
+- [ ] add compare at address bytecode instructions (and update argument table)  
+- [ ] update documentation with new instructions  
 - [ ] update documentation with new register names  
 - [ ] implement standard assembly library  
 - [ ] add include directive  

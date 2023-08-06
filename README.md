@@ -24,56 +24,11 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Labels](#labels)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
-      - [`add`](#add)
-      - [`sub`](#sub)
-      - [`mul`](#mul)
-      - [`div`](#div)
-      - [`mod`](#mod)
-      - [`inc`](#inc)
-      - [`inc1`](#inc1)
-      - [`inc2`](#inc2)
-      - [`inc4`](#inc4)
-      - [`inc8`](#inc8)
-      - [`dec`](#dec)
-      - [`dec1`](#dec1)
-      - [`dec2`](#dec2)
-      - [`dec4`](#dec4)
-      - [`dec8`](#dec8)
     - [No operation instructions](#no-operation-instructions)
-      - [`nop`](#nop)
     - [Memory instructions](#memory-instructions)
-      - [`mov`](#mov)
-      - [`mov1`](#mov1)
-      - [`mov2`](#mov2)
-      - [`mov4`](#mov4)
-      - [`mov8`](#mov8)
-      - [`push`](#push)
-      - [`push1`](#push1)
-      - [`push2`](#push2)
-      - [`push4`](#push4)
-      - [`push8`](#push8)
-      - [`pop1`](#pop1)
-      - [`pop2`](#pop2)
-      - [`pop4`](#pop4)
-      - [`pop8`](#pop8)
     - [Flow control instructions](#flow-control-instructions)
-      - [`jmp`](#jmp)
-      - [`jmpnz`](#jmpnz)
-      - [`jmpz`](#jmpz)
     - [Comparison instructions](#comparison-instructions)
-      - [`cmp`](#cmp)
-      - [`cmp1`](#cmp1)
-      - [`cmp2`](#cmp2)
-      - [`cmp4`](#cmp4)
-      - [`cmp8`](#cmp8)
     - [Interrupts](#interrupts)
-      - [`sprint`](#sprint)
-      - [`uprint`](#uprint)
-      - [`printc`](#printc)
-      - [`printstr`](#printstr)
-      - [`inputint`](#inputint)
-      - [`inputstr`](#inputstr)
-      - [`exit`](#exit)
   - [Assembly unit sections](#assembly-unit-sections)
     - [Data section](#data-section)
     - [Text section](#text-section)
@@ -153,492 +108,78 @@ The first operand is treated as the destination by the processor, whereas the se
 
 ### Arithmetical instructions
 
-#### `add`
-
-Add the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-add
-```
-
-#### `sub`
-
-Subtract the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-sub
-```
-
-#### `mul`
-
-Multiply the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-mul
-```
-
-#### `div`
-
-Divide the values stored in registers `r1` and `r2`. Store the result in register `r1`.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-Store the eventual integer remainder in register `rf`.
-
-```asm
-div
-```
-
-#### `mod`
-
-Store the remainder of the division between the values stored in registers `r1` and `r2` in register `r1`.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-mod
-```
-
-#### `inc`
-
-Increment the value stored in the specified register.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-inc r1
-```
-
-#### `inc1`
-
-Increment the 1-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-inc1 [r1]
-inc1 [1234]
-```
-
-#### `inc2`
-
-Increment the 2-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-inc2 [r1]
-inc2 [1234]
-```
-
-#### `inc4`
-
-Increment the 4-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-inc4 [r1]
-inc4 [1234]
-```
-
-#### `inc8`
-
-Increment the 8-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-inc8 [r1]
-inc8 [1234]
-```
-
-#### `dec`
-
-Decrement the value stored in the specified register.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-dec r1
-```
-
-#### `dec1`
-
-Decrement the 1-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-dec1 [r1]
-dec1 [1234]
-```
-
-#### `dec2`
-
-Decrement the 2-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-dec2 [r1]
-dec2 [1234]
-```
-
-#### `dec4`
-
-Decrement the 4-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-dec4 [r1]
-dec4 [1234]
-```
-
-#### `dec8`
-
-Decrement the 8-byte value stored at the specified address.  
-If the result is 0, set register `zf` to `1`.  
-If the result is negative, set register `sf` to `1`.
-
-```asm
-dec8 [r1]
-dec8 [1234]
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `add`       | Add the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `sub`       | Subtract the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `mul`       | Multiply the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `div`       | Divide the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `mod`       | Store the remainder of the division between the values stored in registers `r1` and `r2` in register `r1`. Update the arithmetical flags. |
+| `inc a`     | Increment the value stored in the specified register `a`. Update the arithmetical flags. |
+| `inc1 a`    | Increment the 1-byte value stored at `a`. Update the arithmetical flags. |
+| `inc2 a`    | Increment the 2-byte value stored at `a`. Update the arithmetical flags. |
+| `inc4 a`    | Increment the 4-byte value stored at `a`. Update the arithmetical flags. |
+| `inc8 a`    | Increment the 8-byte value stored at `a`. Update the arithmetical flags. |
+| `dec a`     | Decrement the value stored in the specified register `a`. Update the arithmetical flags. |
+| `dec1 a`    | Decrement the 1-byte value stored at `a`. Update the arithmetical flags. |
+| `dec2 a`    | Decrement the 2-byte value stored at `a`. Update the arithmetical flags. |
+| `dec4 a`    | Decrement the 4-byte value stored at `a`. Update the arithmetical flags. |
+| `dec8 a`    | Decrement the 8-byte value stored at `a`. Update the arithmetical flags. |
 
 ### No operation instructions
 
-#### `nop`
-
-Do nothing for this cycle.
-
-```asm
-nop
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `nop`       | Do nothing for this cycle. |
 
 ### Memory instructions
 
-#### `mov`
-
-Copy the second register value into the first register.
-
-```asm
-mov r1 r2
-```
-
-#### `mov1`
-
-Copy the 1-byte literal or value stored at the specified location into the specified location.
-
-```asm
-mov1 r1 [r2]
-mov1 [r1] [123]
-mov1 r1 123
-mov1 [r1] r2
-mov1 [r1] [r2]
-mov1 [r1] [123]
-mov1 [r1] 123
-mov1 [123] r1
-mov1 [123] [r1]
-mov1 [123] 123
-```
-
-#### `mov2`
-
-Copy the 2-byte literal or value stored at the specified location into the specified location.
-
-```asm
-mov2 r1 [r2]
-mov2 [r1] [123]
-mov2 r1 123
-mov2 [r1] r2
-mov2 [r1] [r2]
-mov2 [r1] [123]
-mov2 [r1] 123
-mov2 [123] r1
-mov2 [123] [r1]
-mov2 [123] 123
-```
-
-#### `mov4`
-
-Copy the 4-byte literal or value stored at the specified location into the specified location.
-
-```asm
-mov4 r1 [r2]
-mov4 [r1] [123]
-mov4 r1 123
-mov4 [r1] r2
-mov4 [r1] [r2]
-mov4 [r1] [123]
-mov4 [r1] 123
-mov4 [123] r1
-mov4 [123] [r1]
-mov4 [123] 123
-```
-
-#### `mov8`
-
-Copy the 8-byte literal or value stored at the specified location into the specified location.
-
-```asm
-mov8 r1 [r2]
-mov8 [r1] [123]
-mov8 r1 123
-mov8 [r1] r2
-mov8 [r1] [r2]
-mov8 [r1] [123]
-mov8 [r1] 123
-mov8 [123] r1
-mov8 [123] [r1]
-mov8 [123] 123
-```
-
-#### `push`
-
-Push the value stored in the specified register onto the stack.
-
-```asm
-push r1
-```
-
-#### `push1`
-
-Push the 1-byte specified value (or the value stored at the specified address) onto the stack.
-
-```asm
-push1 [r1]
-push1 [1234]
-push1 43
-```
-
-#### `push2`
-
-Push the 2-byte specified value (or the value stored at the specified address) onto the stack.
-
-```asm
-push2 [r1]
-push2 [1234]
-push2 43
-```
-
-#### `push4`
-
-Push the 4-byte specified value (or the value stored at the specified address) onto the stack.
-
-```asm
-push4 [r1]
-push4 [1234]
-push4 43
-```
-
-#### `push8`
-
-Push the 8-byte specified value (or the value stored at the specified address) onto the stack.
-
-```asm
-push8 [r1]
-push8 [1234]
-push8 43
-```
-
-#### `pop1`
-
-Pop the 1-byte value from the top of the stack and store it in the specified address or register.
-
-```asm
-pop1 r1
-pop1 [r1]
-pop1 [1234]
-```
-
-#### `pop2`
-
-Pop the 2-byte value from the top of the stack and store it in the specified address or register.
-
-```asm
-pop2 r1
-pop2 [r1]
-pop2 [1234]
-```
-
-#### `pop4`
-
-Pop the 4-byte value from the top of the stack and store it in the specified address or register.
-
-```asm
-pop4 r1
-pop4 [r1]
-pop4 [1234]
-```
-
-#### `pop8`
-
-Pop the 8-byte value from the top of the stack and store it in the specified address or register.
-
-```asm
-pop8 r1
-pop8 [r1]
-pop8 [1234]
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `mov a b`   | Copy the second register `b` value into the first register `a`. |
+| `mov1 a b`  | Copy 1 byte from `b` into the location `a`. |
+| `mov2 a b`  | Copy 2 bytes from `b` into the location `a`. |
+| `mov4 a b`  | Copy 4 bytes from `b` into the location `a`. |
+| `mov8 a b`  | Copy 8 bytes from `b` into the location `a`. |
+| `push a`    | Push the value stored in the specified register `a` onto the stack. |
+| `push1 a`   | Push 1 bytes from `a` onto the stack. |
+| `push2 a`   | Push 2 bytes from `a` onto the stack. |
+| `push4 a`   | Push 4 bytes from `a` onto the stack. |
+| `push8 a`   | Push 8 bytes from `a` onto the stack. |
+| `pop1 a`    | Pop 1 byte from the top of the stack and store it at `a`. |
+| `pop2 a`    | Pop 2 bytes from the top of the stack and store it at `a`. |
+| `pop4 a`    | Pop 4 bytes from the top of the stack and store it at `a`. |
+| `pop8 a`    | Pop 8 bytes from the top of the stack and store it at `a`. |
 
 ### Flow control instructions
 
-#### `jmp`
-
-Jump to the specified label.
-
-```asm
-jmp label
-```
-
-#### `jmpnz`
-
-Jump to the specified label if the specified register not zero.
-
-```asm
-jmpnz label r1
-```
-
-#### `jmpz`
-
-Jump to the specified label if the specified register is zero.
-
-```asm
-jmpz label r1
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `jmp a`     | Jump to the specified address `a`. |
+| `jmpnz a b` | Jump to the specified address `a` if the value stored in register `b` is not zero. |
+| `jmpz a b`  | Jump to the specified address `a` if the value stored in register `b` is zero. |
 
 ### Comparison instructions
 
-#### `cmp`
-
-Compare the values stored in the specified registers.  
-If the values are equal, set register `zf` to `1`.
-Else, set register `zf` to `0`.
-
-```asm
-cmp r1 r2
-```
-
-#### `cmp1`
-
-Compare the 1-byte values (literals or stored in the specified register).
-If the values are equal, set register `zf` to `1`.
-Else, set register `zf` to `0`.
-
-```asm
-cmp1 r1 14
-cmp1 14 r1
-cmp1 14 14
-```
-
-#### `cmp2`
-
-Compare the 2-byte values (literals or stored in the specified register).
-If the values are equal, set register `zf` to `1`.
-Else, set register `zf` to `0`.
-
-```asm
-cmp2 r1 14
-cmp2 14 r1
-cmp2 14 14
-```
-
-#### `cmp4`
-
-Compare the 4-byte values (literals or stored in the specified register).
-If the values are equal, set register `zf` to `1`.
-Else, set register `zf` to `0`.
-
-```asm
-cmp4 r1 14
-cmp4 14 r1
-cmp4 14 14
-```
-
-#### `cmp8`
-
-Compare the 8-byte values (literals or stored in the specified register).
-If the values are equal, set register `zf` to `1`.
-Else, set register `zf` to `0`.
-
-```asm
-cmp8 r1 14
-cmp8 14 r1
-cmp8 14 14
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `cmp a b`   | Compare the values stored in the specified registers. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
+| `cmp1 a b`  | Compare 1 byte from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
+| `cmp2 a b`  | Compare 2 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
+| `cmp4 a b`  | Compare 4 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
+| `cmp8 a b`  | Compare 8 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
 
 ### Interrupts
 
-#### `sprint`
-
-Print the signed integer value stored in the `print` register.
-
-```asm
-iprint
-```
-
-#### `uprint`
-
-Print the unsigned integer value stored in the `print` register.
-
-```asm
-uprint
-```
-
-#### `printc`
-
-Print the unicode character stored in the `print` register.
-
-```asm
-printc
-```
-
-#### `printstr`
-
-Print the string at the address stored in the `print` register.
-
-```asm
-printstr
-```
-
-#### `inputint`
-
-Get the next integer input from the console and store it in the `input` register.
-If the input is not a valid integer, set `error` register to `INVALID_INPUT`.
-If the EOF is encountered, set `error` register to `END_OF_FILE`.
-If another error is encountered, set `error` register to `GENERIC_ERROR`.
-If no error is encountered, set `error` register to `NO_ERROR`.
-
-```asm
-inputint
-```
-
-#### `inputstr`
-
-Get the next string input from the console, push it onto the stack, and store its address in the `input` register.
-If the input is not a valid string, set `error` register to `INVALID_INPUT`.
-If the EOF is encountered, set `error` register to `END_OF_FILE`.
-If another error is encountered, set `error` register to `GENERIC_ERROR`.
-If no error is encountered, set `error` register to `NO_ERROR`.
-
-```asm
-inputstr
-```
-
-#### `exit`
-
-Exit the program with the exit code stored in the `exit` register.
-
-```asm
-exit
-```
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `iprint`    | Print the signed integer value stored in the `print` register. |
+| `uprint`    | Print the unsigned integer value stored in the `print` register. |
+| `printc`    | Print the unicode character stored in the `print` register. |
+| `printstr`  | Print the string at the address stored in the `print` register. |
+| `inputint`  | Get the next integer input from the console and store it in the `input` register. |
+| `inputstr`  | Get the next string input from the console, push it onto the stack, and store its address in the `input` register.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
+| `exit`      | Exit the program with the exit code stored in the `exit` register. |
 
 ## Assembly unit sections
 

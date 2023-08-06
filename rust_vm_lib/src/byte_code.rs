@@ -2,7 +2,7 @@ use std::fmt;
 
 
 /// Number of byte code instructions. Max is 255.
-pub const BYTE_CODE_COUNT: usize = 46;
+pub const BYTE_CODE_COUNT: usize = 67;
 
 
 /// String representation of byte code instructions
@@ -47,14 +47,37 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
 
     "LABEL",
 
-    "JUMP",
-    "JUMP_IF_NOT_ZERO_REG",
-    "JUMP_IF_ZERO_REG",
+    "JUMP_TO_REG",
+    "JUMP_TO_ADDR_IN_REG",
+    "JUMP_TO_CONST",
+    "JUMP_TO_ADDR_LITERAL",
+
+    "JUMP_IF_NOT_ZERO_REG_TO_REG",
+    "JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG",
+    "JUMP_IF_NOT_ZERO_REG_TO_CONST",
+    "JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL",
+
+    "JUMP_IF_ZERO_REG_TO_REG",
+    "JUMP_IF_ZERO_REG_TO_ADDR_IN_REG",
+    "JUMP_IF_ZERO_REG_TO_CONST",
+    "JUMP_IF_ZERO_REG_TO_ADDR_LITERAL",
 
     "COMPARE_REG_REG",
+    "COMPARE_REG_ADDR_IN_REG",
     "COMPARE_REG_CONST",
+    "COMPARE_REG_ADDR_LITERAL",
+    "COMPARE_ADDR_IN_REG_REG",
+    "COMPARE_ADDR_IN_REG_ADDR_IN_REG",
+    "COMPARE_ADDR_IN_REG_CONST",
+    "COMPARE_ADDR_IN_REG_ADDR_LITERAL",
     "COMPARE_CONST_REG",
+    "COMPARE_CONST_ADDR_IN_REG",
     "COMPARE_CONST_CONST",
+    "COMPARE_CONST_ADDR_LITERAL",
+    "COMPARE_ADDR_LITERAL_REG",
+    "COMPARE_ADDR_LITERAL_ADDR_IN_REG",
+    "COMPARE_ADDR_LITERAL_CONST",
+    "COMPARE_ADDR_LITERAL_ADDR_LITERAL",
 
     "PRINT_SIGNED",
     "PRINT_UNSIGNED",
@@ -112,14 +135,37 @@ pub enum ByteCodes {
 
     LABEL,
 
-    JUMP,
-    JUMP_IF_NOT_ZERO_REG,
-    JUMP_IF_ZERO_REG,
+    JUMP_TO_REG,
+    JUMP_TO_ADDR_IN_REG,
+    JUMP_TO_CONST,
+    JUMP_TO_ADDR_LITERAL,
+
+    JUMP_IF_NOT_ZERO_REG_TO_REG,
+    JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG,
+    JUMP_IF_NOT_ZERO_REG_TO_CONST,
+    JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL,
+
+    JUMP_IF_ZERO_REG_TO_REG,
+    JUMP_IF_ZERO_REG_TO_ADDR_IN_REG,
+    JUMP_IF_ZERO_REG_TO_CONST,
+    JUMP_IF_ZERO_REG_TO_ADDR_LITERAL,
 
     COMPARE_REG_REG,
+    COMPARE_REG_ADDR_IN_REG,
     COMPARE_REG_CONST,
+    COMPARE_REG_ADDR_LITERAL,
+    COMPARE_ADDR_IN_REG_REG,
+    COMPARE_ADDR_IN_REG_ADDR_IN_REG,
+    COMPARE_ADDR_IN_REG_CONST,
+    COMPARE_ADDR_IN_REG_ADDR_LITERAL,
     COMPARE_CONST_REG,
+    COMPARE_CONST_ADDR_IN_REG,
     COMPARE_CONST_CONST,
+    COMPARE_CONST_ADDR_LITERAL,
+    COMPARE_ADDR_LITERAL_REG,
+    COMPARE_ADDR_LITERAL_ADDR_IN_REG,
+    COMPARE_ADDR_LITERAL_CONST,
+    COMPARE_ADDR_LITERAL_ADDR_LITERAL,
 
     PRINT_SIGNED,
     PRINT_UNSIGNED,
@@ -154,6 +200,20 @@ impl std::convert::From<u8> for ByteCodes {
 
 /// Return whether the given instruction is a jump instruction
 pub fn is_jump_instruction(instruction: ByteCodes) -> bool {
-    ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::JUMP_IF_ZERO_REG as usize
+    ByteCodes::JUMP_TO_REG as usize <= instruction as usize && instruction as usize <= ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL as usize
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use crate::byte_code::{ByteCodes, BYTE_CODE_COUNT};
+
+
+    #[test]
+    fn test_byte_code_count() {
+        assert_eq!(ByteCodes::EXIT as u8, BYTE_CODE_COUNT as u8 - 1);
+    }
+
 }
 

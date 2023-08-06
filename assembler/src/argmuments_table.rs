@@ -685,53 +685,83 @@ pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
 
         "jmp" => Some(ArgTable::One(vec![
             // Register
-            None, 
+            Some((ByteCodes::JUMP_TO_REG, 0)), 
             // Address in register
-            None, 
+            Some((ByteCodes::JUMP_TO_ADDR_IN_REG, 0)),
             // Number
-            Some((ByteCodes::JUMP, 0)),
+            Some((ByteCodes::JUMP_TO_CONST, 0)),
             // Address literal
-            None,
+            Some((ByteCodes::JUMP_TO_ADDR_LITERAL, 0)),
             // Label
-            Some((ByteCodes::JUMP, 0)),
+            Some((ByteCodes::JUMP_TO_CONST, 0)),
+            // Address at label
+            Some((ByteCodes::JUMP_TO_ADDR_LITERAL, 0)),
         ])),
 
         "jmpnz" => Some(ArgTable::Two(vec![
             // Register
-            None, 
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_REG, 0)),
+            ]), 
             // Address in register
-            None, 
+            Some(vec![  
+                // Register
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG, 0)),
+            ]), 
             // Number
             Some(vec![
                 // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG, 0)), 
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0)), 
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0)),
+            ]),
             // Label
             Some(vec![
                 // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG, 0)),
-            ])
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0)),
+            ]),
         ])),
 
         "jmpz" => Some(ArgTable::Two(vec![
             // Register
-            None, 
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_REG, 0)),
+            ]),
             // Address in register
-            None, 
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_IN_REG, 0)),
+            ]),
             // Number
             Some(vec![
                 // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG, 0)), 
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0)), 
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0)),
+            ]),
             // Label
             Some(vec![
                 // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG, 0)),
-            ])
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0)),
+            ]),
         ])),
 
         // Comparison
@@ -750,43 +780,90 @@ pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
                 // Register
                 None, 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 1)), 
                 // Number
                 Some((ByteCodes::COMPARE_REG_CONST, 1)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 1)),
                 // Label
                 Some((ByteCodes::COMPARE_REG_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 1)),
             ]),
             // Address in register
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 1)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 1)), 
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1)),
+            ]),
             // Number
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 1)),
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1)), 
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 1)),
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 1)),
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
+            ]),
             // Label
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 1)),
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 1)),
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 1)),
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
             ]),
         ])),
 
@@ -796,43 +873,90 @@ pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
                 // Register
                 None, 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 2)),
                 // Number
                 Some((ByteCodes::COMPARE_REG_CONST, 2)),
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 2)),
                 // Label
                 Some((ByteCodes::COMPARE_REG_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 2)),
             ]),
             // Address in register
-            None, 
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 2)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 2)), 
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2)),
+            ]),
             // Number
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 2)), 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 2)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 2)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
+            ]),
             // Label
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 2)), 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 2)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 2)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
             ]),
         ])),
 
@@ -842,43 +966,90 @@ pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
                 // Register
                 None,
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 4)),
                 // Number
                 Some((ByteCodes::COMPARE_REG_CONST, 4)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 4)),
                 // Label
                 Some((ByteCodes::COMPARE_REG_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 4)),
             ]),
             // Address in register
-            None, 
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 4)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 4)), 
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4)),
+            ]),
             // Number
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 4)), 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 4)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 4)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
+            ]),
             // Label
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 4)), 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 4)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 4)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
             ]),
         ])),
 
@@ -888,43 +1059,90 @@ pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
                 // Register
                 None, 
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 8)),
                 // Number
                 Some((ByteCodes::COMPARE_REG_CONST, 8)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 8)),
                 // Label
                 Some((ByteCodes::COMPARE_REG_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 8)),
             ]),
             // Address in register
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 8)), 
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 8)), 
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8)),
+            ]),
             // Number
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 8)),
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 8)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
             ]),
             // Address literal
-            None,
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 8)),
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
+            ]),
             // Label
             Some(vec![
                 // Register
                 Some((ByteCodes::COMPARE_CONST_REG, 8)),
                 // Address in register
-                None, 
+                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8)),
                 // Number
                 Some((ByteCodes::COMPARE_CONST_CONST, 8)), 
                 // Address literal
-                None,
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
                 // Label
                 Some((ByteCodes::COMPARE_CONST_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
+            ]),
+            // Address at label
+            Some(vec![
+                // Register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 8)),
+                // Address in register
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8)),
+                // Number
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)), 
+                // Address literal
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
+                // Label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)),
+                // Address at label
+                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
             ]),
         ])),
 
