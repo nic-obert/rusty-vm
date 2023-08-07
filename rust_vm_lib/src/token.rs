@@ -30,11 +30,7 @@ impl TokenValue {
             TokenValue::AddressLiteral(_) => 3,
             TokenValue::Label(_) => 4,
             TokenValue::AddressAtLabel(_) => 5,
-            TokenValue::Name(_) => panic!("Name does not have an ordinal value"),
-            TokenValue::AddressGeneric(_) => panic!("AddressGeneric does not have an ordinal value"),
-            TokenValue::CurrentPosition(_) => panic!("CurrentPosition does not have an ordinal value"),
-            TokenValue::AddressAtIdentifier(_) => panic!("AddressAtIdentifier does not have an ordinal value"),
-            TokenValue::Char(_) => panic!("Char does not have an ordinal value"),
+            _ => unreachable!()
         }
     }
     
@@ -76,11 +72,11 @@ impl TokenTypes {
             TokenTypes::AddressInRegister => 1,
             TokenTypes::Number => 8, // Number is variable size, with 8 bytes being the default
             TokenTypes::AddressLiteral => 8,
-            TokenTypes::Label => panic!("Label size is not defined"),
-            TokenTypes::Name => panic!("Name size is not defined"),
-            TokenTypes::AddressGeneric => panic!("AddressGeneric size is not defined"),
-            TokenTypes::CurrentPosition => panic!("CurrentPosition size is not defined"),
-            TokenTypes::AddressInRegisterIncomplete => panic!("AddressInRegisterIncomplete size is not defined"),
+            TokenTypes::Label => unreachable!(),
+            TokenTypes::Name => unreachable!(),
+            TokenTypes::AddressGeneric => unreachable!(),
+            TokenTypes::CurrentPosition => unreachable!(),
+            TokenTypes::AddressInRegisterIncomplete => unreachable!(),
         }
     }
 

@@ -644,7 +644,9 @@ impl Processor {
 
 
     /// This function is never used, it's only a placeholder to make the lookup table work
-    fn handle_label(&mut self) { }
+    fn handle_label(&mut self) { 
+        unreachable!()
+    }
 
 
     #[inline(always)]

@@ -1,15 +1,13 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::ByteCodes;
 use rust_vm_lib::registers;
-use rust_vm_lib::token::Token;
-use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rust_vm_lib::vm::Address;
 
 use crate::data_types::DataType;
-use crate::encoding::number_to_bytes;
 use crate::error;
 use crate::tokenizer::{tokenize_operands, is_label_name};
 use crate::argmuments_table::get_arguments_table;
-use crate::token_to_byte_code::get_token_converter;
+use crate::token_to_byte_code::{get_token_converter, use_converter};
 use crate::files;
 use crate::argmuments_table;
 use crate::configs;
@@ -19,14 +17,47 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 
+/// Maps a label name to its address in the binary
 pub type LabelMap = HashMap<String, Address>;
 
 pub struct LabelReference {
+    pub name: String,
     pub location: Address,
-    pub name: String
+    pub line_number: usize,
 }
 
+
+impl LabelReference {
+
+    pub fn new(name: String, location: Address, line_number: usize) -> LabelReference {
+        LabelReference {
+            name,
+            location,
+            line_number,
+        }
+    }
+
+}
+
+
+/// Records the references to labels in the assembly code
 pub type LabelReferenceRegistry = Vec<LabelReference>;
+
+
+pub trait AddLabelReference {
+
+    fn add_reference(&mut self, name: String, location: Address, line_number: usize);
+
+}
+
+
+impl AddLabelReference for LabelReferenceRegistry {
+
+    fn add_reference(&mut self, name: String, location: Address, line_number: usize) {
+        self.push(LabelReference::new(name, location, line_number));
+    }
+
+}
 
 
 /// Represents a section in the assembly code
@@ -35,29 +66,6 @@ enum ProgramSection {
     Text,
     Include,
     None,
-}
-
-
-//// Represents a tokenized line of assembly code
-pub struct Line<'a> {
-    line_number: usize,
-    line: &'a str,
-    operator_name: String,
-    operands: Vec<Token>
-}
-
-
-impl Line<'_> {
-
-    pub fn new<'a>(line_number: usize, operator_name: String, line: &'a str, operands: Vec<Token>) -> Line<'a> {
-        Line {
-            line_number,
-            line,
-            operator_name,
-            operands
-        }
-    }
-
 }
 
 
@@ -102,9 +110,17 @@ fn load_asm_unit(unit_name: &str, current_unit_path: &Path) -> io::Result<(PathB
 
     // Finally, try to load the unit from the current assembly unit directory
 
-    let parent_dir = current_unit_path.parent().unwrap_or_else(
-        || panic!("Failed to get parent directory of \"{}\"", current_unit_path.display())
-    );  
+    let parent_dir = match current_unit_path.parent() {
+        Some(parent_dir) => parent_dir,
+        None => {
+            return Err(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed to get parent directory of \"{}\"", current_unit_path.display())
+                )
+            );
+        }
+    };  
 
     // Get the absolute path of the include unit
     let unit_path = parent_dir.join(unit_name).canonicalize()?;
@@ -238,8 +254,6 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
     let mut has_data_section = false;
     let mut has_text_section = false;
     let mut has_include_section = false;
-
-    let mut lines: Vec<Line> = Vec::with_capacity(assembly.len());
 
     for (i, line) in assembly.iter().enumerate() {
         let line_number = i + 1;
@@ -421,11 +435,8 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 byte_code.push(instruction_code as u8);
             
                 // Add the operands to the byte code
-                let operand_bytes = converter(&operands, handled_size, &label_reference_registry);
+                let operand_bytes = use_converter(converter, operands, handled_size, &mut label_reference_registry, byte_code.len(), line_number, unit_path, line);
                 byte_code.extend(operand_bytes);
-
-                let tokenized_line = Line::new(line_number, operator_name.to_string(), line, operands);
-                lines.push(tokenized_line);
 
             },
 
@@ -438,20 +449,16 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 
     // After tokenization and conversion to bytecode, substitute the labels with their real address
 
-    // for mut line in lines {
+    for reference in label_reference_registry {
 
-    //     // If there are any labels, substitute them with their address
-    //     for operand in &mut line.operands {
+        let real_address = local_label_declaration_map.get(&reference.name).unwrap_or_else(
+            || error::undeclared_label(unit_path, &reference.name, reference.line_number, &assembly[reference.line_number - 1])
+        );
 
-    //         if let TokenValue::Label(label) = &operand.value {
-    //             operand.value = TokenValue::AddressLiteral(*local_label_map.get(label).unwrap_or_else(
-    //                 || error::undeclared_label(unit_path, label, line.line_number, &line.line)
-    //             ));
-    //         }
+        // Substitute the label with the real address (little endian)
+        byte_code[reference.location..reference.location + 8].copy_from_slice(&real_address.to_le_bytes());
 
-    //     }
-
-    // }
+    }
 
     if verbose {
         if is_main_unit {
@@ -487,10 +494,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> Byte
         || error::undeclared_label(unit_path, "start", 0, "The program must have a start label.")
     );
 
-    // Assume that the byte encoding is always successful
-    byte_code.extend(
-        number_to_bytes(*program_start as u64, ADDRESS_SIZE).unwrap()
-    );
+    byte_code.extend(program_start.to_le_bytes());
 
     byte_code
 }

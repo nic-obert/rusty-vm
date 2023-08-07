@@ -229,9 +229,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                 TokenValue::Number(value) => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
-                            || error::number_out_of_range(unit_path, *value, line_number, line)
+                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
                         ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
-                            || error::number_out_of_range(unit_path, *value, line_number, line)
+                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
                         );
                         continue;
                     }

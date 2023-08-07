@@ -2,10 +2,7 @@
 
 ### Todo
 
-- [ ] substitute panics for unreachable  
-- [ ] substitute vectors for static arrays in arguments table for performance and safety  
 - [ ] update the disassembler  
-- [ ] improve argument errors by displaying which arguments are required by operators  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
 - [ ] write asm libraries to include or call  
@@ -17,6 +14,10 @@
 
 ### Done ✅
 
+- [ ] substitute vectors for static arrays in arguments table for performance and safety  
+- [ ] substitute panics for unreachable  
+- [ ] improve argument errors by displaying which arguments are required by operators  
+- [ ] remove sized operations from arguments table where size is not 8 bytes and operator is label  
 - [ ] Add jump at address in register and jump at address literal bytecode instructions (and update arguments table to include jumping at addresses)  
 - [ ] add compare at address bytecode instructions (and update argument table)  
 - [ ] update documentation with new instructions  

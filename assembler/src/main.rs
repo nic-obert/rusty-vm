@@ -5,7 +5,6 @@ mod tokenizer;
 mod argmuments_table;
 mod error;
 mod data_types;
-mod encoding;
 mod configs;
 
 use std::path::Path;

@@ -1,22 +1,66 @@
+use std::mem;
+use std::path::Path;
+
+use rust_vm_lib::assembly::ByteCode;
 use rust_vm_lib::registers::REGISTER_ID_SIZE;
 use rust_vm_lib::token::{Token, TokenValue};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
-use bytes::{BytesMut, Bytes, BufMut};
-use rust_vm_lib::vm::ADDRESS_SIZE;
+use rust_vm_lib::vm::{ADDRESS_SIZE, Address};
 
-use crate::assembler::LabelReferenceRegistry;
-use crate::encoding::number_to_bytes;
+use crate::assembler::{LabelReferenceRegistry, AddLabelReference};
+use crate::error;
 
 
-macro_rules! empty_bytes {
-    () => {
-        Bytes::from_static(&[0; 0])
+/// Statically checks if the argument is a valid symbol.
+/// 
+/// Symbols may be deleted in the code. This macro assures that no function is invalidated because of that.
+macro_rules! assert_exists {
+    ($x:expr) => {
+        #[allow(path_statements)]
+        const _: () = { $x ; () };
     };
 }
 
 
+/// Extract the value of a specific token variant. Treat other variants as unreachable.
+macro_rules! extract {
+    ($token:expr, $variant:ident) => {
+        if let TokenValue::$variant(value) = $token.value {
+            value
+        } else {
+            unreachable!()
+        }
+    };
+}
+
+
+/// Returns the number of bytes needed to represent the number.
+/// 
+/// This function assumes little endian.
+fn number_size(number: i64) -> usize {
+    if number == 0 {
+        return 1;
+    }
+    number.to_le_bytes().iter().rev().skip_while(|&&b| b == 0).count()
+}
+
+
+/// Try to fit the given number into the given number of bytes.
+fn fit_into_bytes(number: i64, size: u8) -> Option<ByteCode> {
+    if number_size(number) <= size as usize {
+        Some(number.to_le_bytes()[..size as usize].to_vec())
+    } else {
+        None
+    }
+}
+
+
+/// A placeholder for the real address of a label.
+const LABEL_PLACEHOLDER: [u8; ADDRESS_SIZE] = (0 as Address).to_le_bytes();
+
+
 /// The type of a function that converts a list of tokens into byte code.
-pub type TokenConverter = fn(&[Token], u8, &LabelReferenceRegistry) -> Bytes;
+pub type TokenConverter = fn(Vec<Token>, u8, &mut LabelReferenceRegistry, Address, usize, &Path, &str) -> ByteCode;
 
 
 /// Return the token converter for the given byte code.
@@ -26,490 +70,1169 @@ pub fn get_token_converter(byte_code: ByteCodes) -> TokenConverter {
 }
 
 
+/// Use the token converter to convert the given tokens into byte code.
+/// 
+/// This function exists to export named parameters instead of a closure to the public interface.
+#[inline(always)]
+pub fn use_converter(converter: TokenConverter, operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    converter(operands, handled_size, label_registry, last_byte_code, line_number, unit_path, line)
+}
+
+
+// Converter functions
+
+
+fn convert_add (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::ADD);
+
+    Vec::new()
+}
+
+
+fn convert_sub (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::SUB);
+
+    Vec::new()
+}
+
+
+fn convert_mul (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MUL);
+
+    Vec::new()
+}
+
+
+fn convert_div (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::DIV);
+    
+    Vec::new()
+}
+
+
+fn convert_mod (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOD);
+        
+    Vec::new()
+}
+
+
+fn convert_inc_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INC_REG);
+    
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_inc_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INC_ADDR_IN_REG);
+
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_inc_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INC_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => {
+            bytes.extend(address.to_le_bytes());
+        },
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_dec_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::DEC_REG);
+    
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_dec_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::DEC_ADDR_IN_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_dec_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => {
+            bytes.extend(address.to_le_bytes());
+        },
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_no_operation (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::NO_OPERATION);
+    
+    Vec::new()
+}
+
+
+fn convert_move_into_reg_from_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_REG);
+    
+    vec![
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_move_into_reg_from_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    let dest_reg = extract!(operands[0], Register) as u8;
+    bytes.push(dest_reg as u8);
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_move_into_reg_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    let dest_reg = extract!(operands[0], Register) as u8;
+    bytes.push(dest_reg as u8);
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+    
+    bytes
+}
+
+
+fn convert_move_into_addr_in_reg_from_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_move_into_addr_in_reg_from_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size as u8);
+
+    let dest_reg = extract!(operands[0], AddressInRegister) as u8;
+    bytes.push(dest_reg as u8);
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_move_into_addr_in_reg_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    let dest_reg = extract!(operands[0], AddressInRegister) as u8;
+    bytes.push(dest_reg as u8);
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_move_into_addr_literal_from_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let src_reg = extract!(operands[1], Register) as u8;
+    bytes.push(src_reg);
+
+    bytes
+}
+
+
+fn convert_move_into_addr_literal_from_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let src_reg = extract!(operands[1], AddressInRegister) as u8;
+    bytes.push(src_reg);
+
+    bytes
+}
+
+
+fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_move_into_addr_literal_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_push_from_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_FROM_REG);
+    
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_push_from_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_FROM_ADDR_IN_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_push_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_FROM_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_push_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_FROM_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_pop_into_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::POP_INTO_REG);
+
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_pop_into_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_pop_into_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::POP_INTO_ADDR_LITERAL);    
+    
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        }
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+/// This is just a placeholder function to keep the indixes valid
+fn convert_label (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    unreachable!()
+}
+
+
+fn convert_jump_to_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_TO_REG);
+
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_jump_to_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_TO_ADDR_IN_REG);
+    
+    extract!(operands[0], AddressInRegister).to_bytes().to_vec()
+}
+
+
+fn convert_jump_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_TO_CONST);
+    
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            )
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code, line_number);
+            LABEL_PLACEHOLDER.to_vec()
+        },
+        _ => unreachable!()
+    }
+}
+
+
+fn convert_jump_to_addr_literal(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_TO_ADDR_LITERAL);
+    
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => address.to_le_bytes().to_vec(),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code, line_number);
+            LABEL_PLACEHOLDER.to_vec()
+        },
+        _ => unreachable!()
+    }
+}
+
+
+fn convert_jump_if_not_zero_reg_to_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_REG);
+    
+    vec![
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_jump_if_not_zero_reg_to_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG);
+    
+    vec![
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_jump_if_not_zero_reg_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let test_reg = extract!(operands[1], Register) as u8;
+    bytes.push(test_reg);
+
+    bytes
+}
+
+
+fn convert_jump_if_not_zero_reg_to_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let test_reg = extract!(operands[1], Register) as u8;
+    bytes.push(test_reg);
+
+    bytes
+}
+
+
+fn convert_jump_if_zero_reg_to_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_ZERO_REG_TO_REG);
+    
+    vec![
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_jump_if_zero_reg_to_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_IN_REG);
+
+    vec![
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_jump_if_zero_reg_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let test_reg = extract!(operands[1], Register) as u8;
+    bytes.push(test_reg);
+
+    bytes
+}
+
+
+fn convert_jump_if_zero_reg_to_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    let test_reg = extract!(operands[1], Register) as u8;
+    bytes.push(test_reg);
+
+    bytes
+}
+
+
+fn convert_compare_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_REG_REG);
+    
+    vec![
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_compare_reg_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    vec![
+        extract!(operands[0], Register) as u8,
+        extract!(operands[1], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_compare_reg_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_REG_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    let left_reg = extract!(operands[0], Register) as u8;
+    bytes.push(left_reg);
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_REG_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    let left_reg = extract!(operands[0], Register) as u8;
+    bytes.push(left_reg);
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_addr_in_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_REG);
+    
+    vec![
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], Register) as u8
+    ]
+}
+
+
+fn convert_compare_addr_in_reg_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG);
+    
+    vec![
+        extract!(operands[0], AddressInRegister) as u8,
+        extract!(operands[1], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_compare_addr_in_reg_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    let left_reg = extract!(operands[0], AddressInRegister) as u8;
+    bytes.push(left_reg);
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_addr_in_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    let left_reg = extract!(operands[0], AddressInRegister) as u8;
+    bytes.push(left_reg);
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_const_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_CONST_REG);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    let right_reg = extract!(operands[1], Register) as u8;
+    bytes.push(right_reg);
+
+    bytes
+}
+
+
+fn convert_compare_const_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_CONST_ADDR_IN_REG);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    let right_reg = extract!(operands[1], AddressInRegister) as u8;
+    bytes.push(right_reg);
+
+    bytes
+}
+
+
+fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_CONST_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_CONST_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_addr_literal_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_REG);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    let right_reg = extract!(operands[1], Register) as u8;
+    bytes.push(right_reg);
+
+    bytes
+}
+
+
+fn convert_compare_addr_literal_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    let right_reg = extract!(operands[1], AddressInRegister) as u8;
+    bytes.push(right_reg);
+
+    bytes
+}
+
+
+fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::Number(value) => {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_compare_addr_literal_addr_literal (mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    match &mut operands[1].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER)
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_print_signed (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PRINT_SIGNED);
+
+    Vec::new()
+}
+
+
+fn convert_print_unsigned (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PRINT_UNSIGNED);
+
+    Vec::new()
+}
+
+fn convert_print_char (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PRINT_CHAR);
+
+    Vec::new()
+}
+
+
+// ByteCodes::PRINT_STRING
+fn convert_print_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PRINT_STRING);
+
+    Vec::new()
+}
+
+
+// ByteCodes::INPUT_INT
+fn convert_input_int (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INPUT_INT);
+    
+    Vec::new()
+}
+
+
+// ByteCodes::INPUT_STRING
+fn convert_input_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INPUT_STRING);
+
+    Vec::new()
+}
+
+
+// ByteCodes::EXIT
+fn convert_exit (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::EXIT);
+
+    Vec::new()
+}
+
+
 /// The following functions are used to convert the operand tokens to bytes.
-const INSTRUCTION_CONVERSION_TABLE:
-    [ TokenConverter; BYTE_CODE_COUNT ]
-= [
+const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
 
-    // Arithmetic
+    convert_add,
+    convert_sub,
+    convert_mul,
+    convert_div,
+    convert_mod,
 
-    // ByteCodes::ADD
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        empty_bytes!()
-    },
-    // ByteCodes::SUB
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        empty_bytes!()
-    },
-    // ByteCodes::MUL
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        empty_bytes!()
-    },
-    // ByteCodes::DIV
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        empty_bytes!()
-    },
-    // ByteCodes::MOD
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
+    convert_inc_reg,
+    convert_inc_addr_in_reg,
+    convert_inc_addr_literal,
 
-    // ByteCodes::INC_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            return Ok(Some(number_to_bytes(dest_reg as u64, REGISTER_ID_SIZE)?));
-        }
-        Err(format!("{} expects a register as its first operand.", ByteCodes::INC_REG))
-    },
-    // ByteCodes::INC_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            let operand_bytes = number_to_bytes(dest_reg as u64, REGISTER_ID_SIZE)?;
-            let mut bytes = BytesMut::with_capacity(1 + operand_bytes.len());
-            bytes.put_u8(handled_size);
-            bytes.put(operand_bytes);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a register as its first operand.", ByteCodes::INC_ADDR_IN_REG))
-    },
-    // ByteCodes::INC_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(address) = operands[0].value {
-            let operand_bytes = number_to_bytes(address as u64, ADDRESS_SIZE)?;
-            let mut bytes = BytesMut::with_capacity(1 + operand_bytes.len());
-            bytes.put_u8(handled_size);
-            bytes.put(operand_bytes);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a register as its first operand.", ByteCodes::INC_ADDR_LITERAL))
-    },
+    convert_dec_reg,
+    convert_dec_addr_in_reg,
+    convert_dec_addr_literal,
 
-    // ByteCodes::DEC_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            return Ok(Some(number_to_bytes(dest_reg as u64, REGISTER_ID_SIZE)?));
-        } 
-        Err(format!("{} expects a register as its first operand.", ByteCodes::DEC_REG))
-    },
-    // ByteCodes::DEC_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            let operand_bytes = number_to_bytes(dest_reg as u64, REGISTER_ID_SIZE)?;
-            let mut bytes = BytesMut::with_capacity(1 + operand_bytes.len());
-            bytes.put_u8(handled_size);
-            bytes.put(operand_bytes);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a register as its first operand.", ByteCodes::DEC_ADDR_IN_REG))
-    },
-    // ByteCodes::DEC_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(address) = operands[0].value {
-            let operand_bytes = number_to_bytes(address as u64, ADDRESS_SIZE)?;
-            let mut bytes = BytesMut::with_capacity(1 + operand_bytes.len());
-            bytes.put_u8(handled_size);
-            bytes.put(operand_bytes);
-            return Ok(Some(bytes.freeze()));
-        } 
-        Err(format!("{} expects a register as its first operand.", ByteCodes::DEC_ADDR_LITERAL))
-    },
+    convert_no_operation,
 
-    // No operation
-    // ByteCodes::NOP
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
+    convert_move_into_reg_from_reg,
+    convert_move_into_reg_from_addr_in_reg,
+    convert_move_into_reg_from_const,
+    convert_move_into_reg_from_addr_literal,
+    convert_move_into_addr_in_reg_from_reg,
+    convert_move_into_addr_in_reg_from_addr_in_reg,
+    convert_move_into_addr_in_reg_from_const,
+    convert_move_into_addr_in_reg_from_addr_literal,
+    convert_move_into_addr_literal_from_reg,
+    convert_move_into_addr_literal_from_addr_in_reg,
+    convert_move_into_addr_literal_from_const,
+    convert_move_into_addr_literal_from_addr_literal,
 
-    // Memory
+    convert_push_from_reg,
+    convert_push_from_addr_in_reg,
+    convert_push_from_const,
+    convert_push_from_addr_literal,
 
-    // ByteCodes::MOVE_INTO_REG_FROM_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 * REGISTER_ID_SIZE);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects two registers as its operands.", ByteCodes::MOVE_INTO_REG_FROM_REG))
-    },
+    convert_pop_into_reg,
+    convert_pop_into_addr_in_reg,
+    convert_pop_into_addr_literal,
 
-    // ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + 2 * REGISTER_ID_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a register and an address in a register as its operands.", ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG))
-    },
+    // This is just a placeholder to make indices work
+    convert_label,
 
-    // ByteCodes::MOVE_INTO_REG_FROM_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            if let TokenValue::Number(number) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a register and a number as its operands.", ByteCodes::MOVE_INTO_REG_FROM_CONST))
-    },
+    convert_jump_to_reg,
+    convert_jump_to_addr_in_reg,
+    convert_jump_to_const,
+    convert_jump_to_addr_literal,
 
-    // ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            if let TokenValue::AddressLiteral(address) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u64_le(address as u64);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a register and an address as its operands.", ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL))
-    },
+    convert_jump_if_not_zero_reg_to_reg,
+    convert_jump_if_not_zero_reg_to_addr_in_reg,
+    convert_jump_if_not_zero_reg_to_const,
+    convert_jump_if_not_zero_reg_to_addr_literal,
 
-    // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + 2 * REGISTER_ID_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a register and an address in a register as its operands.", ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG))
-    },
+    convert_jump_if_zero_reg_to_reg,
+    convert_jump_if_zero_reg_to_addr_in_reg,
+    convert_jump_if_zero_reg_to_const,
+    convert_jump_if_zero_reg_to_addr_literal,
 
-    // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + 2 * REGISTER_ID_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects two addresses in registers as its operands.", ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG))
-    },
+    convert_compare_reg_reg,
+    convert_compare_reg_addr_in_reg,
+    convert_compare_reg_const,
+    convert_compare_reg_addr_literal,
+    convert_compare_addr_in_reg_reg,
+    convert_compare_addr_in_reg_addr_in_reg,
+    convert_compare_addr_in_reg_const,
+    convert_compare_addr_in_reg_addr_literal,
+    convert_compare_const_reg,
+    convert_compare_const_addr_in_reg,
+    convert_compare_const_const,
+    convert_compare_const_addr_literal,
+    convert_compare_addr_literal_reg,
+    convert_compare_addr_literal_addr_in_reg,
+    convert_compare_addr_literal_const,
+    convert_compare_addr_literal_addr_literal,
 
-    // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            if let TokenValue::Number(number) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address in a register and a number as its operands.", ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST))
-    },
+    convert_print_signed,
+    convert_print_unsigned,
+    convert_print_char,
+    convert_print_string,
 
-    // ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            if let TokenValue::AddressLiteral(value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(dest_reg as u8);
-                bytes.put_u64_le(value as u64);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address in a register and an address as its operands.", ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL))
-    },
+    convert_input_int,
+    convert_input_string,
 
-    // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            if let TokenValue::Register(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u64_le(dest_address as u64);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address and a register as its operands.", ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG))
-    },
-
-    // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            if let TokenValue::AddressInRegister(src_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u64_le(dest_address as u64);
-                bytes.put_u8(src_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address and an address in a register as its operands.", ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG))
-    },
-
-    // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            if let TokenValue::Number(number) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
-                bytes.put_u8(handled_size);
-                bytes.put_u64_le(dest_address as u64);
-                bytes.extend(number_to_bytes(number as u64, handled_size as usize));
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address and a number as its operands.", ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST))
-    },
-
-    // ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            if let TokenValue::AddressLiteral(src_address) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + 2 * ADDRESS_SIZE);
-                bytes.put_u8(handled_size);
-                bytes.put_u64_le(dest_address as u64);
-                bytes.put_u64_le(src_address as u64);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects two addresses as its operands.", ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL))
-    },
-
-    // ByteCodes::PUSH_FROM_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(src_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1);
-            bytes.put_u8(src_reg as u8);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a register as its operand.", ByteCodes::PUSH_FROM_REG))
-    },
-
-    // ByteCodes::PUSH_FROM_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(src_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE);
-            bytes.put_u8(handled_size);
-            bytes.put_u8(src_reg as u8);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects an address in a register as its operand.", ByteCodes::PUSH_FROM_ADDR_IN_REG))
-    },
-
-    // ByteCodes::PUSH_FROM_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Number(value) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + handled_size as usize);
-            bytes.put_u8(handled_size);
-            bytes.extend(number_to_bytes(value as u64, handled_size as usize)?);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a number as its operand.", ByteCodes::PUSH_FROM_CONST))
-    },
-
-    // ByteCodes::PUSH_FROM_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(value) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + ADDRESS_SIZE);
-            bytes.put_u8(handled_size);
-            bytes.put_u64_le(value as u64);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects an address as its operand.", ByteCodes::PUSH_FROM_ADDR_LITERAL))
-    },
-
-    // ByteCodes::POP_INTO_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(dest_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE);
-            bytes.put_u8(handled_size);
-            bytes.put_u8(dest_reg as u8);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects a register as its operand.", ByteCodes::POP_INTO_REG))
-    },
-
-    // ByteCodes::POP_INTO_ADDR_IN_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressInRegister(dest_reg) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE);
-            bytes.put_u8(handled_size);
-            bytes.put_u8(dest_reg as u8);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects an address in a register as its operand.", ByteCodes::POP_INTO_ADDR_IN_REG))
-    },
-
-    // ByteCodes::POP_INTO_ADDR_LITERAL
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(dest_address) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(1 + ADDRESS_SIZE);
-            bytes.put_u8(handled_size);
-            bytes.put_u64_le(dest_address as u64);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects an address as its operand.", ByteCodes::POP_INTO_ADDR_LITERAL))
-    },
-
-    // Control flow
-
-    // ByteCodes::LABEL
-    // This is just a placeholder function to keep the indixes valid
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        unreachable!()
-    },
-
-    // ByteCodes::JUMP_TO_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(target_reg) = operands[0].value {
-            return Ok(Some(Bytes::from_static(&target_reg.to_bytes())));
-        }
-
-    }
-
-    // ByteCodes::JUMP
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(target) = operands[0].value {
-            let mut bytes = BytesMut::with_capacity(ADDRESS_SIZE);
-            bytes.put_u64_le(target as u64);
-            return Ok(Some(bytes.freeze()));
-        }
-        Err(format!("{} expects an address as its operand.", ByteCodes::JUMP))
-    },
-
-    // ByteCodes::JUMP_IF_TRUE_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(target) = operands[0].value {
-            if let TokenValue::Register(check_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(ADDRESS_SIZE + REGISTER_ID_SIZE);
-                bytes.put_u64_le(target as u64);
-                bytes.put_u8(check_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_NOT_ZERO_REG))
-    },
-
-    // ByteCodes::JUMP_IF_FALSE_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::AddressLiteral(target) = operands[0].value {
-            if let TokenValue::Register(check_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(ADDRESS_SIZE + REGISTER_ID_SIZE);
-                bytes.put_u64_le(target as u64);
-                bytes.put_u8(check_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects an address and a register as its operands.", ByteCodes::JUMP_IF_ZERO_REG))
-    }, 
-
-    // Comparison
-
-    // ByteCodes::COMPARE_REG_REG
-    | operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(left_reg) = operands[0].value {
-            if let TokenValue::Register(right_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(2 * REGISTER_ID_SIZE);
-                bytes.put_u8(left_reg as u8);
-                bytes.put_u8(right_reg as u8);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects two registers as its operands.", ByteCodes::COMPARE_REG_REG))
-    },
-
-    // ByteCodes::COMPARE_REG_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Register(left_reg) = operands[0].value {
-            if let TokenValue::Number(right_value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(left_reg as u8);
-                bytes.extend(number_to_bytes(right_value as u64, handled_size as usize));
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a register and a constant as its operands.", ByteCodes::COMPARE_REG_CONST))
-    },
-
-    // ByteCodes::COMPARE_CONST_REG
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Number(left_value) = operands[0].value {
-            if let TokenValue::Register(right_reg) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-                bytes.put_u8(handled_size);
-                bytes.put_u8(right_reg as u8);
-                bytes.extend(number_to_bytes(left_value as u64, handled_size as usize));
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects a constant and a register as its operands.", ByteCodes::COMPARE_CONST_REG))
-    },
-
-    // ByteCodes::COMPARE_CONST_CONST
-    | operands: &[Token], handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        if let TokenValue::Number(left_value) = operands[0].value {
-            if let TokenValue::Number(right_value) = operands[1].value {
-                let mut bytes = BytesMut::with_capacity(1 + handled_size as usize * 2);
-                bytes.put_u8(handled_size);
-                bytes.extend(number_to_bytes(left_value as u64, handled_size as usize)?);
-                bytes.extend(number_to_bytes(right_value as u64, handled_size as usize)?);
-                return Ok(Some(bytes.freeze()));
-            }
-        }
-        Err(format!("{} expects two constants as its operands.", ByteCodes::COMPARE_CONST_CONST))
-    },
-
-    // Interrupts
-
-    // ByteCodes::PRINT_SIGNED
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::PRINT_UNSIGNED
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::PRINT_CHAR
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::PRINT_STRING
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::INPUT_INT
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::INPUT_STRING
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    },
-
-    // ByteCodes::EXIT
-    | _operands: &[Token], _handled_size: u8, label_registry: &LabelReferenceRegistry | {
-        Ok(None)
-    }
+    convert_exit,
 
 ];
 

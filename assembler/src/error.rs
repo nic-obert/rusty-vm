@@ -131,20 +131,6 @@ pub fn invalid_token_argument(unit_path: &Path, instruction: &str, arg: &Token, 
 }
 
 
-pub fn invalid_instruction_arguments(unit_path: &Path, instruction: &str, line_number: usize, line: &str, hint: &str) -> ! {
-    printdoc!("
-        Error in assembly unit \"{}\"
-        Invalid arguments for instruction `{}` at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), instruction, line_number, line, hint
-    );
-    std::process::exit(1);
-}
-
-
 pub fn invalid_address(unit_path: &Path, address: usize, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"
@@ -159,13 +145,15 @@ pub fn invalid_address(unit_path: &Path, address: usize, line_number: usize, lin
 }
 
 
-pub fn number_out_of_range(unit_path: &Path, number: i64, line_number: usize, line: &str) -> ! {
+pub fn number_out_of_range(unit_path: &Path, number: i64, size_bytes: u8, line_number: usize, line: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"
         Number {} is out of range at line {}:
         {}
+
+        The number must fit in {} bytes.
         ",
-        unit_path.display(), number, line_number, line
+        unit_path.display(), number, line_number, line, size_bytes
     );
     std::process::exit(1);
 }
