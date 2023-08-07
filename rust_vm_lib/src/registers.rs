@@ -32,6 +32,15 @@ pub enum Registers {
 }
 
 
+impl Registers {
+
+    pub fn to_bytes(&self) -> [u8; REGISTER_ID_SIZE] {
+        [*self as u8]
+    }
+
+}
+
+
 impl std::convert::From<u8> for Registers {
 
     fn from(value: u8) -> Self {

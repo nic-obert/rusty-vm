@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] substitute panics for unreachable  
 - [ ] substitute vectors for static arrays in arguments table for performance and safety  
 - [ ] update the disassembler  
 - [ ] improve argument errors by displaying which arguments are required by operators  

@@ -1,7 +1,7 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::ByteCodes;
 use rust_vm_lib::registers;
-use rust_vm_lib::token::{TokenValue, Token};
+use rust_vm_lib::token::Token;
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::data_types::DataType;
@@ -9,7 +9,7 @@ use crate::encoding::number_to_bytes;
 use crate::error;
 use crate::tokenizer::{tokenize_operands, is_label_name};
 use crate::argmuments_table::get_arguments_table;
-use crate::token_to_byte_code::INSTRUCTION_CONVERSION_TABLE;
+use crate::token_to_byte_code::get_token_converter;
 use crate::files;
 use crate::argmuments_table;
 use crate::configs;
@@ -20,6 +20,13 @@ use std::path::{Path, PathBuf};
 
 
 pub type LabelMap = HashMap<String, Address>;
+
+pub struct LabelReference {
+    pub location: Address,
+    pub name: String
+}
+
+pub type LabelReferenceRegistry = Vec<LabelReference>;
 
 
 /// Represents a section in the assembly code
@@ -224,7 +231,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
     let mut local_label_declaration_map = LabelMap::new();
     // Stores the references to labels and when they are referenced in the bytecode
     // Used later to substitute the labels with real addresses
-    let mut label_reference_map = LabelMap::new();
+    let mut label_reference_registry = LabelReferenceRegistry::new();
 
     let mut current_section = ProgramSection::None;
 
@@ -408,24 +415,14 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 let (instruction_code, handled_size) = arg_table.get_instruction(operator_name, &operands, unit_path, line_number, line);
             
                 // Convert the operands to byte code and append them to the byte code
-                let converter = INSTRUCTION_CONVERSION_TABLE.get(instruction_code as usize).unwrap_or_else(
-                    || panic!("Unknown instruction \"{}\" at line {} \"{}\". This is a bug.", operator_name, line_number, line)
-                );
+                let converter = get_token_converter(instruction_code);
             
                 // Add the instruction code to the byte code
                 byte_code.push(instruction_code as u8);
             
                 // Add the operands to the byte code
-                match converter(&operands, handled_size) {
-            
-                    Ok(converted) => {
-                        if let Some(operand_bytes) = converted {
-                            byte_code.extend(operand_bytes);
-                        }
-                    },
-            
-                    Err(message) => error::invalid_instruction_arguments(unit_path, operator_name, line_number, line, &message)
-                }
+                let operand_bytes = converter(&operands, handled_size, &label_reference_registry);
+                byte_code.extend(operand_bytes);
 
                 let tokenized_line = Line::new(line_number, operator_name.to_string(), line, operands);
                 lines.push(tokenized_line);
