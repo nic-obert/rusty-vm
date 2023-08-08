@@ -55,7 +55,7 @@
         jmp loop
 
     @equal
-        mov r8 1
+        mov1 r8 1
 
     @endloop
 

@@ -166,6 +166,10 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                         evaluated_line.push('\'');
                         text_type = TextType::Char { starts_at: (line_number, char_index) };
                     },
+                    '#' => {
+                        // Skip comments
+                        break;
+                    }
                     _ => {
                         evaluated_line.push(c);
                     }
@@ -259,7 +263,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         let line_number = i + 1;
 
         if verbose {
-            println!("Line {}\t| {}", line_number, line);
+            println!("Line {: >4}, Pos: {: >5} | {}", line_number, byte_code.len(), line);
         }
 
         // Evaluate the compile-time special symbols

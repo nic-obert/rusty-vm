@@ -53,7 +53,7 @@ impl Processor {
         // Set the program counter to the start of the program
 
         if byte_code.len() < ADDRESS_SIZE {
-            panic!("Bytecode is too small to contain a start address");
+            panic!("Bytecode is too small to contain a start address: minimum required size is {} bytes, got {}", ADDRESS_SIZE, byte_code.len());
         }
 
         let program_start: Address = bytes_to_int(&byte_code[byte_code.len() - ADDRESS_SIZE..], ADDRESS_SIZE as Byte) as Address;
@@ -165,7 +165,7 @@ impl Processor {
                     0
                 );
             },
-            _ => panic!("Invalid size for incrementing bytes"),
+            _ => panic!("Invalid size for incrementing bytes: {}", size),
         }
     }
     
@@ -207,7 +207,7 @@ impl Processor {
                     0
                 );
             },
-            _ => panic!("Invalid size for decrementing bytes"),
+            _ => panic!("Invalid size for decrementing bytes: {}", size),
         }
     }
 
@@ -424,7 +424,7 @@ impl Processor {
             8 => unsafe {
                 self.set_register(dest_reg, *(bytes.as_ptr() as *const u64) as i64);
             },
-            _ => panic!("Invalid size for move instruction"),
+            _ => panic!("Invalid size for move instruction: {}", handled_size),
         }
     }
 
