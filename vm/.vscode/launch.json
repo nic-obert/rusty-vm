@@ -20,7 +20,7 @@
                 }
             },
             "args": [
-                "../impl/test.bc"
+                "../impl/compare_strings.bc"
             ],
             "cwd": "${workspaceFolder}"
         },

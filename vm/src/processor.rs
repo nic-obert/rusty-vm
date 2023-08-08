@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Write, self};
 
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
@@ -1063,33 +1063,43 @@ impl Processor {
     fn handle_print_unsigned(&mut self) {
         let value = self.get_register(Registers::PRINT) as u64;
         print!("{}", value);
-        std::io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
     }
 
 
     fn handle_print_char(&mut self) {
         let value = self.get_register(Registers::PRINT);
         print!("{}", value as u8 as char);
-        std::io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn strlen(&self, address: Address) -> Size {
+        let mut length = 0;
+        let mut byte = self.memory.get_byte(address);
+
+        while byte != 0 {
+            length += 1;
+            byte = self.memory.get_byte(address + length);
+        }
+
+        length
     }
 
 
     fn handle_print_string(&mut self) {
-        let mut address = self.get_register(Registers::PRINT) as Address;
-        let mut byte = self.memory.get_byte(address);
+        let string_address = self.get_register(Registers::PRINT) as Address;
+        let length = self.strlen(string_address);
+        let bytes = self.memory.get_bytes(string_address, length as usize);
 
-        while byte != 0 {
-            print!("{}", byte as u8 as char);
-            address += 1;
-            byte = self.memory.get_byte(address);
-        }
-        std::io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().write(bytes).expect("Failed to write to stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
     }
 
 
     fn handle_input_int(&mut self) {
         let mut input = String::new();
-        match std::io::stdin().read_line(&mut input) {
+        match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
 
                 // Check for EOF errors
@@ -1117,7 +1127,7 @@ impl Processor {
 
     fn handle_input_string(&mut self) {
         let mut input = String::new();
-        match std::io::stdin().read_line(&mut input) {
+        match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
 
                 // Check for EOF errors

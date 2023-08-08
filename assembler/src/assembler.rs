@@ -1,7 +1,7 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::ByteCodes;
 use rust_vm_lib::registers;
-use rust_vm_lib::vm::Address;
+use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::data_types::DataType;
 use crate::error;
@@ -277,6 +277,8 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
             continue;
         }
 
+        let last_byte_code_address: Address = byte_code.len();
+
         if let Some(mut section_name) = trimmed_line.strip_prefix('.') {
             // This line specifies a program section
             section_name = section_name.strip_suffix(':').unwrap_or_else(
@@ -378,14 +380,15 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 // Encode the string data into byte code
                 let encoded_data: ByteCode = data_type.encode(data_string, line_number, &line, unit_path);
 
-                byte_code.extend(encoded_data);
-
                 // Add the data name and its address in the binary to the data map
                 local_label_declaration_map.insert(label.to_string(), byte_code.len());
 
                 if to_export {
                     export_label_declaration_map.insert(label.to_string(), byte_code.len());
                 }
+
+                // Add the data to the byte code
+                byte_code.extend(encoded_data);
 
             },
 
@@ -448,6 +451,10 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
             ProgramSection::None => error::out_of_section(unit_path, line_number, &line)
 
         }
+
+        if verbose {
+            println!(" => {:?}", &byte_code[last_byte_code_address..]);
+        }
         
     }
 
@@ -460,7 +467,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         );
 
         // Substitute the label with the real address (little endian)
-        byte_code[reference.location..reference.location + 8].copy_from_slice(&real_address.to_le_bytes());
+        byte_code[reference.location..reference.location + ADDRESS_SIZE].copy_from_slice(&real_address.to_le_bytes());
 
     }
 

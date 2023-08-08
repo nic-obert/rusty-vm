@@ -560,13 +560,13 @@ fn convert_jump_to_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_r
 }
 
 
-fn convert_jump_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+fn convert_jump_to_const(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::JUMP_TO_CONST);
     
     match &mut operands[0].value {
         TokenValue::Number(value) => {
-            fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            fit_into_bytes(*value, ADDRESS_SIZE as u8).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, ADDRESS_SIZE as u8, line_number, line)
             )
         },
         TokenValue::Label(label) => {
@@ -612,16 +612,15 @@ fn convert_jump_if_not_zero_reg_to_addr_in_reg(operands: Vec<Token>, _handled_si
 }
 
 
-fn convert_jump_if_not_zero_reg_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+fn convert_jump_if_not_zero_reg_to_const(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-    bytes.push(handled_size);
+    let mut bytes = Vec::with_capacity(ADDRESS_SIZE + REGISTER_ID_SIZE);
 
     match &mut operands[0].value {
         TokenValue::Number(value) => {
-            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            let repr = fit_into_bytes(*value, ADDRESS_SIZE as u8).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, ADDRESS_SIZE as u8, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -681,16 +680,15 @@ fn convert_jump_if_zero_reg_to_addr_in_reg(operands: Vec<Token>, _handled_size: 
 }
 
 
-fn convert_jump_if_zero_reg_to_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+fn convert_jump_if_zero_reg_to_const(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-    bytes.push(handled_size);
+    let mut bytes = Vec::with_capacity(ADDRESS_SIZE + REGISTER_ID_SIZE);
 
     match &mut operands[0].value {
         TokenValue::Number(value) => {
-            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            let repr = fit_into_bytes(*value, ADDRESS_SIZE as u8).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, ADDRESS_SIZE as u8, line_number, line)
             );
             bytes.extend(repr);
         },

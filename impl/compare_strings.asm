@@ -1,11 +1,11 @@
 
 .data:
 
-    s1 string "nic\0"
-    s2 string "noc\0"
+    s1 string "\0"
+    s2 string "\0"
 
-    result_equal string "The strings are equal\0"
-    result_not_equal string "The strings are not equal\0"
+    result_equal string "The strings are equal\n\0"
+    result_not_equal string "The strings are not equal\n\0"
 
 .text:
 
@@ -40,6 +40,7 @@
 
         # Compare the two characters from s1 and s2
         mov r2 r4
+        mov1 r1 [r1]
         cmp r1 r2
 
         # If the characters are equal, zf is 1, otherwize zf is 0

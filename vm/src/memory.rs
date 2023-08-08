@@ -24,22 +24,23 @@ impl Memory {
     }
 
 
+    pub fn get_raw(&self) -> &[Byte] {
+        &self.stack
+    }
+
+
     pub fn set_byte(&mut self, address: Address, data: Byte) {
         self.stack[address] = data;
     }
 
 
     pub fn set_bytes(&mut self, address: Address, data: &[Byte]) {
-        for (i, byte) in data.iter().enumerate() {
-            self.stack[address + i] = *byte;
-        }
+        self.stack[address..address + data.len()].copy_from_slice(data);
     }
 
 
     pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: Size) {
-        for i in 0..size {
-            self.stack[dest_address + i] = self.stack[src_address + i];
-        }
+        self.stack.copy_within(src_address..src_address + size, dest_address);
     }
 
 
