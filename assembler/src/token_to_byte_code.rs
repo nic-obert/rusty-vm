@@ -508,10 +508,13 @@ fn convert_push_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, la
 }
 
 
-fn convert_pop_into_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_pop_into_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::POP_INTO_REG);
 
-    extract!(operands[0], Register).to_bytes().to_vec()
+    vec![
+        handled_size,
+        extract!(operands[0], Register) as u8
+    ]
 }
 
 
@@ -740,8 +743,9 @@ fn convert_compare_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_regis
 }
 
 
-fn convert_compare_reg_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_compare_reg_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     vec![
+        handled_size,
         extract!(operands[0], Register) as u8,
         extract!(operands[1], AddressInRegister) as u8
     ]
