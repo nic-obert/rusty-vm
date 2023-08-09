@@ -1,7 +1,10 @@
 use std::fmt;
 
+use crate::vm::ADDRESS_SIZE;
+
 
 pub const REGISTER_ID_SIZE: usize = 1;
+pub const REGISTER_SIZE: usize = ADDRESS_SIZE;
 
 pub const REGISTER_COUNT: usize = 17;
 

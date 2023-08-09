@@ -17,7 +17,7 @@ use crate::error;
 macro_rules! assert_exists {
     ($x:expr) => {
         #[allow(path_statements)]
-        const _: () = { $x ; () };
+        const _: () = { $x ; };
     };
 }
 
@@ -137,7 +137,8 @@ fn convert_inc_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_regist
 fn convert_inc_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::INC_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let cap = 1 + ADDRESS_SIZE;
+    let mut bytes = Vec::with_capacity(cap);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -175,7 +176,8 @@ fn convert_dec_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_regist
 fn convert_dec_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let cap = 1 + ADDRESS_SIZE;
+    let mut bytes = Vec::with_capacity(cap);
     bytes.push(handled_size);
 
     match &mut operands[0].value {

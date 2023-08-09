@@ -433,16 +433,21 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     || error::invalid_instruction_name(unit_path, operator_name, line_number, line)
                 );
             
-                let (instruction_code, handled_size) = arg_table.get_instruction(operator_name, &operands, unit_path, line_number, line);
+                let operation = arg_table.get_operation(operator_name, &operands, unit_path, line_number, line);
             
                 // Convert the operands to byte code and append them to the byte code
-                let converter = get_token_converter(instruction_code);
+                let converter = get_token_converter(operation.instruction);
             
                 // Add the instruction code to the byte code
-                byte_code.push(instruction_code as u8);
+                byte_code.push(operation.instruction as u8);
             
                 // Add the operands to the byte code
-                let operand_bytes = use_converter(converter, operands, handled_size, &mut label_reference_registry, byte_code.len(), line_number, unit_path, line);
+                let operand_bytes = use_converter(converter, operands, operation.handled_size, &mut label_reference_registry, byte_code.len(), line_number, unit_path, line);
+                
+                if operand_bytes.len() != operation.total_arg_size as usize {
+                    panic!("The generated operand byte code size {} for instruction \"{}\" does not match the expected size {}. This is a bug.", operand_bytes.len(), operation.instruction, operation.total_arg_size);
+                }
+
                 byte_code.extend(operand_bytes);
 
             },

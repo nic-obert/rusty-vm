@@ -1,12 +1,42 @@
 use std::path::Path;
+use std::u8;
 
-use rust_vm_lib::{byte_code::ByteCodes, token::{Token, TokenTypes}};
+use rust_vm_lib::byte_code::ByteCodes;
+use rust_vm_lib::registers::REGISTER_ID_SIZE;
+use rust_vm_lib::registers::REGISTER_SIZE;
+use rust_vm_lib::token::TokenTypes;
+use rust_vm_lib::token::Token;
+use rust_vm_lib::vm::ADDRESS_SIZE;
 
 use crate::error;
 
 
-/// A pair of operation code and handled size
-type Operation = (ByteCodes, u8);
+pub struct Operation {
+    pub instruction: ByteCodes,
+    /// Variable amount of bytes handled by the instruction
+    pub handled_size: u8,
+    /// Size of the instruction arguments in bytes
+    pub total_arg_size: u8,
+}
+
+
+impl Operation {
+
+    pub const fn new(instruction: ByteCodes, handled_size: u8, arg_size: usize) -> Self {
+        debug_assert!(handled_size <= REGISTER_SIZE as u8);
+        debug_assert!(arg_size <= u8::MAX as usize);
+
+        Self {
+            instruction,
+            handled_size,
+            // If handled_size is 0, the instruction doesn't need to specify the handled size in its arguments
+            total_arg_size: arg_size as u8 + if handled_size == 0 { 0 } else { 1 },
+        }
+    }
+
+}
+
+
 type OneArgument = [Option<Operation>; 6];
 type TwoArguments = [Option<OneArgument>; 6];
 
@@ -69,7 +99,7 @@ impl ArgTable {
 
 
     /// Return the bytecode instruction and handled size for the given operands
-    pub fn get_instruction(&self, operator_name: &str, operands: &[Token], unit_path: &Path, line_number: usize, line: &str) -> (ByteCodes, u8) {
+    pub fn get_operation(&self, operator_name: &str, operands: &[Token], unit_path: &Path, line_number: usize, line: &str) -> &Operation {
 
         match self {
             
@@ -80,7 +110,7 @@ impl ArgTable {
                     error::invalid_arg_number(unit_path, operands.len(), 0, line_number, line, operator_name);
                 }
 
-                *op
+                op
             },
 
             ArgTable::One(required_arg) => {
@@ -93,7 +123,7 @@ impl ArgTable {
                 // Return the instruction and handled size for the given operand
                 required_arg.get(operands[0].value.to_ordinal() as usize).unwrap_or_else(
                     || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line, &self.get_possible_combinations())
-                ).unwrap_or_else(
+                ).as_ref().unwrap_or_else(
                     || error::invalid_token_argument(unit_path, operator_name, &operands[0], line_number, line, &self.get_possible_combinations())
                 )
             },
@@ -115,7 +145,7 @@ impl ArgTable {
                 // Return the instruction and handled size for the given operand pair
                 required_arg_2.get(operands[1].value.to_ordinal() as usize).unwrap_or_else(
                     || error::invalid_token_argument(unit_path, operator_name, &operands[1], line_number, line, &self.get_possible_combinations())
-                ).unwrap_or_else(
+                ).as_ref().unwrap_or_else(
                     || error::invalid_token_argument(unit_path, operator_name, &operands[1], line_number, line, &self.get_possible_combinations())
                 )
             
@@ -128,1234 +158,1288 @@ impl ArgTable {
 }
 
 
-/// Return the arguments table for the given operator
-pub fn get_arguments_table(operator_name: &str) -> Option<ArgTable> {
+// Defining argument tables for all the assembly operators
 
-    match operator_name {
+const ADD_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::ADD, 0, 0));
+
+const SUB_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::SUB, 0, 0));
+
+const MUL_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::MUL, 0, 0));
+
+const DIV_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::DIV, 0, 0));
+
+const MOD_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::MOD, 0, 0));
+
+const INC_ARGS: ArgTable = ArgTable::One([ 
+    // Register
+    Some(Operation::new(ByteCodes::INC_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const INC1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const INC2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const INC4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const INC8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
+const DEC_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::DEC_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const DEC1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const DEC2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
+    // Number
+    None,
+    // Address literal
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const DEC4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const DEC8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
+const NOP_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::NO_OPERATION, 0, 0));
+
+const MOV_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const MOV1_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None,
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    None,
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const MOV2_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    None,
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const MOV4_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)),
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    None, 
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const MOV8_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        // Label
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    None,
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const PUSH_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::PUSH_FROM_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,       
+]);
+
+const PUSH1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 1, 1)),
+    // Address literal
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const PUSH2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 2, 2)),
+    // Address literal
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const PUSH4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 4, 4)), 
+    // Address literal
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const PUSH8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 8, 8)), 
+    // Address literal
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    // Label
+    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 8, ADDRESS_SIZE)),
+    // Address at label
+    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
+const POP1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::POP_INTO_REG, 1, REGISTER_ID_SIZE)), 
+    // Address in register
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const POP2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::POP_INTO_REG, 2, REGISTER_ID_SIZE)),
+    // Address in register
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const POP4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::POP_INTO_REG, 4, REGISTER_ID_SIZE)), 
+    // Address in register
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const POP8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::POP_INTO_REG, 8, REGISTER_ID_SIZE)), 
+    // Address in register
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    // Number
+    None, 
+    // Address literal
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
+const JMP_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::JUMP_TO_REG, 0, REGISTER_ID_SIZE)), 
+    // Address in register
+    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE)),
+    // Number
+    Some(Operation::new(ByteCodes::JUMP_TO_CONST, 0, ADDRESS_SIZE)),
+    // Address literal
+    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_TO_CONST, 0, ADDRESS_SIZE)),
+    // Address at label
+    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+]);
+
+const JMPNZ_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]), 
+    // Address in register
+    Some([  
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]), 
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+]);
+
+const JMPZ_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+]);
+
+const CMP_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_REG_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        None,
+        // Number
+        None,
+        // Address literal
+        None,
+        // Label
+        None,
+        // Address at label
+        None,
+    ]),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const CMP1_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 1, 1 + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1, 1 + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 1, 1 + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const CMP2_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 2, REGISTER_ID_SIZE + 2)),
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 2, 2 + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2, 2 + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 2, 2 + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const CMP4_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None,
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 4, 4 + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4, 4 + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 4, 4 + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    None,
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        None,
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const CMP8_ARGS: ArgTable = ArgTable::Two([
+    // Register
+    Some([
+        // Register
+        None, 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address in register
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Number
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 8, 8 + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, 8 + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
+    ]),
+    // Address literal
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+    // Address at label
+    Some([
+        // Register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Address in register
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        // Number
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
+        // Address literal
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        // Address at label
+        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+    ]),
+]);
+
+const PRINTI_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_SIGNED, 0, 0));
+
+const PRINTU_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_UNSIGNED, 0, 0));
+
+const PRINTC_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_CHAR, 0, 0));
+
+const PRINTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_STRING, 0, 0));
+
+const INPUTINT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_INT, 0, 0));
+
+const INPUTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_STRING, 0, 0));
+
+const EXIT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::EXIT, 0, 0));
+
+
+/// Return the arguments table for the given operator
+pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
+
+    Some(match operator_name {
 
         // Arithmetic
 
-        "add" => Some(ArgTable::Zero((ByteCodes::ADD, 0))), // No arguments
+        "add" => &ADD_ARGS,
 
-        "sub" => Some(ArgTable::Zero((ByteCodes::SUB, 0))), // No arguments
+        "sub" => &SUB_ARGS,
 
-        "mul" => Some(ArgTable::Zero((ByteCodes::MUL, 0))), // No arguments
+        "mul" => &MUL_ARGS,
 
-        "div" => Some(ArgTable::Zero((ByteCodes::DIV, 0))), // No arguments
+        "div" => &DIV_ARGS,
 
-        "mod" => Some(ArgTable::Zero((ByteCodes::MOD, 0))), // No arguments
+        "mod" => &MOD_ARGS,
 
-        "inc" => Some(ArgTable::One([ 
-            // Register
-            Some((ByteCodes::INC_REG, 0)),
-            // Address in register
-            None,
-            // Number
-            None,
-            // Address literal
-            None,
-            // Label
-            None,
-            // Address at label
-            None,
-        ])), 
+        "inc" => &INC_ARGS, 
     
-        "inc1" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::INC_ADDR_IN_REG, 1)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::INC_ADDR_LITERAL, 1)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::INC_ADDR_LITERAL, 1)),
-        ])),
+        "inc1" => &INC1_ARGS,
         
-        "inc2" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::INC_ADDR_IN_REG, 2)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::INC_ADDR_LITERAL, 2)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::INC_ADDR_LITERAL, 2)),
-        ])),
+        "inc2" => &INC2_ARGS,
 
-        "inc4" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::INC_ADDR_IN_REG, 4)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::INC_ADDR_LITERAL, 4)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::INC_ADDR_LITERAL, 4)),
-        ])),
+        "inc4" => &INC4_ARGS,
     
-        "inc8" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::INC_ADDR_IN_REG, 8)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::INC_ADDR_LITERAL, 8)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::INC_ADDR_LITERAL, 8)),
-        ])),
+        "inc8" => &INC8_ARGS,
 
-        "dec" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::DEC_REG, 0)),
-            // Address in register
-            None,
-            // Number
-            None,
-            // Address literal
-            None,
-            // Label
-            None,
-            // Address at label
-            None,
-        ])),
+        "dec" => &DEC_ARGS,
         
-        "dec1" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::DEC_ADDR_IN_REG, 1)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::DEC_ADDR_LITERAL, 1)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::DEC_ADDR_LITERAL, 1)),
-        ])),
+        "dec1" => &DEC1_ARGS,
         
-        "dec2" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::DEC_ADDR_IN_REG, 2)),
-            // Number
-            None,
-            // Address literal
-            Some((ByteCodes::DEC_ADDR_LITERAL, 2)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::DEC_ADDR_LITERAL, 2)),
-        ])),
+        "dec2" => &DEC2_ARGS,
         
-        "dec4" => Some(ArgTable::One([
-            // Register
-            None, 
-            // Address in register
-            Some((ByteCodes::DEC_ADDR_IN_REG, 4)),
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::DEC_ADDR_LITERAL, 4)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::DEC_ADDR_LITERAL, 4)),
-        ])),
+        "dec4" => &DEC4_ARGS,
         
-        "dec8" => Some(ArgTable::One([
-            // Register
-            None,
-            // Address in register
-            Some((ByteCodes::DEC_ADDR_IN_REG, 8)),
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::DEC_ADDR_LITERAL, 8)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::DEC_ADDR_LITERAL, 8)),
-        ])),
+        "dec8" => &DEC8_ARGS,
     
         // No operation
 
-        "nop" => Some(ArgTable::Zero((ByteCodes::NO_OPERATION, 0))), // No arguments
+        "nop" => &NOP_ARGS,
 
         // Memory
 
-        "mov" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_REG_FROM_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address in register
-            None,
-            // Number
-            None,
-            // Address literal
-            None,
-            // Label
-            None,
-            // Address at label
-            None,
-        ])),
+        "mov" => &MOV_ARGS,
 
-        "mov1" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None,
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_REG_FROM_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 1)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 1)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1)),
-            ]),
-            // Number
-            None,
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1)),
-            ]),
-            // Label
-            None,
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1)),
-            ]),
-        ])),
+        "mov1" => &MOV1_ARGS,
 
-        "mov2" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 2)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_REG_FROM_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 2)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 2)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2)),
-            ]),
-            // Number
-            None,
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2)),
-            ]),
-            // Label
-            None,
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2)),
-            ]),
-        ])),
+        "mov2" => &MOV2_ARGS,
         
-        "mov4" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 4)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_REG_FROM_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 4)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 4)),
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4)),
-            ]),
-            // Number
-            None, 
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4)),
-            ]),
-            // Label
-            None,
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4)), 
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4)),
-            ]),
-        ])),
+        "mov4" => &MOV4_ARGS,
 
-        "mov8" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 8)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_REG_FROM_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8)), 
-                // Label
-                Some((ByteCodes::MOVE_INTO_REG_FROM_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 8)),
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 8)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8)),
-            ]),
-            // Number
-            None,
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8)), 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8)),
-            ]),
-            // Label
-            None,
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8)), 
-                // Address in register
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8)), 
-                // Number
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8)),
-            ]),
-        ])),
+        "mov8" => &MOV8_ARGS,
         
-        "push" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::PUSH_FROM_REG, 0)),
-            // Address in register
-            None,
-            // Number
-            None,
-            // Address literal
-            None,
-            // Label
-            None,
-            // Address at label
-            None,       
-        ])),
+        "push" => &PUSH_ARGS,
 
-        "push1" => Some(ArgTable::One([
-            // Register
-            None, 
-            // Address in register
-            Some((ByteCodes::PUSH_FROM_ADDR_IN_REG, 1)), 
-            // Number
-            Some((ByteCodes::PUSH_FROM_CONST, 1)),
-            // Address literal
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 1)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 1)),
-        ])),
+        "push1" => &PUSH1_ARGS,
 
-        "push2" => Some(ArgTable::One([
-            // Register
-            None, 
-            // Address in register
-            Some((ByteCodes::PUSH_FROM_ADDR_IN_REG, 2)), 
-            // Number
-            Some((ByteCodes::PUSH_FROM_CONST, 2)),
-            // Address literal
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 2)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 2)),
-        ])),
+        "push2" => &PUSH2_ARGS,
 
-        "push4" => Some(ArgTable::One([
-            // Register
-            None, 
-            // Address in register
-            Some((ByteCodes::PUSH_FROM_ADDR_IN_REG, 4)), 
-            // Number
-            Some((ByteCodes::PUSH_FROM_CONST, 4)), 
-            // Address literal
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 4)),
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 4)),
-        ])),
+        "push4" => &PUSH4_ARGS,
 
-        "push8" => Some(ArgTable::One([
-            // Register
-            None, 
-            // Address in register
-            Some((ByteCodes::PUSH_FROM_ADDR_IN_REG, 8)), 
-            // Number
-            Some((ByteCodes::PUSH_FROM_CONST, 8)), 
-            // Address literal
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 8)), 
-            // Label
-            Some((ByteCodes::PUSH_FROM_CONST, 8)),
-            // Address at label
-            Some((ByteCodes::PUSH_FROM_ADDR_LITERAL, 8)),
-        ])),
+        "push8" => &PUSH8_ARGS,
         
-        "pop1" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::POP_INTO_REG, 1)), 
-            // Address in register
-            Some((ByteCodes::POP_INTO_ADDR_IN_REG, 1)), 
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 1)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 1)),
-        ])),
+        "pop1" => &POP1_ARGS,
         
-        "pop2" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::POP_INTO_REG, 2)),
-            // Address in register
-            Some((ByteCodes::POP_INTO_ADDR_IN_REG, 2)), 
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 2)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 2)),
-        ])),
+        "pop2" => &POP2_ARGS,
         
-        "pop4" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::POP_INTO_REG, 4)), 
-            // Address in register
-            Some((ByteCodes::POP_INTO_ADDR_IN_REG, 4)),
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 4)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 4)),
-        ])),
+        "pop4" => &POP4_ARGS,
         
-        "pop8" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::POP_INTO_REG, 8)), 
-            // Address in register
-            Some((ByteCodes::POP_INTO_ADDR_IN_REG, 8)), 
-            // Number
-            None, 
-            // Address literal
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 8)), 
-            // Label
-            None,
-            // Address at label
-            Some((ByteCodes::POP_INTO_ADDR_LITERAL, 8)),
-        ])),
+        "pop8" => &POP8_ARGS,
         
         // Control flow
 
-        "jmp" => Some(ArgTable::One([
-            // Register
-            Some((ByteCodes::JUMP_TO_REG, 0)), 
-            // Address in register
-            Some((ByteCodes::JUMP_TO_ADDR_IN_REG, 0)),
-            // Number
-            Some((ByteCodes::JUMP_TO_CONST, 0)),
-            // Address literal
-            Some((ByteCodes::JUMP_TO_ADDR_LITERAL, 0)),
-            // Label
-            Some((ByteCodes::JUMP_TO_CONST, 0)),
-            // Address at label
-            Some((ByteCodes::JUMP_TO_ADDR_LITERAL, 0)),
-        ])),
+        "jmp" => &JMP_ARGS,
 
-        "jmpnz" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]), 
-            // Address in register
-            Some([  
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]), 
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0)), 
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-        ])),
+        "jmpnz" => &JMPNZ_ARGS,
 
-        "jmpz" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_IN_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0)), 
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-        ])),
+        "jmpz" => &JMPZ_ARGS,
 
         // Comparison
 
-        "cmp" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_REG_REG, 0)),
-                // Address in register
-                None,
-                // Number
-                None,
-                // Address literal
-                None,
-                // Label
-                None,
-                // Address at label
-                None,
-            ]),
-            // Address in register
-            None,
-            // Number
-            None,
-            // Address literal
-            None,
-            // Label
-            None,
-            // Address at label
-            None,
-        ])),
+        "cmp" => &CMP_ARGS,
 
-        "cmp1" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 1)), 
-                // Number
-                Some((ByteCodes::COMPARE_REG_CONST, 1)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 1)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 1)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 1)), 
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1)),
-            ]),
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 1)),
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1)), 
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 1)),
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 1)),
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1)),
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 1)),
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1)),
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1)),
-            ]),
-        ])),
+        "cmp1" => &CMP1_ARGS,
 
-        "cmp2" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::COMPARE_REG_CONST, 2)),
-                // Address literal
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 2)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 2)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 2)), 
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2)),
-            ]),
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 2)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 2)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 2)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2)),
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 2)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2)),
-            ]),
-        ])),
+        "cmp2" => &CMP2_ARGS,
 
-        "cmp4" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None,
-                // Address in register
-                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 4)),
-                // Number
-                Some((ByteCodes::COMPARE_REG_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 4)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 4)), 
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4)),
-            ]),
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4)),
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 4)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
-                // Label
-                None,
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4)),
-            ]),
-        ])),
+        "cmp4" => &CMP4_ARGS,
 
-        "cmp8" => Some(ArgTable::Two([
-            // Register
-            Some([
-                // Register
-                None, 
-                // Address in register
-                Some((ByteCodes::COMPARE_REG_ADDR_IN_REG, 8)),
-                // Number
-                Some((ByteCodes::COMPARE_REG_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_REG_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_REG_ADDR_LITERAL, 8)),
-            ]),
-            // Address in register
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_REG, 8)), 
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 8)), 
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8)),
-            ]),
-            // Number
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 8)),
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_CONST_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
-            ]),
-            // Address literal
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 8)),
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
-            ]),
-            // Label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_CONST_REG, 8)),
-                // Address in register
-                Some((ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8)),
-                // Number
-                Some((ByteCodes::COMPARE_CONST_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_CONST_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8)),
-            ]),
-            // Address at label
-            Some([
-                // Register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_REG, 8)),
-                // Address in register
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8)),
-                // Number
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)), 
-                // Address literal
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
-                // Label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8)),
-                // Address at label
-                Some((ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8)),
-            ]),
-        ])),
+        "cmp8" => &CMP8_ARGS,
 
         // Interrupts
 
-        "iprint" => Some(ArgTable::Zero((ByteCodes::PRINT_SIGNED, 0))), // No arguments
+        "printi" => &PRINTI_ARGS,
 
-        "uprint" => Some(ArgTable::Zero((ByteCodes::PRINT_UNSIGNED, 0))), // No arguments
+        "printu" => &PRINTU_ARGS,
 
-        "printc" => Some(ArgTable::Zero((ByteCodes::PRINT_CHAR, 0))), // No arguments
+        "printc" => &PRINTC_ARGS,
 
-        "printstr" => Some(ArgTable::Zero((ByteCodes::PRINT_STRING, 0))), // No argumets
+        "printstr" => &PRINTSTR_ARGS,
 
-        "inputint" => Some(ArgTable::Zero((ByteCodes::INPUT_INT, 0))), // No arguments
+        "inputint" => &INPUTINT_ARGS,
 
-        "inputstr" => Some(ArgTable::Zero((ByteCodes::INPUT_STRING, 0))), // No arguments
+        "inputstr" => &INPUTSTR_ARGS,
 
-        "exit" => Some(ArgTable::Zero((ByteCodes::EXIT, 0))), // No arguments
+        "exit" => &EXIT_ARGS,
 
-        _ => None
+        _ => return None
 
-    }
+    })
 
 }
 

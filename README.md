@@ -173,8 +173,8 @@ The first operand is treated as the destination by the processor, whereas the se
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
-| `iprint`    | Print the signed integer value stored in the `print` register. |
-| `uprint`    | Print the unsigned integer value stored in the `print` register. |
+| `printi`    | Print the signed integer value stored in the `print` register. |
+| `printu`    | Print the unsigned integer value stored in the `print` register. |
 | `printc`    | Print the unicode character stored in the `print` register. |
 | `printstr`  | Print the string at the address stored in the `print` register. |
 | `inputint`  | Get the next integer input from the console and store it in the `input` register. |
