@@ -26,6 +26,17 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> i64 {
 }
 
 
+/// Interprets the given bytes as an address
+/// 
+/// The byte array must be 8 bytes long
+#[inline(always)]
+fn bytes_as_address(bytes: &[Byte]) -> Address {
+    unsafe {
+        *(bytes.as_ptr() as *const Address)
+    }
+}
+
+
 pub struct Processor {
 
     registers: [i64; REGISTER_COUNT],
@@ -121,10 +132,9 @@ impl Processor {
     /// Get the next address in the bytecode
     #[inline(always)]
     fn get_next_address(&mut self) -> Address {
-        unsafe {
-            // Interpret the next ADDRESS_SIZE bytes as an address
-            * (self.get_next_bytes(ADDRESS_SIZE).as_ptr() as *const Address)
-        }
+        bytes_as_address(
+            self.get_next_bytes(ADDRESS_SIZE)
+        )
     }
 
 
@@ -666,9 +676,9 @@ impl Processor {
     fn handle_jump_to_addr_in_reg(&mut self) {
         let address_reg = Registers::from(self.get_next_byte());
         let address = self.get_register(address_reg) as Address;
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
 
         self.jump_to(jump_address);
     }
@@ -683,9 +693,9 @@ impl Processor {
 
     fn handle_jump_to_addr_literal(&mut self) {
         let address = self.get_next_address();
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
 
         self.jump_to(jump_address);
     }
@@ -731,9 +741,9 @@ impl Processor {
 
     fn handle_jump_if_not_zero_to_addr_literal(&mut self) {
         let address = self.get_next_address();
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
 
         let test_reg = Registers::from(self.get_next_byte());
 
@@ -758,9 +768,9 @@ impl Processor {
     fn handle_jump_if_zero_to_addr_in_reg(&mut self) {
         let address_reg = Registers::from(self.get_next_byte());
         let address = self.get_register(address_reg) as Address;
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
 
         let test_reg = Registers::from(self.get_next_byte());
 
@@ -783,15 +793,78 @@ impl Processor {
 
     fn handle_jump_if_zero_to_addr_literal(&mut self) {
         let address = self.get_next_address();
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
 
         let test_reg = Registers::from(self.get_next_byte());
 
         if self.get_register(test_reg) == 0 {
             self.jump_to(jump_address);
         }
+    }
+
+
+    fn handle_call_reg(&mut self) {
+        let address_reg = Registers::from(self.get_next_byte());
+        let jump_address = self.get_register(address_reg) as Address;
+
+        // Push the return address onto the stack
+        self.push_stack(self.get_pc() as i64);
+
+        // Jump to the subroutine
+        self.jump_to(jump_address);
+    }
+
+
+    fn handle_call_addr_in_reg(&mut self) {
+        let address_reg = Registers::from(self.get_next_byte());
+        let address = self.get_register(address_reg) as Address;
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
+
+        // Push the return address onto the stack
+        self.push_stack(self.get_pc() as i64);
+
+        // Jump to the subroutine
+        self.jump_to(jump_address);
+    }
+
+
+    fn handle_call_const(&mut self) {
+        let jump_address = self.get_next_address();
+
+        // Push the return address onto the stack
+        self.push_stack(self.get_pc() as i64);
+
+        // Jump to the subroutine
+        self.jump_to(jump_address);
+    }
+
+
+    fn handle_call_addr_literal(&mut self) {
+        let address = self.get_next_address();
+        let jump_address = bytes_as_address(
+            self.memory.get_bytes(address, ADDRESS_SIZE)
+        );
+
+        // Push the return address onto the stack
+        self.push_stack(self.get_pc() as i64);
+
+        // Jump to the subroutine
+        self.jump_to(jump_address);
+    }
+
+
+    fn handle_return(&mut self) {
+        // Get the return address from the stack
+        let return_address = bytes_as_address(
+            self.pop_stack_bytes(ADDRESS_SIZE)
+        );
+
+        // Jump to the return address
+        self.jump_to(return_address);
     }
 
 
@@ -1206,6 +1279,12 @@ impl Processor {
         Self::handle_jump_if_zero_to_addr_in_reg,
         Self::handle_jump_if_zero_to_const,
         Self::handle_jump_if_zero_to_addr_literal,
+
+        Self::handle_call_reg,
+        Self::handle_call_addr_in_reg,
+        Self::handle_call_const,
+        Self::handle_call_addr_literal,
+        Self::handle_return,
 
         Self::handle_compare_reg_reg,
         Self::handle_compare_reg_addr_in_reg,

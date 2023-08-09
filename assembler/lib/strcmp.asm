@@ -3,7 +3,7 @@
 # Return 1 if strings are equal
 # Return value is 1 byte large
 # Function call memory structure
-# | return value | return address | args |
+# | return value | return address | string 1 address | string 2 address |
 
 
 .text:

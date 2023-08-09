@@ -733,6 +733,59 @@ fn convert_jump_if_zero_reg_to_addr_literal(mut operands: Vec<Token>, handled_si
 }
 
 
+fn convert_call_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::CALL_REG);
+    
+    extract!(operands[0], Register).to_bytes().to_vec()
+}
+
+
+fn convert_call_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::CALL_ADDR_IN_REG);
+    
+    extract!(operands[0], AddressInRegister).to_bytes().to_vec()
+}
+
+
+fn convert_call_const(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::CALL_CONST);
+    
+    match &mut operands[0].value {
+        TokenValue::Number(value) => {
+            fit_into_bytes(*value, ADDRESS_SIZE as u8).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, ADDRESS_SIZE as u8, line_number, line)
+            )
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code, line_number);
+            LABEL_PLACEHOLDER.to_vec()
+        },
+        _ => unreachable!()
+    }
+}
+
+
+fn convert_call_addr_literal(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::CALL_ADDR_LITERAL);
+    
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => address.to_le_bytes().to_vec(),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code, line_number);
+            LABEL_PLACEHOLDER.to_vec()
+        },
+        _ => unreachable!()
+    }
+}
+
+
+fn convert_return(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::RETURN);
+    
+    Vec::new()
+}
+
+
 fn convert_compare_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_REG_REG);
     
@@ -1210,6 +1263,12 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_jump_if_zero_reg_to_addr_in_reg,
     convert_jump_if_zero_reg_to_const,
     convert_jump_if_zero_reg_to_addr_literal,
+
+    convert_call_reg,
+    convert_call_addr_in_reg,
+    convert_call_const,
+    convert_call_addr_literal,
+    convert_return,
 
     convert_compare_reg_reg,
     convert_compare_reg_addr_in_reg,

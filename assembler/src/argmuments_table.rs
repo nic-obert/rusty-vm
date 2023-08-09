@@ -954,6 +954,23 @@ const JMPZ_ARGS: ArgTable = ArgTable::Two([
     ]),
 ]);
 
+const CALL_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Operation::new(ByteCodes::CALL_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    Some(Operation::new(ByteCodes::CALL_ADDR_IN_REG, 0, REGISTER_ID_SIZE)),
+    // Number
+    Some(Operation::new(ByteCodes::CALL_CONST, 0, ADDRESS_SIZE)),
+    // Address literal
+    Some(Operation::new(ByteCodes::CALL_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    // Label
+    Some(Operation::new(ByteCodes::CALL_CONST, 0, ADDRESS_SIZE)),
+    // Address at label
+    Some(Operation::new(ByteCodes::CALL_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+]);
+
+const RET_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::RETURN, 0, 0));
+
 const CMP_ARGS: ArgTable = ArgTable::Two([
     // Register
     Some([
@@ -1408,6 +1425,10 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "jmpnz" => &JMPNZ_ARGS,
 
         "jmpz" => &JMPZ_ARGS,
+
+        "call" => &CALL_ARGS,
+
+        "ret" => &RET_ARGS,
 
         // Comparison
 

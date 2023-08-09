@@ -158,6 +158,8 @@ The first operand is treated as the destination by the processor, whereas the se
 | `jmp a`     | Jump to the specified address `a`. |
 | `jmpnz a b` | Jump to the specified address `a` if the value stored in register `b` is not zero. |
 | `jmpz a b`  | Jump to the specified address `a` if the value stored in register `b` is zero. |
+| `call a`    | Push the current `pc` onto the stack and jump to the specified address `a`. |
+| `ret`       | Pop 8 bytes from the top of the stack and jump to the popped address. |
 
 ### Comparison instructions
 
