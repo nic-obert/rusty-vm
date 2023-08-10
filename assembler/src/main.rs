@@ -6,37 +6,28 @@ mod argmuments_table;
 mod error;
 mod data_types;
 mod configs;
+mod cli_parser;
 
 use std::path::Path;
 use clap::Parser;
 
-
-#[derive(Parser)]
-#[clap(author, version, about)]
-struct Cli {
-
-    /// The input file path to assemble
-    #[clap(value_parser)]
-    pub input_file: String,
-
-    /// The output file path to write the byte code to
-    #[clap(short, long)]
-    pub output: Option<String>,
-
-    /// Run the assembler in verbose mode
-    #[clap(short, long, action)]
-    pub verbose: bool,
-}
+use crate::cli_parser::CliParser;
 
 
 fn main() {
 
-    let args = Cli::parse();
+    let args = CliParser::parse();
 
     let phantom_path = Path::new("_start_");
     let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
         |err| error::io_error(phantom_path, &err, format!("Failed to canonicalize path \"{}\"", &args.input_file).as_str())
     );
+
+    if let Some(extension) = main_path.extension() {
+        if extension != "asm" {
+            println!("Warning: The input file extension is not \".asm\".");
+        }
+    }
 
     let assembly = match files::load_assembly(&main_path) {
 

@@ -2,8 +2,6 @@
 # Return 0 if strings are not equal
 # Return 1 if strings are equal
 # Return value is 1 byte large
-# Function call memory structure
-# | return value | return address | string 1 address | string 2 address |
 
 
 .text:
@@ -13,18 +11,14 @@
     # Initialize the character index register
     mov8 r8 0
 
-    # Get the first string address from the stack and consume it
-    pop8 r3
-    
-    # Get the second string address from the stack and consume it
-    pop8 r4
-
-    # Now sp points to after the return address
+    # Move the strings into r3 and r4 registers
+    mov r3 r1
+    mov r4 r2
 
     # Initialize the return value to 0 (strings are not equal)
     mov r1 sp
     mov1 r2 9
-    add
+    sub
 
     # r1 now stores the address of the return value
 
@@ -45,12 +39,15 @@
         mov1 r5 [r1]
 
         # Calculate the address of the char from s2
-        mov r1 r3
+        mov r1 r4
         # r2 is still the char index
         add
 
+        # Deref the char
+        mov1 r1 [r1]
+
         # Compare the chars
-        cmp1 r5 [r1]
+        cmp r5 r1
 
         # If the chars are equal, zf is 1, else 0
         
@@ -58,7 +55,7 @@
         jmpz endloop zf
 
         # The chars are equal, check if they are null and finish
-        jmpz equal r5
+        jmpz equal r1
 
         # If the chars are equal but not null, continue
         inc r8
@@ -70,11 +67,6 @@
 
     @endloop
 
-    # Get the return address and consume it from the stack
-    pop8 r1
-
     # Return to the caller
-    jmp r1
-
-    # Everything has been popped already     
+    ret
 

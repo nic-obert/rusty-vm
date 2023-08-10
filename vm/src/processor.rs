@@ -1,11 +1,14 @@
-use std::io::{Write, self};
+use std::io::Write;
+use std::io;
 
-use rust_vm_lib::registers::{Registers, REGISTER_COUNT};
+use rust_vm_lib::registers::{Registers, REGISTER_COUNT, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::memory::{Memory, Size, Byte};
 use crate::errors::ErrorCodes;
+use crate::cli_parser::ExecutionMode;
+
 
 
 /// Converts a byte array to an integer
@@ -56,7 +59,7 @@ impl Processor {
 
 
     /// Execute the given bytecode
-    pub fn execute(&mut self, byte_code: &[Byte], verbose: bool) {
+    pub fn execute(&mut self, byte_code: &[Byte], mode: ExecutionMode) {
 
         // Load the program into memory
         self.push_stack_bytes(byte_code);
@@ -67,14 +70,15 @@ impl Processor {
             panic!("Bytecode is too small to contain a start address: minimum required size is {} bytes, got {}", ADDRESS_SIZE, byte_code.len());
         }
 
-        let program_start: Address = bytes_to_int(&byte_code[byte_code.len() - ADDRESS_SIZE..], ADDRESS_SIZE as Byte) as Address;
+        let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
         self.set_register(Registers::PROGRAM_COUNTER, program_start as i64);
 
-        if verbose {
-            self.run_verbose();
-        } else {
-            self.run();
+        match mode {
+            ExecutionMode::Normal => self.run(),
+            ExecutionMode::Verbose => self.run_verbose(),
+            ExecutionMode::Interactive => self.run_interactive(byte_code.len()),
         }
+            
     }
 
 
@@ -89,6 +93,13 @@ impl Processor {
     #[inline(always)]
     fn get_pc(&self) -> Address {
         self.registers[Registers::PROGRAM_COUNTER as usize] as Address
+    }
+
+
+    /// Get the stack pointer
+    #[inline(always)]
+    fn get_sp(&self) -> Address {
+        self.registers[Registers::STACK_POINTER as usize] as Address
     }
 
 
@@ -285,6 +296,41 @@ impl Processor {
             let opcode = ByteCodes::from(self.get_next_byte());
             self.handle_instruction(opcode);
         }
+    }
+
+
+    fn run_interactive(&mut self, byte_code_size: usize) {
+
+        println!("Running VM in interactive mode");
+        println!("Byte code size is {} bytes", byte_code_size);
+        println!("Start address is: {}", self.get_pc());
+        println!("");
+
+        loop {
+            let opcode = ByteCodes::from(self.get_next_byte());
+
+            println!("PC: {}, opcode: {}", self.get_pc(), opcode);
+            println!("Registers: {}", self.display_registers());
+
+            let max_stack_view_range = 32;
+            // Don't print the program text section
+            let lower_bound = if self.get_sp() - byte_code_size > max_stack_view_range { self.get_sp() - max_stack_view_range } else { byte_code_size };
+            println!(
+                "Stack: #{} {:?} #{}",
+                lower_bound, &self.memory.get_raw()[lower_bound .. self.get_sp()], self.get_sp()
+            );
+
+            io::stdin().read_line(&mut String::new()).unwrap();
+
+            self.handle_instruction(opcode);
+        }
+    }
+
+
+    fn display_registers(&self) -> String {
+        (0..REGISTER_COUNT).map(
+            |i| format!("{}: {}, ", registers::REGISTER_NAMES[i], self.registers[i])
+        ).collect()
     }
 
 

@@ -125,24 +125,33 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         error::invalid_character(unit_path, c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
                     }
 
-                    // Handle escape characters
-                   
-                    string_length += 1;
-
                     if escape_char {
                         *value = match_escape_char(c, line_number, char_index, line, unit_path);
                         escape_char = false;
-                    } else if c == '\'' {
-                        // The character literal is complete
-                        if string_length == 0 {
-                            error::invalid_character(unit_path, c, line_number, char_index, line, "Character literals cannot be empty.");
+                        string_length += 1;
+                        continue;
+                    } 
+                    
+                    match c {
+
+                        '\'' => {
+                            // The character literal is complete
+                            if string_length == 0 {
+                                error::invalid_character(unit_path, c, line_number, char_index, line, "Character literals cannot be empty.");
+                            }
+                            string_length = 0;
+                            // Convert the character to a byte
+                            tokens.push(Token::new(TokenValue::Number(*value as i64)));
+                            current_token = None;
+                        },
+
+                        '\\' => escape_char = true,
+
+                        _ => {
+                            *value = c;
+                            string_length += 1;
                         }
-                        string_length = 0;
-                        // Convert the character to a byte
-                        tokens.push(Token::new(TokenValue::Number(*value as i64)));
-                        current_token = None;
-                    } else {
-                        *value = c;
+
                     }
 
                     continue;

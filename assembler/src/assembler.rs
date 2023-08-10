@@ -512,6 +512,11 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> Byte
 
     byte_code.extend(program_start.to_le_bytes());
 
+    if verbose {
+        println!("Byte code size is {} bytes", byte_code.len());
+        println!("Start address is {}", program_start);
+    }
+
     byte_code
 }
 

@@ -14,6 +14,7 @@
 
 ### Done ✅
 
+- [ ] add interactive vm execution for debugging asm  
 - [ ] substitute vectors for static arrays in arguments table for performance and safety  
 - [ ] substitute panics for unreachable  
 - [ ] improve argument errors by displaying which arguments are required by operators  

@@ -45,10 +45,11 @@ pub enum TokenTypes {
     Number = 2,
     AddressLiteral = 3,
     Label = 4,
-    Name = 5,
-    AddressGeneric = 6,
-    CurrentPosition = 7,
-    AddressInRegisterIncomplete = 8,
+    AddressAtLabel = 5,
+    Name = 6,
+    AddressGeneric = 7,
+    CurrentPosition = 8,
+    AddressInRegisterIncomplete = 9,
 }
 
 
@@ -61,6 +62,7 @@ impl TokenTypes {
             2 => TokenTypes::Number,
             3 => TokenTypes::AddressLiteral,
             4 => TokenTypes::Label,
+            5 => TokenTypes::AddressAtLabel,
             _ => panic!("Invalid ordinal value for token type"),
         }
     }
@@ -77,6 +79,7 @@ impl TokenTypes {
             TokenTypes::AddressGeneric => unreachable!(),
             TokenTypes::CurrentPosition => unreachable!(),
             TokenTypes::AddressInRegisterIncomplete => unreachable!(),
+            TokenTypes::AddressAtLabel => unreachable!(),
         }
     }
 
@@ -130,6 +133,7 @@ impl fmt::Display for TokenTypes {
             TokenTypes::Number => write!(f, "NUMBER"),
             TokenTypes::AddressLiteral => write!(f, "ADDRESS_LITERAL"),
             TokenTypes::Label => write!(f, "LABEL"),
+            TokenTypes::AddressAtLabel => write!(f, "ADDRESS_AT_LABEL"),
             TokenTypes::Name => write!(f, "NAME"),
             TokenTypes::AddressGeneric => panic!("AddressGeneric does not have a display value"),
             TokenTypes::CurrentPosition => panic!("CurrentPosition does not have a display value"),

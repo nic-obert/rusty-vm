@@ -4,43 +4,34 @@ mod memory;
 mod video;
 mod errors;
 mod files;
+mod cli_parser;
+
+use std::path::Path;
 
 use clap::Parser;
-use std::path::PathBuf;
 
-
-#[derive(Parser)]
-#[clap(author, about, version)]
-struct Cli {
-
-    /// The input bytecode file to execute
-    #[clap(value_parser)]
-    pub input_file: PathBuf,
-
-    /// Stack size in bytes
-    #[clap(long, default_value = "1024")]
-    pub stack_size: usize,
-
-    /// Video memory size in pixels
-    #[clap(long, default_value = "1024")]
-    pub video_size: usize,
-
-    /// Verbose mode
-    #[clap(short, long, action)]
-    pub verbose: bool,
-
-}
+use cli_parser::CliParser;
 
 
 fn main() {
  
-    let args = Cli::parse();
+    let args = CliParser::parse();
+
+    let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
+        |err| panic!("Failed to canonicalize path \"{}\"\n\n{}", args.input_file.display(), err)
+    );
+
+    if let Some(extension) = main_path.extension() {
+        if extension != "bc" {
+            println!("Warning: The input file extension is not \".bc\".");
+        }
+    }
 
     let byte_code = files::load_byte_code(&args.input_file);
 
     let mut processor = processor::Processor::new(args.stack_size, args.video_size);
 
-    processor.execute(&byte_code, args.verbose);
+    processor.execute(&byte_code, args.mode);
 
 }
 
