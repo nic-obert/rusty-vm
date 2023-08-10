@@ -1340,6 +1340,8 @@ const PRINTC_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_CHA
 
 const PRINTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_STRING, 0, 0));
 
+const PRINTBYTES_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_BYTES, 0, 0));
+
 const INPUTINT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_INT, 0, 0));
 
 const INPUTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_STRING, 0, 0));
@@ -1451,6 +1453,8 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "printc" => &PRINTC_ARGS,
 
         "printstr" => &PRINTSTR_ARGS,
+
+        "printbytes" => &PRINTBYTES_ARGS,
 
         "inputint" => &INPUTINT_ARGS,
 

@@ -85,6 +85,7 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "PRINT_UNSIGNED",
     "PRINT_CHAR",
     "PRINT_STRING",
+    "PRINT_BYTES",
 
     "INPUT_INT",
     "INPUT_STRING",
@@ -179,6 +180,7 @@ pub enum ByteCodes {
     PRINT_UNSIGNED,
     PRINT_CHAR,
     PRINT_STRING,
+    PRINT_BYTES,
 
     INPUT_INT,
     INPUT_STRING,

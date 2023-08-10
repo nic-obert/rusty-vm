@@ -1173,7 +1173,6 @@ fn convert_print_char (_operands: Vec<Token>, _handled_size: u8, _label_registry
 }
 
 
-// ByteCodes::PRINT_STRING
 fn convert_print_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::PRINT_STRING);
 
@@ -1181,7 +1180,13 @@ fn convert_print_string (_operands: Vec<Token>, _handled_size: u8, _label_regist
 }
 
 
-// ByteCodes::INPUT_INT
+fn convert_print_bytes(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PRINT_BYTES);
+
+    Vec::new()
+}
+
+
 fn convert_input_int (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::INPUT_INT);
     
@@ -1189,7 +1194,6 @@ fn convert_input_int (_operands: Vec<Token>, _handled_size: u8, _label_registry:
 }
 
 
-// ByteCodes::INPUT_STRING
 fn convert_input_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::INPUT_STRING);
 
@@ -1197,7 +1201,6 @@ fn convert_input_string (_operands: Vec<Token>, _handled_size: u8, _label_regist
 }
 
 
-// ByteCodes::EXIT
 fn convert_exit (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::EXIT);
 
@@ -1291,6 +1294,7 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_print_unsigned,
     convert_print_char,
     convert_print_string,
+    convert_print_bytes,
 
     convert_input_int,
     convert_input_string,

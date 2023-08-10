@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
@@ -14,6 +15,7 @@
 
 ### Done ✅
 
+- [ ] add printbytes  
 - [ ] add interactive vm execution for debugging asm  
 - [ ] substitute vectors for static arrays in arguments table for performance and safety  
 - [ ] substitute panics for unreachable  

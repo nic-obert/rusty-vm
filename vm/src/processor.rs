@@ -1216,6 +1216,15 @@ impl Processor {
     }
 
 
+    fn handle_print_bytes(&mut self) {
+        let bytes_address = self.get_register(Registers::PRINT) as Address;
+        let length = self.get_register(Registers::R1) as usize;
+        let bytes = self.memory.get_bytes(bytes_address, length);
+
+        io::stdout().write(bytes).expect("Failed to write to stdout");
+    }
+
+
     fn handle_input_int(&mut self) {
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
@@ -1353,7 +1362,8 @@ impl Processor {
         Self::handle_print_unsigned,
         Self::handle_print_char,
         Self::handle_print_string,
-
+        Self::handle_print_bytes,
+        
         Self::handle_input_int,
         Self::handle_input_string,
 
