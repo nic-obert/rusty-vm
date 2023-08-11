@@ -43,25 +43,21 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
 
     "LABEL",
 
-    "JUMP_TO_REG",
-    "JUMP_TO_ADDR_IN_REG",
-    "JUMP_TO_CONST",
-    "JUMP_TO_ADDR_LITERAL",
+    "JUMP",
+    "JUMP_NOT_ZERO",
+    "JUMP_ZERO",
+    "JUMP_GREATER",
+    "JUMP_LESS",
+    "JUMP_GREATER_OR_EQUAL",
+    "JUMP_LESS_OR_EQUAL",
+    "JUMP_CARRY",
+    "JUMP_NOT_CARRY",
+    "JUMP_OVERFLOW",
+    "JUMP_NOT_OVERFLOW",
+    "JUMP_SIGN",
+    "JUMP_NOT_SIGN",
 
-    "JUMP_IF_NOT_ZERO_REG_TO_REG",
-    "JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG",
-    "JUMP_IF_NOT_ZERO_REG_TO_CONST",
-    "JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL",
-
-    "JUMP_IF_ZERO_REG_TO_REG",
-    "JUMP_IF_ZERO_REG_TO_ADDR_IN_REG",
-    "JUMP_IF_ZERO_REG_TO_CONST",
-    "JUMP_IF_ZERO_REG_TO_ADDR_LITERAL",
-
-    "CALL_REG",
-    "CALL_ADDR_IN_REG",
-    "CALL_CONST",
-    "CALL_ADDR_LITERAL",
+    "CALL",
     "RETURN",
 
     "COMPARE_REG_REG",
@@ -138,25 +134,21 @@ pub enum ByteCodes {
 
     LABEL,
 
-    JUMP_TO_REG,
-    JUMP_TO_ADDR_IN_REG,
-    JUMP_TO_CONST,
-    JUMP_TO_ADDR_LITERAL,
+    JUMP,
+    JUMP_NOT_ZERO,
+    JUMP_ZERO,
+    JUMP_GREATER,
+    JUMP_LESS,
+    JUMP_GREATER_OR_EQUAL,
+    JUMP_LESS_OR_EQUAL,
+    JUMP_CARRY,
+    JUMP_NOT_CARRY,
+    JUMP_OVERFLOW,
+    JUMP_NOT_OVERFLOW,
+    JUMP_SIGN,
+    JUMP_NOT_SIGN,
 
-    JUMP_IF_NOT_ZERO_REG_TO_REG,
-    JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG,
-    JUMP_IF_NOT_ZERO_REG_TO_CONST,
-    JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL,
-
-    JUMP_IF_ZERO_REG_TO_REG,
-    JUMP_IF_ZERO_REG_TO_ADDR_IN_REG,
-    JUMP_IF_ZERO_REG_TO_CONST,
-    JUMP_IF_ZERO_REG_TO_ADDR_LITERAL,
-
-    CALL_REG,
-    CALL_ADDR_IN_REG,
-    CALL_CONST,
-    CALL_ADDR_LITERAL,
+    CALL,
     RETURN,
 
     COMPARE_REG_REG,
@@ -217,6 +209,6 @@ impl std::convert::From<u8> for ByteCodes {
 
 /// Return whether the given instruction is a jump instruction
 pub fn is_jump_instruction(instruction: ByteCodes) -> bool {
-    ByteCodes::JUMP_TO_REG as usize <= instruction as usize && instruction as usize <= ByteCodes::RETURN as usize
+    ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::RETURN as usize
 }
 

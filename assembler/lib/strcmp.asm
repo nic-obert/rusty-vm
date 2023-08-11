@@ -1,3 +1,4 @@
+# strcmp
 # Compare two null-terminated strings stored in r1 and r2 registers
 # Return 0 if strings are not equal
 # Return 1 if strings are equal

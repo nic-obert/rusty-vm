@@ -48,25 +48,27 @@ There are a few known vulnerabilities, plus it's not very efficient.
 
 The virtual machine has 17 8-byte registers. Registers are identified by their name in the assembly code. In bytecode, they are identified by their 1-byte index in the `Registers` enum.
 
-| Name    | Index | Description                                                                 |
-| ------- | ----- | --------------------------------------------------------------------------- |
-| `r1`    | 0     | General purpose register. Also used for most built-in operations. |
-| `r2`    | 1     | General purpose register. Also used for most built-in operations. |
-| `r3`    | 2     | General purpose register. |
-| `r4`    | 3     | General purpose register. |
-| `r5`    | 4     | General purpose register. |
-| `r6`    | 5     | General purpose register. |
-| `r7`    | 6     | General purpose register. |
-| `r8`    | 7     | General purpose register. |
-| `exit`  | 4     | Stores the program's exit code. |
-| `input` | 5     | Stores the input from the console. |
-| `error` | 6     | Stores the last error code. |
-| `print` | 7     | Stores the value to print. |
-| `sp`    | 8     | Stores the stack pointer. |
-| `pc`    | 9     | Stores the program counter. |
-| `zf`    | 10    | Stores the zero flag. |
-| `sf`    | 11    | Stores the sign flag. |
-| `rf`    | 12    | Stores the remainder flag. |
+| Register  | Description                                                                 |
+| -------   | --------------------------------------------------------------------------- |
+| `r1`      | General purpose register. Also used for most built-in operations. |
+| `r2`      | General purpose register. Also used for most built-in operations. |
+| `r3`      | General purpose register. |
+| `r4`      | General purpose register. |
+| `r5`      | General purpose register. |
+| `r6`      | General purpose register. |
+| `r7`      | General purpose register. |
+| `r8`      | General purpose register. |
+| `exit`    | Stores the program's exit code. |
+| `input`   | Stores the input from the console. |
+| `error`   | Stores the last error code. |
+| `print`   | Stores the value to print. |
+| `sp`      | Stores the stack pointer. |
+| `pc`      | Stores the program counter. |
+| `zf`      | Stores the zero flag. |
+| `sf`      | Stores the sign flag. |
+| `rf`      | Stores the remainder flag. |
+| `cf`      | Stores the carry flag. |
+| `of`      | Stores the overflow flag. |
 
 ## Assembly operators and symbols
 
@@ -156,10 +158,20 @@ The first operand is treated as the destination by the processor, whereas the se
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
-| `jmp a`     | Jump to the specified address `a`. |
-| `jmpnz a b` | Jump to the specified address `a` if the value stored in register `b` is not zero. |
-| `jmpz a b`  | Jump to the specified address `a` if the value stored in register `b` is zero. |
-| `call a`    | Push the current `pc` onto the stack and jump to the specified address `a`. |
+| `jmp a`     | Jump to the specified label `a`. |
+| `jmpnz a`   | Jump to the specified label `a` if `zf` = zero. |
+| `jmpz a`    | Jump to the specified label `a` if `zf` = zero. |
+| `jmpgr a`   | Jump to the specified label `a` if `sf` = `of` and `zf` = 0. |
+| `jmpge a`   | Jump to the specified label `a` if `sf` = `of`. |
+| `jmplt a`   | Jump to the specified label `a` if `sf` != `of`. |
+| `jmple a`   | Jump to the specified label `a` if `sf` != `of` or `zf` = 1. |
+| `jmpof a`   | Jump to the specified label `a` if `of` = 1. |
+| `jmpnof a`  | Jump to the specified label `a` if `of` = 0. |
+| `jmpcr a`   | Jump to the specified label `a` if `cf` = 1. |
+| `jmpncr a`  | Jump to the specified label `a` if `cf` = 0. |
+| `jmpsn a`   | Jump to the specified label `a` if `sf` = 1. |
+| `jmpnsn a`  | Jump to the specified label `a` if `sf` = 0. |
+| `call a`    | Push the current `pc` onto the stack and jump to the specified label `a`. |
 | `ret`       | Pop 8 bytes from the top of the stack and jump to the popped address. |
 
 ### Comparison instructions
@@ -232,9 +244,10 @@ Assembly units to include are searched for in the same directory as the current 
 When the virtual machine encounters an error, it will set the `error` register to a specific error code. It's the programmer's responsibility to check the `error` register after fallible operations and handle eventual errors.  
 An error code is represented as a 1-byte unsigned integer.
 
-| Error Code | Name            | Description                                                                 |
-| ---------- | --------------- | ----------------------------------------------------------------------------------- |
-| 0          | `NO_ERROR`      | No error occurred. |
-| 1          | `END_OF_FILE`   | End of file reached while reading input. |
-| 2          | `INVALID_INPUT` | The input from the console was not a valid integer. |
-| 3          | `GENERIC_ERROR` | A generic error occurred. |
+| Error Code      |Description                                                                 |
+| ----------      | ----------------------------------------------------------------------------------- |
+| `NO_ERROR`      | No error occurred. |
+| `END_OF_FILE`   | End of file reached while reading input. |
+| `INVALID_INPUT` | The input from the console was not a valid integer. |
+| `ZERO_DIVISION` | A division by zero occurred. |
+| `GENERIC_ERROR` | A generic error occurred. |

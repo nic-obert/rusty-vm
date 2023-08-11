@@ -2,6 +2,10 @@
 
 ### Todo
 
+- [ ] differentiate between unsigned int input and signed int input  
+- [ ] add support for floating point arithmetic  
+- [ ] add bitwise operations  
+- [ ] implement strncmp  
 - [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
@@ -12,9 +16,13 @@
 
 ### In Progress ···
 
+- [ ] implement atou1 (ascii to u1)  
 
 ### Done ✅
 
+- [ ] add other jump instructions  
+- [ ] add overflow flag  
+- [ ] add sign flag  
 - [ ] add reserved keywords and constant values like error codes  
 - [ ] add printbytes  
 - [ ] add interactive vm execution for debugging asm  

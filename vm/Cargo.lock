@@ -52,6 +52,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_exists"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24a3341c9b053c031f0bac089f13cb03ca3d32bd654024621fc4bbc803bea6d5"
+
+[[package]]
 name = "bitflags"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -243,6 +249,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 name = "vm"
 version = "0.1.0"
 dependencies = [
+ "assert_exists",
  "clap",
  "rust_vm_lib",
 ]

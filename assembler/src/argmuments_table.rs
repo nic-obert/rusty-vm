@@ -755,218 +755,212 @@ const POP8_ARGS: ArgTable = ArgTable::One([
 
 const JMP_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::JUMP_TO_REG, 0, REGISTER_ID_SIZE)), 
+    None,
     // Address in register
-    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE)),
+    None,
     // Number
-    Some(Operation::new(ByteCodes::JUMP_TO_CONST, 0, ADDRESS_SIZE)),
+    None,
     // Address literal
-    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_TO_CONST, 0, ADDRESS_SIZE)),
+    Some(Operation::new(ByteCodes::JUMP, 0, ADDRESS_SIZE)),
     // Address at label
-    Some(Operation::new(ByteCodes::JUMP_TO_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    None
 ]);
 
-const JMPNZ_ARGS: ArgTable = ArgTable::Two([
+const JMPNZ_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]), 
+    None, 
     // Address in register
-    Some([  
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]), 
+    None, 
     // Number
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Address literal
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Label
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    Some(Operation::new(ByteCodes::JUMP_NOT_ZERO, 0, ADDRESS_SIZE)),
     // Address at label
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_NOT_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
 ]);
 
-const JMPZ_ARGS: ArgTable = ArgTable::Two([
+const JMPZ_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Address in register
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_IN_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Number
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Address literal
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
     // Label
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_CONST, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    Some(Operation::new(ByteCodes::JUMP_ZERO, 0, ADDRESS_SIZE)),
     // Address at label
-    Some([
-        // Register
-        Some(Operation::new(ByteCodes::JUMP_IF_ZERO_REG_TO_ADDR_LITERAL, 0, ADDRESS_SIZE + REGISTER_ID_SIZE)),
-        // Address in register
-        None,
-        // Number
-        None,
-        // Address literal
-        None,
-        // Label
-        None,
-        // Address at label
-        None,
-    ]),
+    None,
+]);
+
+const JMPGR_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_GREATER, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPGE_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_GREATER_OR_EQUAL, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPLT_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_LESS, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPLE_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_LESS_OR_EQUAL, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPOF: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_OVERFLOW, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPNOF: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_NOT_OVERFLOW, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPCR_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_CARRY, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPNCR_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_NOT_CARRY, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPSN_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_SIGN, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
+]);
+
+const JMPNSN_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None,
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    Some(Operation::new(ByteCodes::JUMP_NOT_SIGN, 0, ADDRESS_SIZE)),
+    // Address at label
+    None,
 ]);
 
 const CALL_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::CALL_REG, 0, REGISTER_ID_SIZE)),
+    None,
     // Address in register
-    Some(Operation::new(ByteCodes::CALL_ADDR_IN_REG, 0, REGISTER_ID_SIZE)),
+    None,
     // Number
-    Some(Operation::new(ByteCodes::CALL_CONST, 0, ADDRESS_SIZE)),
+    None,
     // Address literal
-    Some(Operation::new(ByteCodes::CALL_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    None,
     // Label
-    Some(Operation::new(ByteCodes::CALL_CONST, 0, ADDRESS_SIZE)),
+    Some(Operation::new(ByteCodes::CALL, 0, ADDRESS_SIZE)),
     // Address at label
-    Some(Operation::new(ByteCodes::CALL_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    None,
 ]);
 
 const RET_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::RETURN, 0, 0));
@@ -1427,6 +1421,26 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "jmpnz" => &JMPNZ_ARGS,
 
         "jmpz" => &JMPZ_ARGS,
+
+        "jmpgr" => &JMPGR_ARGS,
+
+        "jmpge" => &JMPGE_ARGS,
+
+        "jmplt" => &JMPLT_ARGS,
+
+        "jmple" => &JMPLE_ARGS,
+
+        "jmpof" => &JMPOF,
+
+        "jmpnof" => &JMPNOF,
+
+        "jmpcr" => &JMPCR_ARGS,
+
+        "jmpncr" => &JMPNCR_ARGS,
+
+        "jmpsn" => &JMPSN_ARGS,
+
+        "jmpnsn" => &JMPNSN_ARGS,
 
         "call" => &CALL_ARGS,
 

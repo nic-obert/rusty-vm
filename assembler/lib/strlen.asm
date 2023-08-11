@@ -1,3 +1,4 @@
+# strlen
 # Return the length of a null-terminated string stored in r1
 # The returned length excludes the null termination character
 # The return value is stored in the r1 register

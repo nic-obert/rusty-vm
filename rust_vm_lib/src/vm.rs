@@ -13,6 +13,8 @@ pub enum ErrorCodes {
 
     InvalidInput,
 
+    ZeroDivision,
+
     // This has to be the last variant
     GenericError
 
@@ -26,6 +28,7 @@ impl ErrorCodes {
             "NO_ERROR" => ErrorCodes::NoError,
             "END_OF_FILE" => ErrorCodes::EndOfFile,
             "INVALID_INPUT" => ErrorCodes::InvalidInput,
+            "ZERO_DIVISION" => ErrorCodes::ZeroDivision,
             "GENERIC_ERROR" => ErrorCodes::GenericError,
 
             _ => return None,
@@ -44,6 +47,7 @@ const ERROR_CODE_REPR: [&'static str; ERROR_CODES_COUNT] = [
     "NO_ERROR",
     "END_OF_FILE",
     "INVALID_INPUT",
+    "ZERO_DIVISION",
     "GENERIC_ERROR"
 ];
 

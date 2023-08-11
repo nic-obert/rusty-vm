@@ -6,8 +6,6 @@ use crate::vm::ADDRESS_SIZE;
 pub const REGISTER_ID_SIZE: usize = 1;
 pub const REGISTER_SIZE: usize = ADDRESS_SIZE;
 
-pub const REGISTER_COUNT: usize = 17;
-
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
@@ -32,7 +30,15 @@ pub enum Registers {
     ZERO_FLAG,
     SIGN_FLAG,
     REMAINDER_FLAG,
+    CARRY_FLAG,
+    OVERFLOW_FLAG,
 }
+
+
+pub const REGISTER_COUNT: usize = {
+    assert!((Registers::OVERFLOW_FLAG as usize) < 256);
+    Registers::OVERFLOW_FLAG as usize + 1
+};
 
 
 impl Registers {
@@ -62,6 +68,8 @@ impl Registers {
             "zf" => Registers::ZERO_FLAG,
             "sf" => Registers::SIGN_FLAG,
             "rf" => Registers::REMAINDER_FLAG,
+            "cf" => Registers::CARRY_FLAG,
+            "of" => Registers::OVERFLOW_FLAG,
 
             _ => return None
         })
@@ -99,6 +107,7 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
     "r6",
     "r7",
     "r8",
+    
     "exit",
     "input",
     "error",
@@ -110,5 +119,7 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
     "zf",
     "sf",
     "rf",
+    "cf",
+    "of",
 ];
 

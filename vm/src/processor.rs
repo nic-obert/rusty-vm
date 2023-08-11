@@ -1,6 +1,8 @@
 use std::io::Write;
 use std::io;
 
+use assert_exists::assert_exists;
+
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
@@ -9,21 +11,27 @@ use crate::memory::{Memory, Size, Byte};
 use crate::cli_parser::ExecutionMode;
 
 
+/// Return whether the most significant bit of the given value is set
+#[inline(always)]
+fn is_msb_set(value: u64) -> bool {
+    value & (1 << 63) != 0
+}
+
 
 /// Converts a byte array to an integer
-fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> i64 {
+fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
     match handled_size {
-        1 => bytes[0] as i64,
+        1 => bytes[0] as u64,
         2 => unsafe {
-            *(bytes.as_ptr() as *const u16) as i64
+            *(bytes.as_ptr() as *const u16) as u64
         },
         4 => unsafe {
-            *(bytes.as_ptr() as *const u32) as i64
+            *(bytes.as_ptr() as *const u32) as u64
         },
         8 => unsafe {
-            *(bytes.as_ptr() as *const u64) as i64
+            *(bytes.as_ptr() as *const u64) as u64
         },
-        _ => panic!("Invalid size for compare: {}", handled_size),
+        _ => panic!("Invalid number size: {}", handled_size),
     }
 }
 
@@ -41,7 +49,7 @@ fn bytes_as_address(bytes: &[Byte]) -> Address {
 
 pub struct Processor {
 
-    registers: [i64; REGISTER_COUNT],
+    registers: [u64; REGISTER_COUNT],
     memory: Memory,
 
 }
@@ -70,7 +78,7 @@ impl Processor {
         }
 
         let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
-        self.set_register(Registers::PROGRAM_COUNTER, program_start as i64);
+        self.set_register(Registers::PROGRAM_COUNTER, program_start as u64);
 
         match mode {
             ExecutionMode::Normal => self.run(),
@@ -81,10 +89,27 @@ impl Processor {
     }
 
 
+    /// Return the length of a null-terminated string
+    fn strlen(&self, address: Address) -> usize {
+        let mut length = 0;
+        let mut byte = self.memory.get_byte(address);
+
+        while byte != 0 {
+            length += 1;
+            byte = self.memory.get_byte(address + length);
+        }
+
+        length
+    }
+
+
     /// Move the program counter by the given offset.
     #[inline(always)]
     fn move_pc(&mut self, offset: i64) {
-        self.registers[Registers::PROGRAM_COUNTER as usize] += offset;
+        self.set_register(
+            Registers::PROGRAM_COUNTER, 
+            (self.get_pc() as i64 + offset) as u64
+        );
     }
 
 
@@ -104,21 +129,21 @@ impl Processor {
 
     /// Get the value of the given register
     #[inline(always)]
-    fn get_register(&self, register: Registers) -> i64 {
+    fn get_register(&self, register: Registers) -> u64 {
         self.registers[register as usize]
     }
 
 
     /// Get a mutable reference to the given register
     #[inline(always)]
-    fn get_register_mut(&mut self, register: Registers) -> &mut i64 {
+    fn get_register_mut(&mut self, register: Registers) -> &mut u64 {
         &mut self.registers[register as usize]
     }
 
 
     /// Set the value of the given register
     #[inline(always)]
-    fn set_register(&mut self, register: Registers, value: i64) {
+    fn set_register(&mut self, register: Registers, value: u64) {
         self.registers[register as usize] = value;
     }
 
@@ -126,16 +151,7 @@ impl Processor {
     /// Set the error register
     #[inline(always)]
     fn set_error(&mut self, error: ErrorCodes) {
-        self.registers[Registers::ERROR as usize] = error as i64;
-    }
-
-
-    /// Update the arithmetical register flags based on the given operation result
-    #[inline(always)]
-    fn set_arithmetical_flags(&mut self, result: i64, remainder: i64) {
-        self.set_register(Registers::ZERO_FLAG, (result == 0) as i64);
-        self.set_register(Registers::SIGN_FLAG, (result < 0) as i64);
-        self.set_register(Registers::REMAINDER_FLAG, remainder);
+        self.registers[Registers::ERROR as usize] = error as u64;
     }
 
 
@@ -152,41 +168,33 @@ impl Processor {
     fn increment_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
-        match size {
+        let result = match size {
             1 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u8) += 1;
-                let result = *(bytes.as_ptr() as *const i8);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u8) as u64
             },
             2 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u16) += 1;
-                let result = *(bytes.as_ptr() as *const i16);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u16) as u64
             },
             4 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u32) += 1;
-                let result = *(bytes.as_ptr() as *const i32);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u32) as u64
             },
             8 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u64) += 1;
-                let result = *(bytes.as_ptr() as *const i64);
-                self.set_arithmetical_flags(
-                    result,
-                    0
-                );
+                *(bytes.as_ptr() as *const u64)
             },
             _ => panic!("Invalid size for incrementing bytes: {}", size),
-        }
+        };
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
+        );
     }
     
     
@@ -194,41 +202,50 @@ impl Processor {
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
-        match size {
+        let result = match size {
             1 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u8) -= 1;
-                let result = *(bytes.as_ptr() as *const i8);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u8) as u64
             },
             2 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u16) -= 1;
-                let result = *(bytes.as_ptr() as *const i16);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u16) as u64
             },
             4 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u32) -= 1;
-                let result = *(bytes.as_ptr() as *const i32);
-                self.set_arithmetical_flags(
-                    result as i64,
-                    0
-                );
+                *(bytes.as_ptr() as *const u32) as u64
             },
             8 => unsafe {
                 *(bytes.as_mut_ptr() as *mut u64) -= 1;
-                let result = *(bytes.as_ptr() as *const i64);
-                self.set_arithmetical_flags(
-                    result,
-                    0
-                );
+                *(bytes.as_ptr() as *const u64)
             },
-            _ => panic!("Invalid size for decrementing bytes: {}", size),
-        }
+            _ => panic!("Invalid size for incrementing bytes: {}", size),
+        };
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
+        );
+    }
+
+
+    /// Mobe a number of bytes from the given address into the given register
+    fn move_bytes_into_register(&mut self, src_address: Address, dest_reg: Registers, handled_size: Byte) {
+        let bytes = self.memory.get_bytes(src_address, handled_size as usize);
+        self.set_register(
+            dest_reg,
+            bytes_to_int(bytes, handled_size)
+        );
+    }
+
+
+    /// Jump (set the pc) to the given address
+    #[inline(always)]
+    fn jump_to(&mut self, address: Address) {
+        self.set_register(Registers::PROGRAM_COUNTER, address as u64);
     }
 
 
@@ -240,7 +257,7 @@ impl Processor {
             bytes,
         );
         // Move the stack pointer
-        self.registers[Registers::STACK_POINTER as usize] += bytes.len() as i64;
+        self.registers[Registers::STACK_POINTER as usize] += bytes.len() as u64;
     }
 
 
@@ -251,12 +268,12 @@ impl Processor {
         // Copy the bytes onto the stack
         self.memory.memcpy(dest_address, src_address, size);
         // Move the stack pointer
-        *self.get_register_mut(Registers::STACK_POINTER) += size as i64;
+        *self.get_register_mut(Registers::STACK_POINTER) += size as u64;
     }
 
 
     /// Push an 8-byte value onto the stack
-    fn push_stack(&mut self, value: i64) {
+    fn push_stack(&mut self, value: u64) {
         self.push_stack_bytes(&value.to_le_bytes());
     }
 
@@ -264,13 +281,36 @@ impl Processor {
     /// Pop `size` bytes from the stack
     fn pop_stack_bytes(&mut self, size: Size) -> &[Byte] {
         // Move the stack pointer
-        *self.get_register_mut(Registers::STACK_POINTER) -= size as i64;
+        *self.get_register_mut(Registers::STACK_POINTER) -= size as u64;
 
         // Return the tos
         self.memory.get_bytes(
             self.get_register(Registers::STACK_POINTER) as Size,
             size,
         )
+    }
+
+
+    /// Move a number of bytes from the given register into the given address
+    fn move_from_register_into_address(&mut self, src_reg: Registers, dest_address: Address, handled_size: Byte) {
+        let value = self.get_register(src_reg);
+        let dest_bytes = self.memory.get_bytes_mut(dest_address, handled_size as usize);
+
+        match handled_size {
+            1 => unsafe {
+                *(dest_bytes.as_mut_ptr() as *mut u8) = value as u8;
+            },
+            2 => unsafe {
+                *(dest_bytes.as_mut_ptr() as *mut u16) = value as u16;
+            },
+            4 => unsafe {
+                *(dest_bytes.as_mut_ptr() as *mut u32) = value as u32;
+            },
+            8 => unsafe {
+                *(dest_bytes.as_mut_ptr() as *mut u64) = value as u64;
+            },
+            _ => panic!("Invalid size for move instruction"),
+        }
     }
         
     
@@ -348,66 +388,165 @@ impl Processor {
     }
 
 
+    /// Set the arithmetical flags
+    fn set_arithmetical_flags(&mut self, zf: bool, sf: bool, rf: u64, cf: bool, of: bool) {
+        self.set_register(Registers::ZERO_FLAG, zf as u64);
+        self.set_register(Registers::SIGN_FLAG, sf as u64);
+        self.set_register(Registers::REMAINDER_FLAG, rf);
+        self.set_register(Registers::CARRY_FLAG, cf as u64);
+        self.set_register(Registers::OVERFLOW_FLAG, of as u64);
+    }
+
+
     // Instruction handlers
 
 
     fn handle_add(&mut self) {
-        *self.get_register_mut(Registers::R1) += self.get_register(Registers::R2);
+        assert_exists!(ByteCodes::ADD);
+
+        let r1 = self.get_register(Registers::R1);
+        let r2 = self.get_register(Registers::R2);
+        
+        let (result, carry) = match r1.checked_add(r2) {
+            Some(result) => (result, false),
+            None => (r1.saturating_add(r2), true)
+        };
+
+        self.set_register(Registers::R1, result);
+
         self.set_arithmetical_flags(
-            self.get_register(Registers::R1), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
     }
 
 
     fn handle_sub(&mut self) {
-        *self.get_register_mut(Registers::R1) -= self.get_register(Registers::R2);
+        assert_exists!(ByteCodes::SUB);
+        
+        let r1 = self.get_register(Registers::R1);
+        let r2 = self.get_register(Registers::R2);
+
+        let (result, carry) = match r1.checked_sub(r2) {
+            Some(result) => (result, false),
+            None => (r1.saturating_add(r2), true)
+        };
+
+        self.set_register(Registers::R1, result);
+
         self.set_arithmetical_flags(
-            self.get_register(Registers::R1), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
     }
 
 
     fn handle_mul(&mut self) {
-        *self.get_register_mut(Registers::R1) *= self.get_register(Registers::R2);
+        assert_exists!(ByteCodes::MUL);
+        
+        let r1 = self.get_register(Registers::R1);
+        let r2 = self.get_register(Registers::R2);
+
+        let (result, carry) = match r1.checked_mul(r2) {
+            Some(result) => (result, false),
+            None => (r1.saturating_add(r2), true)
+        };
+
+        self.set_register(Registers::R1, result);
+
         self.set_arithmetical_flags(
-            self.get_register(Registers::R1), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
     }
 
 
     fn handle_div(&mut self) {
-        let remainder = self.get_register(Registers::R1) % self.get_register(Registers::R2);
-        *self.get_register_mut(Registers::R1) /= self.get_register(Registers::R2);
+        assert_exists!(ByteCodes::DIV);
+
+        let r1 = self.get_register(Registers::R1);
+        let r2 = self.get_register(Registers::R2);
+
+        if r2 == 0 {
+            self.set_error(ErrorCodes::ZeroDivision);
+            return;
+        }
+
+        // Assume no carry or overflow
+        let result = r1 / r2;
+        
+        self.set_register(Registers::R1, result);
+
         self.set_arithmetical_flags(
-            self.get_register(Registers::R1), 
-            remainder as i64
-        )
+            result == 0,
+            is_msb_set(result),
+            r1 % r2,
+            false,
+            false
+        );
     }
 
 
     fn handle_mod(&mut self) {
-        *self.get_register_mut(Registers::R1) %= self.get_register(Registers::R2);
+        assert_exists!(ByteCodes::MOD);
+        
+        let r1 = self.get_register(Registers::R1);
+        let r2 = self.get_register(Registers::R2);
+
+        if r2 == 0 {
+            self.set_error(ErrorCodes::ZeroDivision);
+            return;
+        }
+
+        let result = r1 % r2;
+
+        self.set_register(Registers::R1, result);
+
         self.set_arithmetical_flags(
-            self.get_register(Registers::R1), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
+        );
     }
 
 
     fn handle_inc_reg(&mut self) {
+        assert_exists!(ByteCodes::INC_REG);
+
         let dest_reg = Registers::from(self.get_next_byte());
-        *self.get_register_mut(dest_reg) += 1;
+        let value = self.get_register(dest_reg);
+
+        let (result, carry) = match value.checked_add(1) {
+            Some(result) => (result, false),
+            None => (value.saturating_add(1), true)
+        };
+
+        self.set_register(dest_reg, result);
+
         self.set_arithmetical_flags(
-            self.get_register(dest_reg), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
     }
 
 
     fn handle_inc_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::INC_ADDR_IN_REG);
+
         let size = self.get_next_byte();
         let address_reg = Registers::from(self.get_next_byte());
         let address: Address = self.get_register(address_reg) as Address;
@@ -417,6 +556,8 @@ impl Processor {
 
 
     fn handle_inc_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::INC_ADDR_LITERAL);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         
@@ -425,16 +566,31 @@ impl Processor {
 
 
     fn handle_dec_reg(&mut self) {
+        assert_exists!(ByteCodes::DEC_REG);
+
         let dest_reg = Registers::from(self.get_next_byte());
-        *self.get_register_mut(dest_reg) -= 1;
+        let value = self.get_register(dest_reg);
+
+        let (result, carry) = match value.checked_sub(1) {
+            Some(result) => (result, false),
+            None => (value.saturating_sub(1), true)
+        };
+
+        self.set_register(dest_reg, result);
+
         self.set_arithmetical_flags(
-            self.get_register(dest_reg), 
-            0
-        )
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
     }
 
 
     fn handle_dec_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::DEC_ADDR_IN_REG);
+
         let size = self.get_next_byte();
         let address_reg = Registers::from(self.get_next_byte());
         let address: Address = self.get_register(address_reg) as Address;
@@ -444,6 +600,8 @@ impl Processor {
 
 
     fn handle_dec_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         
@@ -452,39 +610,24 @@ impl Processor {
 
 
     fn handle_no_operation(&mut self) {
+        assert_exists!(ByteCodes::NO_OPERATION);
+
         // Do nothing
     }
 
 
     fn handle_move_into_reg_from_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_REG);
+
         let dest_reg = Registers::from(self.get_next_byte());
         let source_reg = Registers::from(self.get_next_byte());
         self.set_register(dest_reg, self.get_register(source_reg));
     }
 
 
-    fn move_bytes_into_register(&mut self, src_address: Address, dest_reg: Registers, handled_size: Byte) {
-        let bytes = self.memory.get_bytes(src_address, handled_size as usize);
-
-        match handled_size {
-            1 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u8) as i64);
-            },
-            2 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u16) as i64);
-            },
-            4 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u32) as i64);
-            },
-            8 => unsafe {
-                self.set_register(dest_reg, *(bytes.as_ptr() as *const u64) as i64);
-            },
-            _ => panic!("Invalid size for move instruction: {}", handled_size),
-        }
-    }
-
-
     fn handle_move_into_reg_from_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
+
         let size = self.get_next_byte();
         let dest_reg = Registers::from(self.get_next_byte());
         let address_reg = Registers::from(self.get_next_byte());
@@ -495,6 +638,8 @@ impl Processor {
 
 
     fn handle_move_into_reg_from_const(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+
         let size = self.get_next_byte();
         let dest_reg = Registers::from(self.get_next_byte());
         let src_address = self.get_pc();
@@ -505,6 +650,8 @@ impl Processor {
 
 
     fn handle_move_into_reg_from_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL);
+
         let size = self.get_next_byte();
         let dest_reg = Registers::from(self.get_next_byte());
         let src_address = self.get_next_address();
@@ -513,29 +660,9 @@ impl Processor {
     }
 
 
-    fn move_from_register_into_address(&mut self, src_reg: Registers, dest_address: Address, handled_size: Byte) {
-        let value = self.get_register(src_reg);
-        let dest_bytes = self.memory.get_bytes_mut(dest_address, handled_size as usize);
-
-        match handled_size {
-            1 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u8) = value as u8;
-            },
-            2 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u16) = value as u16;
-            },
-            4 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u32) = value as u32;
-            },
-            8 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u64) = value as u64;
-            },
-            _ => panic!("Invalid size for move instruction"),
-        }
-    }
-
-
     fn handle_move_into_addr_in_reg_from_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG);
+
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let src_reg = Registers::from(self.get_next_byte());
@@ -546,6 +673,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_in_reg_from_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG);
+
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let src_address_reg = Registers::from(self.get_next_byte());
@@ -557,6 +686,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_in_reg_from_const(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
+
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let dest_address = self.get_register(dest_address_reg) as Address;
@@ -568,6 +699,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_in_reg_from_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL);
+
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let dest_address = self.get_register(dest_address_reg) as Address;
@@ -578,6 +711,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_literal_from_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         let src_reg = Registers::from(self.get_next_byte());
@@ -587,6 +722,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_literal_from_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         let src_address_reg = Registers::from(self.get_next_byte());
@@ -597,6 +734,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_literal_from_const(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         let src_address = self.get_pc();
@@ -607,6 +746,8 @@ impl Processor {
 
 
     fn handle_move_into_addr_literal_from_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL);
+
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         let src_address = self.get_next_address();
@@ -616,6 +757,8 @@ impl Processor {
 
 
     fn handle_push_from_reg(&mut self) {
+        assert_exists!(ByteCodes::PUSH_FROM_REG);
+
         let src_reg = Registers::from(self.get_next_byte());
 
         self.push_stack(self.get_register(src_reg));
@@ -623,6 +766,8 @@ impl Processor {
 
 
     fn handle_push_from_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::PUSH_FROM_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let src_address_reg = Registers::from(self.get_next_byte());
@@ -633,6 +778,8 @@ impl Processor {
 
 
     fn handle_push_from_const(&mut self) {
+        assert_exists!(ByteCodes::PUSH_FROM_CONST);
+
         let size = self.get_next_byte();
 
         // Hack to get around the borrow checker
@@ -642,6 +789,8 @@ impl Processor {
 
 
     fn handle_push_from_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::PUSH_FROM_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let src_address = self.get_next_address();
@@ -651,29 +800,21 @@ impl Processor {
 
 
     fn handle_pop_into_reg(&mut self) {
+        assert_exists!(ByteCodes::POP_INTO_REG);
+
         let size = self.get_next_byte();
 
         let dest_reg = Registers::from(self.get_next_byte());
         let bytes = self.pop_stack_bytes(size as Size);
+        let value = bytes_to_int(bytes, size);
 
-        // Access registers directly to get around the borrow checker
-        match size {
-            1 => self.registers[dest_reg as usize] = bytes[0] as i64,
-            2 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u16) as i64;
-            },
-            4 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u32) as i64;
-            },
-            8 => unsafe {
-                self.registers[dest_reg as usize] = *(bytes.as_ptr() as *const u64) as i64;
-            },
-            _ => panic!("Invalid size for pop: {}", size),
-        }
+        self.set_register(dest_reg, value);
     }
 
 
     fn handle_pop_into_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::POP_INTO_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let dest_address_reg = Registers::from(self.get_next_byte());
@@ -687,6 +828,8 @@ impl Processor {
 
 
     fn handle_pop_into_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::POP_INTO_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let dest_address = self.get_next_address();
@@ -704,198 +847,156 @@ impl Processor {
     }
 
 
-    #[inline(always)]
-    fn jump_to(&mut self, address: Address) {
-        self.set_register(Registers::PROGRAM_COUNTER, address as i64);
-    }
+    fn handle_jump(&mut self) {
+        assert_exists!(ByteCodes::JUMP);
 
-
-    fn handle_jump_to_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let jump_address = self.get_register(address_reg) as Address;
-
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_jump_to_addr_in_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
-
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_jump_to_const(&mut self) {
         let jump_address = self.get_next_address();
 
         self.jump_to(jump_address);
     }
 
 
-    fn handle_jump_to_addr_literal(&mut self) {
-        let address = self.get_next_address();
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
+    fn handle_jump_not_zero(&mut self) {
+        assert_exists!(ByteCodes::JUMP_NOT_ZERO);
 
-        self.jump_to(jump_address);
-    }
-
-    
-    fn handle_jump_if_not_zero_reg_to_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let jump_address = self.get_register(address_reg) as Address;
-
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) != 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_if_not_zero_to_addr_in_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
-        let jump_address = unsafe {
-            *(self.memory.get_bytes(address, ADDRESS_SIZE).as_ptr() as *const Address)
-        };
-
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) != 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_if_not_zero_to_const(&mut self) {
         let jump_address = self.get_next_address();
 
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) != 0 {
+        if self.get_register(Registers::ZERO_FLAG) != 0 {
             self.jump_to(jump_address);
         }
     }
 
 
-    fn handle_jump_if_not_zero_to_addr_literal(&mut self) {
-        let address = self.get_next_address();
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
+    fn handle_jump_zero(&mut self) {
+        assert_exists!(ByteCodes::JUMP_ZERO);
 
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) != 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-    
-    fn handle_jump_if_zero_to_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let jump_address = self.get_register(address_reg) as Address;
-
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_if_zero_to_addr_in_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
-
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_if_zero_to_const(&mut self) {
         let jump_address = self.get_next_address();
 
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) == 0 {
+        if self.get_register(Registers::ZERO_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
 
 
-    fn handle_jump_if_zero_to_addr_literal(&mut self) {
-        let address = self.get_next_address();
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
+    fn handle_jump_greater(&mut self) {
+        assert_exists!(ByteCodes::JUMP_GREATER);
 
-        let test_reg = Registers::from(self.get_next_byte());
-
-        if self.get_register(test_reg) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_call_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let jump_address = self.get_register(address_reg) as Address;
-
-        // Push the return address onto the stack
-        self.push_stack(self.get_pc() as i64);
-
-        // Jump to the subroutine
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_call_addr_in_reg(&mut self) {
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
-
-        // Push the return address onto the stack
-        self.push_stack(self.get_pc() as i64);
-
-        // Jump to the subroutine
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_call_const(&mut self) {
         let jump_address = self.get_next_address();
 
-        // Push the return address onto the stack
-        self.push_stack(self.get_pc() as i64);
-
-        // Jump to the subroutine
-        self.jump_to(jump_address);
+        if self.get_register(Registers::SIGN_FLAG) == self.get_register(Registers::OVERFLOW_FLAG)
+            && self.get_register(Registers::ZERO_FLAG) == 0 {
+            self.jump_to(jump_address);
+        }
     }
 
 
-    fn handle_call_addr_literal(&mut self) {
-        let address = self.get_next_address();
-        let jump_address = bytes_as_address(
-            self.memory.get_bytes(address, ADDRESS_SIZE)
-        );
+    fn handle_jump_greater_or_equal(&mut self) {
+        assert_exists!(ByteCodes::JUMP_GREATER_OR_EQUAL);
 
-        // Push the return address onto the stack
-        self.push_stack(self.get_pc() as i64);
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::SIGN_FLAG) == self.get_register(Registers::OVERFLOW_FLAG) {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_less(&mut self) {
+        assert_exists!(ByteCodes::JUMP_LESS);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::SIGN_FLAG) != self.get_register(Registers::OVERFLOW_FLAG) {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_less_or_equal(&mut self) {
+        assert_exists!(ByteCodes::JUMP_LESS_OR_EQUAL);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::SIGN_FLAG) != self.get_register(Registers::OVERFLOW_FLAG)
+            || self.get_register(Registers::ZERO_FLAG) == 1 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_overflow(&mut self) {
+        assert_exists!(ByteCodes::JUMP_OVERFLOW);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::OVERFLOW_FLAG) == 1 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_not_overflow(&mut self) {
+        assert_exists!(ByteCodes::JUMP_NOT_OVERFLOW);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::OVERFLOW_FLAG) == 0 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_carry(&mut self) {
+        assert_exists!(ByteCodes::JUMP_CARRY);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::CARRY_FLAG) == 1 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_not_carry(&mut self) {
+        assert_exists!(ByteCodes::JUMP_NOT_CARRY);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::CARRY_FLAG) == 0 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_sign(&mut self) {
+        assert_exists!(ByteCodes::JUMP_SIGN);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::SIGN_FLAG) == 1 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_jump_not_sign(&mut self) {
+        assert_exists!(ByteCodes::JUMP_NOT_SIGN);
+
+        let jump_address = self.get_next_address();
+
+        if self.get_register(Registers::SIGN_FLAG) == 0 {
+            self.jump_to(jump_address);
+        }
+    }
+
+
+    fn handle_call(&mut self) {
+        assert_exists!(ByteCodes::CALL);
+
+        let jump_address = self.get_next_address();
+
+        // Push the return address onto the stack (return address is the current pc)
+        self.push_stack(self.get_pc() as u64);
 
         // Jump to the subroutine
         self.jump_to(jump_address);
@@ -903,6 +1004,8 @@ impl Processor {
 
 
     fn handle_return(&mut self) {
+        assert_exists!(ByteCodes::RETURN);
+
         // Get the return address from the stack
         let return_address = bytes_as_address(
             self.pop_stack_bytes(ADDRESS_SIZE)
@@ -914,18 +1017,26 @@ impl Processor {
 
 
     fn handle_compare_reg_reg(&mut self) {
-        let left_reg = Registers::from(self.get_next_byte());
+        assert_exists!(ByteCodes::COMPARE_REG_REG);
 
+        let left_reg = Registers::from(self.get_next_byte());
         let right_reg = Registers::from(self.get_next_byte());
     
+        let result = self.get_register(left_reg) - self.get_register(right_reg);
+
         self.set_arithmetical_flags(
-            self.get_register(left_reg) - self.get_register(right_reg),
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_reg_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_REG_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
@@ -935,14 +1046,21 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_reg_const(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_REG_CONST);
+
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
@@ -950,14 +1068,21 @@ impl Processor {
 
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_reg_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_REG_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
@@ -966,14 +1091,21 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_in_reg_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_REG);
+
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
@@ -983,14 +1115,21 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_in_reg_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
@@ -1001,14 +1140,21 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_in_reg_const(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_CONST);
+
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
@@ -1017,14 +1163,21 @@ impl Processor {
        
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_in_reg_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
@@ -1034,14 +1187,21 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_const_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_CONST_REG);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_bytes(size as Size);
@@ -1050,14 +1210,21 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
         
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_const_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_CONST_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_bytes(size as Size);
@@ -1067,14 +1234,21 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_const_const(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_CONST_CONST);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_bytes(size as Size);
@@ -1083,14 +1257,21 @@ impl Processor {
         let right_address = self.get_next_bytes(size as Size);
         let right_value = bytes_to_int(right_address, size);
         
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_const_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_CONST_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_bytes(size as Size);
@@ -1099,14 +1280,21 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result), 
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_literal_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_REG);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_address();
@@ -1115,14 +1303,21 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result), 
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_literal_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_address();
@@ -1132,14 +1327,21 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result), 
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_literal_const(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_CONST);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_address();
@@ -1148,14 +1350,21 @@ impl Processor {
         let right_address = self.get_next_bytes(size as Size);
         let right_value = bytes_to_int(right_address, size);
         
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result), 
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_compare_addr_literal_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL);
+
         let size = self.get_next_byte();
 
         let left_address = self.get_next_address();
@@ -1164,14 +1373,21 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
         
+        let result = left_value - right_value;
+
         self.set_arithmetical_flags(
-            left_value - right_value,
-            0
+            result == 0,
+            is_msb_set(result), 
+            0,
+            false,
+            false
         );
     }
 
 
     fn handle_print_signed(&mut self) {
+        assert_exists!(ByteCodes::PRINT_SIGNED);
+
         let value = self.get_register(Registers::PRINT);
         print!("{}", value);
         std::io::stdout().flush().expect("Failed to flush stdout");
@@ -1179,6 +1395,8 @@ impl Processor {
 
 
     fn handle_print_unsigned(&mut self) {
+        assert_exists!(ByteCodes::PRINT_UNSIGNED);
+
         let value = self.get_register(Registers::PRINT) as u64;
         print!("{}", value);
         io::stdout().flush().expect("Failed to flush stdout");
@@ -1186,26 +1404,17 @@ impl Processor {
 
 
     fn handle_print_char(&mut self) {
+        assert_exists!(ByteCodes::PRINT_CHAR);
+
         let value = self.get_register(Registers::PRINT);
         print!("{}", value as u8 as char);
         io::stdout().flush().expect("Failed to flush stdout");
     }
 
 
-    fn strlen(&self, address: Address) -> Size {
-        let mut length = 0;
-        let mut byte = self.memory.get_byte(address);
-
-        while byte != 0 {
-            length += 1;
-            byte = self.memory.get_byte(address + length);
-        }
-
-        length
-    }
-
-
     fn handle_print_string(&mut self) {
+        assert_exists!(ByteCodes::PRINT_STRING);
+
         let string_address = self.get_register(Registers::PRINT) as Address;
         let length = self.strlen(string_address);
         let bytes = self.memory.get_bytes(string_address, length as usize);
@@ -1216,6 +1425,8 @@ impl Processor {
 
 
     fn handle_print_bytes(&mut self) {
+        assert_exists!(ByteCodes::PRINT_BYTES);
+
         let bytes_address = self.get_register(Registers::PRINT) as Address;
         let length = self.get_register(Registers::R1) as usize;
         let bytes = self.memory.get_bytes(bytes_address, length);
@@ -1225,6 +1436,8 @@ impl Processor {
 
 
     fn handle_input_int(&mut self) {
+        assert_exists!(ByteCodes::INPUT_INT);
+
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
@@ -1237,7 +1450,7 @@ impl Processor {
 
                 match input.parse::<i64>() {
                     Ok(value) => {
-                        self.set_register(Registers::INPUT, value);
+                        self.set_register(Registers::INPUT, value as u64);
                         self.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
@@ -1253,6 +1466,8 @@ impl Processor {
 
 
     fn handle_input_string(&mut self) {
+        assert_exists!(ByteCodes::INPUT_STRING);
+
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
@@ -1263,7 +1478,7 @@ impl Processor {
                     return;
                 }
 
-                self.set_register(Registers::INPUT, input.len() as i64);
+                self.set_register(Registers::INPUT, input.len() as u64);
                 self.push_stack_bytes(input.as_bytes());
                 self.set_error(ErrorCodes::NoError); 
             },
@@ -1275,6 +1490,8 @@ impl Processor {
 
 
     fn handle_exit(&mut self) {
+        assert_exists!(ByteCodes::EXIT);
+
         let exit_code = self.get_register(Registers::EXIT);
         std::process::exit(exit_code as i32);
     }
@@ -1321,23 +1538,21 @@ impl Processor {
 
         Self::handle_label,
 
-        Self::handle_jump_to_reg,
-        Self::handle_jump_to_addr_in_reg,
-        Self::handle_jump_to_const,
-        Self::handle_jump_to_addr_literal,
-        Self::handle_jump_if_not_zero_reg_to_reg,
-        Self::handle_jump_if_not_zero_to_addr_in_reg,
-        Self::handle_jump_if_not_zero_to_const,
-        Self::handle_jump_if_not_zero_to_addr_literal,
-        Self::handle_jump_if_zero_to_reg,
-        Self::handle_jump_if_zero_to_addr_in_reg,
-        Self::handle_jump_if_zero_to_const,
-        Self::handle_jump_if_zero_to_addr_literal,
+        Self::handle_jump,
+        Self::handle_jump_not_zero,
+        Self::handle_jump_zero,
+        Self::handle_jump_greater,
+        Self::handle_jump_less,
+        Self::handle_jump_greater_or_equal,
+        Self::handle_jump_less_or_equal,
+        Self::handle_jump_carry,
+        Self::handle_jump_not_carry,
+        Self::handle_jump_overflow,
+        Self::handle_jump_not_overflow,
+        Self::handle_jump_sign,
+        Self::handle_jump_not_sign,
 
-        Self::handle_call_reg,
-        Self::handle_call_addr_in_reg,
-        Self::handle_call_const,
-        Self::handle_call_addr_literal,
+        Self::handle_call,
         Self::handle_return,
 
         Self::handle_compare_reg_reg,
