@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add reserved keywords and constant values like error codes  
 - [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  

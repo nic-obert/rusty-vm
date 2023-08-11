@@ -1,15 +1,13 @@
 use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
 use rust_vm_lib::byte_code::ByteCodes;
-use rust_vm_lib::registers;
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::data_types::DataType;
 use crate::error;
-use crate::tokenizer::{tokenize_operands, is_label_name};
+use crate::tokenizer::{tokenize_operands, is_label_name, is_reserved_name};
 use crate::argmuments_table::get_arguments_table;
 use crate::token_to_byte_code::{get_token_converter, use_converter};
 use crate::files;
-use crate::argmuments_table;
 use crate::configs;
 
 use std::collections::HashMap;
@@ -66,20 +64,6 @@ enum ProgramSection {
     Text,
     Include,
     None,
-}
-
-
-/// Returns whether the name is a reserved name by the assembler
-/// Reserved names are register names and instruction names
-pub fn is_reserved_name(name: &str) -> bool {
-    if let Some(_) = registers::get_register(name) {
-        true
-    } else if argmuments_table::get_arguments_table(name).is_some() {
-        true
-    } else {
-        false
-    }
-    
 }
 
 

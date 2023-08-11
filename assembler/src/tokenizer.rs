@@ -1,11 +1,27 @@
 use std::mem;
 use std::path::Path;
 
-use rust_vm_lib::registers;
+use rust_vm_lib::registers::Registers;
 use rust_vm_lib::token::{Token, TokenValue};
+use rust_vm_lib::vm::ErrorCodes;
 
 use crate::error;
-use crate::assembler::is_reserved_name;
+use crate::argmuments_table;
+
+
+/// Returns whether the name is a reserved name by the assembler
+/// Reserved names are register names, and instruction names, error names
+pub fn is_reserved_name(name: &str) -> bool {
+    if Registers::from_name(name).is_some() 
+        || argmuments_table::get_arguments_table(name).is_some() 
+        || ErrorCodes::from_name(name).is_some() 
+    {
+        true
+    } else {
+        false
+    }
+    
+}
 
 
 /// Return whether the given character is a valid identifier character.
@@ -192,9 +208,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                     continue;
                 },
 
-                TokenValue::AddressAtIdentifier(value) => {
+                TokenValue::AddressAtIdentifier(identifier) => {
                     if is_identifier_char(c, false) {
-                        value.push(c);
+                        identifier.push(c);
                         continue;
                     }
 
@@ -203,33 +219,38 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                     }
 
                     // Determine what kind of identifier it is
-                    if let Some(register) = registers::get_register(value) {
+                    if let Some(register) = Registers::from_name(identifier) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
                         current_token = None;
 
-                    } else if is_reserved_name(value) {
+                    } else if is_reserved_name(identifier) {
                         // Check if the name is a reserved keyword
-                        error::invalid_address_identifier(unit_path, &value, line_number, line);
+                        error::invalid_address_identifier(unit_path, &identifier, line_number, line);
                     } else {
-                        // The name is probably a label
-                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
+                        // The name is not reserved, then it's a label
+                        tokens.push(Token::new(TokenValue::Label(mem::take(identifier))));
                     }
 
                     continue;
                 },
 
-                TokenValue::Name(value) => {
+                TokenValue::Name(name) => {
                     if is_identifier_char(c, false) {
-                        value.push(c);
+                        name.push(c);
                         continue;
                     }
 
-                    // Check if the name is a special register name 
+                    // Check if the name is a special reserved name 
 
-                    if let Some(register) = registers::get_register(value) {
+                    if let Some(register) = Registers::from_name(name) {
                         tokens.push(Token::new(TokenValue::Register(register)));
+                    
+                    } else if let Some(error_code) = ErrorCodes::from_name(name) {
+                        tokens.push(Token::new(TokenValue::Number(error_code as i64)));
+
                     } else {
-                        tokens.push(Token::new(TokenValue::Label(mem::take(value))));
+                        // The name is not special, then it's a label
+                        tokens.push(Token::new(TokenValue::Label(mem::take(name))));
                     }
 
                     current_token = None;

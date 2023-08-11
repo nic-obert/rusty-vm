@@ -33,6 +33,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Data section](#data-section)
     - [Text section](#text-section)
     - [Include section](#include-section)
+  - [Errors and error codes](#errors-and-error-codes)
 
 ## Project structure
 
@@ -225,3 +226,15 @@ Assembly units to include are searched for in the same directory as the current 
 .include:
   my_file.asm
 ```
+
+## Errors and error codes
+
+When the virtual machine encounters an error, it will set the `error` register to a specific error code. It's the programmer's responsibility to check the `error` register after fallible operations and handle eventual errors.  
+An error code is represented as a 1-byte unsigned integer.
+
+| Error Code | Name            | Description                                                                 |
+| ---------- | --------------- | ----------------------------------------------------------------------------------- |
+| 0          | `NO_ERROR`      | No error occurred. |
+| 1          | `END_OF_FILE`   | End of file reached while reading input. |
+| 2          | `INVALID_INPUT` | The input from the console was not a valid integer. |
+| 3          | `GENERIC_ERROR` | A generic error occurred. |

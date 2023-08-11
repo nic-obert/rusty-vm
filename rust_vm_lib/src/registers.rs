@@ -41,6 +41,32 @@ impl Registers {
         [*self as u8]
     }
 
+
+    /// Return the register given its name.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "r1" => Registers::R1,
+            "r2" => Registers::R2,
+            "r3" => Registers::R3,
+            "r4" => Registers::R4,
+            "r5" => Registers::R5,
+            "r6" => Registers::R6,
+            "r7" => Registers::R7,
+            "r8" => Registers::R8,
+            "exit" => Registers::EXIT,
+            "input" => Registers::INPUT,
+            "error" => Registers::ERROR,
+            "print" => Registers::PRINT,
+            "sp" => Registers::STACK_POINTER,
+            "pc" => Registers::PROGRAM_COUNTER,
+            "zf" => Registers::ZERO_FLAG,
+            "sf" => Registers::SIGN_FLAG,
+            "rf" => Registers::REMAINDER_FLAG,
+
+            _ => return None
+        })
+    }
+
 }
 
 
@@ -85,29 +111,4 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
     "sf",
     "rf",
 ];
-
-
-pub fn get_register(name: &str) -> Option<Registers> {
-    match name {
-        "r1" => Some(Registers::R1),
-        "r2" => Some(Registers::R2),
-        "r3" => Some(Registers::R3),
-        "r4" => Some(Registers::R4),
-        "r5" => Some(Registers::R5),
-        "r6" => Some(Registers::R6),
-        "r7" => Some(Registers::R7),
-        "r8" => Some(Registers::R8),
-        "exit" => Some(Registers::EXIT),
-        "input" => Some(Registers::INPUT),
-        "error" => Some(Registers::ERROR),
-        "print" => Some(Registers::PRINT),
-        "sp" => Some(Registers::STACK_POINTER),
-        "pc" => Some(Registers::PROGRAM_COUNTER),
-        "zf" => Some(Registers::ZERO_FLAG),
-        "sf" => Some(Registers::SIGN_FLAG),
-        "rf" => Some(Registers::REMAINDER_FLAG),
-        _ => None
-    }
-}
-
 

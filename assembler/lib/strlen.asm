@@ -1,0 +1,1 @@
+# Return the length of a null-terminated string

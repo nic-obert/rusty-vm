@@ -2,7 +2,6 @@
 mod processor;
 mod memory;
 mod video;
-mod errors;
 mod files;
 mod cli_parser;
 

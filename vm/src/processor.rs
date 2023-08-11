@@ -3,10 +3,9 @@ use std::io;
 
 use rust_vm_lib::registers::{Registers, REGISTER_COUNT, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
-use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
 use crate::memory::{Memory, Size, Byte};
-use crate::errors::ErrorCodes;
 use crate::cli_parser::ExecutionMode;
 
 
