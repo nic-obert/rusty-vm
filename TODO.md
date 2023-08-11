@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] add reserved keywords and constant values like error codes  
 - [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
@@ -16,6 +15,7 @@
 
 ### Done ✅
 
+- [ ] add reserved keywords and constant values like error codes  
 - [ ] add printbytes  
 - [ ] add interactive vm execution for debugging asm  
 - [ ] substitute vectors for static arrays in arguments table for performance and safety  
