@@ -53,10 +53,11 @@
         # If the chars are equal, zf is 1, else 0
         
         # If the chars are different, return
-        jmpz endloop zf
+        jmpz endloop
 
         # The chars are equal, check if they are null and finish
-        jmpz equal r1
+        cmp1 r1 0
+        jmpnz equal
 
         # If the chars are equal but not null, continue
         inc r8

@@ -14,8 +14,8 @@
     @loop
 
         # Check if the current char is null. If so, exit the loop
-        mov1 r3 [r1]
-        jmpz endloop r3
+        cmp1 [r1] 0
+        jmpnz endloop
         
         # Increment the char* and continue
         inc r1

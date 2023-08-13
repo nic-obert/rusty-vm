@@ -1022,11 +1022,11 @@ impl Processor {
         let left_reg = Registers::from(self.get_next_byte());
         let right_reg = Registers::from(self.get_next_byte());
     
-        let result = self.get_register(left_reg) - self.get_register(right_reg);
+        let result = self.get_register(left_reg) as i64 - self.get_register(right_reg) as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1046,11 +1046,11 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1068,11 +1068,11 @@ impl Processor {
 
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1091,11 +1091,11 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1115,11 +1115,11 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1140,11 +1140,11 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1163,11 +1163,11 @@ impl Processor {
        
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1187,11 +1187,11 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1210,11 +1210,11 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
         
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1234,11 +1234,11 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1257,11 +1257,11 @@ impl Processor {
         let right_address = self.get_next_bytes(size as Size);
         let right_value = bytes_to_int(right_address, size);
         
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result),
+            is_msb_set(result as u64),
             0,
             false,
             false
@@ -1280,11 +1280,11 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result), 
+            is_msb_set(result as u64), 
             0,
             false,
             false
@@ -1303,11 +1303,11 @@ impl Processor {
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result), 
+            is_msb_set(result as u64), 
             0,
             false,
             false
@@ -1327,11 +1327,11 @@ impl Processor {
         let right_address = self.get_register(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result), 
+            is_msb_set(result as u64), 
             0,
             false,
             false
@@ -1350,11 +1350,11 @@ impl Processor {
         let right_address = self.get_next_bytes(size as Size);
         let right_value = bytes_to_int(right_address, size);
         
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result), 
+            is_msb_set(result as u64), 
             0,
             false,
             false
@@ -1373,11 +1373,11 @@ impl Processor {
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
         
-        let result = left_value - right_value;
+        let result = left_value as i64 - right_value as i64;
 
         self.set_arithmetical_flags(
             result == 0,
-            is_msb_set(result), 
+            is_msb_set(result as u64), 
             0,
             false,
             false

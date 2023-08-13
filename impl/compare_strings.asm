@@ -5,8 +5,8 @@
 
 .data:
 
-    S1 string "hello\0"
-    S2 string "helloo\0"
+    S1 string "\0"
+    S2 string "\0"
 
     equal string "Strings are equal\n\0"
     not_equal string "Strings are not equal\n\0"
@@ -28,7 +28,8 @@
     # Get the return value
     pop1 r1
 
-    jmpz ifne r1
+    cmp8 r1 0
+    jmpnz ifne
 
     mov8 print equal
     jmp endif
