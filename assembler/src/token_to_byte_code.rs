@@ -81,6 +81,10 @@ fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_
     assert_exists!(ByteCodes::MOD);
     assert_exists!(ByteCodes::NO_OPERATION);
     assert_exists!(ByteCodes::RETURN);
+    assert_exists!(ByteCodes::AND);
+    assert_exists!(ByteCodes::OR);
+    assert_exists!(ByteCodes::XOR);
+    assert_exists!(ByteCodes::NOT);
     assert_exists!(ByteCodes::PRINT_SIGNED);
     assert_exists!(ByteCodes::PRINT_UNSIGNED);
     assert_exists!(ByteCodes::PRINT_CHAR);
@@ -887,7 +891,7 @@ fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8
 }
 
 
-fn convert_compare_addr_literal_addr_literal (mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_compare_addr_literal_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL);
 
     let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
@@ -991,6 +995,11 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_compare_addr_literal_addr_in_reg,
     convert_compare_addr_literal_const,
     convert_compare_addr_literal_addr_literal,
+
+    convert_no_operands_generic, // ByteCodes::AND
+    convert_no_operands_generic, // ByteCodes::OR
+    convert_no_operands_generic, // ByteCodes::XOR
+    convert_no_operands_generic, // ByteCodes::NOT
 
     convert_no_operands_generic, // ByteCodes::PRINT_SIGNED
     convert_no_operands_generic, // ByteCodes::PRINT_UNSIGNED

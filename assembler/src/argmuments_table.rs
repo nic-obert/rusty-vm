@@ -8,20 +8,23 @@ use rust_vm_lib::vm::ADDRESS_SIZE;
 use crate::error;
 
 
-pub struct Operation {
+/// Represents an assembly mnemonic and its arguments
+pub struct Mnemonic {
+
     pub instruction: ByteCodes,
     /// Variable amount of bytes handled by the instruction
     pub handled_size: u8,
     /// Size of the instruction arguments in bytes
     pub total_arg_size: u8,
+
 }
 
 
-impl Operation {
+impl Mnemonic {
 
     pub const fn new(instruction: ByteCodes, handled_size: u8, arg_size: usize) -> Self {
-        debug_assert!(handled_size <= REGISTER_SIZE as u8);
-        debug_assert!(arg_size <= u8::MAX as usize);
+        assert!(handled_size <= REGISTER_SIZE as u8);
+        assert!(arg_size <= u8::MAX as usize);
 
         Self {
             instruction,
@@ -34,13 +37,13 @@ impl Operation {
 }
 
 
-type OneArgument = [Option<Operation>; 6];
+type OneArgument = [Option<Mnemonic>; 6];
 type TwoArguments = [Option<OneArgument>; 6];
 
 
 /// Represents all the arguments an operator can take
 pub enum ArgTable {
-    Zero(Operation),
+    Zero(Mnemonic),
     One(OneArgument),
     Two(TwoArguments),
 }
@@ -96,7 +99,7 @@ impl ArgTable {
 
 
     /// Return the bytecode instruction and handled size for the given operands
-    pub fn get_operation(&self, operator_name: &str, operands: &[Token], unit_path: &Path, line_number: usize, line: &str) -> &Operation {
+    pub fn get_operation(&self, operator_name: &str, operands: &[Token], unit_path: &Path, line_number: usize, line: &str) -> &Mnemonic {
 
         match self {
             
@@ -157,19 +160,19 @@ impl ArgTable {
 
 // Defining argument tables for all the assembly operators
 
-const ADD_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::ADD, 0, 0));
+const ADD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::ADD, 0, 0));
 
-const SUB_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::SUB, 0, 0));
+const SUB_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SUB, 0, 0));
 
-const MUL_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::MUL, 0, 0));
+const MUL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::MUL, 0, 0));
 
-const DIV_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::DIV, 0, 0));
+const DIV_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::DIV, 0, 0));
 
-const MOD_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::MOD, 0, 0));
+const MOD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::MOD, 0, 0));
 
 const INC_ARGS: ArgTable = ArgTable::One([ 
     // Register
-    Some(Operation::new(ByteCodes::INC_REG, 0, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     None,
     // Number
@@ -186,65 +189,65 @@ const INC1_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
 ]);
 
 const INC2_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
 ]);
 
 const INC4_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
 ]);
 
 const INC8_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::INC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::INC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
 const DEC_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::DEC_REG, 0, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     None,
     // Number
@@ -261,69 +264,69 @@ const DEC1_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_IN_REG, 1, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 1, ADDRESS_SIZE)),
 ]);
 
 const DEC2_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_IN_REG, 2, REGISTER_ID_SIZE)),
     // Number
     None,
     // Address literal
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 2, ADDRESS_SIZE)),
 ]);
 
 const DEC4_ARGS: ArgTable = ArgTable::One([
     // Register
     None, 
     // Address in register
-    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 4, ADDRESS_SIZE)),
 ]);
 
 const DEC8_ARGS: ArgTable = ArgTable::One([
     // Register
     None,
     // Address in register
-    Some(Operation::new(ByteCodes::DEC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_IN_REG, 8, REGISTER_ID_SIZE)),
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::DEC_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
-const NOP_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::NO_OPERATION, 0, 0));
+const NOP_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::NO_OPERATION, 0, 0));
 
 const MOV_ARGS: ArgTable = ArgTable::Two([
     // Register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
         None,
         // Number
@@ -353,64 +356,64 @@ const MOV1_ARGS: ArgTable = ArgTable::Two([
         // Register
         None,
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 1, REGISTER_ID_SIZE + 1)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     None,
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 1, ADDRESS_SIZE + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -420,64 +423,64 @@ const MOV2_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 2, REGISTER_ID_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     None,
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 2, ADDRESS_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -487,64 +490,64 @@ const MOV4_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 4, REGISTER_ID_SIZE + 4)),
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     None, 
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 4, ADDRESS_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)), 
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -554,70 +557,70 @@ const MOV8_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)), 
         // Label
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     None,
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
 const PUSH_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::PUSH_FROM_REG, 0, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     None,
     // Number
@@ -634,120 +637,120 @@ const PUSH1_ARGS: ArgTable = ArgTable::One([
     // Register
     None, 
     // Address in register
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
     // Number
-    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 1, 1)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_CONST, 1, 1)),
     // Address literal
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 1, ADDRESS_SIZE)),
 ]);
 
 const PUSH2_ARGS: ArgTable = ArgTable::One([
     // Register
     None, 
     // Address in register
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
     // Number
-    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 2, 2)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_CONST, 2, 2)),
     // Address literal
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 2, ADDRESS_SIZE)),
 ]);
 
 const PUSH4_ARGS: ArgTable = ArgTable::One([
     // Register
     None, 
     // Address in register
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 4, REGISTER_ID_SIZE)), 
     // Number
-    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 4, 4)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_CONST, 4, 4)), 
     // Address literal
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 4, ADDRESS_SIZE)),
 ]);
 
 const PUSH8_ARGS: ArgTable = ArgTable::One([
     // Register
     None, 
     // Address in register
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
     // Number
-    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 8, 8)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_CONST, 8, 8)), 
     // Address literal
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
     // Label
-    Some(Operation::new(ByteCodes::PUSH_FROM_CONST, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_CONST, 8, ADDRESS_SIZE)),
     // Address at label
-    Some(Operation::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
 const POP1_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::POP_INTO_REG, 1, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_REG, 1, REGISTER_ID_SIZE)), 
     // Address in register
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 1, ADDRESS_SIZE)),
 ]);
 
 const POP2_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::POP_INTO_REG, 2, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_REG, 2, REGISTER_ID_SIZE)),
     // Address in register
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 2, ADDRESS_SIZE)),
 ]);
 
 const POP4_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::POP_INTO_REG, 4, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_REG, 4, REGISTER_ID_SIZE)), 
     // Address in register
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_IN_REG, 4, REGISTER_ID_SIZE)),
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 4, ADDRESS_SIZE)),
 ]);
 
 const POP8_ARGS: ArgTable = ArgTable::One([
     // Register
-    Some(Operation::new(ByteCodes::POP_INTO_REG, 8, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_REG, 8, REGISTER_ID_SIZE)), 
     // Address in register
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
     // Number
     None, 
     // Address literal
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
     // Label
     None,
     // Address at label
-    Some(Operation::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
 const JMP_ARGS: ArgTable = ArgTable::One([
@@ -760,7 +763,7 @@ const JMP_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP, 0, ADDRESS_SIZE)),
     // Address at label
     None
 ]);
@@ -775,7 +778,7 @@ const JMPNZ_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_NOT_ZERO, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_NOT_ZERO, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -790,7 +793,7 @@ const JMPZ_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_ZERO, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_ZERO, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -805,7 +808,7 @@ const JMPGR_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_GREATER, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_GREATER, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -820,7 +823,7 @@ const JMPGE_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_GREATER_OR_EQUAL, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_GREATER_OR_EQUAL, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -835,7 +838,7 @@ const JMPLT_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_LESS, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_LESS, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -850,7 +853,7 @@ const JMPLE_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_LESS_OR_EQUAL, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_LESS_OR_EQUAL, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -865,7 +868,7 @@ const JMPOF: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_OVERFLOW, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_OVERFLOW, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -880,7 +883,7 @@ const JMPNOF: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_NOT_OVERFLOW, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_NOT_OVERFLOW, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -895,7 +898,7 @@ const JMPCR_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_CARRY, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_CARRY, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -910,7 +913,7 @@ const JMPNCR_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_NOT_CARRY, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_NOT_CARRY, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -925,7 +928,7 @@ const JMPSN_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_SIGN, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_SIGN, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -940,7 +943,7 @@ const JMPNSN_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::JUMP_NOT_SIGN, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::JUMP_NOT_SIGN, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
@@ -955,18 +958,18 @@ const CALL_ARGS: ArgTable = ArgTable::One([
     // Address literal
     None,
     // Label
-    Some(Operation::new(ByteCodes::CALL, 0, ADDRESS_SIZE)),
+    Some(Mnemonic::new(ByteCodes::CALL, 0, ADDRESS_SIZE)),
     // Address at label
     None,
 ]);
 
-const RET_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::RETURN, 0, 0));
+const RET_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::RETURN, 0, 0));
 
 const CMP_ARGS: ArgTable = ArgTable::Two([
     // Register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_REG_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
         None,
         // Number
@@ -996,77 +999,77 @@ const CMP1_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 1, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 1, REGISTER_ID_SIZE + 1)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 1, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 1, 1 + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_REG, 1, 1 + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1, 1 + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 1, 1 + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 1, 1 + 1)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 1, 1 + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 1, 1 + ADDRESS_SIZE)),
     ]),
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 1, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 1, ADDRESS_SIZE + 1)),
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 1, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -1076,77 +1079,77 @@ const CMP2_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 2, REGISTER_ID_SIZE + 2)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_CONST, 2, REGISTER_ID_SIZE + 2)),
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 2, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2, REGISTER_ID_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 2, REGISTER_ID_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 2, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 2, 2 + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_REG, 2, 2 + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2, 2 + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 2, 2 + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 2, 2 + 2)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 2, 2 + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 2, 2 + ADDRESS_SIZE)),
     ]),
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 2, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 2, ADDRESS_SIZE + 2)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 2, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -1156,77 +1159,77 @@ const CMP4_ARGS: ArgTable = ArgTable::Two([
         // Register
         None,
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 4, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 4, REGISTER_ID_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 4, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 4, 4 + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_REG, 4, 4 + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4, 4 + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 4, 4 + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 4, 4 + 4)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 4, 4 + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 4, 4 + ADDRESS_SIZE)),
     ]),
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     None,
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 4, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 4, ADDRESS_SIZE + 4)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
         None,
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 4, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
@@ -1236,110 +1239,118 @@ const CMP8_ARGS: ArgTable = ArgTable::Two([
         // Register
         None, 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Address in register
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_CONST, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL, 8, REGISTER_ID_SIZE + ADDRESS_SIZE)),
     ]),
     // Number
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 8, 8 + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_REG, 8, 8 + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, 8 + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, 8 + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 8, 8 + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, 8 + ADDRESS_SIZE)),
     ]),
     // Address literal
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_CONST_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
     // Address at label
     Some([
         // Register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Address in register
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG, 8, ADDRESS_SIZE + REGISTER_ID_SIZE)),
         // Number
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + 8)), 
         // Address literal
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_CONST, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
         // Address at label
-        Some(Operation::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
+        Some(Mnemonic::new(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL, 8, ADDRESS_SIZE + ADDRESS_SIZE)),
     ]),
 ]);
 
-const PRINTI_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_SIGNED, 0, 0));
+const AND_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::AND, 0, 0));
 
-const PRINTU_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_UNSIGNED, 0, 0));
+const OR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::OR, 0, 0));
 
-const PRINTC_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_CHAR, 0, 0));
+const XOR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::XOR, 0, 0));
 
-const PRINTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_STRING, 0, 0));
+const NOT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::NOT, 0, 0));
 
-const PRINTBYTES_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::PRINT_BYTES, 0, 0));
+const PRINTI_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_SIGNED, 0, 0));
 
-const INPUTSINT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_SIGNED_INT, 0, 0));
+const PRINTU_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_UNSIGNED, 0, 0));
 
-const INPUTUINT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_UNSIGNED_INT, 0, 0));
+const PRINTC_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_CHAR, 0, 0));
 
-const INPUTSTR_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::INPUT_STRING, 0, 0));
+const PRINTSTR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_STRING, 0, 0));
 
-const EXIT_ARGS: ArgTable = ArgTable::Zero(Operation::new(ByteCodes::EXIT, 0, 0));
+const PRINTBYTES_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_BYTES, 0, 0));
+
+const INPUTSINT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_SIGNED_INT, 0, 0));
+
+const INPUTUINT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_UNSIGNED_INT, 0, 0));
+
+const INPUTSTR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_STRING, 0, 0));
+
+const EXIT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::EXIT, 0, 0));
 
 
 /// Return the arguments table for the given operator
@@ -1456,6 +1467,16 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "cmp4" => &CMP4_ARGS,
 
         "cmp8" => &CMP8_ARGS,
+
+        // Logical
+
+        "and" => &AND_ARGS,
+
+        "or" => &OR_ARGS,
+
+        "xor" => &XOR_ARGS,
+
+        "not" => &NOT_ARGS,
 
         // Interrupts
 

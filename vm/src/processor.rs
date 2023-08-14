@@ -1388,6 +1388,74 @@ impl Processor {
     }
 
 
+    fn handle_and(&mut self) {
+        assert_exists!(ByteCodes::AND);
+
+        let result = self.get_register(Registers::R1) & self.get_register(Registers::R2);
+
+        self.set_register(Registers::R1, result);
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
+        );
+    }
+
+
+    fn handle_or(&mut self) {
+        assert_exists!(ByteCodes::OR);
+
+        let result = self.get_register(Registers::R1) | self.get_register(Registers::R2);
+
+        self.set_register(Registers::R1, result);
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            false
+        );
+    }
+
+
+    fn handle_xor(&mut self) {
+        assert_exists!(ByteCodes::XOR);
+
+        let result = self.get_register(Registers::R1) ^ self.get_register(Registers::R2);
+
+        self.set_register(Registers::R1, result);
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            true
+        );
+    }
+
+
+    fn handle_not(&mut self) {
+        assert_exists!(ByteCodes::NOT);
+
+        let result = !self.get_register(Registers::R1);
+
+        self.set_register(Registers::R1, result);
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            false,
+            true
+        );
+    }
+
+
     fn handle_print_signed(&mut self) {
         assert_exists!(ByteCodes::PRINT_SIGNED);
 
@@ -1604,6 +1672,11 @@ impl Processor {
         Self::handle_compare_addr_literal_addr_in_reg,
         Self::handle_compare_addr_literal_const,
         Self::handle_compare_addr_literal_addr_literal,
+
+        Self::handle_and,
+        Self::handle_or,
+        Self::handle_xor,
+        Self::handle_not,
 
         Self::handle_print_signed,
         Self::handle_print_unsigned,
