@@ -1,30 +1,34 @@
 
 .include:
 
-    strlen.asm
+    stdlib.asm
 
 .data:
 
-    STR string "ciao\0"
-    OUTPUT string "Number of chars: \0"
+    INVAID_BYTE string "The byte is invalid\n\0"
 
 .text:
 
 @start
 
-    mov8 r1 STR
-    call strlen
+    mov1 r1 'u'
 
-    mov8 print OUTPUT
+    call ascii_to_digit
+
+    cmp1 error INVALID_INPUT
+    jmpz ok
+
+    mov8 print INVAID_BYTE
     printstr
+    exit
+
+    @ok
 
     mov print r1
     printu
-
     mov1 print 10
     printc
 
-
-
+    exit
     
 

@@ -314,7 +314,14 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 
             ProgramSection::Include => {
 
-                let include_unit_raw = trimmed_line;
+                // Check if the include is to re-export (prefix with @@)
+                let (include_unit_raw, to_export) = {
+                    if let Some(include_unit_raw) = trimmed_line.strip_prefix("@@") {
+                        (include_unit_raw.trim(), true)
+                    } else {
+                        (trimmed_line, false)
+                    }
+                };
 
                 let (include_path, include_asm) = match load_asm_unit(include_unit_raw, unit_path) {
                     Ok(x) => x,
@@ -322,7 +329,14 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 };
 
                 // Assemble the included assembly unit
-                assemble_unit(include_asm, verbose, &include_path, byte_code, &mut local_label_declaration_map, included_units, false);
+                if to_export {
+                    let mut labels = LabelMap::new();
+                    assemble_unit(include_asm, verbose, &include_path, byte_code, &mut labels, included_units, false);
+                    export_label_declaration_map.extend(labels.clone());
+                    local_label_declaration_map.extend(labels);
+                } else {
+                    assemble_unit(include_asm, verbose, &include_path, byte_code, &mut local_label_declaration_map, included_units, false);
+                }
 
             },
 
@@ -395,10 +409,11 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                         error::invalid_label_name(unit_path, label, line_number, &line, "Label names can only contain alphabetic characters and underscores.");
                     }
 
-                    if is_main_unit && label == "start" {
-                        // Automatically export the @start label if this is the main assembly unit
-                        export_label_declaration_map.insert(label.to_string(), byte_code.len());
-                    } else if to_export {
+                    if is_reserved_name(label) {
+                        error::invalid_label_name(unit_path, label, line_number, &line, format!("\"{}\" is a reserved name.", label).as_str());
+                    }
+
+                    if is_main_unit && label == "start" || to_export {
                         export_label_declaration_map.insert(label.to_string(), byte_code.len());
                     }
                     

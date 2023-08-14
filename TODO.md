@@ -2,6 +2,8 @@
 
 ### Todo
 
+- [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size)  
+- [ ] add -E option to just evaluate the assembly source code without assembling  
 - [ ] differentiate between unsigned int input and signed int input  
 - [ ] add support for floating point arithmetic  
 - [ ] add bitwise operations  
@@ -16,10 +18,11 @@
 
 ### In Progress ···
 
-- [ ] implement atou1 (ascii to u1)  
 
 ### Done ✅
 
+- [ ] implement atou1 (ascii to u1)  
+- [ ] implement reexporting includes  
 - [ ] add other jump instructions  
 - [ ] add overflow flag  
 - [ ] add sign flag  
