@@ -83,7 +83,8 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "PRINT_STRING",
     "PRINT_BYTES",
 
-    "INPUT_INT",
+    "INPUT_SIGNED_INT",
+    "INPUT_UNSIGNED_INT",
     "INPUT_STRING",
 
     "EXIT"
@@ -174,7 +175,8 @@ pub enum ByteCodes {
     PRINT_STRING,
     PRINT_BYTES,
 
-    INPUT_INT,
+    INPUT_SIGNED_INT,
+    INPUT_UNSIGNED_INT,
     INPUT_STRING,
 
     // This has to be the last variant

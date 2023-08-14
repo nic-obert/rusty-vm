@@ -1438,8 +1438,8 @@ impl Processor {
     }
 
 
-    fn handle_input_int(&mut self) {
-        assert_exists!(ByteCodes::INPUT_INT);
+    fn handle_input_signed_int(&mut self) {
+        assert_exists!(ByteCodes::INPUT_SIGNED_INT);
 
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
@@ -1454,6 +1454,36 @@ impl Processor {
                 match input.parse::<i64>() {
                     Ok(value) => {
                         self.set_register(Registers::INPUT, value as u64);
+                        self.set_error(ErrorCodes::NoError);
+                    },
+                    Err(_) => {
+                        self.set_error(ErrorCodes::InvalidInput);
+                    }
+                }
+            },
+            Err(_) => {
+                self.set_error(ErrorCodes::GenericError);
+            },
+        }
+    }
+
+
+    fn handle_input_unsigned_int(&mut self) {
+        assert_exists!(ByteCodes::INPUT_UNSIGNED_INT);
+
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(bytes_read) => {
+
+                // Check for EOF errors
+                if bytes_read == 0 {
+                    self.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
+
+                match input.parse::<u64>() {
+                    Ok(value) => {
+                        self.set_register(Registers::INPUT, value);
                         self.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
@@ -1581,7 +1611,8 @@ impl Processor {
         Self::handle_print_string,
         Self::handle_print_bytes,
         
-        Self::handle_input_int,
+        Self::handle_input_signed_int,
+        Self::handle_input_unsigned_int,
         Self::handle_input_string,
 
         Self::handle_exit,

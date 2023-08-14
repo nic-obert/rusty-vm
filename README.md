@@ -193,7 +193,8 @@ The first operand is treated as the destination by the processor, whereas the se
 | `printc`    | Print the unicode character stored in the `print` register. |
 | `printstr`  | Print the string at the address stored in the `print` register. |
 | `printbytes`| Print the bytes at the address stored in the `print` register up to the length stored in the `r1` register. |
-| `inputint`  | Get the next integer input from the console and store it in the `input` register. |
+| `inputsint`  | Get the next signed integer input from the console and store it in the `input` register. |
+| `inputuint`  | Get the next unsigned integer input from the console and store it in the `input` register. |
 | `inputstr`  | Get the next string input from the console, push it onto the stack, and store its address in the `input` register.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
 | `exit`      | Exit the program with the exit code stored in the `exit` register. |
 

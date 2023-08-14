@@ -73,37 +73,24 @@ pub fn use_converter(converter: TokenConverter, operands: Vec<Token>, handled_si
 // Converter functions
 
 
-fn convert_add (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::ADD);
-
-    Vec::new()
-}
-
-
-fn convert_sub (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::SUB);
-
-    Vec::new()
-}
-
-
-fn convert_mul (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MUL);
-
-    Vec::new()
-}
-
-
-fn convert_div (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::DIV);
-    
-    Vec::new()
-}
-
-
-fn convert_mod (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOD);
-        
+    assert_exists!(ByteCodes::NO_OPERATION);
+    assert_exists!(ByteCodes::RETURN);
+    assert_exists!(ByteCodes::PRINT_SIGNED);
+    assert_exists!(ByteCodes::PRINT_UNSIGNED);
+    assert_exists!(ByteCodes::PRINT_CHAR);
+    assert_exists!(ByteCodes::PRINT_STRING);
+    assert_exists!(ByteCodes::PRINT_BYTES);
+    assert_exists!(ByteCodes::INPUT_SIGNED_INT);
+    assert_exists!(ByteCodes::INPUT_UNSIGNED_INT);
+    assert_exists!(ByteCodes::INPUT_STRING);
+    assert_exists!(ByteCodes::EXIT);
+
     Vec::new()
 }
 
@@ -183,13 +170,6 @@ fn convert_dec_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_re
     }
 
     bytes
-}
-
-
-fn convert_no_operation (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::NO_OPERATION);
-    
-    Vec::new()
 }
 
 
@@ -568,13 +548,6 @@ fn convert_jump_generic(mut operands: Vec<Token>, _handled_size: u8, label_regis
 }
 
 
-fn convert_return(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::RETURN);
-    
-    Vec::new()
-}
-
-
 fn convert_compare_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_REG_REG);
     
@@ -942,71 +915,16 @@ fn convert_compare_addr_literal_addr_literal (mut operands: Vec<Token>, handled_
 }
 
 
-fn convert_print_signed (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::PRINT_SIGNED);
-
-    Vec::new()
-}
-
-
-fn convert_print_unsigned (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::PRINT_UNSIGNED);
-
-    Vec::new()
-}
-
-fn convert_print_char (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_codee: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::PRINT_CHAR);
-
-    Vec::new()
-}
-
-
-fn convert_print_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::PRINT_STRING);
-
-    Vec::new()
-}
-
-
-fn convert_print_bytes(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::PRINT_BYTES);
-
-    Vec::new()
-}
-
-
-fn convert_input_int (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::INPUT_INT);
-    
-    Vec::new()
-}
-
-
-fn convert_input_string (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::INPUT_STRING);
-
-    Vec::new()
-}
-
-
-fn convert_exit (_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::EXIT);
-
-    Vec::new()
-}
-
-
 /// The following functions are used to convert the operand tokens to bytes.
 const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
 
-    convert_add,
-    convert_sub,
-    convert_mul,
-    convert_div,
-    convert_mod,
+    convert_no_operands_generic, // ByteCodes::ADD
+    convert_no_operands_generic, // ByteCodes::SUB
+    convert_no_operands_generic, // ByteCodes::MUL
+    convert_no_operands_generic, // ByteCodes::DIV
+    convert_no_operands_generic, // ByteCodes::MOD
 
-    convert_inc_reg,
+    convert_inc_reg, 
     convert_inc_addr_in_reg,
     convert_inc_addr_literal,
 
@@ -1014,7 +932,7 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_dec_addr_in_reg,
     convert_dec_addr_literal,
 
-    convert_no_operation,
+    convert_no_operands_generic, // ByteCodes::NO_OPERATION
 
     convert_move_into_reg_from_reg,
     convert_move_into_reg_from_addr_in_reg,
@@ -1041,21 +959,21 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     // This is just a placeholder to make indices work
     convert_label,
 
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_jump_generic,
-    convert_return,
+    convert_jump_generic, // ByteCodes::JUMP
+    convert_jump_generic, // ByteCodes::JUMP_NOT_ZERO
+    convert_jump_generic, // ByteCodes::JUMP_ZERO
+    convert_jump_generic, // ByteCodes::JUMP_GREATER
+    convert_jump_generic, // ByteCodes::JUMP_LESS
+    convert_jump_generic, // ByteCodes::JUMP_GREATER_OR_EQUAL
+    convert_jump_generic, // ByteCodes::JUMP_LESS_OR_EQUAL
+    convert_jump_generic, // ByteCodes::JUMP_CARRY
+    convert_jump_generic, // ByteCodes::JUMP_NOT_CARRY
+    convert_jump_generic, // ByteCodes::JUMP_OVERFLOW
+    convert_jump_generic, // ByteCodes::JUMP_NOT_OVERFLOW
+    convert_jump_generic, // ByteCodes::JUMP_SIGN
+    convert_jump_generic, // ByteCodes::JUMP_NOT_SIGN
+    convert_jump_generic, // ByteCodes::CALL
+    convert_no_operands_generic, // ByteCodes::RETURN
 
     convert_compare_reg_reg,
     convert_compare_reg_addr_in_reg,
@@ -1074,16 +992,17 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_compare_addr_literal_const,
     convert_compare_addr_literal_addr_literal,
 
-    convert_print_signed,
-    convert_print_unsigned,
-    convert_print_char,
-    convert_print_string,
-    convert_print_bytes,
+    convert_no_operands_generic, // ByteCodes::PRINT_SIGNED
+    convert_no_operands_generic, // ByteCodes::PRINT_UNSIGNED
+    convert_no_operands_generic, // ByteCodes::PRINT_CHAR
+    convert_no_operands_generic, // ByteCodes::PRINT_STRING
+    convert_no_operands_generic, // ByteCodes::PRINT_BYTES
 
-    convert_input_int,
-    convert_input_string,
+    convert_no_operands_generic, // ByteCodes::INPUT_SIGNED_INT
+    convert_no_operands_generic, // ByteCodes::INPUT_UNSIGNED_INT
+    convert_no_operands_generic, // ByteCodes::INPUT_STRING
 
-    convert_exit,
+    convert_no_operands_generic, // ByteCodes::EXIT
 
 ];
 
