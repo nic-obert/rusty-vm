@@ -10,11 +10,12 @@ pub struct CliParser {
     pub input_file: String,
 
     /// The output file path to write the byte code to
-    #[clap(short, long)]
+    #[clap(short = 'o')]
     pub output: Option<String>,
 
     /// Run the assembler in verbose mode
-    #[clap(short, long, action)]
+    #[clap(short = 'v', action)]
     pub verbose: bool,
+    
 }
 

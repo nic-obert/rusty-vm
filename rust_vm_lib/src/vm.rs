@@ -73,3 +73,16 @@ impl std::convert::From<u8> for ErrorCodes {
 
 }
 
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn assert_error_codes_repr_consistency() {
+        for (i, repr) in super::ERROR_CODE_REPR.iter().enumerate() {
+            assert_eq!(i, super::ErrorCodes::from_name(repr).unwrap() as usize);
+        }
+    }
+
+}
+

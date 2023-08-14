@@ -2,8 +2,8 @@
 
 ### Todo
 
-- [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size)  
-- [ ] add -E option to just evaluate the assembly source code without assembling  
+- [ ] add usage to docs  
+- [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] differentiate between unsigned int input and signed int input  
 - [ ] add support for floating point arithmetic  
 - [ ] add bitwise operations  

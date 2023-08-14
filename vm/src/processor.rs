@@ -362,6 +362,9 @@ impl Processor {
             io::stdin().read_line(&mut String::new()).unwrap();
 
             self.handle_instruction(opcode);
+
+            println!("");
+
         }
     }
 
