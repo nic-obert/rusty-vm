@@ -11,7 +11,7 @@
     # Store the start char* in r2
     mov r2 r1
 
-    @loop
+    @ loop
 
         # Check if the current char is null. If so, exit the loop
         cmp1 [r1] 0
@@ -22,7 +22,7 @@
         jmp loop
 
 
-    @endloop
+    @ endloop
 
     # Calculate the string length
     # r1 points to the null byte, r2 points to the start of the string
