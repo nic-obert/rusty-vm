@@ -864,7 +864,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::ZERO_FLAG) != 0 {
+        if self.get_register(Registers::ZERO_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -875,7 +875,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::ZERO_FLAG) == 0 {
+        if self.get_register(Registers::ZERO_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }

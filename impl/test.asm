@@ -11,12 +11,12 @@
 
 @start
 
-    mov1 r1 'u'
+    mov1 r1 '3'
 
     call ascii_to_digit
 
     cmp1 error INVALID_INPUT
-    jmpz ok
+    jmpnz ok
 
     mov8 print INVAID_BYTE
     printstr

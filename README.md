@@ -190,7 +190,7 @@ The first operand is treated as the destination by the processor, whereas the se
 | ----------- | ----------------------------------------------------------------------------------- |
 | `jmp a`     | Jump to the specified label `a`. |
 | `jmpnz a`   | Jump to the specified label `a` if `zf` = zero. |
-| `jmpz a`    | Jump to the specified label `a` if `zf` = zero. |
+| `jmpz a`    | Jump to the specified label `a` if `zf` != zero. |
 | `jmpgr a`   | Jump to the specified label `a` if `sf` = `of` and `zf` = 0. |
 | `jmpge a`   | Jump to the specified label `a` if `sf` = `of`. |
 | `jmplt a`   | Jump to the specified label `a` if `sf` != `of`. |

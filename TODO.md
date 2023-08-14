@@ -4,20 +4,20 @@
 
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
-- [ ] implement strncmp  
 - [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section  
-- [ ] write asm libraries to include or call  
 - [ ] add programs written in asm  
 - [ ] test the new vm  
 
 ### In Progress ···
 
+- [ ] write asm libraries to include or call  
 
 ### Done ✅
 
+- [ ] implement strncmp  
 - [ ] add bitwise operations  
 - [ ] differentiate between unsigned int input and signed int input  
 - [ ] add usage to docs  

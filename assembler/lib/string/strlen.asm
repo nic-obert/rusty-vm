@@ -15,11 +15,12 @@
 
         # Check if the current char is null. If so, exit the loop
         cmp1 [r1] 0
-        jmpnz endloop
+        jmpz endloop
         
         # Increment the char* and continue
         inc r1
         jmp loop
+
 
     @endloop
 
