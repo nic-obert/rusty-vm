@@ -16,6 +16,10 @@ There are a few known vulnerabilities, plus it's not very efficient.
 
 - [**Easy Virtual Machine**](#easy-virtual-machine)
   - [Table of contents](#table-of-contents)
+  - [Basic usage](#basic-usage)
+    - [Assembler](#assembler)
+    - [Disassembler](#disassembler)
+    - [Virtual machine](#virtual-machine)
   - [Project structure](#project-structure)
   - [Registers](#registers)
   - [Assembly operators and symbols](#assembly-operators-and-symbols)
@@ -35,10 +39,35 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Include section](#include-section)
   - [Errors and error codes](#errors-and-error-codes)
 
+## Basic usage
+
+### Assembler
+
+```bash
+# Assemble a file
+./assembler.sh my_file.asm
+```
+
+For full usage instructions, run with the `--help` flag.
+
+### Disassembler
+
+The disassembler is currently outdated and not working.
+
+### Virtual machine
+
+```bash
+# Run a file
+./vm.sh my_file.bc
+```
+
+For full usage instructions, run with the `--help` flag.
+
 ## Project structure
 
 - The [`vm`](vm) directory contains the code for the virtual machine.
 - The [`assembler`](assembler) directory contains the code for the assembler.
+- [`assembler/lib`](assembler/lib) contains shared assembly libraries to include in the assembly source code.
 - The [`disassembler`](disassembler) directory contains the code for the disassembler.
 - The [`rust_vm_lib`](rust_vm_lib) directory contains the code for the shared library used across all Rust tools.
 - The [`impl`](impl) directory contains examples of programs written in the VM's assembly language.

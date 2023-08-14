@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] add usage to docs  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] differentiate between unsigned int input and signed int input  
 - [ ] add support for floating point arithmetic  
@@ -21,6 +20,7 @@
 
 ### Done ✅
 
+- [ ] add usage to docs  
 - [ ] implement atou1 (ascii to u1)  
 - [ ] implement reexporting includes  
 - [ ] add other jump instructions  
