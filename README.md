@@ -32,6 +32,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Memory instructions](#memory-instructions)
     - [Flow control instructions](#flow-control-instructions)
     - [Comparison instructions](#comparison-instructions)
+    - [Logical bitwise instructions](#logical-bitwise-instructions)
     - [Interrupts](#interrupts)
   - [Assembly unit sections](#assembly-unit-sections)
     - [Data section](#data-section)
@@ -212,6 +213,17 @@ The first operand is treated as the destination by the processor, whereas the se
 | `cmp2 a b`  | Compare 2 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
 | `cmp4 a b`  | Compare 4 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
 | `cmp8 a b`  | Compare 8 bytes from `a` and `b`. If the values are equal, set register `zf` to `1`. Else, set register `zf` to `0`. |
+
+### Logical bitwise instructions
+
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `and`       | Perform a bitwise AND between the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the status flags. |
+| `or`        | Perform a bitwise OR between the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the status flags. |
+| `xor`       | Perform a bitwise XOR between the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the status flags. |
+| `not`       | Perform a bitwise NOT on the value stored in register `r1`. Store the result in register `r1`. Update the status flags. |
+| `shl`       | Perform a bitwise left shift on the value stored in register `r1` by the value stored in register `r2`. Store the result in register `r1`. |
+| `shr`       | Perform a bitwise right shift on the value stored in register `r1` by the value stored in register `r2`. Store the result in register `r1`. |
 
 ### Interrupts
 

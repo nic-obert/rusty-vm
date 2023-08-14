@@ -4,7 +4,6 @@
 
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
-- [ ] add bitwise operations  
 - [ ] implement strncmp  
 - [ ] add macros  
 - [ ] update the disassembler  
@@ -19,6 +18,7 @@
 
 ### Done ✅
 
+- [ ] add bitwise operations  
 - [ ] differentiate between unsigned int input and signed int input  
 - [ ] add usage to docs  
 - [ ] implement atou1 (ascii to u1)  

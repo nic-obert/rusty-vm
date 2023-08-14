@@ -85,6 +85,8 @@ fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_
     assert_exists!(ByteCodes::OR);
     assert_exists!(ByteCodes::XOR);
     assert_exists!(ByteCodes::NOT);
+    assert_exists!(ByteCodes::SHIFT_LEFT);
+    assert_exists!(ByteCodes::SHIFT_RIGHT);
     assert_exists!(ByteCodes::PRINT_SIGNED);
     assert_exists!(ByteCodes::PRINT_UNSIGNED);
     assert_exists!(ByteCodes::PRINT_CHAR);
@@ -1000,6 +1002,8 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_no_operands_generic, // ByteCodes::OR
     convert_no_operands_generic, // ByteCodes::XOR
     convert_no_operands_generic, // ByteCodes::NOT
+    convert_no_operands_generic, // ByteCodes::SHIFT_LEFT
+    convert_no_operands_generic, // ByteCodes::SHIFT_RIGHT
 
     convert_no_operands_generic, // ByteCodes::PRINT_SIGNED
     convert_no_operands_generic, // ByteCodes::PRINT_UNSIGNED

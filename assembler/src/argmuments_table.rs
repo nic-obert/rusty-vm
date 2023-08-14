@@ -1334,6 +1334,10 @@ const XOR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::XOR, 0, 0));
 
 const NOT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::NOT, 0, 0));
 
+const SHL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SHIFT_LEFT, 0, 0));
+
+const SHR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SHIFT_RIGHT, 0, 0));
+
 const PRINTI_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_SIGNED, 0, 0));
 
 const PRINTU_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_UNSIGNED, 0, 0));
@@ -1468,7 +1472,7 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
 
         "cmp8" => &CMP8_ARGS,
 
-        // Logical
+        // Logical bitwise
 
         "and" => &AND_ARGS,
 
@@ -1477,6 +1481,10 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "xor" => &XOR_ARGS,
 
         "not" => &NOT_ARGS,
+
+        "shl" => &SHL_ARGS,
+
+        "shr" => &SHR_ARGS,
 
         // Interrupts
 

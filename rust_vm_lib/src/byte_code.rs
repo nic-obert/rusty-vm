@@ -81,6 +81,8 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "OR",
     "XOR",
     "NOT",
+    "SHIFT_LEFT",
+    "SHIFT_RIGHT",
 
     "PRINT_SIGNED",
     "PRINT_UNSIGNED",
@@ -178,6 +180,8 @@ pub enum ByteCodes {
     OR,
     XOR,
     NOT,
+    SHIFT_LEFT,
+    SHIFT_RIGHT,
 
     PRINT_SIGNED,
     PRINT_UNSIGNED,

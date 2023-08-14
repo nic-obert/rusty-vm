@@ -1456,6 +1456,30 @@ impl Processor {
     }
 
 
+    fn handle_shift_left(&mut self) {
+        assert_exists!(ByteCodes::SHIFT_LEFT);
+
+        let value = self.get_register(Registers::R1);
+        let shift_amount = self.get_register(Registers::R2);
+
+        let result = value.overflowing_shl(shift_amount as u32).0;
+
+        self.set_register(Registers::R1, result);
+    }
+
+
+    fn handle_shift_right(&mut self) {
+        assert_exists!(ByteCodes::SHIFT_RIGHT);
+
+        let value = self.get_register(Registers::R1);
+        let shift_amount = self.get_register(Registers::R2);
+
+        let result = value.overflowing_shr(shift_amount as u32).0;
+
+        self.set_register(Registers::R1, result);
+    }
+
+
     fn handle_print_signed(&mut self) {
         assert_exists!(ByteCodes::PRINT_SIGNED);
 
@@ -1677,6 +1701,8 @@ impl Processor {
         Self::handle_or,
         Self::handle_xor,
         Self::handle_not,
+        Self::handle_shift_left,
+        Self::handle_shift_right,
 
         Self::handle_print_signed,
         Self::handle_print_unsigned,
