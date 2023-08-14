@@ -1,2 +1,8 @@
 #!/bin/bash
-find . -wholename "**/src/*" -type f | xargs wc -l | sort -nr
+
+echo "Rust:"
+find . -name "*.rs" | xargs wc -l | sort -nr
+
+echo $'\nAssembly:'
+find . -name "*.asm" | xargs wc -l | sort -nr
+
