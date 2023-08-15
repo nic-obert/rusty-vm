@@ -210,41 +210,28 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 }
 
 
-struct ASMUnit {
-    path: PathBuf,
-    exports: LabelMap,
-}
-
-
-impl ASMUnit {
-
-    fn new(path: PathBuf, exports: LabelMap) -> ASMUnit {
-        ASMUnit {
-            path,
-            exports,
-        }
-    }
-
-}
+type ASMUnitMap = HashMap<PathBuf, LabelMap>;
 
 
 /// Assemble recursively an assembly unit and its dependencies
-fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_code: &mut ByteCode, external_export_label_declaration_map: &mut LabelMap, included_units: &mut Vec<ASMUnit>, is_main_unit: bool) {
+fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_code: &mut ByteCode, external_export_label_declaration_map: &mut LabelMap, included_units: &mut ASMUnitMap, is_main_unit: bool) {
 
     // Check if the assembly unit has already been included
-    if let Some(unit) = included_units.iter().find(|unit| unit.path == unit_path) {
-
+    if let Some(exported_labels) = included_units.get(unit_path) {
         if verbose {
             println!("Unit already included: {}", unit_path.display());
-            println!("Exported labels: {:?}\n", unit.exports)
+            println!("Exported labels: {:?}\n", exported_labels);
         }
 
         // The assembly unit has already been included, do not include it again
         // Export the labels of the already included assembly unit and return
-        external_export_label_declaration_map.extend(unit.exports.clone());
+        external_export_label_declaration_map.extend(exported_labels.clone());
 
         return;
     }
+    // Insert a temporary entry in the included units map to avoid infinite recursive unit inclusion
+    included_units.insert(unit_path.to_path_buf(), LabelMap::new());
+
 
     if verbose {
         if is_main_unit {
@@ -513,7 +500,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
     external_export_label_declaration_map.extend(export_label_declaration_map.clone());
 
     // Add the assembly unit to the included units
-    included_units.push(ASMUnit::new(unit_path.to_path_buf(), export_label_declaration_map));
+    included_units.insert(unit_path.to_path_buf(), export_label_declaration_map);
 
 }
 
@@ -522,7 +509,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> ByteCode {
 
     // Keep track of all the assembly units included to avoid duplicates
-    let mut included_units: Vec<ASMUnit> = Vec::new();
+    let mut included_units = ASMUnitMap::new();
 
     let mut byte_code = ByteCode::new();
 

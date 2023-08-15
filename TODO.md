@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add instruction to push and pop the stack pointer n bytes (pushsp, popsp)  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] add macros  

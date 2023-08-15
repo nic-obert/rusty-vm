@@ -5,8 +5,8 @@
 
 .data:
 
-    S1 string "hellooooooooooooo\n\0"
-    S2 string "xxxxxxxxxx\n\0"
+    S1 string "hel"
+    S2 string "xxx\n\0"
 
 .text:
 
@@ -14,9 +14,9 @@
 
     mov8 r1 S1
     mov8 r2 S2
-    mov8 r3 7
+    mov8 r3 3
 
-    call strncpy
+    call memmove
 
     mov8 print S2
     printstr

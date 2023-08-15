@@ -9,4 +9,6 @@
     @@ string/strncmp.asm
     @@ string/strcpy.asm
     @@ string/strncpy.asm
+    @@ string/memcpy.asm
+    @@ string/memmove.asm
 

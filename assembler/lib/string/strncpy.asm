@@ -26,9 +26,8 @@
         inc r1
         inc r2
 
-        # Decrement the chars still to write and check if it's zero
+        # Decrement the chars still to write
         dec r3
-        jmpz endloop
 
         jmp loop_copy
 
@@ -44,10 +43,11 @@
         # Write 0 to destination
         mov1 [r2] 0
 
+        # Increment the char*
         inc r2
 
+        # Decrement the chars still to write
         dec r3
-        jmpz endloop
 
         jmp loop_pad
 
