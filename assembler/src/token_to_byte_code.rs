@@ -30,9 +30,13 @@ macro_rules! extract {
 /// This function assumes little endian.
 fn number_size(number: i64) -> usize {
     if number == 0 {
-        return 1;
+        1
+    } else if number < 0 {
+        // For now this works
+        8
+    } else {
+        number.to_le_bytes().iter().rev().skip_while(|&&b| b == 0).count()
     }
-    number.to_le_bytes().iter().rev().skip_while(|&&b| b == 0).count()
 }
 
 
@@ -210,7 +214,7 @@ fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, 
     bytes.push(dest_reg as u8);
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -281,7 +285,7 @@ fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_si
     bytes.push(dest_reg as u8);
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -380,7 +384,7 @@ fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_s
     }
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -449,7 +453,7 @@ fn convert_push_from_const(mut operands: Vec<Token>, handled_size: u8, label_reg
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -583,7 +587,7 @@ fn convert_compare_reg_const(mut operands: Vec<Token>, handled_size: u8, label_r
     bytes.push(left_reg);
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -652,7 +656,7 @@ fn convert_compare_addr_in_reg_const(mut operands: Vec<Token>, handled_size: u8,
     bytes.push(left_reg);
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -698,7 +702,7 @@ fn convert_compare_const_reg(mut operands: Vec<Token>, handled_size: u8, label_r
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -725,7 +729,7 @@ fn convert_compare_const_addr_in_reg(mut operands: Vec<Token>, handled_size: u8,
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -752,7 +756,7 @@ fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -766,7 +770,7 @@ fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label
     }
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -790,7 +794,7 @@ fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );
@@ -876,7 +880,7 @@ fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8
     }
 
     match &mut operands[1].value {
-        TokenValue::Number(value) => {
+        TokenValue::Number { value, .. } => {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
                 || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
             );

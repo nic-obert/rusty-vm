@@ -29,7 +29,7 @@
     # Skip the whitespaces
     @ loop_whitespaces
 
-        # Load the chat
+        # Load the char
         mov1 r1 [r3]
 
         call is_space
@@ -77,10 +77,7 @@
         # Check for errors
         cmp1 error INVALID_INPUT
 
-        # Clean error register
-        mov1 error NO_ERROR
-
-        jmpz endloop
+        jmpz endloop_num
 
         # If the char is a valid digit, add it to the number
 
@@ -94,17 +91,32 @@
         
         # output + digit
         mov r2 r4
-        mul
+        add
 
         # Save current output
         mov r7 r1
 
+        inc r3
+        jmp loop_num
 
-    @ endloop
+    @ endloop_num
 
+    # Clean error register
+    mov1 error NO_ERROR
 
-    # Prepare return value 
+    # Move the output into r1 for operations
     mov r1 r7
+
+    # Add back the sign if negative
+    cmp1 r8 1
+    jmpnz sign_is_positive
+
+        # Convert positive integer to its two's complement negative counterpart
+        mov r2 r1
+        mov1 r1 0
+        sub
+    
+    @ sign_is_positive
 
     ret
 

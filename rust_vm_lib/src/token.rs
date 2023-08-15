@@ -7,7 +7,7 @@ use crate::registers::Registers;
 pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
-    Number(i64),
+    Number { value: i64, initial_sign: bool },
     AddressLiteral(usize),
     Label(String),
     AddressAtLabel(String),
@@ -26,7 +26,7 @@ impl TokenValue {
         match self {
             TokenValue::Register(_) => 0,
             TokenValue::AddressInRegister(_) => 1,
-            TokenValue::Number(_) => 2,
+            TokenValue::Number { .. } => 2,
             TokenValue::AddressLiteral(_) => 3,
             TokenValue::Label(_) => 4,
             TokenValue::AddressAtLabel(_) => 5,
@@ -109,7 +109,7 @@ impl fmt::Display for Token {
         match self.value {
             TokenValue::Register(reg) => write!(f, "REGISTER({})", reg),
             TokenValue::AddressInRegister(reg) => write!(f, "ADDRESS_IN_REGISTER({})", reg),
-            TokenValue::Number(num) => write!(f, "NUMBER({})", num),
+            TokenValue::Number { value, .. } => write!(f, "NUMBER({})", value),
             TokenValue::AddressLiteral(num) => write!(f, "ADDRESS_LITERAL({})", num),
             TokenValue::Label(ref label) => write!(f, "LABEL({})", label),
             TokenValue::Name(ref name) => write!(f, "NAME({})", name),

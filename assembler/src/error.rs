@@ -152,8 +152,9 @@ pub fn number_out_of_range(unit_path: &Path, number: i64, size_bytes: u8, line_n
         {}
 
         The number must fit in {} bytes.
+        Bytes: {:?}
         ",
-        unit_path.display(), number, line_number, line, size_bytes
+        unit_path.display(), number, line_number, line, size_bytes, number.to_le_bytes()
     );
     std::process::exit(1);
 }

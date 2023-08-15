@@ -1,5 +1,5 @@
 use rust_vm_lib::vm::Address;
-use crate::video::Pixel;
+//use crate::video::Pixel;
 
 
 pub type Byte = u8;
@@ -9,28 +9,23 @@ pub type Size = usize;
 pub struct Memory {
 
     stack: Vec<Byte>,
-    video: Vec<Pixel>,
+    // video: Vec<Pixel>,
 
 }
 
 
 impl Memory {
 
-    pub fn new(stack_size: Size, video_size: Size) -> Memory {
+    pub fn new(stack_size: Size, _video_size: Size) -> Memory {
         Memory {
             stack: vec![0; stack_size as usize],
-            video: vec![Pixel::new(); video_size as usize],
+            // video: vec![Pixel::new(); video_size as usize],
         }
     }
 
 
     pub fn get_raw(&self) -> &[Byte] {
         &self.stack
-    }
-
-
-    pub fn set_byte(&mut self, address: Address, data: Byte) {
-        self.stack[address] = data;
     }
 
 
@@ -59,31 +54,31 @@ impl Memory {
     }
 
 
-    pub fn set_pixel(&mut self, address: Address, data: Pixel) {
-        self.video[address] = data;
-    }
+    // pub fn set_pixel(&mut self, address: Address, data: Pixel) {
+    //     self.video[address] = data;
+    // }
 
 
-    pub fn set_pixels(&mut self, address: Address, data: &[Pixel]) {
-        for (i, pixel) in data.iter().enumerate() {
-            self.video[address + i] = (*pixel).clone();
-        }
-    }
+    // pub fn set_pixels(&mut self, address: Address, data: &[Pixel]) {
+    //     for (i, pixel) in data.iter().enumerate() {
+    //         self.video[address + i] = (*pixel).clone();
+    //     }
+    // }
 
 
-    pub fn get_pixel(&self, address: Address) -> &Pixel {
-        &self.video[address]
-    }
+    // pub fn get_pixel(&self, address: Address) -> &Pixel {
+    //     &self.video[address]
+    // }
 
 
-    pub fn get_pixels(&self, address: Address, size: Size) -> &[Pixel] {
-        &self.video[address..address + size]
-    }
+    // pub fn get_pixels(&self, address: Address, size: Size) -> &[Pixel] {
+    //     &self.video[address..address + size]
+    // }
 
 
-    pub fn get_pixels_mut(&mut self, address: Address, size: Size) -> &mut [Pixel] {
-        &mut self.video[address..address + size]
-    }
+    // pub fn get_pixels_mut(&mut self, address: Address, size: Size) -> &mut [Pixel] {
+    //     &mut self.video[address..address + size]
+    // }
 
 }
 

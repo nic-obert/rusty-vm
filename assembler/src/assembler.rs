@@ -72,8 +72,6 @@ enum ProgramSection {
 /// If successful, return the assembly code and the absolute path to the unit
 fn load_asm_unit(unit_name: &str, current_unit_path: &Path) -> io::Result<(PathBuf, AssemblyCode)> {
 
-    // TODO: search in standard assembly library first
-
     let unit_path = Path::new(unit_name);
 
     if unit_path.is_absolute() {
@@ -212,16 +210,41 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 }
 
 
+struct ASMUnit {
+    path: PathBuf,
+    exports: LabelMap,
+}
+
+
+impl ASMUnit {
+
+    fn new(path: PathBuf, exports: LabelMap) -> ASMUnit {
+        ASMUnit {
+            path,
+            exports,
+        }
+    }
+
+}
+
+
 /// Assemble recursively an assembly unit and its dependencies
-fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_code: &mut ByteCode, export_label_declaration_map: &mut LabelMap, included_units: &mut Vec<String>, is_main_unit: bool) {
+fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_code: &mut ByteCode, external_export_label_declaration_map: &mut LabelMap, included_units: &mut Vec<ASMUnit>, is_main_unit: bool) {
 
     // Check if the assembly unit has already been included
-    let unit_path_string = unit_path.to_string_lossy().to_string();
-    if included_units.contains(&unit_path_string) {
-        // The assembly unit has already been included, skip it
+    if let Some(unit) = included_units.iter().find(|unit| unit.path == unit_path) {
+
+        if verbose {
+            println!("Unit already included: {}", unit_path.display());
+            println!("Exported labels: {:?}\n", unit.exports)
+        }
+
+        // The assembly unit has already been included, do not include it again
+        // Export the labels of the already included assembly unit and return
+        external_export_label_declaration_map.extend(unit.exports.clone());
+
         return;
     }
-    included_units.push(unit_path_string);
 
     if verbose {
         if is_main_unit {
@@ -230,6 +253,8 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
             println!("\nAssembly unit: {} ({})\n", unit_path.file_name().unwrap().to_string_lossy(), unit_path.display());
         }
     }
+
+    let mut export_label_declaration_map = LabelMap::new();
     
     // Stores the address in the bytecode of all the local labels
     let mut local_label_declaration_map = LabelMap::new();
@@ -484,6 +509,12 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         }
     }
 
+    // Export the labels of the assembly unit
+    external_export_label_declaration_map.extend(export_label_declaration_map.clone());
+
+    // Add the assembly unit to the included units
+    included_units.push(ASMUnit::new(unit_path.to_path_buf(), export_label_declaration_map));
+
 }
 
 
@@ -491,7 +522,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> ByteCode {
 
     // Keep track of all the assembly units included to avoid duplicates
-    let mut included_units: Vec<String> = Vec::new();
+    let mut included_units: Vec<ASMUnit> = Vec::new();
 
     let mut byte_code = ByteCode::new();
 

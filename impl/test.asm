@@ -5,30 +5,22 @@
 
 .data:
 
-    INVAID_BYTE string "The byte is invalid\n\0"
+    S string "-301\0"
 
 .text:
 
 @start
 
-    mov1 r1 '3'
+    mov8 r1 S
 
-    call ascii_to_digit
-
-    cmp1 error INVALID_INPUT
-    jmpnz ok
-
-    mov8 print INVAID_BYTE
-    printstr
-    exit
-
-    @ok
+    call ascii_to_int
 
     mov print r1
     printu
     mov1 print 10
     printc
-
-    exit
+    mov print r1
+    printi
+    mov1 print 10
+    printc
     
-

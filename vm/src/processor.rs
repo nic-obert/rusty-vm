@@ -168,22 +168,58 @@ impl Processor {
     fn increment_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
-        let result = match size {
+        let (result, carry) = match size {
             1 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u8) += 1;
-                *(bytes.as_ptr() as *const u8) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u8);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_add(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_add(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u8) = res;
+
+                (res as u64, carry)
             },
             2 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u16) += 1;
-                *(bytes.as_ptr() as *const u16) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u16);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_add(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_add(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u16) = res;
+
+                (res as u64, carry)
             },
             4 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u32) += 1;
-                *(bytes.as_ptr() as *const u32) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u32);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_add(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_add(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u32) = res;
+
+                (res as u64, carry)
             },
             8 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u64) += 1;
-                *(bytes.as_ptr() as *const u64)
+                let value = *(bytes.as_mut_ptr() as *mut u64);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_add(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_add(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u64) = res;
+
+                (res, carry)
             },
             _ => panic!("Invalid size for incrementing bytes: {}", size),
         };
@@ -192,8 +228,8 @@ impl Processor {
             result == 0,
             is_msb_set(result),
             0,
-            false,
-            false
+            carry,
+            carry ^ is_msb_set(result)
         );
     }
     
@@ -202,32 +238,68 @@ impl Processor {
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
         let bytes = self.memory.get_bytes_mut(address, size as Size);
 
-        let result = match size {
+        let (result, carry) = match size {
             1 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u8) -= 1;
-                *(bytes.as_ptr() as *const u8) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u8);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_sub(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_sub(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u8) = res;
+
+                (res as u64, carry)
             },
             2 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u16) -= 1;
-                *(bytes.as_ptr() as *const u16) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u16);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_sub(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_sub(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u16) = res;
+
+                (res as u64, carry)
             },
             4 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u32) -= 1;
-                *(bytes.as_ptr() as *const u32) as u64
+                let value = *(bytes.as_mut_ptr() as *mut u32);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_sub(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_sub(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u32) = res;
+
+                (res as u64, carry)
             },
             8 => unsafe {
-                *(bytes.as_mut_ptr() as *mut u64) -= 1;
-                *(bytes.as_ptr() as *const u64)
+                let value = *(bytes.as_mut_ptr() as *mut u64);
+                let (res, carry) = {
+                    if let Some(res) = value.checked_sub(1) {
+                        (res, false)
+                    } else {
+                        (value.wrapping_sub(1), true)
+                    }
+                };
+                *(bytes.as_ptr() as *mut u64) = res;
+
+                (res, carry)
             },
-            _ => panic!("Invalid size for incrementing bytes: {}", size),
+            _ => panic!("Invalid size for decrementing bytes: {}", size),
         };
 
         self.set_arithmetical_flags(
             result == 0,
             is_msb_set(result),
             0,
-            false,
-            false
+            carry,
+            carry ^ is_msb_set(result)
         );
     }
 
@@ -412,7 +484,7 @@ impl Processor {
         
         let (result, carry) = match r1.checked_add(r2) {
             Some(result) => (result, false),
-            None => (r1.saturating_add(r2), true)
+            None => (r1.wrapping_add(r2), true)
         };
 
         self.set_register(Registers::R1, result);
@@ -435,7 +507,7 @@ impl Processor {
 
         let (result, carry) = match r1.checked_sub(r2) {
             Some(result) => (result, false),
-            None => (r1.saturating_add(r2), true)
+            None => (r1.wrapping_sub(r2), true)
         };
 
         self.set_register(Registers::R1, result);
@@ -458,7 +530,7 @@ impl Processor {
 
         let (result, carry) = match r1.checked_mul(r2) {
             Some(result) => (result, false),
-            None => (r1.saturating_add(r2), true)
+            None => (r1.wrapping_mul(r2), true)
         };
 
         self.set_register(Registers::R1, result);
@@ -576,7 +648,7 @@ impl Processor {
 
         let (result, carry) = match value.checked_sub(1) {
             Some(result) => (result, false),
-            None => (value.saturating_sub(1), true)
+            None => (value.wrapping_sub(1), true)
         };
 
         self.set_register(dest_reg, result);
@@ -1484,7 +1556,7 @@ impl Processor {
         assert_exists!(ByteCodes::PRINT_SIGNED);
 
         let value = self.get_register(Registers::PRINT);
-        print!("{}", value);
+        print!("{}", value as i64);
         std::io::stdout().flush().expect("Failed to flush stdout");
     }
 

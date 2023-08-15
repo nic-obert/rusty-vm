@@ -157,7 +157,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                             }
                             string_length = 0;
                             // Convert the character to a byte
-                            tokens.push(Token::new(TokenValue::Number(*value as i64)));
+                            tokens.push(Token::new(TokenValue::Number { value: *value as i64, initial_sign: false }));
                             current_token = None;
                         },
 
@@ -246,7 +246,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         tokens.push(Token::new(TokenValue::Register(register)));
                     
                     } else if let Some(error_code) = ErrorCodes::from_name(name) {
-                        tokens.push(Token::new(TokenValue::Number(error_code as i64)));
+                        tokens.push(Token::new(TokenValue::Number { value: error_code as i64, initial_sign: false }));
 
                     } else {
                         // The name is not special, then it's a label
@@ -256,13 +256,19 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                     current_token = None;
                 }
                    
-                TokenValue::Number(value) => {
+                TokenValue::Number { value, initial_sign } => {
                     if c.is_digit(10) {
                         *value = value.checked_mul(10).unwrap_or_else(
                             || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
                         ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
                             || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
                         );
+
+                        if *initial_sign {
+                            *value = -*value;
+                            *initial_sign = false;
+                        }
+
                         continue;
                     }
 
@@ -281,12 +287,22 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
         }
 
         if c.is_digit(10) {
-            current_token = Some(Token::new(TokenValue::Number(c.to_digit(10).unwrap() as i64)));
+            current_token = Some(Token::new(TokenValue::Number { value: c.to_digit(10).unwrap() as i64, initial_sign: false }));
             continue;
         }
 
         match c {
             ' ' | '\t' => continue,
+
+            '+' => {
+                current_token = Some(Token::new(TokenValue::Number { value: 0, initial_sign: false }));
+                continue;
+            }
+
+            '-' => {
+                current_token = Some(Token::new(TokenValue::Number { value: 0, initial_sign: true }));
+                continue;
+            }
 
             '\'' => {
                 // Use a null character to represent an empty char literal that will be filled later
