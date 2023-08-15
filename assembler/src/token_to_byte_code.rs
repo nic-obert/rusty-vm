@@ -626,20 +626,22 @@ fn convert_compare_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, 
 }
 
 
-fn convert_compare_addr_in_reg_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_compare_addr_in_reg_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_REG);
     
     vec![
+        handled_size,
         extract!(operands[0], AddressInRegister) as u8,
         extract!(operands[1], Register) as u8
     ]
 }
 
 
-fn convert_compare_addr_in_reg_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+fn convert_compare_addr_in_reg_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG);
     
     vec![
+        handled_size,
         extract!(operands[0], AddressInRegister) as u8,
         extract!(operands[1], AddressInRegister) as u8
     ]

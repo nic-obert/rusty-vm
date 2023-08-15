@@ -6,5 +6,7 @@
 
     @@ string/strcmp.asm
     @@ string/strlen.asm
-    @@ string/strncmo.asm
+    @@ string/strncmp.asm
+    @@ string/strcpy.asm
+    @@ string/strncpy.asm
 
