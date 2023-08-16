@@ -12,14 +12,9 @@ use crate::argmuments_table;
 /// Returns whether the name is a reserved name by the assembler
 /// Reserved names are register names, and instruction names, error names
 pub fn is_reserved_name(name: &str) -> bool {
-    if Registers::from_name(name).is_some() 
-        || argmuments_table::get_arguments_table(name).is_some() 
-        || ErrorCodes::from_name(name).is_some() 
-    {
-        true
-    } else {
-        false
-    }
+    Registers::from_name(name).is_some() 
+    || argmuments_table::get_arguments_table(name).is_some()
+    || ErrorCodes::from_name(name).is_some()
     
 }
 
@@ -174,7 +169,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                 },
 
                 TokenValue::AddressGeneric(_value) => {
-                    if c.is_digit(10) {
+                    if c.is_ascii_digit() {
                         current_token = Some(
                             Token::new(TokenValue::AddressLiteral(c.to_digit(10).unwrap() as usize))
                         );
@@ -193,7 +188,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                 },
                 
                 TokenValue::AddressLiteral(value) => {
-                    if c.is_digit(10) {
+                    if c.is_ascii_digit() {
                         *value = value.checked_mul(10).unwrap_or_else(
                             || error::invalid_address(unit_path, *value, line_number, line, "Address literal is too large.")
                         ).checked_add(c.to_digit(10).unwrap() as usize).unwrap_or_else(
@@ -225,7 +220,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
 
                     } else if is_reserved_name(identifier) {
                         // Check if the name is a reserved keyword
-                        error::invalid_address_identifier(unit_path, &identifier, line_number, line);
+                        error::invalid_address_identifier(unit_path, identifier, line_number, line);
                     } else {
                         // The name is not reserved, then it's a label
                         tokens.push(Token::new(TokenValue::Label(mem::take(identifier))));
@@ -257,7 +252,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                 }
                    
                 TokenValue::Number { value, initial_sign } => {
-                    if c.is_digit(10) {
+                    if c.is_ascii_digit() {
                         *value = value.checked_mul(10).unwrap_or_else(
                             || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
                         ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
@@ -286,7 +281,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
             continue;
         }
 
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             current_token = Some(Token::new(TokenValue::Number { value: c.to_digit(10).unwrap() as i64, initial_sign: false }));
             continue;
         }

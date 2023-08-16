@@ -1,3 +1,7 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::no_effect)]
+
+
 use std::mem;
 use std::path::Path;
 
@@ -29,13 +33,12 @@ macro_rules! extract {
 /// 
 /// This function assumes little endian.
 fn number_size(number: i64) -> usize {
-    if number == 0 {
-        1
-    } else if number < 0 {
-        // For now this works
-        8
-    } else {
-        number.to_le_bytes().iter().rev().skip_while(|&&b| b == 0).count()
+    match number.cmp(&0) {
+        std::cmp::Ordering::Equal => 1,
+        std::cmp::Ordering::Less => 8,
+        std::cmp::Ordering::Greater => {
+            number.to_le_bytes().iter().rev().skip_while(|&&b| b == 0).count()
+        }
     }
 }
 
@@ -211,7 +214,7 @@ fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, 
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], Register) as u8;
-    bytes.push(dest_reg as u8);
+    bytes.push(dest_reg);
 
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
@@ -238,7 +241,7 @@ fn convert_move_into_reg_from_addr_literal(mut operands: Vec<Token>, handled_siz
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], Register) as u8;
-    bytes.push(dest_reg as u8);
+    bytes.push(dest_reg);
 
     match &mut operands[1].value {
         TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
@@ -279,10 +282,10 @@ fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_si
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
 
     let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
-    bytes.push(handled_size as u8);
+    bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], AddressInRegister) as u8;
-    bytes.push(dest_reg as u8);
+    bytes.push(dest_reg);
 
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
@@ -309,7 +312,7 @@ fn convert_move_into_addr_in_reg_from_addr_literal(mut operands: Vec<Token>, han
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], AddressInRegister) as u8;
-    bytes.push(dest_reg as u8);
+    bytes.push(dest_reg);
 
     match &mut operands[1].value {
         TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),

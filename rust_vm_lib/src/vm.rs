@@ -43,7 +43,7 @@ const ERROR_CODES_COUNT: usize = {
 };
 
 
-const ERROR_CODE_REPR: [&'static str; ERROR_CODES_COUNT] = [
+const ERROR_CODE_REPR: [&str; ERROR_CODES_COUNT] = [
     "NO_ERROR",
     "END_OF_FILE",
     "INVALID_INPUT",

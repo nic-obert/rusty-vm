@@ -1,3 +1,6 @@
+#![allow(clippy::no_effect)]
+
+
 use std::io::Write;
 use std::io;
 
@@ -29,7 +32,7 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
             *(bytes.as_ptr() as *const u32) as u64
         },
         8 => unsafe {
-            *(bytes.as_ptr() as *const u64) as u64
+            *(bytes.as_ptr() as *const u64)
         },
         _ => panic!("Invalid number size: {}", handled_size),
     }
@@ -394,7 +397,7 @@ impl Processor {
                 *(dest_bytes.as_mut_ptr() as *mut u32) = value as u32;
             },
             8 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u64) = value as u64;
+                *(dest_bytes.as_mut_ptr() as *mut u64) = value;
             },
             _ => panic!("Invalid size for move instruction {}.", handled_size),
         }
@@ -430,7 +433,7 @@ impl Processor {
         println!("Running VM in interactive mode");
         println!("Byte code size is {} bytes", byte_code_size);
         println!("Start address is: {}", self.get_pc());
-        println!("");
+        println!();
 
         loop {
             let opcode = ByteCodes::from(self.get_next_byte());
@@ -449,7 +452,7 @@ impl Processor {
 
             self.handle_instruction(opcode);
 
-            println!("");
+            println!();
 
         }
     }
@@ -1672,7 +1675,7 @@ impl Processor {
     fn handle_print_unsigned(&mut self) {
         assert_exists!(ByteCodes::PRINT_UNSIGNED);
 
-        let value = self.get_register(Registers::PRINT) as u64;
+        let value = self.get_register(Registers::PRINT);
         print!("{}", value);
         io::stdout().flush().expect("Failed to flush stdout");
     }
@@ -1692,9 +1695,9 @@ impl Processor {
 
         let string_address = self.get_register(Registers::PRINT) as Address;
         let length = self.strlen(string_address);
-        let bytes = self.memory.get_bytes(string_address, length as usize);
+        let bytes = self.memory.get_bytes(string_address, length);
 
-        io::stdout().write(bytes).expect("Failed to write to stdout");
+        io::stdout().write_all(bytes).expect("Failed to write to stdout");
         io::stdout().flush().expect("Failed to flush stdout");
     }
 
@@ -1706,7 +1709,8 @@ impl Processor {
         let length = self.get_register(Registers::R1) as usize;
         let bytes = self.memory.get_bytes(bytes_address, length);
 
-        io::stdout().write(bytes).expect("Failed to write to stdout");
+        io::stdout().write_all(bytes).expect("Failed to write to stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
     }
 
 

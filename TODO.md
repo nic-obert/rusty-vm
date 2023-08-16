@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] implement byte array data type  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] add macros  
@@ -14,6 +13,7 @@
 
 ### In Progress ···
 
+- [ ] implement byte array data type (tests still to be performed)  
 - [ ] write asm libraries to include or call  
 
 ### Done ✅

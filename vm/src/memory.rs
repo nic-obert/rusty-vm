@@ -17,7 +17,7 @@ impl Memory {
 
     pub fn new(stack_size: usize, _video_size: usize) -> Memory {
         Memory {
-            stack: vec![0; stack_size as usize],
+            stack: vec![0; stack_size],
             // video: vec![Pixel::new(); video_size as usize],
         }
     }

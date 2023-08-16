@@ -84,9 +84,8 @@ fn load_asm_unit(unit_name: &str, current_unit_path: &Path) -> io::Result<(PathB
     // Try to load the unit from the standard library
     {
         let unit_path = configs::INCLUDE_LIB_PATH.join(unit_path);
-        match files::load_assembly(&unit_path) {
-            Ok(assembly) => return Ok((unit_path.canonicalize().unwrap(), assembly)),
-            Err(_) => {}
+        if let Ok(assembly) = files::load_assembly(&unit_path) {
+            return Ok((unit_path.canonicalize().unwrap(), assembly))
         }
     }
 
@@ -165,12 +164,10 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 
                 if escape_char {
                     escape_char = false;
-                } else {
-                    if c == '"' {
-                        text_type = TextType::Asm;
-                    } else if c == '\\' {
-                        escape_char = true;
-                    }
+                } else if c == '"' {
+                    text_type = TextType::Asm;
+                } else if c == '\\' {
+                    escape_char = true;
                 }
             },
 
@@ -180,12 +177,10 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 
                 if escape_char {
                     escape_char = false;
-                } else {
-                    if c == '\'' {
-                        text_type = TextType::Asm;
-                    } else if c == '\\' {
-                        escape_char = true;
-                    }
+                } else if c == '\'' {
+                    text_type = TextType::Asm;
+                } else if c == '\\' {
+                    escape_char = true;
                 }
 
             }
@@ -263,7 +258,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         }
 
         // Evaluate the compile-time special symbols
-        let evaluated_line = evaluate_special_symbols(&line, byte_code.len(), line_number, unit_path);
+        let evaluated_line = evaluate_special_symbols(line, byte_code.len(), line_number, unit_path);
 
         // Remove redundant whitespaces
         let trimmed_line = evaluated_line.trim();
@@ -278,7 +273,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
         if let Some(mut section_name) = trimmed_line.strip_prefix('.') {
             // This line specifies a program section
             section_name = section_name.strip_suffix(':').unwrap_or_else(
-                || error::invalid_section_declaration(unit_path, section_name, line_number, &line, "Assembly sections must end with a colon.")
+                || error::invalid_section_declaration(unit_path, section_name, line_number, line, "Assembly sections must end with a colon.")
             );
 
             match section_name {
@@ -286,7 +281,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 "include" => {
                     // Check for duplicate sections
                     if has_include_section {
-                        error::invalid_section_declaration(unit_path, section_name, line_number, &line, "An assembly unit can only have one include section.")
+                        error::invalid_section_declaration(unit_path, section_name, line_number, line, "An assembly unit can only have one include section.")
                     }
                     current_section = ProgramSection::Include;
                     has_include_section = true;
@@ -297,7 +292,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 "data" => {
                     // Check for duplicate sections
                     if has_data_section {
-                        error::invalid_section_declaration(unit_path, section_name, line_number, &line, "An assembly unit can only have one data section.")
+                        error::invalid_section_declaration(unit_path, section_name, line_number, line, "An assembly unit can only have one data section.")
                     }
                     current_section = ProgramSection::Data;
                     has_data_section = true;
@@ -308,7 +303,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                 "text" => {
                     // Check for duplicate sections
                     if has_text_section {
-                        error::invalid_section_declaration(unit_path, section_name, line_number, &line, "An assembly unit can only have one text section.")
+                        error::invalid_section_declaration(unit_path, section_name, line_number, line, "An assembly unit can only have one text section.")
                     }
                     current_section = ProgramSection::Text;
                     has_text_section = true;
@@ -316,7 +311,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     continue;
                 },
 
-                _ => error::invalid_section_declaration(unit_path, section_name, line_number, &line, format!("Unknown assembly section name: \"{}\"", section_name).as_str())
+                _ => error::invalid_section_declaration(unit_path, section_name, line_number, line, format!("Unknown assembly section name: \"{}\"", section_name).as_str())
             }
             
         }
@@ -337,7 +332,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 
                 let (include_path, include_asm) = match load_asm_unit(include_unit_raw, unit_path) {
                     Ok(x) => x,
-                    Err(error) => error::include_error(unit_path, &error, include_unit_raw, line_number, &line)
+                    Err(error) => error::include_error(unit_path, &error, include_unit_raw, line_number, line)
                 };
 
                 // Assemble the included assembly unit
@@ -368,27 +363,27 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
 
                 // Extract the label name
                 let (label, other) = trimmed_line.split_once(char::is_whitespace).unwrap_or_else(
-                    || error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations must have a label")
+                    || error::invalid_data_declaration(unit_path, line_number, line, "Static data declarations must have a label")
                 );
 
                 // Check if the label is a reserved keyword
                 if is_reserved_name(label) {
-                    error::invalid_label_name(unit_path, label, line_number, &line, format!("\"{}\" is a reserved name.", label).as_str());
+                    error::invalid_label_name(unit_path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
                 }
 
                 let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
-                    || error::invalid_data_declaration(unit_path, line_number, &line, "Static data declarations must have a type")
+                    || error::invalid_data_declaration(unit_path, line_number, line, "Static data declarations must have a type")
                 );
 
                 let data_type = DataType::from_name(data_type_name).unwrap_or_else(
-                    || error::invalid_data_declaration(unit_path, line_number, &line, format!("Unknown data type \"{}\"", data_type_name).as_str())
+                    || error::invalid_data_declaration(unit_path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
                 );
 
                 // The data string is everything following the data type
                 let data_string = other.trim();
 
                 // Encode the string data into byte code
-                let encoded_data: ByteCode = data_type.encode(data_string, line_number, &line, unit_path);
+                let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, unit_path);
 
                 // Add the data name and its address in the binary to the data map
                 local_label_declaration_map.insert(label.to_string(), byte_code.len());
@@ -418,11 +413,11 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
                     };
                     
                     if !is_label_name(label) {
-                        error::invalid_label_name(unit_path, label, line_number, &line, "Label names can only contain alphabetic characters and underscores.");
+                        error::invalid_label_name(unit_path, label, line_number, line, "Label names can only contain alphabetic characters and underscores.");
                     }
 
                     if is_reserved_name(label) {
-                        error::invalid_label_name(unit_path, label, line_number, &line, format!("\"{}\" is a reserved name.", label).as_str());
+                        error::invalid_label_name(unit_path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
                     }
 
                     if is_main_unit && label == "start" || to_export {
@@ -464,7 +459,7 @@ fn assemble_unit(assembly: AssemblyCode, verbose: bool, unit_path: &Path, byte_c
             },
 
             // Code cannot be put outside of a program section
-            ProgramSection::None => error::out_of_section(unit_path, line_number, &line)
+            ProgramSection::None => error::out_of_section(unit_path, line_number, line)
 
         }
 
