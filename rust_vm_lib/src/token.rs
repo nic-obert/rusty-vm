@@ -4,16 +4,31 @@ use crate::registers::Registers;
 
 
 #[derive(Debug)]
+pub enum NumberFormat {
+    Decimal,
+    Hexadecimal,
+    Binary,
+    Unknown,
+}
+
+
+#[derive(Debug)]
+pub enum NumberSign {
+    Positive,
+    Negative,
+}
+
+
+#[derive(Debug)]
 pub enum TokenValue {
     Register(Registers),
     AddressInRegister(Registers),
-    Number { value: i64, initial_sign: bool },
-    AddressLiteral(usize),
+    Number { value: i64, sign: NumberSign, format: NumberFormat },
+    AddressLiteral { value: usize, format: NumberFormat },
     Label(String),
     AddressAtLabel(String),
     Name(String),
-    AddressGeneric(usize),
-    CurrentPosition(usize),
+    AddressGeneric(),
     AddressAtIdentifier(String),
     Char(char),
 }
@@ -27,7 +42,7 @@ impl TokenValue {
             TokenValue::Register(_) => 0,
             TokenValue::AddressInRegister(_) => 1,
             TokenValue::Number { .. } => 2,
-            TokenValue::AddressLiteral(_) => 3,
+            TokenValue::AddressLiteral { .. } => 3,
             TokenValue::Label(_) => 4,
             TokenValue::AddressAtLabel(_) => 5,
             _ => unreachable!()
@@ -48,8 +63,6 @@ pub enum TokenTypes {
     AddressAtLabel = 5,
     Name = 6,
     AddressGeneric = 7,
-    CurrentPosition = 8,
-    AddressInRegisterIncomplete = 9,
 }
 
 
@@ -77,8 +90,6 @@ impl TokenTypes {
             TokenTypes::Label => unreachable!(),
             TokenTypes::Name => unreachable!(),
             TokenTypes::AddressGeneric => unreachable!(),
-            TokenTypes::CurrentPosition => unreachable!(),
-            TokenTypes::AddressInRegisterIncomplete => unreachable!(),
             TokenTypes::AddressAtLabel => unreachable!(),
         }
     }
@@ -110,11 +121,10 @@ impl fmt::Display for Token {
             TokenValue::Register(reg) => write!(f, "REGISTER({})", reg),
             TokenValue::AddressInRegister(reg) => write!(f, "ADDRESS_IN_REGISTER({})", reg),
             TokenValue::Number { value, .. } => write!(f, "NUMBER({})", value),
-            TokenValue::AddressLiteral(num) => write!(f, "ADDRESS_LITERAL({})", num),
+            TokenValue::AddressLiteral { value, .. } => write!(f, "ADDRESS_LITERAL({})", value),
             TokenValue::Label(ref label) => write!(f, "LABEL({})", label),
             TokenValue::Name(ref name) => write!(f, "NAME({})", name),
-            TokenValue::AddressGeneric(num) => write!(f, "ADDRESS_GENERIC({})", num),
-            TokenValue::CurrentPosition(num) => write!(f, "CURRENT_POSITION({})", num),
+            TokenValue::AddressGeneric() => write!(f, "ADDRESS_GENERIC"),
             TokenValue::AddressAtIdentifier(ref name) => write!(f, "ADDRESS_IN_REGISTER_INCOMPLETE({})", name),
             TokenValue::Char(c) => write!(f, "CHAR({})", c),
             TokenValue::AddressAtLabel(ref label) => write!(f, "ADDRESS_AT_LABEL({})", label),
@@ -136,8 +146,6 @@ impl fmt::Display for TokenTypes {
             TokenTypes::AddressAtLabel => write!(f, "ADDRESS_AT_LABEL"),
             TokenTypes::Name => write!(f, "NAME"),
             TokenTypes::AddressGeneric => panic!("AddressGeneric does not have a display value"),
-            TokenTypes::CurrentPosition => panic!("CurrentPosition does not have a display value"),
-            TokenTypes::AddressInRegisterIncomplete => panic!("AddressInRegisterIncomplete does not have a display value"),
         }
     }
 

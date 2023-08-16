@@ -13,11 +13,12 @@
 
 ### In Progress ···
 
-- [ ] implement byte array data type (tests still to be performed)  
 - [ ] write asm libraries to include or call  
 
 ### Done ✅
 
+- [ ] implement byte array data type (tests still to be performed)  
+- [ ] add hex number constants  
 - [ ] add instruction to push and pop the stack pointer n bytes (pushsp, popsp)  
 - [ ] implement strncmp  
 - [ ] add bitwise operations  

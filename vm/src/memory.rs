@@ -8,7 +8,6 @@ pub type Byte = u8;
 pub struct Memory {
 
     stack: Vec<Byte>,
-    // video: Vec<Pixel>,
 
 }
 
@@ -18,7 +17,6 @@ impl Memory {
     pub fn new(stack_size: usize, _video_size: usize) -> Memory {
         Memory {
             stack: vec![0; stack_size],
-            // video: vec![Pixel::new(); video_size as usize],
         }
     }
 
@@ -40,6 +38,12 @@ impl Memory {
 
     pub fn get_byte(&self, address: Address) -> Byte {
         self.stack[address]
+    }
+
+
+    pub fn get<const N: usize>(&self, address: Address) -> &[Byte; N] {
+        let ptr = &self.stack[address] as *const Byte;
+        unsafe { &*(ptr as *const [Byte; N]) }
     }
 
 

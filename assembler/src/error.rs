@@ -131,20 +131,6 @@ pub fn invalid_token_argument(unit_path: &Path, instruction: &str, arg: &Token, 
 }
 
 
-pub fn invalid_address(unit_path: &Path, address: usize, line_number: usize, line: &str, hint: &str) -> ! {
-    printdoc!("
-        Error in assembly unit \"{}\"
-        Invalid address {} at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), address, line_number, line, hint
-    );
-    std::process::exit(1);
-}
-
-
 pub fn number_out_of_range(unit_path: &Path, number: i64, size_bytes: u8, line_number: usize, line: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"

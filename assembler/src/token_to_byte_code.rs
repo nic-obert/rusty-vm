@@ -133,8 +133,8 @@ fn convert_inc_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_re
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => {
-            bytes.extend(address.to_le_bytes());
+        TokenValue::AddressLiteral { value, .. } => {
+            bytes.extend(value.to_le_bytes());
         },
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
@@ -172,8 +172,8 @@ fn convert_dec_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_re
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => {
-            bytes.extend(address.to_le_bytes());
+        TokenValue::AddressLiteral { value, .. } => {
+            bytes.extend(value.to_le_bytes());
         },
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
@@ -244,7 +244,7 @@ fn convert_move_into_reg_from_addr_literal(mut operands: Vec<Token>, handled_siz
     bytes.push(dest_reg);
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -315,7 +315,7 @@ fn convert_move_into_addr_in_reg_from_addr_literal(mut operands: Vec<Token>, han
     bytes.push(dest_reg);
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -334,7 +334,7 @@ fn convert_move_into_addr_literal_from_reg(mut operands: Vec<Token>, handled_siz
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -356,7 +356,7 @@ fn convert_move_into_addr_literal_from_addr_in_reg(mut operands: Vec<Token>, han
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -378,7 +378,7 @@ fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_s
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -411,7 +411,7 @@ fn convert_move_into_addr_literal_from_addr_literal(mut operands: Vec<Token>, ha
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -420,7 +420,7 @@ fn convert_move_into_addr_literal_from_addr_literal(mut operands: Vec<Token>, ha
     }
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -480,7 +480,7 @@ fn convert_push_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, la
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -542,7 +542,7 @@ fn convert_push_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_siz
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -581,7 +581,7 @@ fn convert_pop_into_addr_literal(mut operands: Vec<Token>, handled_size: u8, lab
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -643,7 +643,7 @@ fn convert_pop_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_size
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -743,7 +743,7 @@ fn convert_compare_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, 
     bytes.push(left_reg);
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -814,7 +814,7 @@ fn convert_compare_addr_in_reg_addr_literal(mut operands: Vec<Token>, handled_si
     bytes.push(left_reg);
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
@@ -939,7 +939,7 @@ fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8
     }
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)
@@ -958,7 +958,7 @@ fn convert_compare_addr_literal_reg(mut operands: Vec<Token>, handled_size: u8, 
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)
@@ -980,7 +980,7 @@ fn convert_compare_addr_literal_addr_in_reg(mut operands: Vec<Token>, handled_si
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)
@@ -1002,7 +1002,7 @@ fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)
@@ -1035,7 +1035,7 @@ fn convert_compare_addr_literal_addr_literal(mut operands: Vec<Token>, handled_s
     bytes.push(handled_size);
 
     match &mut operands[0].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)
@@ -1044,7 +1044,7 @@ fn convert_compare_addr_literal_addr_literal(mut operands: Vec<Token>, handled_s
     }
 
     match &mut operands[1].value {
-        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
         TokenValue::AddressAtLabel(label) => {
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER)

@@ -25,15 +25,9 @@ fn is_msb_set(value: u64) -> bool {
 fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
     match handled_size {
         1 => bytes[0] as u64,
-        2 => unsafe {
-            *(bytes.as_ptr() as *const u16) as u64
-        },
-        4 => unsafe {
-            *(bytes.as_ptr() as *const u32) as u64
-        },
-        8 => unsafe {
-            *(bytes.as_ptr() as *const u64)
-        },
+        2 => u16::from_le_bytes(bytes.try_into().unwrap()) as u64,
+        4 => u32::from_le_bytes(bytes.try_into().unwrap()) as u64,
+        8 => u64::from_le_bytes(bytes.try_into().unwrap()),
         _ => panic!("Invalid number size: {}", handled_size),
     }
 }
@@ -44,9 +38,7 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
 /// The byte array must be 8 bytes long
 #[inline(always)]
 fn bytes_as_address(bytes: &[Byte]) -> Address {
-    unsafe {
-        *(bytes.as_ptr() as *const Address)
-    }
+    Address::from_le_bytes(bytes.try_into().unwrap())
 }
 
 
@@ -165,9 +157,11 @@ impl Processor {
     /// Get the next address in the bytecode
     #[inline(always)]
     fn get_next_address(&mut self) -> Address {
-        bytes_as_address(
-            self.get_next_bytes(ADDRESS_SIZE)
-        )
+        let pc = self.get_pc();
+        self.inc_pc(ADDRESS_SIZE);
+        unsafe {
+            std::mem::transmute(self.memory.get::<ADDRESS_SIZE>(pc))
+        }
     }
 
 
@@ -177,8 +171,8 @@ impl Processor {
 
         let (result, carry) = match size {
 
-            1 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u8);
+            1 => {
+                let value = bytes[0];
                 let (res, carry) = {
                     if let Some(res) = value.checked_add(1) {
                         (res, false)
@@ -186,13 +180,13 @@ impl Processor {
                         (value.wrapping_add(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u8) = res;
+                bytes[0] = res;
 
                 (res as u64, carry)
             },
 
-            2 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u16);
+            2 => {
+                let value = u16::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_add(1) {
                         (res, false)
@@ -200,13 +194,13 @@ impl Processor {
                         (value.wrapping_add(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u16) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res as u64, carry)
             },
 
-            4 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u32);
+            4 => {
+                let value = u32::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_add(1) {
                         (res, false)
@@ -214,13 +208,13 @@ impl Processor {
                         (value.wrapping_add(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u32) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res as u64, carry)
             },
 
-            8 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u64);
+            8 => {
+                let value = u64::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_add(1) {
                         (res, false)
@@ -228,7 +222,7 @@ impl Processor {
                         (value.wrapping_add(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u64) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res, carry)
             },
@@ -252,8 +246,8 @@ impl Processor {
 
         let (result, carry) = match size {
 
-            1 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u8);
+            1 => {
+                let value = bytes[0];
                 let (res, carry) = {
                     if let Some(res) = value.checked_sub(1) {
                         (res, false)
@@ -261,13 +255,13 @@ impl Processor {
                         (value.wrapping_sub(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u8) = res;
+                bytes[0] = res;
 
                 (res as u64, carry)
             },
 
-            2 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u16);
+            2 => {
+                let value = u16::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_sub(1) {
                         (res, false)
@@ -275,13 +269,13 @@ impl Processor {
                         (value.wrapping_sub(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u16) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res as u64, carry)
             },
 
-            4 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u32);
+            4 => {
+                let value = u32::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_sub(1) {
                         (res, false)
@@ -289,13 +283,13 @@ impl Processor {
                         (value.wrapping_sub(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u32) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res as u64, carry)
             },
 
-            8 => unsafe {
-                let value = *(bytes.as_mut_ptr() as *mut u64);
+            8 => {
+                let value = u64::from_le_bytes(bytes.try_into().unwrap());
                 let (res, carry) = {
                     if let Some(res) = value.checked_sub(1) {
                         (res, false)
@@ -303,7 +297,7 @@ impl Processor {
                         (value.wrapping_sub(1), true)
                     }
                 };
-                *(bytes.as_ptr() as *mut u64) = res;
+                bytes.copy_from_slice(&res.to_le_bytes());
 
                 (res, carry)
             },
@@ -356,7 +350,7 @@ impl Processor {
         // Get the tos address
         let dest_address = self.get_register(Registers::STACK_POINTER) as usize;
         // Copy the bytes onto the stack
-        self.memory.memcpy(dest_address, src_address, size);
+        self.memory.memcpy(src_address, dest_address, size);
         // Move the stack pointer
         self.inc_sp(size);
     }
@@ -384,21 +378,12 @@ impl Processor {
     /// Move a number of bytes from the given register into the given address
     fn move_from_register_into_address(&mut self, src_reg: Registers, dest_address: Address, handled_size: Byte) {
         let value = self.get_register(src_reg);
-        let dest_bytes = self.memory.get_bytes_mut(dest_address, handled_size as usize);
 
         match handled_size {
-            1 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u8) = value as u8;
-            },
-            2 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u16) = value as u16;
-            },
-            4 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u32) = value as u32;
-            },
-            8 => unsafe {
-                *(dest_bytes.as_mut_ptr() as *mut u64) = value;
-            },
+            1 => self.memory.set_bytes(dest_address, &(value as u8).to_le_bytes()),
+            2 => self.memory.set_bytes(dest_address, &(value as u16).to_le_bytes()),
+            4 => self.memory.set_bytes(dest_address, &(value as u32).to_le_bytes()),
+            8 => self.memory.set_bytes(dest_address, &value.to_le_bytes()),
             _ => panic!("Invalid size for move instruction {}.", handled_size),
         }
     }
@@ -1668,7 +1653,7 @@ impl Processor {
 
         let value = self.get_register(Registers::PRINT);
         print!("{}", value as i64);
-        std::io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
     }
 
 

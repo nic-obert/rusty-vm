@@ -2,7 +2,7 @@ use std::mem;
 use std::path::Path;
 
 use rust_vm_lib::registers::Registers;
-use rust_vm_lib::token::{Token, TokenValue};
+use rust_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
 use rust_vm_lib::vm::ErrorCodes;
 
 use crate::error;
@@ -152,7 +152,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                             }
                             string_length = 0;
                             // Convert the character to a byte
-                            tokens.push(Token::new(TokenValue::Number { value: *value as i64, initial_sign: false }));
+                            tokens.push(Token::new(TokenValue::Number { value: *value as i64, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
                             current_token = None;
                         },
 
@@ -168,33 +168,81 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                     continue;
                 },
 
-                TokenValue::AddressGeneric(_value) => {
-                    if c.is_ascii_digit() {
-                        current_token = Some(
-                            Token::new(TokenValue::AddressLiteral(c.to_digit(10).unwrap() as usize))
-                        );
-                    }
-                    else if c.is_alphabetic() {
-                        current_token = Some(
-                            Token::new(TokenValue::AddressAtIdentifier(c.to_string()))
-                        );
+                TokenValue::AddressGeneric() => {
+
+                    if c == '0' {
+                        current_token = Some(Token::new(TokenValue::AddressLiteral { value: 0, format: NumberFormat::Unknown }));
+
+                    } else if let Some(digit) = c.to_digit(10) {
+                        current_token = Some(Token::new(TokenValue::AddressLiteral { value: digit as usize, format: NumberFormat::Decimal }));
+
+                    } else if is_identifier_char(c, true) {
+                        current_token = Some(Token::new(TokenValue::AddressAtIdentifier(c.to_string())));
+
                     } else if c == ']' {
                         error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses cannot be empty.");
+                    
                     } else {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses can only be numeric or register names.");
+                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses can only be numeric or names.");
                     }
 
                     continue;
                 },
                 
-                TokenValue::AddressLiteral(value) => {
-                    if c.is_ascii_digit() {
-                        *value = value.checked_mul(10).unwrap_or_else(
-                            || error::invalid_address(unit_path, *value, line_number, line, "Address literal is too large.")
-                        ).checked_add(c.to_digit(10).unwrap() as usize).unwrap_or_else(
-                            || error::invalid_address(unit_path, *value, line_number, line, "Address literal is too large.")
-                        );
-                    } else if c == ']' {
+                TokenValue::AddressLiteral { value, format } => {
+
+                    match format {
+
+                        NumberFormat::Decimal => {
+                            if let Some(digit) = c.to_digit(10) {
+                                *value = value.checked_mul(10).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as usize).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+                        },
+
+                        NumberFormat::Hexadecimal => {
+                            if let Some(digit) = c.to_digit(16) {
+                                *value = value.checked_mul(16).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as usize).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+                        },
+
+                        NumberFormat::Binary => {
+                            if let Some(digit) = c.to_digit(2) {
+                                *value = value.checked_mul(2).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as usize).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+                        },
+
+                        NumberFormat::Unknown => {
+                            match c {
+                                'x' => *format = NumberFormat::Hexadecimal,
+                                'b' => *format = NumberFormat::Binary,
+                                'd' => *format = NumberFormat::Decimal,
+                                _ => error::invalid_character(unit_path, c, line_number, char_index, line, "Invalid number format.")
+                            }
+
+                            continue;
+                        },
+
+                    }  
+
+                    if c == ']' {
                         tokens.push(current_token.take().unwrap());                    
                     } else {
                         error::invalid_character(unit_path, c, line_number, char_index, line, "Address literals can only be numeric.");
@@ -241,36 +289,94 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         tokens.push(Token::new(TokenValue::Register(register)));
                     
                     } else if let Some(error_code) = ErrorCodes::from_name(name) {
-                        tokens.push(Token::new(TokenValue::Number { value: error_code as i64, initial_sign: false }));
+                        tokens.push(Token::new(TokenValue::Number { value: error_code as i64, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
 
                     } else {
                         // The name is not special, then it's a label
                         tokens.push(Token::new(TokenValue::Label(mem::take(name))));
                     }
-
+                    
                     current_token = None;
                 }
                    
-                TokenValue::Number { value, initial_sign } => {
-                    if c.is_ascii_digit() {
-                        *value = value.checked_mul(10).unwrap_or_else(
-                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
-                        ).checked_add(c.to_digit(10).unwrap() as i64).unwrap_or_else(
-                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
-                        );
+                TokenValue::Number { value, sign, format } => {
 
-                        if *initial_sign {
-                            *value = -*value;
-                            *initial_sign = false;
-                        }
+                    match format {
 
-                        continue;
-                    }
+                        NumberFormat::Decimal => {
+                            if let Some(digit) = c.to_digit(10) {
+                                *value = value.checked_mul(10).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as i64).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+        
+                            // After the decimal number is constructed, evaluate its sign
+                            if matches!(sign, NumberSign::Negative) {
+                                *value = -*value;
+                            }
+                        },
+
+                        NumberFormat::Hexadecimal => {
+                            if let Some(digit) = c.to_digit(16) {
+                                *value = value.checked_mul(16).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as i64).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+                        },
+
+                        NumberFormat::Binary => {
+                            if let Some(digit) = c.to_digit(2) {
+                                *value = value.checked_mul(2).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                ).checked_add(digit as i64).unwrap_or_else(
+                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                );
+        
+                                continue;
+                            }
+                        },
+
+                        NumberFormat::Unknown => {
+                            match c {
+                                'x' => *format = NumberFormat::Hexadecimal,
+                                'b' => *format = NumberFormat::Binary,
+                                'd' => *format = NumberFormat::Decimal,
+
+                                _ => {
+
+                                    if let Some(digit) = c.to_digit(10) {
+                                        *format = NumberFormat::Decimal;
+
+                                        *value = value.checked_mul(10).unwrap_or_else(
+                                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                        ).checked_add(digit as i64).unwrap_or_else(
+                                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                        );
+
+                                    } else {
+                                        tokens.push(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
+                                        current_token = None;
+                                    }
+                                }
+                            }
+
+                            continue;
+                        },
+
+                    }                    
 
                     tokens.push(current_token.take().unwrap());
                 },
                 
-                _ => { }
+                _ => unreachable!("Unhandled token value type: {:?}. This is a bug.", token.value)
                 
             }
         }
@@ -281,8 +387,13 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
             continue;
         }
 
-        if c.is_ascii_digit() {
-            current_token = Some(Token::new(TokenValue::Number { value: c.to_digit(10).unwrap() as i64, initial_sign: false }));
+        if c == '0' {
+            current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
+            continue;
+        }
+
+        if let Some(digit) = c.to_digit(10) {
+            current_token = Some(Token::new(TokenValue::Number { value: digit as i64, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
             continue;
         }
 
@@ -290,12 +401,12 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
             ' ' | '\t' => continue,
 
             '+' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, initial_sign: false }));
+                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
                 continue;
             }
 
             '-' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, initial_sign: true }));
+                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
                 continue;
             }
 
@@ -308,7 +419,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
             '#' => break,
 
             '[' => {
-                current_token = Some(Token::new(TokenValue::AddressGeneric(0)));
+                current_token = Some(Token::new(TokenValue::AddressGeneric()));
                 continue;
             },
 
