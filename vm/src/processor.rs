@@ -7,7 +7,7 @@ use rust_vm_lib::registers::{Registers, REGISTER_COUNT, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
-use crate::memory::{Memory, Size, Byte};
+use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
 
 
@@ -57,7 +57,7 @@ pub struct Processor {
 
 impl Processor {
 
-    pub fn new(stack_size: Size, video_size: Size) -> Self {
+    pub fn new(stack_size: usize, video_size: usize) -> Self {
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(stack_size, video_size),
@@ -103,13 +103,10 @@ impl Processor {
     }
 
 
-    /// Move the program counter by the given offset.
+    /// Increment the program counter by the given offset.
     #[inline(always)]
-    fn move_pc(&mut self, offset: i64) {
-        self.set_register(
-            Registers::PROGRAM_COUNTER, 
-            (self.get_pc() as i64 + offset) as u64
-        );
+    fn inc_pc(&mut self, offset: usize) {
+        self.registers[Registers::PROGRAM_COUNTER as usize] += offset as u64;
     }
 
 
@@ -127,17 +124,24 @@ impl Processor {
     }
 
 
+    /// Increment the stack pointer
+    #[inline(always)]
+    fn inc_sp(&mut self, offset: usize) {
+        self.registers[Registers::STACK_POINTER as usize] += offset as u64;
+    }
+
+
+    /// Decrement the stack pointer
+    #[inline(always)]
+    fn dec_sp(&mut self, offset: usize) {
+        self.registers[Registers::STACK_POINTER as usize] -= offset as u64;
+    }
+
+
     /// Get the value of the given register
     #[inline(always)]
     fn get_register(&self, register: Registers) -> u64 {
         self.registers[register as usize]
-    }
-
-
-    /// Get a mutable reference to the given register
-    #[inline(always)]
-    fn get_register_mut(&mut self, register: Registers) -> &mut u64 {
-        &mut self.registers[register as usize]
     }
 
 
@@ -166,9 +170,10 @@ impl Processor {
 
     /// Increment the `size`-sized value at the given address
     fn increment_bytes(&mut self, address: Address, size: Byte) {
-        let bytes = self.memory.get_bytes_mut(address, size as Size);
+        let bytes = self.memory.get_bytes_mut(address, size as usize);
 
         let (result, carry) = match size {
+
             1 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u8);
                 let (res, carry) = {
@@ -182,6 +187,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             2 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u16);
                 let (res, carry) = {
@@ -195,6 +201,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             4 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u32);
                 let (res, carry) = {
@@ -208,6 +215,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             8 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u64);
                 let (res, carry) = {
@@ -221,7 +229,8 @@ impl Processor {
 
                 (res, carry)
             },
-            _ => panic!("Invalid size for incrementing bytes: {}", size),
+
+            _ => panic!("Invalid size for incrementing bytes: {}.", size),
         };
 
         self.set_arithmetical_flags(
@@ -236,9 +245,10 @@ impl Processor {
     
     /// Decrement the `size`-sized value at the given address
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
-        let bytes = self.memory.get_bytes_mut(address, size as Size);
+        let bytes = self.memory.get_bytes_mut(address, size as usize);
 
         let (result, carry) = match size {
+
             1 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u8);
                 let (res, carry) = {
@@ -252,6 +262,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             2 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u16);
                 let (res, carry) = {
@@ -265,6 +276,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             4 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u32);
                 let (res, carry) = {
@@ -278,6 +290,7 @@ impl Processor {
 
                 (res as u64, carry)
             },
+
             8 => unsafe {
                 let value = *(bytes.as_mut_ptr() as *mut u64);
                 let (res, carry) = {
@@ -291,7 +304,8 @@ impl Processor {
 
                 (res, carry)
             },
-            _ => panic!("Invalid size for decrementing bytes: {}", size),
+
+            _ => panic!("Invalid size for decrementing bytes: {}.", size),
         };
 
         self.set_arithmetical_flags(
@@ -325,22 +339,23 @@ impl Processor {
     fn push_stack_bytes(&mut self, bytes: &[Byte]) {
         // Copy the bytes onto the stack
         self.memory.set_bytes(
-            self.get_register(Registers::STACK_POINTER) as Size,
+            self.get_register(Registers::STACK_POINTER) as usize,
             bytes,
         );
+
         // Move the stack pointer
-        self.registers[Registers::STACK_POINTER as usize] += bytes.len() as u64;
+        self.inc_sp(bytes.len());
     }
 
 
     /// Copy the bytes at the given address onto the stack
-    fn push_stack_from_address(&mut self, src_address: Address, size: Size) {
-        // Get the tos
-        let dest_address = self.get_register(Registers::STACK_POINTER) as Size;
+    fn push_stack_from_address(&mut self, src_address: Address, size: usize) {
+        // Get the tos address
+        let dest_address = self.get_register(Registers::STACK_POINTER) as usize;
         // Copy the bytes onto the stack
         self.memory.memcpy(dest_address, src_address, size);
         // Move the stack pointer
-        *self.get_register_mut(Registers::STACK_POINTER) += size as u64;
+        self.inc_sp(size);
     }
 
 
@@ -351,13 +366,13 @@ impl Processor {
 
 
     /// Pop `size` bytes from the stack
-    fn pop_stack_bytes(&mut self, size: Size) -> &[Byte] {
+    fn pop_stack_bytes(&mut self, size: usize) -> &[Byte] {
         // Move the stack pointer
-        *self.get_register_mut(Registers::STACK_POINTER) -= size as u64;
+        self.dec_sp(size);
 
-        // Return the tos
+        // Return the tos bytes
         self.memory.get_bytes(
-            self.get_register(Registers::STACK_POINTER) as Size,
+            self.get_register(Registers::STACK_POINTER) as usize,
             size,
         )
     }
@@ -381,15 +396,15 @@ impl Processor {
             8 => unsafe {
                 *(dest_bytes.as_mut_ptr() as *mut u64) = value as u64;
             },
-            _ => panic!("Invalid size for move instruction"),
+            _ => panic!("Invalid size for move instruction {}.", handled_size),
         }
     }
         
     
     /// Get the next `size` bytes in the bytecode
-    fn get_next_bytes(&mut self, size: Size) -> &[Byte] {
+    fn get_next_bytes(&mut self, size: usize) -> &[Byte] {
         let pc = self.get_pc();
-        self.move_pc(size as i64);
+        self.inc_pc(size);
         self.memory.get_bytes(pc, size)
     }
 
@@ -397,7 +412,7 @@ impl Processor {
     /// Get the next byte in the bytecode
     fn get_next_byte(&mut self) -> Byte {
         let pc = self.get_pc();
-        self.move_pc(1);
+        self.inc_pc(1);
         self.memory.get_byte(pc)
     }
 
@@ -423,9 +438,8 @@ impl Processor {
             println!("PC: {}, opcode: {}", self.get_pc(), opcode);
             println!("Registers: {}", self.display_registers());
 
-            let max_stack_view_range = 32;
-            // Don't print the program text section
-            let lower_bound = if self.get_sp() - byte_code_size > max_stack_view_range { self.get_sp() - max_stack_view_range } else { byte_code_size };
+            const MAX_STACK_VIEW_RANGE: usize = 32;
+            let lower_bound = if self.get_sp() > MAX_STACK_VIEW_RANGE { self.get_sp() - MAX_STACK_VIEW_RANGE } else { 0 };
             println!(
                 "Stack: #{} {:?} #{}",
                 lower_bound, &self.memory.get_raw()[lower_bound .. self.get_sp()], self.get_sp()
@@ -720,7 +734,7 @@ impl Processor {
         let src_address = self.get_pc();
 
         self.move_bytes_into_register(src_address, dest_reg, size);
-        self.move_pc(size as i64);
+        self.inc_pc(size as usize);
     }
 
 
@@ -756,7 +770,7 @@ impl Processor {
         let dest_address = self.get_register(dest_address_reg) as Address;
         let src_address = self.get_register(src_address_reg) as Address;
         
-        self.memory.memcpy(src_address, dest_address, size as Size);
+        self.memory.memcpy(src_address, dest_address, size as usize);
     }
 
 
@@ -768,8 +782,8 @@ impl Processor {
         let dest_address = self.get_register(dest_address_reg) as Address;
         let src_address = self.get_pc();
         
-        self.memory.memcpy(src_address, dest_address, size as Size);
-        self.move_pc(size as i64);
+        self.memory.memcpy(src_address, dest_address, size as usize);
+        self.inc_pc(size as usize);
     }
 
 
@@ -781,7 +795,7 @@ impl Processor {
         let dest_address = self.get_register(dest_address_reg) as Address;
         let src_address = self.get_next_address();
 
-        self.memory.memcpy(src_address, dest_address, size as Size);
+        self.memory.memcpy(src_address, dest_address, size as usize);
     }
 
 
@@ -804,7 +818,7 @@ impl Processor {
         let src_address_reg = Registers::from(self.get_next_byte());
         let src_address = self.get_register(src_address_reg) as Address;
 
-        self.memory.memcpy(src_address, dest_address, size as Size);
+        self.memory.memcpy(src_address, dest_address, size as usize);
     }
 
 
@@ -815,8 +829,8 @@ impl Processor {
         let dest_address = self.get_next_address();
         let src_address = self.get_pc();
 
-        self.memory.memcpy(src_address, dest_address, size as Size);
-        self.move_pc(size as i64);
+        self.memory.memcpy(src_address, dest_address, size as usize);
+        self.inc_pc(size as usize);
     }
 
 
@@ -827,7 +841,7 @@ impl Processor {
         let dest_address = self.get_next_address();
         let src_address = self.get_next_address();
 
-        self.memory.memcpy(src_address, dest_address, size as Size);
+        self.memory.memcpy(src_address, dest_address, size as usize);
     }
 
 
@@ -848,7 +862,7 @@ impl Processor {
         let src_address_reg = Registers::from(self.get_next_byte());
         let src_address = self.get_register(src_address_reg) as Address;
 
-        self.push_stack_from_address(src_address, size as Size);
+        self.push_stack_from_address(src_address, size as usize);
     }
 
 
@@ -858,8 +872,8 @@ impl Processor {
         let size = self.get_next_byte();
 
         // Hack to get around the borrow checker
-        self.push_stack_from_address(self.get_pc(), size as Size);
-        self.move_pc(size as i64);
+        self.push_stack_from_address(self.get_pc(), size as usize);
+        self.inc_pc(size as usize);
     }
 
 
@@ -870,7 +884,55 @@ impl Processor {
 
         let src_address = self.get_next_address();
 
-        self.push_stack_from_address(src_address, size as Size);
+        self.push_stack_from_address(src_address, size as usize);
+    }
+
+
+    fn handle_push_stack_pointer_reg(&mut self) {
+        assert_exists!(ByteCodes::PUSH_STACK_POINTER_REG);
+
+        let reg = Registers::from(self.get_next_byte());
+        let offset = self.get_register(reg);
+
+        self.inc_sp(offset as usize);
+    }
+
+
+    fn handle_push_stack_pointer_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG);
+
+        let size = self.get_next_byte();
+
+        let address_reg = Registers::from(self.get_next_byte());
+        let address = self.get_register(address_reg) as Address;
+
+        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+
+        self.inc_sp(offset as usize);
+    }
+
+
+    fn handle_push_stack_pointer_const(&mut self) {
+        assert_exists!(ByteCodes::PUSH_STACK_POINTER_CONST);
+
+        let size = self.get_next_byte();
+
+        let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
+
+        self.inc_sp(offset as usize);
+    }
+
+
+    fn handle_push_stack_pointer_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL);
+
+        let size = self.get_next_byte();
+
+        let address = self.get_next_address();
+
+        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+
+        self.inc_sp(offset as usize);
     }
 
 
@@ -880,7 +942,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let dest_reg = Registers::from(self.get_next_byte());
-        let bytes = self.pop_stack_bytes(size as Size);
+        let bytes = self.pop_stack_bytes(size as usize);
         let value = bytes_to_int(bytes, size);
 
         self.set_register(dest_reg, value);
@@ -895,10 +957,9 @@ impl Processor {
         let dest_address_reg = Registers::from(self.get_next_byte());
         let dest_address = self.get_register(dest_address_reg) as Address;
 
-        let src_address = self.get_pc();
-
-        self.memory.memcpy(src_address, dest_address, size as Size);
-        self.move_pc(size as i64);
+        // Hack to get around the borrow checker
+        self.dec_sp(size as usize);
+        self.memory.memcpy(self.get_sp(), dest_address, size as usize);
     }
 
 
@@ -909,10 +970,57 @@ impl Processor {
 
         let dest_address = self.get_next_address();
 
-        let src_address = self.get_pc();
+        // Hack to get around the borrow checker
+        self.dec_sp(size as usize);
+        self.memory.memcpy(self.get_sp(), dest_address, size as usize);
+    }
 
-        self.memory.memcpy(src_address, dest_address, size as Size);
-        self.move_pc(size as i64);
+
+    fn handle_pop_stack_pointer_reg(&mut self) {
+        assert_exists!(ByteCodes::POP_STACK_POINTER_REG);
+
+        let reg = Registers::from(self.get_next_byte());
+        let offset = self.get_register(reg);
+
+        self.dec_sp(offset as usize);
+    }
+
+
+    fn handle_pop_stack_pointer_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG);
+
+        let size = self.get_next_byte();
+
+        let address_reg = Registers::from(self.get_next_byte());
+        let address = self.get_register(address_reg) as Address;
+
+        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+
+        self.dec_sp(offset as usize);
+    }
+
+
+    fn handle_pop_stack_pointer_const(&mut self) {
+        assert_exists!(ByteCodes::POP_STACK_POINTER_CONST);
+
+        let size = self.get_next_byte();
+
+        let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
+
+        self.dec_sp(offset as usize);
+    }
+
+
+    fn handle_pop_stack_pointer_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL);
+
+        let size = self.get_next_byte();
+
+        let address = self.get_next_address();
+
+        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+
+        self.dec_sp(offset as usize);
     }
 
 
@@ -1279,7 +1387,7 @@ impl Processor {
 
         let size = self.get_next_byte();
 
-        let left_address = self.get_next_bytes(size as Size);
+        let left_address = self.get_next_bytes(size as usize);
         let left_value = bytes_to_int(left_address, size);
 
         let right_reg = Registers::from(self.get_next_byte());
@@ -1302,7 +1410,7 @@ impl Processor {
 
         let size = self.get_next_byte();
 
-        let left_address = self.get_next_bytes(size as Size);
+        let left_address = self.get_next_bytes(size as usize);
         let left_value = bytes_to_int(left_address, size);
 
         let right_address_reg = Registers::from(self.get_next_byte());
@@ -1326,10 +1434,10 @@ impl Processor {
 
         let size = self.get_next_byte();
 
-        let left_address = self.get_next_bytes(size as Size);
+        let left_address = self.get_next_bytes(size as usize);
         let left_value = bytes_to_int(left_address, size);
 
-        let right_address = self.get_next_bytes(size as Size);
+        let right_address = self.get_next_bytes(size as usize);
         let right_value = bytes_to_int(right_address, size);
         
         let result = left_value as i64 - right_value as i64;
@@ -1349,7 +1457,7 @@ impl Processor {
 
         let size = self.get_next_byte();
 
-        let left_address = self.get_next_bytes(size as Size);
+        let left_address = self.get_next_bytes(size as usize);
         let left_value = bytes_to_int(left_address, size);
 
         let right_address = self.get_next_address();
@@ -1422,7 +1530,7 @@ impl Processor {
         let left_address = self.get_next_address();
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
-        let right_address = self.get_next_bytes(size as Size);
+        let right_address = self.get_next_bytes(size as usize);
         let right_value = bytes_to_int(right_address, size);
         
         let result = left_value as i64 - right_value as i64;
@@ -1729,9 +1837,19 @@ impl Processor {
         Self::handle_push_from_const,
         Self::handle_push_from_addr_literal,
 
+        Self::handle_push_stack_pointer_reg,
+        Self::handle_push_stack_pointer_addr_in_reg,
+        Self::handle_push_stack_pointer_const,
+        Self::handle_push_stack_pointer_addr_literal,
+
         Self::handle_pop_into_reg,
         Self::handle_pop_into_addr_in_reg,
         Self::handle_pop_into_addr_literal,
+
+        Self::handle_pop_stack_pointer_reg,
+        Self::handle_pop_stack_pointer_addr_in_reg,
+        Self::handle_pop_stack_pointer_const,
+        Self::handle_pop_stack_pointer_addr_literal,
 
         Self::handle_label,
 

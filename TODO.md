@@ -2,13 +2,13 @@
 
 ### Todo
 
-- [ ] add instruction to push and pop the stack pointer n bytes (pushsp, popsp)  
+- [ ] implement byte array data type  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] add macros  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
-- [ ] add compiletime arithmetics in the data section  
+- [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
 - [ ] add programs written in asm  
 - [ ] test the new vm  
 
@@ -18,6 +18,7 @@
 
 ### Done ✅
 
+- [ ] add instruction to push and pop the stack pointer n bytes (pushsp, popsp)  
 - [ ] implement strncmp  
 - [ ] add bitwise operations  
 - [ ] differentiate between unsigned int input and signed int input  

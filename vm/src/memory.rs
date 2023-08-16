@@ -3,7 +3,6 @@ use rust_vm_lib::vm::Address;
 
 
 pub type Byte = u8;
-pub type Size = usize;
 
 
 pub struct Memory {
@@ -16,7 +15,7 @@ pub struct Memory {
 
 impl Memory {
 
-    pub fn new(stack_size: Size, _video_size: Size) -> Memory {
+    pub fn new(stack_size: usize, _video_size: usize) -> Memory {
         Memory {
             stack: vec![0; stack_size as usize],
             // video: vec![Pixel::new(); video_size as usize],
@@ -34,7 +33,7 @@ impl Memory {
     }
 
 
-    pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: Size) {
+    pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: usize) {
         self.stack.copy_within(src_address..src_address + size, dest_address);
     }
 
@@ -44,12 +43,12 @@ impl Memory {
     }
 
 
-    pub fn get_bytes(&self, address: Address, size: Size) -> &[Byte] {
+    pub fn get_bytes(&self, address: Address, size: usize) -> &[Byte] {
         &self.stack[address..address + size]
     }
 
 
-    pub fn get_bytes_mut(&mut self, address: Address, size: Size) -> &mut [Byte] {
+    pub fn get_bytes_mut(&mut self, address: Address, size: usize) -> &mut [Byte] {
         &mut self.stack[address..address + size]
     }
 
@@ -71,12 +70,12 @@ impl Memory {
     // }
 
 
-    // pub fn get_pixels(&self, address: Address, size: Size) -> &[Pixel] {
+    // pub fn get_pixels(&self, address: Address, size: usize) -> &[Pixel] {
     //     &self.video[address..address + size]
     // }
 
 
-    // pub fn get_pixels_mut(&mut self, address: Address, size: Size) -> &mut [Pixel] {
+    // pub fn get_pixels_mut(&mut self, address: Address, size: usize) -> &mut [Pixel] {
     //     &mut self.video[address..address + size]
     // }
 

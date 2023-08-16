@@ -693,6 +693,81 @@ const PUSH8_ARGS: ArgTable = ArgTable::One([
     Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
+const PUSHSP_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const PUSHSP1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_CONST, 1, 1)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const PUSHSP2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_CONST, 2, 2)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const PUSHSP4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG, 4, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_CONST, 4, 4)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 4, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const PUSHSP8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_CONST, 8, 8)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
 const POP1_ARGS: ArgTable = ArgTable::One([
     // Register
     Some(Mnemonic::new(ByteCodes::POP_INTO_REG, 1, REGISTER_ID_SIZE)), 
@@ -751,6 +826,81 @@ const POP8_ARGS: ArgTable = ArgTable::One([
     None,
     // Address at label
     Some(Mnemonic::new(ByteCodes::POP_INTO_ADDR_LITERAL, 8, ADDRESS_SIZE)),
+]);
+
+const POPSP_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    None,
+    // Number
+    None,
+    // Address literal
+    None,
+    // Label
+    None,
+    // Address at label
+    None,
+]);
+
+const POPSP1_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG, 1, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_CONST, 1, 1)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 1, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 1, ADDRESS_SIZE)),
+]);
+
+const POPSP2_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG, 2, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_CONST, 2, 2)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 2, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 2, ADDRESS_SIZE)),
+]);
+
+const POPSP4_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG, 4, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_CONST, 4, 4)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 4, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 4, ADDRESS_SIZE)),
+]);
+
+const POPSP8_ARGS: ArgTable = ArgTable::One([
+    // Register
+    None, 
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
+    // Number
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_CONST, 8, 8)), 
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 8, ADDRESS_SIZE)), 
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL, 8, ADDRESS_SIZE)),
 ]);
 
 const JMP_ARGS: ArgTable = ArgTable::One([
@@ -1419,6 +1569,16 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "push4" => &PUSH4_ARGS,
 
         "push8" => &PUSH8_ARGS,
+
+        "pushsp" => &PUSHSP_ARGS,
+
+        "pushsp1" => &PUSHSP1_ARGS,
+
+        "pushsp2" => &PUSHSP2_ARGS,
+
+        "pushsp4" => &PUSHSP4_ARGS,
+
+        "pushsp8" => &PUSHSP8_ARGS,
         
         "pop1" => &POP1_ARGS,
         
@@ -1427,6 +1587,16 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "pop4" => &POP4_ARGS,
         
         "pop8" => &POP8_ARGS,
+
+        "popsp" => &POPSP_ARGS,
+
+        "popsp1" => &POPSP1_ARGS,
+
+        "popsp2" => &POPSP2_ARGS,
+
+        "popsp4" => &POPSP4_ARGS,
+
+        "popsp8" => &POPSP8_ARGS,
         
         // Control flow
 

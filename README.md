@@ -179,10 +179,12 @@ The first operand is treated as the destination by the processor, whereas the se
 | `push2 a`   | Push 2 bytes from `a` onto the stack. |
 | `push4 a`   | Push 4 bytes from `a` onto the stack. |
 | `push8 a`   | Push 8 bytes from `a` onto the stack. |
+| `pushsp a`  | Increase the stack pointer by `a`. |
 | `pop1 a`    | Pop 1 byte from the top of the stack and store it at `a`. |
 | `pop2 a`    | Pop 2 bytes from the top of the stack and store it at `a`. |
 | `pop4 a`    | Pop 4 bytes from the top of the stack and store it at `a`. |
 | `pop8 a`    | Pop 8 bytes from the top of the stack and store it at `a`. |
+| `popsp a`   | Decrease the stack pointer by `a`. |
 
 ### Flow control instructions
 

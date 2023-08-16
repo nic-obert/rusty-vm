@@ -489,6 +489,68 @@ fn convert_push_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, la
 }
 
 
+fn convert_push_stack_pointer_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_STACK_POINTER_REG);
+
+    vec![
+        extract!(operands[0], Register) as u8
+    ]
+}
+
+
+fn convert_push_stack_pointer_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
+    assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG);
+    
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_push_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::PUSH_STACK_POINTER_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number { value, .. }=> {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_push_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
+    assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
 fn convert_pop_into_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::POP_INTO_REG);
 
@@ -500,6 +562,8 @@ fn convert_pop_into_reg(operands: Vec<Token>, handled_size: u8, _label_registry:
 
 
 fn convert_pop_into_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::POP_INTO_ADDR_IN_REG);
+
     vec![
         handled_size,
         extract!(operands[0], AddressInRegister) as u8
@@ -519,6 +583,68 @@ fn convert_pop_into_addr_literal(mut operands: Vec<Token>, handled_size: u8, lab
             label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
             bytes.extend(LABEL_PLACEHOLDER);
         }
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_pop_stack_pointer_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
+    assert_exists!(ByteCodes::POP_STACK_POINTER_REG);
+
+    vec![
+        extract!(operands[0], Register) as u8
+    ]
+}
+
+
+fn convert_pop_stack_pointer_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
+    assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG);
+
+    vec![
+        handled_size,
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_pop_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::POP_STACK_POINTER_CONST);
+
+    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::Number { value, .. }=> {
+            let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        TokenValue::Label(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_pop_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
+    assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL);
+
+    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    bytes.push(handled_size);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral(address) => bytes.extend(address.to_le_bytes()),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
+            bytes.extend(LABEL_PLACEHOLDER);
+        },
         _ => unreachable!()
     }
 
@@ -964,9 +1090,19 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_push_from_const,
     convert_push_from_addr_literal,
 
+    convert_push_stack_pointer_reg,
+    convert_push_stack_pointer_addr_in_reg,
+    convert_push_stack_pointer_const,
+    convert_push_stack_pointer_addr_literal,
+
     convert_pop_into_reg,
     convert_pop_into_addr_in_reg,
     convert_pop_into_addr_literal,
+
+    convert_pop_stack_pointer_reg,
+    convert_pop_stack_pointer_addr_in_reg,
+    convert_pop_stack_pointer_const,
+    convert_pop_stack_pointer_addr_literal,
 
     // This is just a placeholder to make indices work
     convert_label,

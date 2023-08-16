@@ -18,7 +18,15 @@
     mov r4 r1
     mov r5 r2
 
-    # Check if source and destination regions overlap
+    # Check if source and destination regions unsafely overlap
+    # Unsafe overlap configuration is (src < dest && src + n > dest)
+    # Other overlapping configurations are safe for memcpy
+
+    # Filter out non-overlapping and safely overlapping configurations
+
+    # src < dest
+    cmp r1 r2
+    jmpge no_overlap
 
     # src + n
     mov r2 r3
@@ -26,35 +34,43 @@
 
     # src + n > dest
     cmp r1 r5
-    jmpgr overlap
-
-    # dest + n
-    mov r1 r5
-    add
-
-    # dest + n > src
-    cmp r1 r4
-    jmpgr overlap
-
-    jmp no_overlap
+    jmple no_overlap
 
 
-@ overlap
+# Unsafe overlap case
 
     # Copy to an intermediate buffer on the stack
 
     mov r1 r4
     mov r2 sp
 
+    # Save the intermediate buffer start address
+    mov r7 sp
+
+    # Allocate the intermediate buffer of n bytes on the stack
+    pushsp r3
+
     # Save number of bytes to copy
     mov r8 r3
 
+    # Copy source into intermediate buffer
     call memcpy
 
-    # Change source from original to buffer
-    mov r4 sp
+    # Change source from original address to intermediate buffer
+    mov r1 r7
     # Put number of bytes to copy back into r3
     mov r3 r8
+
+    # Reload the destination address
+    mov r2 r5
+
+    # Copy intermediate buffer into destination
+    call memcpy 
+
+    # Pop the intermediate buffer after it's being used
+    popsp r8
+
+    ret
 
 
 @ no_overlap
