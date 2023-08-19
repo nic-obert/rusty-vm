@@ -52,10 +52,10 @@ pub struct Processor {
 
 impl Processor {
 
-    pub fn new(stack_size: usize, video_size: usize) -> Self {
+    pub fn new(memory_size: usize) -> Self {
         Self {
             registers: [0; REGISTER_COUNT],
-            memory: Memory::new(stack_size, video_size),
+            memory: Memory::new(memory_size),
         }
     }
 
@@ -75,6 +75,10 @@ impl Processor {
         let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
         self.set_register(Registers::PROGRAM_COUNTER, program_start as u64);
 
+        // Set the heap start to after the static program section
+        self.memory.set_heap(byte_code.len() as Address);
+
+        // Execute the program
         match mode {
             ExecutionMode::Normal => self.run(),
             ExecutionMode::Verbose => self.run_verbose(),
@@ -112,24 +116,36 @@ impl Processor {
     }
 
 
-    /// Get the stack pointer
+    /// Get the stack base pointer
     #[inline(always)]
-    fn get_sp(&self) -> Address {
-        self.registers[Registers::STACK_POINTER as usize] as Address
+    fn get_stack_base(&self) -> Address {
+        self.registers[Registers::STACK_BASE_POINTER as usize] as Address
     }
 
 
-    /// Increment the stack pointer
+    /// Get the stack top pointer
     #[inline(always)]
-    fn inc_sp(&mut self, offset: usize) {
-        self.registers[Registers::STACK_POINTER as usize] += offset as u64;
+    fn get_stack_top(&self) -> Address {
+        self.registers[Registers::STACK_TOP_POINTER as usize] as Address
     }
 
 
-    /// Decrement the stack pointer
+    /// Push the stack pointer forward
+    /// Increment the stack top pointer
+    /// Decrement the stack base pointer
     #[inline(always)]
-    fn dec_sp(&mut self, offset: usize) {
-        self.registers[Registers::STACK_POINTER as usize] -= offset as u64;
+    fn push_stack_pointer(&mut self, offset: usize) {
+        self.registers[Registers::STACK_TOP_POINTER as usize] += offset as u64;
+        self.registers[Registers::STACK_BASE_POINTER as usize] -= offset as u64;
+    }
+
+
+    /// Pop the stack pointer backwards
+    /// Decrement the stack top pointer
+    /// Increment the stack base pointer
+    fn pop_stack_pointer(&mut self, offset: usize) {
+        self.registers[Registers::STACK_TOP_POINTER as usize] -= offset as u64;
+        self.registers[Registers::STACK_BASE_POINTER as usize] += offset as u64;
     }
 
 
@@ -332,25 +348,26 @@ impl Processor {
 
     /// Copy the bytes onto the stack
     fn push_stack_bytes(&mut self, bytes: &[Byte]) {
+
+        // Push the stack pointer first so that it points to where the bytes will be inserted
+        self.push_stack_pointer(bytes.len());
+
         // Copy the bytes onto the stack
         self.memory.set_bytes(
-            self.get_register(Registers::STACK_POINTER) as usize,
+            self.get_stack_base(),
             bytes,
         );
-
-        // Move the stack pointer
-        self.inc_sp(bytes.len());
     }
 
 
     /// Copy the bytes at the given address onto the stack
     fn push_stack_from_address(&mut self, src_address: Address, size: usize) {
-        // Get the tos address
-        let dest_address = self.get_register(Registers::STACK_POINTER) as usize;
+
+        // Push the stack pointer first so that it points to where the bytes will be inserted
+        self.push_stack_pointer(size);
+
         // Copy the bytes onto the stack
-        self.memory.memcpy(src_address, dest_address, size);
-        // Move the stack pointer
-        self.inc_sp(size);
+        self.memory.memcpy(src_address, self.get_stack_base(), size);
     }
 
 
@@ -362,12 +379,12 @@ impl Processor {
 
     /// Pop `size` bytes from the stack
     fn pop_stack_bytes(&mut self, size: usize) -> &[Byte] {
-        // Move the stack pointer
-        self.dec_sp(size);
 
-        // Return the tos bytes
+        self.pop_stack_pointer(size);
+
+        // Subtract the size from the stack base pointer to get the address of the previous top of the stack
         self.memory.get_bytes(
-            self.get_register(Registers::STACK_POINTER) as usize,
+            self.get_stack_base() - size,
             size,
         )
     }
@@ -425,10 +442,12 @@ impl Processor {
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
-            let lower_bound = if self.get_sp() > MAX_STACK_VIEW_RANGE { self.get_sp() - MAX_STACK_VIEW_RANGE } else { 0 };
+            let top_bound = self.get_stack_top().saturating_sub(MAX_STACK_VIEW_RANGE);
+            let base_bound = self.get_stack_top();
+
             println!(
                 "Stack: #{} {:?} #{}",
-                lower_bound, &self.memory.get_raw()[lower_bound .. self.get_sp()], self.get_sp()
+                self.get_stack_top(), &self.memory.get_raw()[base_bound .. top_bound], top_bound
             );
 
             io::stdin().read_line(&mut String::new()).unwrap();
@@ -880,7 +899,7 @@ impl Processor {
         let reg = Registers::from(self.get_next_byte());
         let offset = self.get_register(reg);
 
-        self.inc_sp(offset as usize);
+        self.push_stack_pointer(offset as usize);
     }
 
 
@@ -894,7 +913,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
-        self.inc_sp(offset as usize);
+        self.push_stack_pointer(offset as usize);
     }
 
 
@@ -905,7 +924,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-        self.inc_sp(offset as usize);
+        self.push_stack_pointer(offset as usize);
     }
 
 
@@ -918,7 +937,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
-        self.inc_sp(offset as usize);
+        self.push_stack_pointer(offset as usize);
     }
 
 
@@ -943,9 +962,9 @@ impl Processor {
         let dest_address_reg = Registers::from(self.get_next_byte());
         let dest_address = self.get_register(dest_address_reg) as Address;
 
-        // Hack to get around the borrow checker
-        self.dec_sp(size as usize);
-        self.memory.memcpy(self.get_sp(), dest_address, size as usize);
+        self.memory.memcpy(self.get_stack_base(), dest_address, size as usize);
+
+        self.pop_stack_pointer(size as usize);
     }
 
 
@@ -956,9 +975,9 @@ impl Processor {
 
         let dest_address = self.get_next_address();
 
-        // Hack to get around the borrow checker
-        self.dec_sp(size as usize);
-        self.memory.memcpy(self.get_sp(), dest_address, size as usize);
+        self.memory.memcpy(self.get_stack_base(), dest_address, size as usize);
+
+        self.pop_stack_pointer(size as usize);
     }
 
 
@@ -968,7 +987,7 @@ impl Processor {
         let reg = Registers::from(self.get_next_byte());
         let offset = self.get_register(reg);
 
-        self.dec_sp(offset as usize);
+        self.pop_stack_pointer(offset as usize);
     }
 
 
@@ -982,7 +1001,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
-        self.dec_sp(offset as usize);
+        self.pop_stack_pointer(offset as usize);
     }
 
 
@@ -993,7 +1012,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-        self.dec_sp(offset as usize);
+        self.pop_stack_pointer(offset as usize);
     }
 
 
@@ -1006,7 +1025,7 @@ impl Processor {
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
-        self.dec_sp(offset as usize);
+        self.pop_stack_pointer(offset as usize);
     }
 
 
@@ -1656,6 +1675,7 @@ impl Processor {
     }
 
 
+    #[inline(always)]
     fn handle_interrupt(&mut self, intr_code: u8) {
         Self::INTERRUPT_HANDLER_TABLE[intr_code as usize](self);
     }

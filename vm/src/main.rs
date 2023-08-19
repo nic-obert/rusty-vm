@@ -1,7 +1,6 @@
 
 mod processor;
 mod memory;
-mod video;
 mod files;
 mod cli_parser;
 
@@ -28,7 +27,7 @@ fn main() {
 
     let byte_code = files::load_byte_code(&args.input_file);
 
-    let mut processor = processor::Processor::new(args.stack_size, args.video_size);
+    let mut processor = processor::Processor::new(args.stack_size);
 
     processor.execute(&byte_code, args.mode);
 

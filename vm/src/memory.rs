@@ -5,77 +5,61 @@ use rust_vm_lib::vm::Address;
 pub type Byte = u8;
 
 
+/// Virtual memory module for the VM
 pub struct Memory {
 
-    stack: Vec<Byte>,
+    memory: Vec<Byte>,
+    heap_start: Address,
+    heap_end: Address,
 
 }
 
 
 impl Memory {
 
-    pub fn new(stack_size: usize, _video_size: usize) -> Memory {
+    pub fn new(size: usize) -> Memory {
         Memory {
-            stack: vec![0; stack_size],
+            memory: vec![0; size],
+            heap_start: 0,
+            heap_end: 0,
         }
     }
 
 
+    pub fn set_heap(&mut self, start_address: Address) {
+        self.heap_start = start_address;
+        self.heap_end = start_address;
+    }
+
+
     pub fn get_raw(&self) -> &[Byte] {
-        &self.stack
+        &self.memory
     }
 
 
     pub fn set_bytes(&mut self, address: Address, data: &[Byte]) {
-        self.stack[address..address + data.len()].copy_from_slice(data);
+        self.memory[address..address + data.len()].copy_from_slice(data);
     }
 
 
     pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: usize) {
-        self.stack.copy_within(src_address..src_address + size, dest_address);
+        self.memory.copy_within(src_address..src_address + size, dest_address);
     }
 
 
     pub fn get_byte(&self, address: Address) -> Byte {
-        self.stack[address]
+        self.memory[address]
     }
 
 
     pub fn get_bytes(&self, address: Address, size: usize) -> &[Byte] {
-        &self.stack[address..address + size]
+        &self.memory[address..address + size]
     }
 
 
     pub fn get_bytes_mut(&mut self, address: Address, size: usize) -> &mut [Byte] {
-        &mut self.stack[address..address + size]
+        &mut self.memory[address..address + size]
     }
-
-
-    // pub fn set_pixel(&mut self, address: Address, data: Pixel) {
-    //     self.video[address] = data;
-    // }
-
-
-    // pub fn set_pixels(&mut self, address: Address, data: &[Pixel]) {
-    //     for (i, pixel) in data.iter().enumerate() {
-    //         self.video[address + i] = (*pixel).clone();
-    //     }
-    // }
-
-
-    // pub fn get_pixel(&self, address: Address) -> &Pixel {
-    //     &self.video[address]
-    // }
-
-
-    // pub fn get_pixels(&self, address: Address, size: usize) -> &[Pixel] {
-    //     &self.video[address..address + size]
-    // }
-
-
-    // pub fn get_pixels_mut(&mut self, address: Address, size: usize) -> &mut [Pixel] {
-    //     &mut self.video[address..address + size]
-    // }
 
 }
 

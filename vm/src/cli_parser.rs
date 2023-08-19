@@ -15,10 +15,6 @@ pub struct CliParser {
     #[clap(long, default_value = "1024")]
     pub stack_size: usize,
 
-    /// Video memory size in pixels
-    #[clap(long, default_value = "1024")]
-    pub video_size: usize,
-
     /// Execution mode
     #[arg(value_enum)]
     #[clap(short, long, default_value="n")]

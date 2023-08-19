@@ -24,7 +24,8 @@ pub enum Registers {
     ERROR,
     PRINT,
 
-    STACK_POINTER,
+    STACK_TOP_POINTER,
+    STACK_BASE_POINTER,
     PROGRAM_COUNTER,
 
     ZERO_FLAG,
@@ -63,7 +64,8 @@ impl Registers {
             "input" => Registers::INPUT,
             "error" => Registers::ERROR,
             "print" => Registers::PRINT,
-            "sp" => Registers::STACK_POINTER,
+            "stp" => Registers::STACK_TOP_POINTER,
+            "sbp" => Registers::STACK_BASE_POINTER,
             "pc" => Registers::PROGRAM_COUNTER,
             "zf" => Registers::ZERO_FLAG,
             "sf" => Registers::SIGN_FLAG,
@@ -113,7 +115,8 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
     "error",
     "print",
 
-    "sp",
+    "stp",
+    "sbp",
     "pc",
 
     "zf",

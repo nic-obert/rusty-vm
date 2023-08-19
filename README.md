@@ -94,7 +94,8 @@ The virtual machine has 17 8-byte registers. Registers are identified by their n
 | `input`   | Stores the input from the console. |
 | `error`   | Stores the last error code. |
 | `print`   | Stores the value to print. |
-| `sp`      | Stores the stack pointer. |
+| `stp`     | Stores the stack top pointer. |
+| `sbp`     | Stores the stack base pointer. |
 | `pc`      | Stores the program counter. |
 | `zf`      | Stores the zero flag. |
 | `sf`      | Stores the sign flag. |
