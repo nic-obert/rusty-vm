@@ -1,7 +1,8 @@
 
 .include:
 
-
+    asmutils.asm
+    stdio.asm
 
 .data:
 
@@ -10,13 +11,8 @@
 
 @start
 
-    mov r1 sp
-    push2 2
+    mov1 r4 0
 
-    inc2 [r1]
+    !add_const_reg r4 5
 
-    mov1 print [r1]
-    printi
-    mov1 print 10
-    printc
-
+    !print_int_ln r4

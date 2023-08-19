@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add intr instruction to execute an interrupt. replace current interrupts (except for exit) with macros  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] update the disassembler  
@@ -12,11 +13,11 @@
 
 ### In Progress ···
 
-- [ ] add macros  
 - [ ] write asm libraries to include or call  
 
 ### Done ✅
 
+- [ ] add macros  
 - [ ] implement byte array data type (tests still to be performed)  
 - [ ] add hex number constants  
 - [ ] add instruction to push and pop the stack pointer n bytes (pushsp, popsp)  

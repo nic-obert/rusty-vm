@@ -106,7 +106,8 @@ The virtual machine has 17 8-byte registers. Registers are identified by their n
 ### $: current address
 
 The `$` symbol represents the current address in the binary as it's being assembled.  
-The assembler will replace every `$` symbol with the literal current address at the time of the assembly.
+The assembler will replace every `$` symbol with the literal current address at the time of the assembly.  
+Note that `$` has no knowledge of runtime stack pointers, so it's undefined behavior to use it inside procedures.
 
 ```asm
 mov1 r1 $
@@ -152,7 +153,7 @@ Note that you cannot declare a macro inside another macro.
     mov1 r3 3
 
   # End of macro definition
-  %my_macro
+  %endmacro
 
   mov1 r4 4
   mov1 r5 5
@@ -175,7 +176,7 @@ The arguments are referenced in the macro body by enclosing their name in curly 
     mov1 r2 {arg2}
 
   # End of macro definition
-  %my_macro
+  %endmacro
 
   # Using a macro with arguments
   !my_macro 1 2
@@ -194,7 +195,7 @@ To export a macro, prefix it with a double `%` instead.
     mov1 r3 3
 
   # End of macro definition
-  %my_macro
+  %endmacro
 
   # Using an exported macro
   !my_macro

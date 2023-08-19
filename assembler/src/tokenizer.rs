@@ -15,6 +15,7 @@ pub fn is_reserved_name(name: &str) -> bool {
     Registers::from_name(name).is_some() 
     || argmuments_table::get_arguments_table(name).is_some()
     || ErrorCodes::from_name(name).is_some()
+    || name == "endmacro"
     
 }
 
