@@ -19,7 +19,7 @@
     # The byte is a valid digit
     # Convert ASCII to integer
     mov1 r2 48
-    sub
+    isub
 
     # The result is stored in r1
     ret

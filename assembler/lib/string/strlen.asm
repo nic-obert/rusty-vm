@@ -26,7 +26,7 @@
 
     # Calculate the string length
     # r1 points to the null byte, r2 points to the start of the string
-    sub
+    isub
 
     ret
 

@@ -28,14 +28,14 @@
 
         # Calculate char address of s1
         mov r2 r8
-        add
+        iadd
 
         # Store the char from s1
         mov1 r6 [r1]
 
         # Calculate char address of s2
         mov r1 r5
-        add
+        iadd
 
         # Compare the chars
         cmp1 [r1] r6

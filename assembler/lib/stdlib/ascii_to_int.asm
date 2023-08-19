@@ -91,7 +91,7 @@
         
         # output + digit
         mov r2 r4
-        add
+        iadd
 
         # Save current output
         mov r7 r1
@@ -114,7 +114,7 @@
         # Convert positive integer to its two's complement negative counterpart
         mov r2 r1
         mov1 r1 0
-        sub
+        isub
     
     @ sign_is_positive
 

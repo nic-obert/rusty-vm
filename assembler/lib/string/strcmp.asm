@@ -23,7 +23,7 @@
 
         # Calculate the address of the char of s1
         mov r2 r8
-        add
+        iadd
 
         # Store the char of s1 to compare
         mov1 r5 [r1]
@@ -31,7 +31,7 @@
         # Calculate the address of the char from s2
         mov r1 r4
         # r2 is still the char index
-        add
+        iadd
 
         # Deref the char
         mov1 r1 [r1]

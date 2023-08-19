@@ -143,21 +143,21 @@ The first operand is treated as the destination by the processor, whereas the se
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
-| `add`       | Add the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
-| `sub`       | Subtract the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
-| `mul`       | Multiply the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
-| `div`       | Divide the values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
-| `mod`       | Store the remainder of the division between the values stored in registers `r1` and `r2` in register `r1`. Update the arithmetical flags. |
-| `inc a`     | Increment the value stored in the specified register `a`. Update the arithmetical flags. |
-| `inc1 a`    | Increment the 1-byte value stored at `a`. Update the arithmetical flags. |
-| `inc2 a`    | Increment the 2-byte value stored at `a`. Update the arithmetical flags. |
-| `inc4 a`    | Increment the 4-byte value stored at `a`. Update the arithmetical flags. |
-| `inc8 a`    | Increment the 8-byte value stored at `a`. Update the arithmetical flags. |
-| `dec a`     | Decrement the value stored in the specified register `a`. Update the arithmetical flags. |
-| `dec1 a`    | Decrement the 1-byte value stored at `a`. Update the arithmetical flags. |
-| `dec2 a`    | Decrement the 2-byte value stored at `a`. Update the arithmetical flags. |
-| `dec4 a`    | Decrement the 4-byte value stored at `a`. Update the arithmetical flags. |
-| `dec8 a`    | Decrement the 8-byte value stored at `a`. Update the arithmetical flags. |
+| `iadd`      | Add the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `isub`      | Subtract the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `imul`      | Multiply the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `idiv`      | Divide the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `imod`      | Store the remainder of the integer division between the values stored in registers `r1` and `r2` in register `r1`. Update the arithmetical flags. |
+| `inc a`     | Increment the integer value stored in the specified register `a`. Update the arithmetical flags. |
+| `inc1 a`    | Increment the 1-byte integer value stored at `a`. Update the arithmetical flags. |
+| `inc2 a`    | Increment the 2-byte integer value stored at `a`. Update the arithmetical flags. |
+| `inc4 a`    | Increment the 4-byte integer value stored at `a`. Update the arithmetical flags. |
+| `inc8 a`    | Increment the 8-byte integer value stored at `a`. Update the arithmetical flags. |
+| `dec a`     | Decrement the integer value stored in the specified register `a`. Update the arithmetical flags. |
+| `dec1 a`    | Decrement the 1-byte integer value stored at `a`. Update the arithmetical flags. |
+| `dec2 a`    | Decrement the 2-byte integer value stored at `a`. Update the arithmetical flags. |
+| `dec4 a`    | Decrement the 4-byte integer value stored at `a`. Update the arithmetical flags. |
+| `dec8 a`    | Decrement the 8-byte integer value stored at `a`. Update the arithmetical flags. |
 
 ### No operation instructions
 

@@ -81,11 +81,11 @@ pub fn use_converter(converter: TokenConverter, operands: Vec<Token>, handled_si
 
 
 fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
-    assert_exists!(ByteCodes::ADD);
-    assert_exists!(ByteCodes::SUB);
-    assert_exists!(ByteCodes::MUL);
-    assert_exists!(ByteCodes::DIV);
-    assert_exists!(ByteCodes::MOD);
+    assert_exists!(ByteCodes::INTEGER_ADD);
+    assert_exists!(ByteCodes::INTEGER_SUB);
+    assert_exists!(ByteCodes::INTEGER_MUL);
+    assert_exists!(ByteCodes::INTEGER_DIV);
+    assert_exists!(ByteCodes::INTEGER_MOD);
     assert_exists!(ByteCodes::NO_OPERATION);
     assert_exists!(ByteCodes::RETURN);
     assert_exists!(ByteCodes::AND);

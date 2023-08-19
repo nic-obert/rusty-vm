@@ -160,15 +160,15 @@ impl ArgTable {
 
 // Defining argument tables for all the assembly operators
 
-const ADD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::ADD, 0, 0));
+const IADD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_ADD, 0, 0));
 
-const SUB_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SUB, 0, 0));
+const ISUB_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_SUB, 0, 0));
 
-const MUL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::MUL, 0, 0));
+const IMUL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_MUL, 0, 0));
 
-const DIV_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::DIV, 0, 0));
+const IDIV_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_DIV, 0, 0));
 
-const MOD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::MOD, 0, 0));
+const IMOD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_MOD, 0, 0));
 
 const INC_ARGS: ArgTable = ArgTable::One([ 
     // Register
@@ -1514,15 +1514,15 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
 
         // Arithmetic
 
-        "add" => &ADD_ARGS,
+        "iadd" => &IADD_ARGS,
 
-        "sub" => &SUB_ARGS,
+        "isub" => &ISUB_ARGS,
 
-        "mul" => &MUL_ARGS,
+        "imul" => &IMUL_ARGS,
 
-        "div" => &DIV_ARGS,
+        "idiv" => &IDIV_ARGS,
 
-        "mod" => &MOD_ARGS,
+        "imod" => &IMOD_ARGS,
 
         "inc" => &INC_ARGS, 
     

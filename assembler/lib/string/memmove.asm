@@ -30,7 +30,7 @@
 
     # src + n
     mov r2 r3
-    add
+    iadd
 
     # src + n > dest
     cmp r1 r5

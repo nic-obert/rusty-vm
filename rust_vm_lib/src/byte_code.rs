@@ -3,11 +3,11 @@ use std::fmt;
 
 /// String representation of byte code instructions
 pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
-    "ADD",
-    "SUB",
-    "MUL",
-    "DIV",
-    "MOD",
+    "INTEGER_ADD",
+    "INTEGER_SUB",
+    "INTEGER_MUL",
+    "INTEGER_DIV",
+    "INTEGER_MOD",
 
     "INC_REG",
     "INC_ADDR_IN_REG",
@@ -112,11 +112,11 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
 pub enum ByteCodes {
-    ADD = 0,
-    SUB,
-    MUL,
-    DIV,
-    MOD,
+    INTEGER_ADD = 0,
+    INTEGER_SUB,
+    INTEGER_MUL,
+    INTEGER_DIV,
+    INTEGER_MOD,
 
     INC_REG,
     INC_ADDR_IN_REG,

@@ -19,13 +19,13 @@
 
         # Get the first source char 
         mov r1 r3
-        add
+        iadd
 
         mov1 r5 [r1]
 
         # Calculate the destination address
         mov r1 r4
-        add
+        iadd
 
         # Copy the char to the destination address
         mov1 [r1] r5

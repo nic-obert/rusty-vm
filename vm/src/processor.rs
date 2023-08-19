@@ -479,7 +479,7 @@ impl Processor {
 
 
     fn handle_add(&mut self) {
-        assert_exists!(ByteCodes::ADD);
+        assert_exists!(ByteCodes::INTEGER_ADD);
 
         let r1 = self.get_register(Registers::R1);
         let r2 = self.get_register(Registers::R2);
@@ -502,7 +502,7 @@ impl Processor {
 
 
     fn handle_sub(&mut self) {
-        assert_exists!(ByteCodes::SUB);
+        assert_exists!(ByteCodes::INTEGER_SUB);
         
         let r1 = self.get_register(Registers::R1);
         let r2 = self.get_register(Registers::R2);
@@ -525,7 +525,7 @@ impl Processor {
 
 
     fn handle_mul(&mut self) {
-        assert_exists!(ByteCodes::MUL);
+        assert_exists!(ByteCodes::INTEGER_MUL);
         
         let r1 = self.get_register(Registers::R1);
         let r2 = self.get_register(Registers::R2);
@@ -548,7 +548,7 @@ impl Processor {
 
 
     fn handle_div(&mut self) {
-        assert_exists!(ByteCodes::DIV);
+        assert_exists!(ByteCodes::INTEGER_DIV);
 
         let r1 = self.get_register(Registers::R1);
         let r2 = self.get_register(Registers::R2);
@@ -574,7 +574,7 @@ impl Processor {
 
 
     fn handle_mod(&mut self) {
-        assert_exists!(ByteCodes::MOD);
+        assert_exists!(ByteCodes::INTEGER_MOD);
         
         let r1 = self.get_register(Registers::R1);
         let r2 = self.get_register(Registers::R2);
