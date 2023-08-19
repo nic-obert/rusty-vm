@@ -398,7 +398,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
                 // Check for macro definition end
                 if let Some(mline) = trimmed_line.strip_prefix('%') {
 
-                    if mline != "endmacro" {
+                    if mline.trim() != "endmacro" {
                         error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definitions must end with \"%endmacro\".");
                     }
 
@@ -651,7 +651,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
                         }
 
                         if verbose {
-                            println!("Macro: {}", mline);
+                            println!("Macro {: >3}, Pos: {: >5} | {}", line_number, byte_code.len(), mline);
                         }
 
                         assemble_instruction(&asm_unit, &mline, line, line_number, byte_code, &mut label_reference_registry);
@@ -701,9 +701,9 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
         if asm_unit.is_main_unit {
             println!("\nEnd of main assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
         } else {
-            println!("\nEnd of assembly unit {} ({})", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
+            println!("\nEnd of assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
             println!("Exported labels: {:?}\n", export_label_declaration_map);
-            println!("Exported macros: {:?}\n", export_macro_declaration_map);
+            println!("Exported macros: {:?}\n", export_macro_declaration_map.keys());
         }
     }
 

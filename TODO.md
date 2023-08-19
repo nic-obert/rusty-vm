@@ -2,21 +2,21 @@
 
 ### Todo
 
-- [ ] add intr instruction to execute an interrupt. replace current interrupts (except for exit) with macros  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
 - [ ] add programs written in asm  
-- [ ] test the new vm  
 
 ### In Progress ···
 
-- [ ] write asm libraries to include or call  
+- [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] write asm libraries to include or call  
+- [ ] add intr instruction to execute an interrupt. replace current interrupts (except for exit) with macros  
 - [ ] add macros  
 - [ ] implement byte array data type (tests still to be performed)  
 - [ ] add hex number constants  

@@ -1646,138 +1646,18 @@ impl Processor {
     }
 
 
-    fn handle_print_signed(&mut self) {
-        assert_exists!(ByteCodes::PRINT_SIGNED);
+    fn handle_interrupt_reg(&mut self) {
+        assert_exists!(ByteCodes::INTERRUPT_REG);
 
-        let value = self.get_register(Registers::PRINT);
-        print!("{}", value as i64);
-        io::stdout().flush().expect("Failed to flush stdout");
+        let reg = Registers::from(self.get_next_byte());
+        let intr_code = self.get_register(reg) as u8;
+
+        self.handle_interrupt(intr_code);
     }
 
 
-    fn handle_print_unsigned(&mut self) {
-        assert_exists!(ByteCodes::PRINT_UNSIGNED);
-
-        let value = self.get_register(Registers::PRINT);
-        print!("{}", value);
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_char(&mut self) {
-        assert_exists!(ByteCodes::PRINT_CHAR);
-
-        let value = self.get_register(Registers::PRINT);
-        print!("{}", value as u8 as char);
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_string(&mut self) {
-        assert_exists!(ByteCodes::PRINT_STRING);
-
-        let string_address = self.get_register(Registers::PRINT) as Address;
-        let length = self.strlen(string_address);
-        let bytes = self.memory.get_bytes(string_address, length);
-
-        io::stdout().write_all(bytes).expect("Failed to write to stdout");
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_bytes(&mut self) {
-        assert_exists!(ByteCodes::PRINT_BYTES);
-
-        let bytes_address = self.get_register(Registers::PRINT) as Address;
-        let length = self.get_register(Registers::R1) as usize;
-        let bytes = self.memory.get_bytes(bytes_address, length);
-
-        io::stdout().write_all(bytes).expect("Failed to write to stdout");
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_input_signed_int(&mut self) {
-        assert_exists!(ByteCodes::INPUT_SIGNED_INT);
-
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                match input.parse::<i64>() {
-                    Ok(value) => {
-                        self.set_register(Registers::INPUT, value as u64);
-                        self.set_error(ErrorCodes::NoError);
-                    },
-                    Err(_) => {
-                        self.set_error(ErrorCodes::InvalidInput);
-                    }
-                }
-            },
-            Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
-            },
-        }
-    }
-
-
-    fn handle_input_unsigned_int(&mut self) {
-        assert_exists!(ByteCodes::INPUT_UNSIGNED_INT);
-
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                match input.parse::<u64>() {
-                    Ok(value) => {
-                        self.set_register(Registers::INPUT, value);
-                        self.set_error(ErrorCodes::NoError);
-                    },
-                    Err(_) => {
-                        self.set_error(ErrorCodes::InvalidInput);
-                    }
-                }
-            },
-            Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
-            },
-        }
-    }
-
-
-    fn handle_input_string(&mut self) {
-        assert_exists!(ByteCodes::INPUT_STRING);
-
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                self.set_register(Registers::INPUT, input.len() as u64);
-                self.push_stack_bytes(input.as_bytes());
-                self.set_error(ErrorCodes::NoError); 
-            },
-            Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
-            },
-        }
+    fn handle_interrupt(&mut self, intr_code: u8) {
+        Self::INTERRUPT_HANDLER_TABLE[intr_code as usize](self);
     }
 
 
@@ -1881,17 +1761,173 @@ impl Processor {
         Self::handle_shift_left,
         Self::handle_shift_right,
 
-        Self::handle_print_signed,
-        Self::handle_print_unsigned,
-        Self::handle_print_char,
-        Self::handle_print_string,
-        Self::handle_print_bytes,
-        
-        Self::handle_input_signed_int,
-        Self::handle_input_unsigned_int,
-        Self::handle_input_string,
+        Self::handle_interrupt_reg,
+        Self::handle_interrupt_addr_in_reg,
+        Self::handle_interrupt_const,
+        Self::handle_interrupt_addr_literal,
 
         Self::handle_exit,
+    ];
+
+
+    fn handle_interrupt_addr_in_reg(&mut self) {
+        assert_exists!(ByteCodes::INTERRUPT_ADDR_IN_REG);
+
+        let address_reg = Registers::from(self.get_next_byte());
+        let address = self.get_register(address_reg) as Address;
+        let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
+
+        self.handle_interrupt(intr_code);
+    }
+
+
+    fn handle_interrupt_const(&mut self) {
+        assert_exists!(ByteCodes::INTERRUPT_CONST);
+
+        let intr_code = self.get_next_byte();
+
+        self.handle_interrupt(intr_code);
+    }
+
+
+    fn handle_interrupt_addr_literal(&mut self) {
+        assert_exists!(ByteCodes::INTERRUPT_ADDR_LITERAL);
+
+        let address = self.get_next_address();
+        let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
+
+        self.handle_interrupt(intr_code);
+    }
+
+
+    fn handle_print_signed(&mut self) {
+        let value = self.get_register(Registers::PRINT);
+        print!("{}", value as i64);
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_print_unsigned(&mut self) {
+        let value = self.get_register(Registers::PRINT);
+        print!("{}", value);
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_print_char(&mut self) {
+        let value = self.get_register(Registers::PRINT);
+        print!("{}", value as u8 as char);
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_print_string(&mut self) {
+        let string_address = self.get_register(Registers::PRINT) as Address;
+        let length = self.strlen(string_address);
+        let bytes = self.memory.get_bytes(string_address, length);
+
+        io::stdout().write_all(bytes).expect("Failed to write to stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_print_bytes(&mut self) {
+        let bytes_address = self.get_register(Registers::PRINT) as Address;
+        let length = self.get_register(Registers::R1) as usize;
+        let bytes = self.memory.get_bytes(bytes_address, length);
+
+        io::stdout().write_all(bytes).expect("Failed to write to stdout");
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    fn handle_input_signed_int(&mut self) {
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(bytes_read) => {
+
+                // Check for EOF errors
+                if bytes_read == 0 {
+                    self.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
+
+                match input.parse::<i64>() {
+                    Ok(value) => {
+                        self.set_register(Registers::INPUT, value as u64);
+                        self.set_error(ErrorCodes::NoError);
+                    },
+                    Err(_) => {
+                        self.set_error(ErrorCodes::InvalidInput);
+                    }
+                }
+            },
+            Err(_) => {
+                self.set_error(ErrorCodes::GenericError);
+            },
+        }
+    }
+
+
+    fn handle_input_unsigned_int(&mut self) {
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(bytes_read) => {
+
+                // Check for EOF errors
+                if bytes_read == 0 {
+                    self.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
+
+                match input.parse::<u64>() {
+                    Ok(value) => {
+                        self.set_register(Registers::INPUT, value);
+                        self.set_error(ErrorCodes::NoError);
+                    },
+                    Err(_) => {
+                        self.set_error(ErrorCodes::InvalidInput);
+                    }
+                }
+            },
+            Err(_) => {
+                self.set_error(ErrorCodes::GenericError);
+            },
+        }
+    }
+
+
+    fn handle_input_string(&mut self) {
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(bytes_read) => {
+
+                // Check for EOF errors
+                if bytes_read == 0 {
+                    self.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
+
+                self.set_register(Registers::INPUT, input.len() as u64);
+                self.push_stack_bytes(input.as_bytes());
+                self.set_error(ErrorCodes::NoError); 
+            },
+            Err(_) => {
+                self.set_error(ErrorCodes::GenericError);
+            },
+        }
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 8 ] = [
+        Self::handle_print_signed, // 0
+        Self::handle_print_unsigned, // 1
+        Self::handle_print_char, // 2
+        Self::handle_print_string, // 3
+        Self::handle_print_bytes, // 4
+        Self::handle_input_signed_int, // 5
+        Self::handle_input_unsigned_int, // 6
+        Self::handle_input_string, // 7
     ];
 
 

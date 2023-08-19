@@ -1,14 +1,15 @@
 
 .include:
 
-    errors.asm
-    stdlib.asm
+    stdio.asm
 
 .data:
 
+    S string "Hello World!\0"
 
 .text:
 
 @start
 
-    !_exit END_OF_FILE
+    !print_str S
+    

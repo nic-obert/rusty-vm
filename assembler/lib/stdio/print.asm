@@ -2,42 +2,59 @@
 # Export useful macros for printing to the console
 
 
+.include:
+
+    @@ interrupts.asm
+
+
 .text:
 
-    %% print_string_ln reg:
+    %% print_char c:
 
-        mov print {reg}
-        printstr
-        mov1 print 10
-        printc
+        mov1 print {c}
+        intr [PRINT_CHAR]
 
     %endmacro
 
 
-    %% print_string reg:
+    %% print_str s:
 
-        mov print {reg}
-        printstr
-
-    %endmacro
-
-
-    %% print_int_ln reg:
-
-        mov print {reg}
-        printi
-        mov1 print 10
-        printc
+        mov8 print {s}
+        intr [PRINT_STRING]
     
     %endmacro
 
 
-    %% print_uint_ln reg:
+    %% println_str s:
 
-        mov print {reg}
-        printu
+        mov8 print {s}
+        intr [PRINT_STRING]
         mov1 print 10
-        printc
-    
+        intr [PRINT_CHAR]
+
+    %endmacro
+
+
+    %% print_bytes addr:
+
+        mov8 print {addr}
+        intr [PRINT_BYTES]
+
+    %endmacro
+
+
+    %% print_int i:
+
+        mov8 print {i}
+        intr [PRINT_SIGNED]
+
+    %endmacro
+
+
+    %% print_uint i:
+
+        mov8 print {i}
+        intr [PRINT_UNSIGNED]
+
     %endmacro
 

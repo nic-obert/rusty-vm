@@ -94,17 +94,9 @@ fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_
     assert_exists!(ByteCodes::NOT);
     assert_exists!(ByteCodes::SHIFT_LEFT);
     assert_exists!(ByteCodes::SHIFT_RIGHT);
-    assert_exists!(ByteCodes::PRINT_SIGNED);
-    assert_exists!(ByteCodes::PRINT_UNSIGNED);
-    assert_exists!(ByteCodes::PRINT_CHAR);
-    assert_exists!(ByteCodes::PRINT_STRING);
-    assert_exists!(ByteCodes::PRINT_BYTES);
-    assert_exists!(ByteCodes::INPUT_SIGNED_INT);
-    assert_exists!(ByteCodes::INPUT_UNSIGNED_INT);
-    assert_exists!(ByteCodes::INPUT_STRING);
     assert_exists!(ByteCodes::EXIT);
 
-    Vec::new()
+    ByteCode::new()
 }
 
 
@@ -129,7 +121,7 @@ fn convert_inc_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_re
     assert_exists!(ByteCodes::INC_ADDR_LITERAL);
 
     let cap = 1 + ADDRESS_SIZE;
-    let mut bytes = Vec::with_capacity(cap);
+    let mut bytes = ByteCode::with_capacity(cap);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -168,7 +160,7 @@ fn convert_dec_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_re
     assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
 
     let cap = 1 + ADDRESS_SIZE;
-    let mut bytes = Vec::with_capacity(cap);
+    let mut bytes = ByteCode::with_capacity(cap);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -210,7 +202,7 @@ fn convert_move_into_reg_from_addr_in_reg(operands: Vec<Token>, handled_size: u8
 fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], Register) as u8;
@@ -237,7 +229,7 @@ fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, 
 fn convert_move_into_reg_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], Register) as u8;
@@ -281,7 +273,7 @@ fn convert_move_into_addr_in_reg_from_addr_in_reg(operands: Vec<Token>, handled_
 fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], AddressInRegister) as u8;
@@ -308,7 +300,7 @@ fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_si
 fn convert_move_into_addr_in_reg_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     let dest_reg = extract!(operands[0], AddressInRegister) as u8;
@@ -330,7 +322,7 @@ fn convert_move_into_addr_in_reg_from_addr_literal(mut operands: Vec<Token>, han
 fn convert_move_into_addr_literal_from_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -352,7 +344,7 @@ fn convert_move_into_addr_literal_from_reg(mut operands: Vec<Token>, handled_siz
 fn convert_move_into_addr_literal_from_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -374,7 +366,7 @@ fn convert_move_into_addr_literal_from_addr_in_reg(mut operands: Vec<Token>, han
 fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -407,7 +399,7 @@ fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_s
 fn convert_move_into_addr_literal_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -452,7 +444,7 @@ fn convert_push_from_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_
 fn convert_push_from_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::PUSH_FROM_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -476,7 +468,7 @@ fn convert_push_from_const(mut operands: Vec<Token>, handled_size: u8, label_reg
 fn convert_push_from_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::PUSH_FROM_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -514,7 +506,7 @@ fn convert_push_stack_pointer_addr_in_reg(operands: Vec<Token>, handled_size: u8
 fn convert_push_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::PUSH_STACK_POINTER_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -538,7 +530,7 @@ fn convert_push_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, 
 fn convert_push_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
     assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -577,7 +569,7 @@ fn convert_pop_into_addr_in_reg(operands: Vec<Token>, handled_size: u8, _label_r
 fn convert_pop_into_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::POP_INTO_ADDR_LITERAL);    
     
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -615,7 +607,7 @@ fn convert_pop_stack_pointer_addr_in_reg(operands: Vec<Token>, handled_size: u8,
 fn convert_pop_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::POP_STACK_POINTER_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -639,7 +631,7 @@ fn convert_pop_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, l
 fn convert_pop_stack_pointer_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {    
     assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -709,7 +701,7 @@ fn convert_compare_reg_addr_in_reg(operands: Vec<Token>, handled_size: u8, _labe
 fn convert_compare_reg_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_REG_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     let left_reg = extract!(operands[0], Register) as u8;
@@ -736,7 +728,7 @@ fn convert_compare_reg_const(mut operands: Vec<Token>, handled_size: u8, label_r
 fn convert_compare_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_REG_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     let left_reg = extract!(operands[0], Register) as u8;
@@ -780,7 +772,7 @@ fn convert_compare_addr_in_reg_addr_in_reg(operands: Vec<Token>, handled_size: u
 fn convert_compare_addr_in_reg_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     let left_reg = extract!(operands[0], AddressInRegister) as u8;
@@ -807,7 +799,7 @@ fn convert_compare_addr_in_reg_const(mut operands: Vec<Token>, handled_size: u8,
 fn convert_compare_addr_in_reg_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + REGISTER_ID_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     let left_reg = extract!(operands[0], AddressInRegister) as u8;
@@ -829,7 +821,7 @@ fn convert_compare_addr_in_reg_addr_literal(mut operands: Vec<Token>, handled_si
 fn convert_compare_const_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_CONST_REG);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -856,7 +848,7 @@ fn convert_compare_const_reg(mut operands: Vec<Token>, handled_size: u8, label_r
 fn convert_compare_const_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_CONST_ADDR_IN_REG);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -883,7 +875,7 @@ fn convert_compare_const_addr_in_reg(mut operands: Vec<Token>, handled_size: u8,
 fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_CONST_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -921,7 +913,7 @@ fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label
 fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_CONST_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + handled_size as usize + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -954,7 +946,7 @@ fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8
 fn convert_compare_addr_literal_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_REG);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -976,7 +968,7 @@ fn convert_compare_addr_literal_reg(mut operands: Vec<Token>, handled_size: u8, 
 fn convert_compare_addr_literal_addr_in_reg(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -998,7 +990,7 @@ fn convert_compare_addr_literal_addr_in_reg(mut operands: Vec<Token>, handled_si
 fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_CONST);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -1031,7 +1023,7 @@ fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8
 fn convert_compare_addr_literal_addr_literal(mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
     assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL);
 
-    let mut bytes = Vec::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
+    let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
     bytes.push(handled_size);
 
     match &mut operands[0].value {
@@ -1053,6 +1045,58 @@ fn convert_compare_addr_literal_addr_literal(mut operands: Vec<Token>, handled_s
     }
 
     bytes
+}
+
+
+fn convert_interrupt_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INTERRUPT_REG);
+
+    vec![
+        extract!(operands[0], Register) as u8
+    ]
+}
+
+
+fn convert_interrupt_addr_in_reg(operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, _line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INTERRUPT_ADDR_IN_REG);
+
+    vec![
+        extract!(operands[0], AddressInRegister) as u8
+    ]
+}
+
+
+fn convert_interrupt_const(mut operands: Vec<Token>, _handled_size: u8, _label_registry: &mut LabelReferenceRegistry, _last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INTERRUPT_CONST);
+
+    let mut bytes = ByteCode::with_capacity(1);
+
+    match &mut operands[0].value {
+        TokenValue::Number { value, .. } => {
+            let repr = fit_into_bytes(*value, 1).unwrap_or_else(
+                || error::number_out_of_range(unit_path, *value, 1, line_number, line)
+            );
+            bytes.extend(repr);
+        },
+        _ => unreachable!()
+    }
+
+    bytes
+}
+
+
+fn convert_interrupt_addr_literal(mut operands: Vec<Token>, _handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, _unit_path: &Path, _line: &str) -> ByteCode {
+    assert_exists!(ByteCodes::INTERRUPT_ADDR_LITERAL);
+
+    match &mut operands[0].value {
+        TokenValue::AddressLiteral { value, .. } => value.to_le_bytes().to_vec(),
+        TokenValue::AddressAtLabel(label) => {
+            label_registry.add_reference(mem::take(label), last_byte_code, line_number);
+            LABEL_PLACEHOLDER.to_vec()
+        },
+        _ => unreachable!()
+    }
+
 }
 
 
@@ -1150,15 +1194,10 @@ const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
     convert_no_operands_generic, // ByteCodes::SHIFT_LEFT
     convert_no_operands_generic, // ByteCodes::SHIFT_RIGHT
 
-    convert_no_operands_generic, // ByteCodes::PRINT_SIGNED
-    convert_no_operands_generic, // ByteCodes::PRINT_UNSIGNED
-    convert_no_operands_generic, // ByteCodes::PRINT_CHAR
-    convert_no_operands_generic, // ByteCodes::PRINT_STRING
-    convert_no_operands_generic, // ByteCodes::PRINT_BYTES
-
-    convert_no_operands_generic, // ByteCodes::INPUT_SIGNED_INT
-    convert_no_operands_generic, // ByteCodes::INPUT_UNSIGNED_INT
-    convert_no_operands_generic, // ByteCodes::INPUT_STRING
+    convert_interrupt_reg,
+    convert_interrupt_addr_in_reg,
+    convert_interrupt_const,
+    convert_interrupt_addr_literal,
 
     convert_no_operands_generic, // ByteCodes::EXIT
 

@@ -5,4 +5,5 @@
 .include:
 
     @@ stdio/print.asm
+    @@ stdio/input.asm
 

@@ -555,7 +555,7 @@ const MOV8_ARGS: ArgTable = ArgTable::Two([
     // Register
     Some([
         // Register
-        None, 
+        Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Address in register
         Some(Mnemonic::new(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)), 
         // Number
@@ -680,7 +680,7 @@ const PUSH4_ARGS: ArgTable = ArgTable::One([
 
 const PUSH8_ARGS: ArgTable = ArgTable::One([
     // Register
-    None, 
+    Some(Mnemonic::new(ByteCodes::PUSH_FROM_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     Some(Mnemonic::new(ByteCodes::PUSH_FROM_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
     // Number
@@ -755,7 +755,7 @@ const PUSHSP4_ARGS: ArgTable = ArgTable::One([
 
 const PUSHSP8_ARGS: ArgTable = ArgTable::One([
     // Register
-    None, 
+    Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     Some(Mnemonic::new(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
     // Number
@@ -890,7 +890,7 @@ const POPSP4_ARGS: ArgTable = ArgTable::One([
 
 const POPSP8_ARGS: ArgTable = ArgTable::One([
     // Register
-    None, 
+    Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_REG, 0, REGISTER_ID_SIZE)),
     // Address in register
     Some(Mnemonic::new(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG, 8, REGISTER_ID_SIZE)), 
     // Number
@@ -1387,7 +1387,7 @@ const CMP8_ARGS: ArgTable = ArgTable::Two([
     // Register
     Some([
         // Register
-        None, 
+        Some(Mnemonic::new(ByteCodes::COMPARE_REG_REG, 0, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Address in register
         Some(Mnemonic::new(ByteCodes::COMPARE_REG_ADDR_IN_REG, 8, REGISTER_ID_SIZE + REGISTER_ID_SIZE)),
         // Number
@@ -1488,21 +1488,20 @@ const SHL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SHIFT_LEFT, 0
 
 const SHR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::SHIFT_RIGHT, 0, 0));
 
-const PRINTI_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_SIGNED, 0, 0));
-
-const PRINTU_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_UNSIGNED, 0, 0));
-
-const PRINTC_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_CHAR, 0, 0));
-
-const PRINTSTR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_STRING, 0, 0));
-
-const PRINTBYTES_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::PRINT_BYTES, 0, 0));
-
-const INPUTSINT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_SIGNED_INT, 0, 0));
-
-const INPUTUINT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_UNSIGNED_INT, 0, 0));
-
-const INPUTSTR_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INPUT_STRING, 0, 0));
+const INTR_ARGS: ArgTable = ArgTable::One([
+    // Register
+    Some(Mnemonic::new(ByteCodes::INTERRUPT_REG, 0, REGISTER_ID_SIZE)),
+    // Address in register
+    Some(Mnemonic::new(ByteCodes::INTERRUPT_ADDR_IN_REG, 0, REGISTER_ID_SIZE)),
+    // Number
+    Some(Mnemonic::new(ByteCodes::INTERRUPT_CONST, 0, 1)),
+    // Address literal
+    Some(Mnemonic::new(ByteCodes::INTERRUPT_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+    // Label
+    None,
+    // Address at label
+    Some(Mnemonic::new(ByteCodes::INTERRUPT_ADDR_LITERAL, 0, ADDRESS_SIZE)),
+]);
 
 const EXIT_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::EXIT, 0, 0));
 
@@ -1658,21 +1657,7 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
 
         // Interrupts
 
-        "printi" => &PRINTI_ARGS,
-
-        "printu" => &PRINTU_ARGS,
-
-        "printc" => &PRINTC_ARGS,
-
-        "printstr" => &PRINTSTR_ARGS,
-
-        "printbytes" => &PRINTBYTES_ARGS,
-
-        "inputsint" => &INPUTSINT_ARGS,
-
-        "inputuint" => &INPUTUINT_ARGS,
-
-        "inputstr" => &INPUTSTR_ARGS,
+        "intr" => &INTR_ARGS,
 
         "exit" => &EXIT_ARGS,
 

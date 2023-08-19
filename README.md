@@ -34,6 +34,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Flow control instructions](#flow-control-instructions)
     - [Comparison instructions](#comparison-instructions)
     - [Logical bitwise instructions](#logical-bitwise-instructions)
+    - [Special intructions](#special-intructions)
     - [Interrupts](#interrupts)
   - [Assembly unit sections](#assembly-unit-sections)
     - [Data section](#data-section)
@@ -295,19 +296,27 @@ The first operand is treated as the destination by the processor, whereas the se
 | `shl`       | Perform a bitwise left shift on the value stored in register `r1` by the value stored in register `r2`. Store the result in register `r1`. |
 | `shr`       | Perform a bitwise right shift on the value stored in register `r1` by the value stored in register `r2`. Store the result in register `r1`. |
 
-### Interrupts
+### Special intructions
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
-| `printi`    | Print the signed integer value stored in the `print` register. |
-| `printu`    | Print the unsigned integer value stored in the `print` register. |
-| `printc`    | Print the unicode character stored in the `print` register. |
-| `printstr`  | Print the string at the address stored in the `print` register. |
-| `printbytes`| Print the bytes at the address stored in the `print` register up to the length stored in the `r1` register. |
-| `inputsint`  | Get the next signed integer input from the console and store it in the `input` register. |
-| `inputuint`  | Get the next unsigned integer input from the console and store it in the `input` register. |
-| `inputstr`  | Get the next string input from the console, push it onto the stack, and store its address in the `input` register.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
+| `intr a`    | Trigger the interrupt with the specified interrupt code `a`. |
 | `exit`      | Exit the program with the exit code stored in the `exit` register. |
+
+### Interrupts
+
+Interrupts are defined in the [`interrupts.asm`](assembler/lib/interrupts.asm) library file.
+
+| Instruction | Description                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `PRINT_SIGNED`    | Print the signed integer value stored in the `print` register. |
+| `PRINT_UNSIGNED`    | Print the unsigned integer value stored in the `print` register. |
+| `PRINT_CHAR`    | Print the unicode character stored in the `print` register. |
+| `PRINT_STRING`  | Print the string at the address stored in the `print` register. |
+| `PRINT_BYTES`| Print the bytes at the address stored in the `print` register up to the length stored in the `r1` register. |
+| `INPUT_SIGNED`  | Get the next signed integer input from the console and store it in the `input` register. |
+| `INPUT_UNSIGNED`  | Get the next unsigned integer input from the console and store it in the `input` register. |
+| `INPUT_STRING`  | Get the next string input from the console, push it onto the stack, and store its address in the `input` register.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
 
 ## Assembly unit sections
 
