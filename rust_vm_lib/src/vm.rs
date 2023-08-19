@@ -21,22 +21,6 @@ pub enum ErrorCodes {
 }
 
 
-impl ErrorCodes {
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        Some(match name {
-            "NO_ERROR" => ErrorCodes::NoError,
-            "END_OF_FILE" => ErrorCodes::EndOfFile,
-            "INVALID_INPUT" => ErrorCodes::InvalidInput,
-            "ZERO_DIVISION" => ErrorCodes::ZeroDivision,
-            "GENERIC_ERROR" => ErrorCodes::GenericError,
-
-            _ => return None,
-        })
-    }
-}
-
-
 const ERROR_CODES_COUNT: usize = {
     assert!((ErrorCodes::GenericError as usize) < 256);
     ErrorCodes::GenericError as usize + 1
@@ -44,11 +28,11 @@ const ERROR_CODES_COUNT: usize = {
 
 
 const ERROR_CODE_REPR: [&str; ERROR_CODES_COUNT] = [
-    "NO_ERROR",
-    "END_OF_FILE",
-    "INVALID_INPUT",
-    "ZERO_DIVISION",
-    "GENERIC_ERROR"
+    "0 (NO_ERROR)",
+    "1 (END_OF_FILE)",
+    "2 (INVALID_INPUT)",
+    "3 (ZERO_DIVISION)",
+    "4 (GENERIC_ERROR)"
 ];
 
 
@@ -68,19 +52,6 @@ impl std::convert::From<u8> for ErrorCodes {
             unsafe { std::mem::transmute(code) }
         } else {
             panic!("Invalid error code: {}", code);
-        }
-    }
-
-}
-
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn assert_error_codes_repr_consistency() {
-        for (i, repr) in super::ERROR_CODE_REPR.iter().enumerate() {
-            assert_eq!(i, super::ErrorCodes::from_name(repr).unwrap() as usize);
         }
     }
 

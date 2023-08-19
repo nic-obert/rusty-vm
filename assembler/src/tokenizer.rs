@@ -3,7 +3,6 @@ use std::path::Path;
 
 use rust_vm_lib::registers::Registers;
 use rust_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
-use rust_vm_lib::vm::ErrorCodes;
 
 use crate::error;
 use crate::argmuments_table;
@@ -14,7 +13,6 @@ use crate::argmuments_table;
 pub fn is_reserved_name(name: &str) -> bool {
     Registers::from_name(name).is_some() 
     || argmuments_table::get_arguments_table(name).is_some()
-    || ErrorCodes::from_name(name).is_some()
     || name == "endmacro"
     
 }
@@ -265,15 +263,17 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                     // Determine what kind of identifier it is
                     if let Some(register) = Registers::from_name(identifier) {
                         tokens.push(Token::new(TokenValue::AddressInRegister(register)));
-                        current_token = None;
 
                     } else if is_reserved_name(identifier) {
                         // Check if the name is a reserved keyword
                         error::invalid_address_identifier(unit_path, identifier, line_number, line);
+
                     } else {
                         // The name is not reserved, then it's a label
-                        tokens.push(Token::new(TokenValue::Label(mem::take(identifier))));
+                        tokens.push(Token::new(TokenValue::AddressAtLabel(mem::take(identifier))));
                     }
+
+                    current_token = None;
 
                     continue;
                 },
@@ -288,9 +288,6 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
 
                     if let Some(register) = Registers::from_name(name) {
                         tokens.push(Token::new(TokenValue::Register(register)));
-                    
-                    } else if let Some(error_code) = ErrorCodes::from_name(name) {
-                        tokens.push(Token::new(TokenValue::Number { value: error_code as i64, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
 
                     } else {
                         // The name is not special, then it's a label

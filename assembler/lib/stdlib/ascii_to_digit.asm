@@ -4,6 +4,12 @@
 # Output: u1 stored in r1
 # If the conversion fails, an INVALID_INPUT error is set
 
+
+.include:
+
+    errors.asm
+
+
 .text:
 
 @@ ascii_to_digit
@@ -28,6 +34,6 @@
 @ invalid
 
     # Set the error code and return
-    mov1 error INVALID_INPUT
+    mov1 error [INVALID_INPUT]
     ret
 

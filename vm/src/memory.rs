@@ -41,12 +41,6 @@ impl Memory {
     }
 
 
-    pub fn get<const N: usize>(&self, address: Address) -> &[Byte; N] {
-        let ptr = &self.stack[address] as *const Byte;
-        unsafe { &*(ptr as *const [Byte; N]) }
-    }
-
-
     pub fn get_bytes(&self, address: Address, size: usize) -> &[Byte] {
         &self.stack[address..address + size]
     }

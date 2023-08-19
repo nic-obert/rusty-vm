@@ -1,8 +1,8 @@
 
 .include:
 
-    asmutils.asm
-    stdio.asm
+    errors.asm
+    stdlib.asm
 
 .data:
 
@@ -11,8 +11,4 @@
 
 @start
 
-    mov1 r4 0
-
-    !add_const_reg r4 5
-
-    !print_int_ln r4
+    !_exit END_OF_FILE

@@ -159,9 +159,7 @@ impl Processor {
     fn get_next_address(&mut self) -> Address {
         let pc = self.get_pc();
         self.inc_pc(ADDRESS_SIZE);
-        unsafe {
-            std::mem::transmute(self.memory.get::<ADDRESS_SIZE>(pc))
-        }
+        bytes_as_address(self.memory.get_bytes(pc, ADDRESS_SIZE))
     }
 
 

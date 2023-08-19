@@ -11,6 +11,7 @@
 
     ctype.asm
     stdlib/ascii_to_digit.asm
+    errors.asm
 
 
 .text:
@@ -75,7 +76,7 @@
         call ascii_to_digit
 
         # Check for errors
-        cmp1 error INVALID_INPUT
+        cmp1 error [INVALID_INPUT]
 
         jmpz endloop_num
 
@@ -87,7 +88,7 @@
         # output * 10
         mov r1 r7
         mov1 r2 10
-        mul
+        imul
         
         # output + digit
         mov r2 r4
@@ -102,7 +103,7 @@
     @ endloop_num
 
     # Clean error register
-    mov1 error NO_ERROR
+    mov1 error [NO_ERROR]
 
     # Move the output into r1 for operations
     mov r1 r7
