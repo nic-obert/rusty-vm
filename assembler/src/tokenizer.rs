@@ -36,7 +36,7 @@ pub fn is_identifier_char(c: char, is_first_char: bool) -> bool {
 /// 
 /// Label names can only contain letters, numbers, and underscores.
 /// The first character cannot be a number.
-pub fn is_label_name(name: &str) -> bool {
+pub fn is_identifier_name(name: &str) -> bool {
 
     if name.is_empty() {
         return false;

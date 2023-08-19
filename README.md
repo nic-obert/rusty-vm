@@ -26,6 +26,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [$: current address](#-current-address)
     - [Address literals](#address-literals)
     - [Labels](#labels)
+    - [Macros](#macros)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
     - [No operation instructions](#no-operation-instructions)
@@ -131,6 +132,72 @@ Label names can only contain alphabetic characters and underscores. Also, they m
 
 # Exported label
 @@my_exported_label
+```
+
+### Macros
+
+A macro is a compile time symbol that represents a set of assembly instructions. Macros are declared in the assembly code by prefixing them with the `%` symbol and called by prefixing them with the `!` symbol.  
+Macros can only be declared and reference in the `.text:` section of the assembly code. A macro must be declared before it's used.  
+Macros work internally by replacing every reference to them in the source code with the actual instructions they represent.  
+Note that you cannot declare a macro inside another macro.
+
+```asm
+.text:
+
+  # Defining a macro
+  %my_macro:
+
+    mov1 r1 1
+    mov1 r2 2
+    mov1 r3 3
+
+  # End of macro definition
+  %my_macro
+
+  mov1 r4 4
+  mov1 r5 5
+  mov1 r6 6
+
+  # Using a macro
+  !my_macro
+```
+
+Macros may accept a number of space-separated positional arguments, specified after the macro name.  
+The arguments are referenced in the macro body by enclosing their name in curly brackets: `{arg_name}`.
+
+```asm
+.text:
+
+  # Defining a macro with arguments
+  %my_macro arg1 arg2:
+
+    mov1 r1 {arg1}
+    mov1 r2 {arg2}
+
+  # End of macro definition
+  %my_macro
+
+  # Using a macro with arguments
+  !my_macro 1 2
+```
+
+To export a macro, prefix it with a double `%` instead.
+
+```asm
+.text:
+
+  # Exporting a macro
+  %%my_macro:
+
+    mov1 r1 1
+    mov1 r2 2
+    mov1 r3 3
+
+  # End of macro definition
+  %my_macro
+
+  # Using an exported macro
+  !my_macro
 ```
 
 ## Assembly instructions
@@ -281,6 +348,13 @@ Assembly units to include are searched for in the same directory as the current 
 ```asm
 .include:
   my_file.asm
+```
+
+To re-export an included assembly unit, prefix it with `@@` upon inclusion.
+
+```asm
+.include:
+  @@my_file.asm
 ```
 
 ## Errors and error codes
