@@ -1,4 +1,4 @@
-
+mod allocator;
 mod processor;
 mod memory;
 mod files;

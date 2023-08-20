@@ -52,10 +52,10 @@ pub struct Processor {
 
 impl Processor {
 
-    pub fn new(memory_size: usize) -> Self {
+    pub fn new(max_memory_size: usize) -> Self {
         Self {
             registers: [0; REGISTER_COUNT],
-            memory: Memory::new(memory_size),
+            memory: Memory::new(Some(max_memory_size)),
         }
     }
 
@@ -76,7 +76,7 @@ impl Processor {
         self.set_register(Registers::PROGRAM_COUNTER, program_start as u64);
 
         // Set the heap start to after the static program section
-        self.memory.set_heap(byte_code.len() as Address);
+        self.memory.init_layout(byte_code.len() as Address);
 
         // Execute the program
         match mode {

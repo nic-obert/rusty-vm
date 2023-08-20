@@ -11,11 +11,12 @@
 
 ### In Progress ···
 
-- [ ] implement an allocator for allocating on the heap  
+- [ ] implement heap allocation interrupts  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] implement an allocator for allocating on the heap  
 - [ ] move the stack to the end of program memory  
 - [ ] write asm libraries to include or call  
 - [ ] add intr instruction to execute an interrupt. replace current interrupts (except for exit) with macros  
