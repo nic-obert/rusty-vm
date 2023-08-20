@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] allow procedure calls inside macros  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] update the disassembler  
@@ -11,11 +12,11 @@
 
 ### In Progress ···
 
-- [ ] implement heap allocation interrupts  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] implement heap allocation interrupts  
 - [ ] implement an allocator for allocating on the heap  
 - [ ] move the stack to the end of program memory  
 - [ ] write asm libraries to include or call  

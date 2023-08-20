@@ -1939,7 +1939,42 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 8 ] = [
+    fn handle_malloc(&mut self) {
+        let size = self.get_register(Registers::R1) as usize;
+
+        match self.memory.allocate(size) {
+
+            Ok(address) => {
+                self.set_register(Registers::R1, address as u64);
+                self.set_error(ErrorCodes::NoError);
+            },
+
+            Err(e) => {
+                self.set_error(e);
+            }
+
+        }
+    }
+
+
+    fn handle_free(&mut self) {
+        let address = self.get_register(Registers::R1) as Address;
+
+        match self.memory.free(address) {
+
+            Ok(_) => {
+                self.set_error(ErrorCodes::NoError);
+            },
+
+            Err(e) => {
+                self.set_error(e);
+            }
+
+        }
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 10 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -1948,6 +1983,8 @@ impl Processor {
         Self::handle_input_signed_int, // 5
         Self::handle_input_unsigned_int, // 6
         Self::handle_input_string, // 7
+        Self::handle_malloc, // 8
+        Self::handle_free, // 9
     ];
 
 

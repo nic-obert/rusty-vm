@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use rust_vm_lib::vm::Address;
+use rust_vm_lib::vm::{Address, ErrorCodes};
 
 use crate::allocator::{Allocator, BlankAllocator};
 use crate::allocator::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -51,12 +51,12 @@ impl Memory {
     }
 
 
-    pub fn allocate(&mut self, size: usize) -> Option<Address> {
+    pub fn allocate(&mut self, size: usize) -> Result<usize, ErrorCodes> {
         self.allocator.allocate(size)
     }
 
 
-    pub fn free(&mut self, address: Address) -> bool {
+    pub fn free(&mut self, address: Address) -> Result<(), ErrorCodes> {
         self.allocator.free(address)
     }
 

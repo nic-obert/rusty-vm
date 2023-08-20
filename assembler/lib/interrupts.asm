@@ -14,3 +14,6 @@
     @@ INPUT_UNSIGNED u8 6
     @@ INPUT_STRING u8 7
 
+    @@ MALLOC u8 8
+    @@ FREE u8 9
+

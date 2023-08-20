@@ -15,6 +15,18 @@ pub enum ErrorCodes {
 
     ZeroDivision,
 
+    AllocationTooLarge,
+
+    StackOverflow,
+
+    HeapOverflow,
+
+    DoubleFree,
+
+    OutOfBounds,
+
+    UnalignedAddress,
+
     // This has to be the last variant
     GenericError
 
@@ -28,11 +40,18 @@ const ERROR_CODES_COUNT: usize = {
 
 
 const ERROR_CODE_REPR: [&str; ERROR_CODES_COUNT] = [
-    "0 (NO_ERROR)",
-    "1 (END_OF_FILE)",
-    "2 (INVALID_INPUT)",
-    "3 (ZERO_DIVISION)",
-    "4 (GENERIC_ERROR)"
+    "No error",
+    "End of file",
+    "Invalid input",
+    "Zero division",
+    "Allocation too large",
+    "Stack overflow",
+    "Heap overflow",
+    "Double free",
+    "Out of bounds",
+    "Unaligned address",
+
+    "Generic error"
 ];
 
 
