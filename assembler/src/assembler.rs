@@ -106,6 +106,119 @@ enum ProgramSection {
 }
 
 
+struct SectionInfo {
+
+    pub has_data_section: bool,
+    pub has_text_section: bool,
+    pub has_include_section: bool,
+    pub current_section: ProgramSection,
+
+}
+
+
+impl SectionInfo {
+
+    pub fn new() -> SectionInfo {
+        SectionInfo {
+            has_data_section: false,
+            has_text_section: false,
+            has_include_section: false,
+            current_section: ProgramSection::None,
+        }
+    }
+
+}
+
+
+struct MacroInfo {
+
+    pub current_macro: Option<MacroDefinition>,
+    pub local_macros: MacroMap,
+    pub export_macros: MacroMap,
+
+}
+
+
+impl MacroInfo {
+    
+    pub fn new() -> MacroInfo {
+        MacroInfo {
+            current_macro: None,
+            local_macros: MacroMap::new(),
+            export_macros: MacroMap::new(),
+        }
+    }
+
+}
+
+
+struct LabelInfo {
+
+    pub local_labels: LabelMap,
+    pub export_labels: LabelMap,
+    pub label_references: LabelReferenceRegistry,
+
+}
+
+
+impl LabelInfo {
+
+    pub fn new() -> LabelInfo {
+        LabelInfo {
+            local_labels: LabelMap::new(),
+            export_labels: LabelMap::new(),
+            label_references: LabelReferenceRegistry::new(),
+        }
+    }
+
+}
+
+
+struct ProgramInfo {
+
+    pub included_units: ASMUnitMap,
+    pub byte_code: ByteCode,
+
+}
+
+
+impl ProgramInfo {
+
+    pub fn new() -> ProgramInfo {
+        ProgramInfo {
+            included_units: ASMUnitMap::new(),
+            byte_code: ByteCode::new(),
+        }
+    }
+
+}
+
+
+type ASMUnitMap = HashMap<PathBuf, (LabelMap, MacroMap)>;
+
+
+struct AssemblyUnit<'a> {
+
+    pub path: &'a Path,
+    pub assembly: AssemblyCode,
+    pub is_main_unit: bool,
+
+}
+
+
+impl AssemblyUnit<'_> {
+
+    pub fn new(path: &Path, assembly: AssemblyCode, is_main_unit: bool) -> AssemblyUnit {
+        AssemblyUnit {
+            path,
+            assembly,
+            is_main_unit,
+        }
+    }
+
+}
+
+
 /// Try to load an assembly unit
 /// 
 /// If successful, return the assembly code and the absolute path to the unit
@@ -244,50 +357,22 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 }
 
 
-type ASMUnitMap = HashMap<PathBuf, (LabelMap, MacroMap)>;
-
-
-struct AssemblyUnit<'a> {
-
-    pub path: &'a Path,
-    pub assembly: AssemblyCode,
-    pub is_main_unit: bool,
-
-}
-
-
-impl AssemblyUnit<'_> {
-
-    pub fn new(path: &Path, assembly: AssemblyCode, is_main_unit: bool) -> AssemblyUnit {
-        AssemblyUnit {
-            path,
-            assembly,
-            is_main_unit,
-        }
-    }
-
-}
-
-
 /// Assemble recursively an assembly unit and its dependencies
-fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode, external_export_label_declaration_map: &mut LabelMap, external_export_macro_definition_map: &mut MacroMap, included_units: &mut ASMUnitMap) {
+fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut ProgramInfo) {
 
     // Check if the assembly unit has already been included
-    if let Some((exported_labels, exported_macros)) = included_units.get(asm_unit.path) {
+    if let Some((exported_labels, exported_macros)) = program_info.included_units.get(asm_unit.path) {
         if verbose {
             println!("Unit already included: {}", asm_unit.path.display());
             println!("Exported labels: {:?}\n", exported_labels);
             println!("Exported macros: {:?}\n", exported_macros);
         }
 
-        // The assembly unit has already been included, do not include it again
-        // Export the labels of the already included assembly unit and return
-        external_export_label_declaration_map.extend(exported_labels.clone());
-
+        program_info.included_units.insert(asm_unit.path.to_path_buf(), (exported_labels.clone(), exported_macros.clone()));
         return;
     }
     // Insert a temporary entry in the included units map to avoid infinite recursive unit inclusion
-    included_units.insert(asm_unit.path.to_path_buf(), (LabelMap::new(), MacroMap::new()));
+    program_info.included_units.insert(asm_unit.path.to_path_buf(), (LabelMap::new(), MacroMap::new()));
 
 
     if verbose {
@@ -298,37 +383,21 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
         }
     }
 
-    // It's necessary to create a local export label map to avoid accessing externally declared labels
-    let mut export_label_declaration_map = LabelMap::new();
+    let mut label_info = LabelInfo::new();
 
-    // It's necessary to create a local export macro map to avoid accessing externally declared macros
-    let mut export_macro_declaration_map = MacroMap::new();
-    
-    // Stores the address in the bytecode of all the local labels
-    let mut local_label_declaration_map = LabelMap::new();
-    // Stores the references to labels and when they are referenced in the bytecode
-    // Used later to substitute the labels with real addresses
-    let mut label_reference_registry = LabelReferenceRegistry::new();
+    let mut macro_info = MacroInfo::new();
 
-    let mut local_macro_definition_map = MacroMap::new();
-
-    let mut current_macro: Option<MacroDefinition> = None;
-
-    let mut current_section = ProgramSection::None;
-
-    let mut has_data_section = false;
-    let mut has_text_section = false;
-    let mut has_include_section = false;
+    let mut section_info = SectionInfo::new();
 
     for (i, line) in asm_unit.assembly.iter().enumerate() {
         let line_number = i + 1;
 
         if verbose {
-            println!("Line {: >4}, Pos: {: >5} | {}", line_number, byte_code.len(), line);
+            println!("Line {: >4}, Pos: {: >5} | {}", line_number, program_info.byte_code.len(), line);
         }
 
         // Evaluate the compile-time special symbols
-        let evaluated_line = evaluate_special_symbols(line, byte_code.len(), line_number, asm_unit.path);
+        let evaluated_line = evaluate_special_symbols(line, program_info.byte_code.len(), line_number, asm_unit.path);
 
         // Remove redundant whitespaces
         let trimmed_line = evaluated_line.trim();
@@ -338,347 +407,18 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
             continue;
         }
 
-        let last_byte_code_address: Address = byte_code.len();
-
-        if let Some(mut section_name) = trimmed_line.strip_prefix('.') {
-            // This line specifies a program section
-            section_name = section_name.strip_suffix(':').unwrap_or_else(
-                || error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "Assembly sections must end with a colon.")
-            );
-
-            match section_name {
-
-                "include" => {
-                    // Check for duplicate sections
-                    if has_include_section {
-                        error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one include section.")
-                    }
-                    current_section = ProgramSection::Include;
-                    has_include_section = true;
-
-                    continue;
-                },
-
-                "data" => {
-                    // Check for duplicate sections
-                    if has_data_section {
-                        error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one data section.")
-                    }
-                    current_section = ProgramSection::Data;
-                    has_data_section = true;
-
-                    continue;
-                },
-
-                "text" => {
-                    // Check for duplicate sections
-                    if has_text_section {
-                        error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one text section.")
-                    }
-                    current_section = ProgramSection::Text;
-                    has_text_section = true;
-
-                    continue;
-                },
-
-                _ => error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, format!("Unknown assembly section name: \"{}\"", section_name).as_str())
-            }
-            
-        }
-
-        // Handle the assembly code depending on the current section
-        match current_section {
-
-            ProgramSection::MacroDefinition => {
-                
-                let macro_definition = current_macro.as_mut().unwrap_or_else(
-                    || panic!("Internal assembler error: current macro is None inside macro definition. This is a bug.")
-                );
-                
-                // Check for macro definition end
-                if let Some(mline) = trimmed_line.strip_prefix('%') {
-
-                    if mline.trim() != "endmacro" {
-                        error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definitions must end with \"%endmacro\".");
-                    }
-
-                    if local_macro_definition_map.insert(macro_definition.name.clone(), macro_definition.clone()).is_some() {
-                        error::macro_redeclaration(asm_unit.path, macro_definition.name.as_str(), line_number, line);
-                    }
-
-                    if macro_definition.to_export {
-                        export_macro_declaration_map.insert(macro_definition.name.clone(), current_macro.take().unwrap());
-                    }
-
-                    // Macros can only be defined inside text sections, so the section is assumed to be text
-                    current_section = ProgramSection::Text;
-
-                    continue;
-                }
-
-                macro_definition.body.push(line.trim().to_string());
-
-                // Don't print debug information if nothing was assembled 
-                continue;
-            },
-
-            ProgramSection::Include => {
-
-                // Check if the include is to re-export (prefix with @@)
-                let (include_unit_raw, to_export) = {
-                    if let Some(include_unit_raw) = trimmed_line.strip_prefix("@@") {
-                        (include_unit_raw.trim(), true)
-                    } else {
-                        (trimmed_line, false)
-                    }
-                };
-
-                let (include_path, include_asm) = match load_asm_unit(include_unit_raw, asm_unit.path) {
-                    Ok(x) => x,
-                    Err(error) => error::include_error(asm_unit.path, &error, include_unit_raw, line_number, line)
-                };
-
-                let new_asm_unit = AssemblyUnit::new(&include_path, include_asm, false);
-
-                // Assemble the included assembly unit
-                if to_export {
-                    let mut labels = LabelMap::new();
-                    let mut macros = MacroMap::new();
-
-                    assemble_unit(new_asm_unit, verbose, byte_code, &mut labels, &mut macros, included_units);
-                    
-                    export_label_declaration_map.extend(labels.clone());
-                    local_label_declaration_map.extend(labels);
-
-                    export_macro_declaration_map.extend(macros.clone());
-                    local_macro_definition_map.extend(macros);
-
-                } else {
-                    assemble_unit(new_asm_unit, verbose, byte_code, &mut local_label_declaration_map, &mut local_macro_definition_map, included_units);
-                }
-
-            },
-
-            ProgramSection::Data => {
-
-                // Parse the static data declaration
-
-                // Check if the data label has to be exported (double consecutive @)
-                let (to_export, trimmed_line) = {
-                    if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
-                        // Trim the line again to remove eventual extra spaces
-                        (true, trimmed_line.trim())
-                    } else {
-                        (false, trimmed_line)
-                    }
-                };
-
-                // Extract the label name
-                let (label, other) = trimmed_line.split_once(char::is_whitespace).unwrap_or_else(
-                    || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a label")
-                );
-
-                // Check if the label is a reserved keyword
-                if is_reserved_name(label) {
-                    error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
-                }
-
-                let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
-                    || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a type")
-                );
-
-                let data_type = DataType::from_name(data_type_name).unwrap_or_else(
-                    || error::invalid_data_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
-                );
-
-                // The data string is everything following the data type
-                let data_string = other.trim();
-
-                // Encode the string data into byte code
-                let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
-
-                // Add the data name and its address in the binary to the data map
-                local_label_declaration_map.insert(label.to_string(), byte_code.len());
-
-                if to_export {
-                    export_label_declaration_map.insert(label.to_string(), byte_code.len());
-                }
-
-                // Add the data to the byte code
-                byte_code.extend(encoded_data);
-
-            },
-
-            ProgramSection::Text => {
-
-                // Check for label declarations
-                if let Some(label) = trimmed_line.strip_prefix('@') {
-
-                    // Check if the label is to be exported (double consecutive @)
-                    let (label, to_export): (&str, bool) = {
-                        if let Some(label) = label.strip_prefix('@') {
-                            (label.trim(), true)
-                        } else {
-                            (label.trim(), false)
-                        }
-                    };
-                    
-                    if !is_identifier_name(label) {
-                        error::invalid_label_name(asm_unit.path, label, line_number, line, "Label names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
-                    }
-
-                    if is_reserved_name(label) {
-                        error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
-                    }
-
-                    if local_label_declaration_map.insert(label.to_string(), byte_code.len()).is_some() {
-                        error::label_redeclaration(asm_unit.path, label, line_number, line);
-                    }
-
-                    if asm_unit.is_main_unit && label == "start" || to_export {
-                        export_label_declaration_map.insert(label.to_string(), byte_code.len());
-                    }
-                    
-                    continue;
-                }
-
-
-                // Check for macro declaration
-                if let Some(macro_declaration) = trimmed_line.strip_prefix('%') {
-
-                    // Check if the macro is to be exported (double consecutive %)
-                    let (macro_declaration, to_export): (&str, bool) = {
-                        if let Some(macro_declaration) = macro_declaration.strip_prefix('%') {
-                            (macro_declaration.trim(), true)
-                        } else {
-                            (macro_declaration.trim(), false)
-                        }
-                    };
-
-                    let (macro_name, post) = macro_declaration.split_once(
-                        |c: char| c.is_whitespace() || c == ':'
-                    ).unwrap_or_else(
-                        || error::invalid_macro_declaration(asm_unit.path, "", line_number, line, "Macro declarations must have a name")
-                    );
-
-                    if !is_identifier_name(macro_name) {
-                        error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Macro names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
-                    }
-
-                    if is_reserved_name(macro_name) {
-                        error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("\"{}\" is a reserved name.", macro_name).as_str());
-                    }
-
-                    let post = post.trim();
-                    let mut macro_args = Vec::new();
-                    if let Some(post) = post.strip_prefix(':') {
-                        // The macro declaration is finished
-
-                        if !post.is_empty() {
-                            error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Cannot have anything after the colon in a macro declaration");
-                        }
-
-                    } else {
-                        // The macro declaration has arguments, parse them
-
-                        macro_args.extend(
-                            post.split(|c: char| c.is_whitespace() || c == ':')
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty())
-                            .map(|arg_name| {
-
-                                if !is_identifier_name(arg_name) {
-                                    error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Macro argument names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
-                                }
-    
-                                if is_reserved_name(arg_name) {
-                                    error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("\"{}\" is a reserved name.", arg_name).as_str());
-                                }
-    
-                                arg_name.to_string()
-                            })
-                        );                     
-
-                    }
-
-                    current_macro = Some(MacroDefinition::new(
-                        macro_name.to_string(),
-                        macro_args,
-                        AssemblyCode::new(),
-                        asm_unit.path.to_path_buf(),
-                        line_number,
-                        to_export
-                    ));
-
-                    current_section = ProgramSection::MacroDefinition;
-
-                    continue;
-                }
-
-
-                // Check for macro call (starts with !)
-                if let Some(macro_call) = trimmed_line.strip_prefix('!').map(|s| s.trim()) {
-
-                    let (macro_name, post) = macro_call.split_once(char::is_whitespace).unwrap_or((macro_call, ""));
-
-                    if macro_name.is_empty() {
-                        error::invalid_macro_call(asm_unit.path, line_number, line, "Macro calls must have a name");
-                    }
-
-                    // Get the macro definition
-                    let def = local_macro_definition_map.get(macro_name).unwrap_or_else(
-                        || error::undeclared_macro(asm_unit.path, macro_name, line_number, line)
-                    );
-
-                    // Get the arguments of the macro call
-                    let macro_args: Vec<&str> = post.split_whitespace()
-                        .map(|s| s.trim())
-                        .filter(|s| !s.is_empty())
-                        .collect();             
-                    
-                    if macro_args.len() != def.args.len() {
-                        error::invalid_macro_call(asm_unit.path, line_number, line, format!("Macro \"{}\" ({}, {}) expects {} arguments, but {} were given.", macro_name, def.unit_path.display(), def.line_number, def.args.len(), macro_args.len()).as_str());
-                    }
- 
-                    // Substitute the provided arguments with the placeholders in the macro body and assemble the line
-                    // Not very efficient, but works
-                    for mline in def.body.iter() {
-
-                        let mut mline = mline.clone();
-
-                        for (i, arg) in def.args.iter().enumerate() {
-                            mline = mline.replace(format!("{{{}}}", arg).as_str(), macro_args[i]);
-                        }
-
-                        if verbose {
-                            println!("Macro {: >3}, Pos: {: >5} | {}", line_number, byte_code.len(), mline);
-                        }
-
-                        assemble_instruction(&asm_unit, &mline, line, line_number, byte_code, &mut label_reference_registry);
-                        
-                    }
-
-                    continue;
-                }
-
-                // The line doesn't contain label declarations, macros, or special stuff: it is a regular instruction
-                assemble_instruction(&asm_unit, trimmed_line, line, line_number, byte_code, &mut label_reference_registry);
-
-            },
-
-            // Code cannot be put outside of a program section
-            ProgramSection::None => error::out_of_section(asm_unit.path, line_number, line)
-
-        }
-
-        if verbose {
-            println!(" => {:?}", &byte_code[last_byte_code_address..]);
+        let last_byte_code_address: Address = program_info.byte_code.len();
+
+        parse_line(trimmed_line, &mut macro_info, &asm_unit, line, line_number, program_info, &mut label_info, &mut section_info, verbose);
+        
+        if verbose && last_byte_code_address != program_info.byte_code.len() {
+            println!(" => {:?}", &program_info.byte_code[last_byte_code_address..]);
         }
         
     }
 
-    if matches!(current_section, ProgramSection::MacroDefinition) {
-        let def = current_macro.as_ref().unwrap_or_else(
+    if matches!(section_info.current_section, ProgramSection::MacroDefinition) {
+        let def = macro_info.current_macro.as_ref().unwrap_or_else(
             || panic!("Internal assembler error: current macro is None inside macro definition. This is a bug.")
         );
         error::unclosed_macro_definition(asm_unit.path, &def.name, def.line_number, asm_unit.assembly[def.line_number - 1].as_str());
@@ -686,14 +426,14 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
 
     // After tokenization and conversion to bytecode, substitute the labels with their real address
 
-    for reference in label_reference_registry {
+    for reference in label_info.label_references {
 
-        let real_address = local_label_declaration_map.get(&reference.name).unwrap_or_else(
+        let real_address = label_info.local_labels.get(&reference.name).unwrap_or_else(
             || error::undeclared_label(asm_unit.path, &reference.name, reference.line_number, &asm_unit.assembly[reference.line_number - 1])
         );
 
         // Substitute the label with the real address (little endian)
-        byte_code[reference.location..reference.location + ADDRESS_SIZE].copy_from_slice(&real_address.to_le_bytes());
+        program_info.byte_code[reference.location..reference.location + ADDRESS_SIZE].copy_from_slice(&real_address.to_le_bytes());
 
     }
 
@@ -702,17 +442,346 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, byte_code: &mut ByteCode
             println!("\nEnd of main assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
         } else {
             println!("\nEnd of assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
-            println!("Exported labels: {:?}\n", export_label_declaration_map);
-            println!("Exported macros: {:?}\n", export_macro_declaration_map.keys());
+            println!("Exported labels: {:?}\n", label_info.export_labels);
+            println!("Exported macros: {:?}\n", macro_info.export_macros.keys());
         }
     }
 
-    // Export the labels of the assembly unit
-    external_export_label_declaration_map.extend(export_label_declaration_map.clone());
-    external_export_macro_definition_map.extend(export_macro_declaration_map.clone());
-
     // Add the assembly unit to the included units
-    included_units.insert(asm_unit.path.to_path_buf(), (export_label_declaration_map, export_macro_declaration_map));
+    program_info.included_units.insert(asm_unit.path.to_path_buf(), (label_info.export_labels, macro_info.export_macros));
+
+}
+
+
+#[allow(clippy::too_many_arguments)]
+fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &AssemblyUnit, line: &str, line_number: usize, program_info: &mut ProgramInfo, label_info: &mut LabelInfo, section_info: &mut SectionInfo, verbose: bool) {
+
+    if let Some(mut section_name) = trimmed_line.strip_prefix('.') {
+        // This line specifies a program section
+        section_name = section_name.strip_suffix(':').unwrap_or_else(
+            || error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "Assembly sections must end with a colon.")
+        );
+
+        match section_name {
+
+            "include" => {
+                // Check for duplicate sections
+                if section_info.has_include_section {
+                    error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one include section.")
+                }
+                section_info.current_section = ProgramSection::Include;
+                section_info.has_include_section = true;
+            },
+
+            "data" => {
+                // Check for duplicate sections
+                if section_info.has_data_section {
+                    error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one data section.")
+                }
+                section_info.current_section = ProgramSection::Data;
+                section_info.has_data_section = true;
+            },
+
+            "text" => {
+                // Check for duplicate sections
+                if section_info.has_text_section {
+                    error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one text section.")
+                }
+                section_info.current_section = ProgramSection::Text;
+                section_info.has_text_section = true;
+            },
+
+            _ => error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, format!("Unknown assembly section name: \"{}\"", section_name).as_str())
+        }
+
+        // There's nothing after the section declaration, so return
+        return;
+    }
+
+    // Handle the assembly code depending on the current section
+    match section_info.current_section {
+
+        ProgramSection::MacroDefinition => {
+            
+            let macro_definition = macro_info.current_macro.as_mut().unwrap_or_else(
+                || panic!("Internal assembler error: current macro is None inside macro definition. This is a bug.")
+            );
+            
+            // Check for macro definition end
+            if let Some(mline) = trimmed_line.strip_prefix('%') {
+
+                if mline.trim() != "endmacro" {
+                    error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definitions must end with \"%endmacro\".");
+                }
+
+                if macro_info.local_macros.insert(macro_definition.name.clone(), macro_definition.clone()).is_some() {
+                    error::macro_redeclaration(asm_unit.path, macro_definition.name.as_str(), line_number, line);
+                }
+
+                if macro_definition.to_export {
+                    macro_info.export_macros.insert(macro_definition.name.clone(), macro_info.current_macro.take().unwrap());
+                }
+
+                // Macros can only be defined inside text sections, so the section is assumed to be text
+                section_info.current_section = ProgramSection::Text;
+
+            } else {
+                // The line is part of the macro body
+                macro_definition.body.push(line.trim().to_string());
+            }
+
+        },
+
+        ProgramSection::Include => {
+
+            // Check if the include is to re-export (prefix with @@)
+            let (include_unit_raw, to_export) = {
+                if let Some(include_unit_raw) = trimmed_line.strip_prefix("@@") {
+                    (include_unit_raw.trim(), true)
+                } else {
+                    (trimmed_line, false)
+                }
+            };
+
+            let (include_path, include_asm) = match load_asm_unit(include_unit_raw, asm_unit.path) {
+                Ok(x) => x,
+                Err(error) => error::include_error(asm_unit.path, &error, include_unit_raw, line_number, line)
+            };
+
+            let new_asm_unit = AssemblyUnit::new(&include_path, include_asm, false);
+
+            // Assemble the included assembly unit
+            assemble_unit(new_asm_unit, verbose, program_info);
+                
+            let (exported_labels, exported_macros): &mut (LabelMap, MacroMap) = program_info.included_units.get_mut(asm_unit.path).unwrap_or_else(
+                || panic!("Internal assembler error: included unit not found in included units map. This is a bug.")
+            );
+
+            label_info.local_labels.extend(label_info.export_labels.clone());
+            macro_info.local_macros.extend(macro_info.export_macros.clone());
+
+            if to_export {
+                label_info.export_labels.extend(exported_labels.clone());
+                macro_info.export_macros.extend(exported_macros.clone());
+            }
+
+        },
+
+        ProgramSection::Data => {
+
+            // Parse the static data declaration
+
+            // Check if the data label has to be exported (double consecutive @)
+            let (to_export, trimmed_line) = {
+                if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
+                    // Trim the line again to remove eventual extra spaces
+                    (true, trimmed_line.trim())
+                } else {
+                    (false, trimmed_line)
+                }
+            };
+
+            // Extract the label name
+            let (label, other) = trimmed_line.split_once(char::is_whitespace).unwrap_or_else(
+                || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a label")
+            );
+
+            // Check if the label is a reserved keyword
+            if is_reserved_name(label) {
+                error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
+            }
+
+            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
+                || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a type")
+            );
+
+            let data_type = DataType::from_name(data_type_name).unwrap_or_else(
+                || error::invalid_data_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
+            );
+
+            // The data string is everything following the data type
+            let data_string = other.trim();
+
+            // Encode the string data into byte code
+            let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
+
+            // Add the data name and its address in the binary to the data map
+            label_info.local_labels.insert(label.to_string(), program_info.byte_code.len());
+
+            if to_export {
+                label_info.export_labels.insert(label.to_string(), program_info.byte_code.len());
+            }
+
+            // Add the data to the byte code
+            program_info.byte_code.extend(encoded_data);
+
+        },
+
+        ProgramSection::Text => {
+
+            // Check for label declarations
+            if let Some(label) = trimmed_line.strip_prefix('@') {
+
+                // Check if the label is to be exported (double consecutive @)
+                let (label, to_export): (&str, bool) = {
+                    if let Some(label) = label.strip_prefix('@') {
+                        (label.trim(), true)
+                    } else {
+                        (label.trim(), false)
+                    }
+                };
+                
+                if !is_identifier_name(label) {
+                    error::invalid_label_name(asm_unit.path, label, line_number, line, "Label names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
+                }
+
+                if is_reserved_name(label) {
+                    error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
+                }
+
+                if label_info.local_labels.insert(label.to_string(), program_info.byte_code.len()).is_some() {
+                    error::label_redeclaration(asm_unit.path, label, line_number, line);
+                }
+
+                if asm_unit.is_main_unit && label == "start" || to_export {
+                    label_info.export_labels.insert(label.to_string(), program_info.byte_code.len());
+                }
+                
+                return;
+            }
+
+
+            // Check for macro declaration
+            if let Some(macro_declaration) = trimmed_line.strip_prefix('%') {
+
+                // Check if the macro is to be exported (double consecutive %)
+                let (macro_declaration, to_export): (&str, bool) = {
+                    if let Some(macro_declaration) = macro_declaration.strip_prefix('%') {
+                        (macro_declaration.trim(), true)
+                    } else {
+                        (macro_declaration.trim(), false)
+                    }
+                };
+
+                let (macro_name, post) = macro_declaration.split_once(
+                    |c: char| c.is_whitespace() || c == ':'
+                ).unwrap_or_else(
+                    || error::invalid_macro_declaration(asm_unit.path, "", line_number, line, "Macro declarations must have a name")
+                );
+
+                if !is_identifier_name(macro_name) {
+                    error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Macro names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
+                }
+
+                if is_reserved_name(macro_name) {
+                    error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("\"{}\" is a reserved name.", macro_name).as_str());
+                }
+
+                let post = post.trim();
+                let mut macro_args = Vec::new();
+                if let Some(post) = post.strip_prefix(':') {
+                    // The macro declaration is finished
+
+                    if !post.is_empty() {
+                        error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Cannot have anything after the colon in a macro declaration");
+                    }
+
+                } else {
+                    // The macro declaration has arguments, parse them
+
+                    macro_args.extend(
+                        post.split(|c: char| c.is_whitespace() || c == ':')
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .map(|arg_name| {
+
+                            if !is_identifier_name(arg_name) {
+                                error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Macro argument names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
+                            }
+
+                            if is_reserved_name(arg_name) {
+                                error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("\"{}\" is a reserved name.", arg_name).as_str());
+                            }
+
+                            arg_name.to_string()
+                        })
+                    );                     
+
+                }
+
+                macro_info.current_macro = Some(MacroDefinition::new(
+                    macro_name.to_string(),
+                    macro_args,
+                    AssemblyCode::new(),
+                    asm_unit.path.to_path_buf(),
+                    line_number,
+                    to_export
+                ));
+
+                section_info.current_section = ProgramSection::MacroDefinition;
+
+                return;
+            }
+
+
+            // Check for macro call (starts with !)
+            if let Some(macro_call) = trimmed_line.strip_prefix('!').map(|s| s.trim()) {
+
+                let (macro_name, post) = macro_call.split_once(char::is_whitespace).unwrap_or((macro_call, ""));
+
+                if macro_name.is_empty() {
+                    error::invalid_macro_call(asm_unit.path, line_number, line, "Macro calls must have a name");
+                }
+
+                // Get the macro definition
+                let def = macro_info.local_macros.get(macro_name).unwrap_or_else(
+                    || error::undeclared_macro(asm_unit.path, macro_name, line_number, line)
+                );
+
+                // Get the arguments of the macro call
+                let macro_args: Vec<&str> = post.split_whitespace()
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();             
+                
+                if macro_args.len() != def.args.len() {
+                    error::invalid_macro_call(asm_unit.path, line_number, line, format!("Macro \"{}\" ({}, {}) expects {} arguments, but {} were given.", macro_name, def.unit_path.display(), def.line_number, def.args.len(), macro_args.len()).as_str());
+                }
+
+                // Replace the macro argument placeholders in the macro body with the macro call arguments
+                let mut mlines: Vec<String> = def.body.clone();
+                for mline in mlines.iter_mut() {
+                
+                    // Not very efficient, but works
+                    for (i, arg) in def.args.iter().enumerate() {
+                        *mline = mline.replace(format!("{{{}}}", arg).as_str(), macro_args[i]);
+                    }
+
+                }
+
+                // Parse the macro body
+                for mline in mlines {
+
+                    if verbose {
+                        println!("Macro {: >3}, Pos: {: >5} | {}", line_number, program_info.byte_code.len(), mline);
+                    }
+
+                    parse_line(&mline, macro_info, asm_unit, line, line_number, program_info, label_info, section_info, verbose);
+
+                }
+
+                return;
+            }
+
+            // The line doesn't contain label declarations, macros, or special stuff: it is a regular instruction
+            assemble_instruction(asm_unit, trimmed_line, line, line_number, &mut program_info.byte_code, &mut label_info.label_references);
+
+        },
+
+        // Code cannot be put outside of a program section
+        ProgramSection::None => error::out_of_section(asm_unit.path, line_number, line)
+
+    }
 
 }
 
@@ -753,35 +822,33 @@ fn assemble_instruction(asm_unit: &AssemblyUnit, trimmed_line: &str, line: &str,
 /// Assembles the assembly code into byte code
 pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> ByteCode {
 
-    // Keep track of all the assembly units included to avoid duplicates
-    let mut included_units = ASMUnitMap::new();
-
-    let mut byte_code = ByteCode::new();
-
-    let mut label_map = LabelMap::new();
-    let mut macro_map = MacroMap::new();
+    let mut program_info = ProgramInfo::new();
 
     let asm_unit = AssemblyUnit::new(unit_path, assembly, true);
 
     // Assemble recursively the main assembly unit and its dependencies
-    assemble_unit(asm_unit, verbose, &mut byte_code, &mut label_map, &mut macro_map, &mut included_units);
+    assemble_unit(asm_unit, verbose, &mut program_info);
 
     // Append the exit instruction to the end of the binary
-    byte_code.push(ByteCodes::EXIT as u8);
+    program_info.byte_code.push(ByteCodes::EXIT as u8);
 
     // Append the address of the program start to the end of the binary
+
+    let (label_map, _macro_map) = program_info.included_units.get(unit_path).unwrap_or_else(
+        || panic!("Internal assembler error: main assembly unit not found in included units map. This is a bug.")
+    );
 
     let program_start = label_map.get("start").unwrap_or_else(
         || error::undeclared_label(unit_path, "start", 0, "The program must have a start label.")
     );
 
-    byte_code.extend(program_start.to_le_bytes());
+    program_info.byte_code.extend(program_start.to_le_bytes());
 
     if verbose {
-        println!("Byte code size is {} bytes", byte_code.len());
+        println!("Byte code size is {} bytes", program_info.byte_code.len());
         println!("Start address is {}", program_start);
     }
 
-    byte_code
+    program_info.byte_code
 }
 
