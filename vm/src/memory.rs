@@ -30,6 +30,12 @@ impl Memory {
     }
 
 
+    /// Get the start address of the stack, which is the end of the memory
+    pub fn get_stack_start(&self) -> Address {
+        self.memory.len()
+    }
+
+
     /// Initialize the memory layout
     /// This function should be called before any other memory function
     /// Allocate a memory chunk large enough to hold the program, stack, and heap
@@ -51,16 +57,22 @@ impl Memory {
     }
 
 
+    /// Allocate the requested amount of memory
+    /// Return the address of the allocated memory
+    /// Return an error if the allocation failed
     pub fn allocate(&mut self, size: usize) -> Result<usize, ErrorCodes> {
         self.allocator.allocate(size)
     }
 
 
+    /// Free the memory at the given address
+    /// Return an error if the operation failed
     pub fn free(&mut self, address: Address) -> Result<(), ErrorCodes> {
         self.allocator.free(address)
     }
 
 
+    /// Get a reference to the raw memory, unadviced
     pub fn get_raw(&self) -> &[Byte] {
         &self.memory
     }
@@ -71,6 +83,8 @@ impl Memory {
     }
 
 
+    /// Copy `size` bytes from `src_address` to `dest_address`.
+    /// Implements safe buffred copying for overlapping memory regions.
     pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: usize) {
         self.memory.copy_within(src_address..src_address + size, dest_address);
     }

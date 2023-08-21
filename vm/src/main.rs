@@ -27,7 +27,9 @@ fn main() {
 
     let byte_code = files::load_byte_code(&args.input_file);
 
-    let mut processor = processor::Processor::new(args.stack_size);
+    let mut processor = processor::Processor::new(
+        if args.max_memory_size == 0 { None } else { Some(args.max_memory_size) }
+    );
 
     processor.execute(&byte_code, args.mode);
 

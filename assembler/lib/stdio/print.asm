@@ -13,6 +13,16 @@
 
         mov1 print {c}
         intr [PRINT_CHAR]
+        mov1 print 10
+        intr [PRINT_CHAR]
+
+    %endmacro
+
+
+    %% println_char c:
+
+        mov1 print {c}
+        intr [PRINT_CHAR]
 
     %endmacro
 
@@ -43,6 +53,16 @@
     %endmacro
 
 
+    %% println_bytes addr:
+
+        mov8 print {addr}
+        intr [PRINT_BYTES]
+        mov1 print 10
+        intr [PRINT_CHAR]
+
+    %endmacro
+
+
     %% print_int i:
 
         mov8 print {i}
@@ -51,10 +71,38 @@
     %endmacro
 
 
+    %% println_int i:
+
+        mov8 print {i}
+        intr [PRINT_SIGNED]
+        mov1 print 10
+        intr [PRINT_CHAR]
+
+    %endmacro
+
+
     %% print_uint i:
 
         mov8 print {i}
         intr [PRINT_UNSIGNED]
+
+    %endmacro
+
+
+    %% println_uint i:
+
+        mov8 print {i}
+        intr [PRINT_UNSIGNED]
+        mov1 print 10
+        intr [PRINT_CHAR]
+
+    %endmacro
+
+
+    %% println:
+
+        mov1 print 10
+        intr [PRINT_CHAR]
 
     %endmacro
 

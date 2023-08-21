@@ -1,7 +1,10 @@
 use std::path::Path;
+
 use indoc::printdoc;
 
 use rust_vm_lib::token::Token;
+
+use crate::assembler::{LabelMap, MacroMap};
 
 
 pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
@@ -159,27 +162,38 @@ pub fn unclosed_macro_definition(unit_path: &Path, macro_name: &str, line_number
 }
 
 
-pub fn undeclared_label(unit_path: &Path, label: &str, line_number: usize, line: &str) -> ! {
+pub fn undeclared_label(unit_path: &Path, label: &str, local_labels: &LabelMap, line_number: usize, line: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"
 
         Undeclared label \"{}\" at line {}:
         {}
+
+        Available labels are:
+        {}
         ",
-        unit_path.display(), label, line_number, line
+        unit_path.display(), label, line_number, line,
+        // Cloning is fine since this is the program exit point
+        local_labels.keys().cloned().collect::<Vec<String>>().join("\n")
     );
     std::process::exit(1);
 }
 
 
-pub fn undeclared_macro(unit_path: &Path, macro_name: &str, line_number: usize, line: &str) -> ! {
+pub fn undeclared_macro(unit_path: &Path, macro_name: &str, local_macros: &MacroMap, line_number: usize, line: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"
 
         Undeclared macro \"{}\" at line {}:
         {}
+
+        Available macros are:
+        {}
         ",
-        unit_path.display(), macro_name, line_number, line
+        unit_path.display(), macro_name, line_number, line,
+        local_macros.iter().map(
+            |(name, def)| format!("{} in {}", name, def.unit_path.display())
+        ).collect::<Vec<String>>().join("\n")
     );
     std::process::exit(1);
 }

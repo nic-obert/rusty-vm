@@ -52,19 +52,19 @@ pub struct Processor {
 
 impl Processor {
 
-    pub fn new(max_memory_size: usize) -> Self {
+    const STATIC_PROGRAM_ADDRESS: Address = 0;
+
+
+    pub fn new(max_memory_size: Option<usize>) -> Self {
         Self {
             registers: [0; REGISTER_COUNT],
-            memory: Memory::new(Some(max_memory_size)),
+            memory: Memory::new(max_memory_size),
         }
     }
 
 
     /// Execute the given bytecode
     pub fn execute(&mut self, byte_code: &[Byte], mode: ExecutionMode) {
-
-        // Load the program into memory
-        self.push_stack_bytes(byte_code);
 
         // Set the program counter to the start of the program
 
@@ -77,6 +77,12 @@ impl Processor {
 
         // Set the heap start to after the static program section
         self.memory.init_layout(byte_code.len() as Address);
+
+        // Initialize the stack pointer
+        self.set_register(Registers::STACK_BASE_POINTER, self.memory.get_stack_start() as u64);
+
+        // Load the program into memory
+        self.memory.set_bytes(Self::STATIC_PROGRAM_ADDRESS, byte_code);
 
         // Execute the program
         match mode {

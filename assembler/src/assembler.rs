@@ -16,11 +16,11 @@ use std::path::{Path, PathBuf};
 
 
 /// Maps a macro name to its definition
-type MacroMap = HashMap<String, MacroDefinition>;
+pub type MacroMap = HashMap<String, MacroDefinition>;
 
 
 #[derive(Clone, Debug)]
-struct MacroDefinition {
+pub struct MacroDefinition {
 
     pub name: String,
     pub args: Vec<String>,
@@ -429,7 +429,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
     for reference in label_info.label_references {
 
         let real_address = label_info.local_labels.get(&reference.name).unwrap_or_else(
-            || error::undeclared_label(asm_unit.path, &reference.name, reference.line_number, &asm_unit.assembly[reference.line_number - 1])
+            || error::undeclared_label(asm_unit.path, &reference.name, &label_info.local_labels, reference.line_number, &asm_unit.assembly[reference.line_number - 1])
         );
 
         // Substitute the label with the real address (little endian)
@@ -553,12 +553,12 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             // Assemble the included assembly unit
             assemble_unit(new_asm_unit, verbose, program_info);
                 
-            let (exported_labels, exported_macros): &mut (LabelMap, MacroMap) = program_info.included_units.get_mut(asm_unit.path).unwrap_or_else(
+            let (exported_labels, exported_macros): &(LabelMap, MacroMap) = program_info.included_units.get(&include_path).unwrap_or_else(
                 || panic!("Internal assembler error: included unit not found in included units map. This is a bug.")
             );
 
-            label_info.local_labels.extend(label_info.export_labels.clone());
-            macro_info.local_macros.extend(macro_info.export_macros.clone());
+            label_info.local_labels.extend(exported_labels.clone());
+            macro_info.local_macros.extend(exported_macros.clone());
 
             if to_export {
                 label_info.export_labels.extend(exported_labels.clone());
@@ -735,7 +735,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 
                 // Get the macro definition
                 let def = macro_info.local_macros.get(macro_name).unwrap_or_else(
-                    || error::undeclared_macro(asm_unit.path, macro_name, line_number, line)
+                    || error::undeclared_macro(asm_unit.path, macro_name, &macro_info.local_macros, line_number, line)
                 );
 
                 // Get the arguments of the macro call
@@ -839,7 +839,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> Byte
     );
 
     let program_start = label_map.get("start").unwrap_or_else(
-        || error::undeclared_label(unit_path, "start", 0, "The program must have a start label.")
+        || error::undeclared_label(unit_path, "start", label_map, 0, "The program must have a start label.")
     );
 
     program_info.byte_code.extend(program_start.to_le_bytes());

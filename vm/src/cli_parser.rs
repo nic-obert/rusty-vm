@@ -11,13 +11,13 @@ pub struct CliParser {
     #[clap(value_parser)]
     pub input_file: PathBuf,
 
-    /// Stack size in bytes
-    #[clap(long, default_value = "1024")]
-    pub stack_size: usize,
+    /// Maximum memory size in bytes. Set to 0 for unlimited memory (not recommended).
+    #[clap(long = "max-mem", default_value="1000000")]
+    pub max_memory_size: usize,
 
-    /// Execution mode
+    /// Execution mode. n = normal, v = verbose, i = interactive
     #[arg(value_enum)]
-    #[clap(short, long, default_value="n")]
+    #[clap(short = 'm', long, default_value="n")]
     pub mode: ExecutionMode,
 
 }

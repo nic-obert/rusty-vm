@@ -1,15 +1,17 @@
 
 .include:
 
+    stdlib.asm
     stdio.asm
 
 .data:
 
-    S string "Hello World!\0"
 
 .text:
 
 @start
 
-    !print_str S
+    !malloc 4
+
+    !println_uint r1
     
