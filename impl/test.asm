@@ -1,9 +1,8 @@
 
 .include:
 
-    string.asm
     stdio.asm
-    stdlib.asm
+    time.asm
 
 .data:
 
@@ -12,15 +11,7 @@
 
 @start
 
-    mov1 r1 123
+    !elapsed_nanos
 
-    call str_from_uint
-
-    !print_char '"'
-    !print_char '"'
-
-    !println_str r1
-    
-
-    !free r1
+    !println_uint r1
 

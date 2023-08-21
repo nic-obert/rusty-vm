@@ -321,6 +321,8 @@ Interrupts are defined in the [`interrupts.asm`](assembler/lib/interrupts.asm) l
 | `MALLOC`        | Allocate a block of memory of the size specified in `r1` and store its address in the `r1` register.<br>If the allocation fails, set the `error` register. |
 | `FREE`          | Free the block of memory at the address specified in `r1`. If the deallocatoin fails, set the `error` register. |
 | `RAND`          | Generate a random 8-byte number and store it in the `r1` register. |
+| `HOST_TIME_NANOS` | Get the current host system time in nanoseconds and store it in the `r1` register. |
+| `ELAPSED_TIME_NANOS` | Get the elapsed time since the program started in nanoseconds and store it in the `r1` register. |
 
 ## Assembly unit sections
 

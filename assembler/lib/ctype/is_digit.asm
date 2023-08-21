@@ -8,15 +8,14 @@
 
 @@ is_digit
 
-    # Check if the byte is in range 48..=57 (ASCII digit characters)
-
-    cmp1 r1 48
+    cmp1 r1 '0'
     jmplt invalid
     
-    cmp1 r1 57
+    cmp1 r1 '9'
     jmpgr invalid
 
     # Char is a digit, return 1
+
     mov1 r1 1
     ret
 
@@ -24,6 +23,7 @@
 @ invalid
 
     # Char is not a digit, return 0
+
     mov1 r1 0
     ret
 

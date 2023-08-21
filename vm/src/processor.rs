@@ -3,6 +3,7 @@
 
 use std::io::Write;
 use std::io;
+use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 
 use assert_exists::assert_exists;
@@ -47,6 +48,7 @@ pub struct Processor {
 
     registers: [u64; REGISTER_COUNT],
     memory: Memory,
+    start_time: SystemTime,
 
 }
 
@@ -60,6 +62,8 @@ impl Processor {
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(max_memory_size),
+            // Initialize temporarily, will be reinitialized in `execute`
+            start_time: SystemTime::now(),
         }
     }
 
@@ -84,6 +88,8 @@ impl Processor {
 
         // Load the program into memory
         self.memory.set_bytes(Self::STATIC_PROGRAM_ADDRESS, byte_code);
+
+        self.start_time = SystemTime::now();
 
         // Execute the program
         match mode {
@@ -1989,7 +1995,23 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 11 ] = [
+    fn handle_host_time_nanos(&mut self) {
+        // Casting to u64 will be ok until around 2500
+        let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
+
+        self.set_register(Registers::R1, time);
+    }
+
+
+    fn handle_elapsed_time_nanos(&mut self) {
+        // Casting to u64 will be ok until around 2500
+        let time = SystemTime::now().duration_since(self.start_time).unwrap().as_nanos() as u64;
+
+        self.set_register(Registers::R1, time);
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 13 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -2001,6 +2023,8 @@ impl Processor {
         Self::handle_malloc, // 8
         Self::handle_free, // 9
         Self::handle_random, // 10
+        Self::handle_host_time_nanos, // 11
+        Self::handle_elapsed_time_nanos, // 12
     ];
 
 
