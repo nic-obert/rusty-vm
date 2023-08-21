@@ -23,11 +23,9 @@ pub fn is_reserved_name(name: &str) -> bool {
 /// Identifiers can only contain letters, numbers, and underscores.
 /// The first character cannot be a number.
 pub fn is_identifier_char(c: char, is_first_char: bool) -> bool {
-    if is_first_char {
-        c.is_alphabetic() || c == '_'
-    } else {
-        c.is_alphanumeric() || c == '_'
-    }
+    c == '_'
+    || c.is_alphabetic()
+    || (!is_first_char && c.is_numeric())
 }
 
 
@@ -404,7 +402,7 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
             }
 
             '-' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
+                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Negative, format: NumberFormat::Decimal }));
                 continue;
             }
 

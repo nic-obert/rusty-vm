@@ -20,6 +20,7 @@ pub type MacroMap = HashMap<String, MacroDefinition>;
 
 
 #[derive(Clone, Debug)]
+/// Represents a macro definition in the assembly code
 pub struct MacroDefinition {
 
     pub name: String,
@@ -48,9 +49,33 @@ impl MacroDefinition {
 }
 
 
-/// Maps a label name to its address in the binary
-pub type LabelMap = HashMap<String, Address>;
+#[derive(Clone)]
+/// Represents a label declaration in the assembly code
+pub struct LabelDeclaration {
 
+    pub address: Address,
+    pub unit_path: PathBuf,
+
+}
+
+
+impl LabelDeclaration {
+
+    pub fn new(address: Address, unit_path: PathBuf) -> LabelDeclaration {
+        LabelDeclaration {
+            address,
+            unit_path,
+        }
+    }
+
+}
+
+
+/// Maps a label name to its address in the binary
+pub type LabelMap = HashMap<String, LabelDeclaration>;
+
+
+/// Represents a label reference in the assembly code
 pub struct LabelReference {
 
     pub name: String,
@@ -73,7 +98,7 @@ impl LabelReference {
 }
 
 
-/// Records the references to labels in the assembly code
+/// Records the references to labels in the local Assembly unit
 pub type LabelReferenceRegistry = Vec<LabelReference>;
 
 
@@ -106,6 +131,7 @@ enum ProgramSection {
 }
 
 
+/// Information about the Assembly code sections
 struct SectionInfo {
 
     pub has_data_section: bool,
@@ -364,8 +390,8 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
     if let Some((exported_labels, exported_macros)) = program_info.included_units.get(asm_unit.path) {
         if verbose {
             println!("Unit already included: {}", asm_unit.path.display());
-            println!("Exported labels: {:?}\n", exported_labels);
-            println!("Exported macros: {:?}\n", exported_macros);
+            println!("Exported labels: {:?}\n", exported_labels.keys());
+            println!("Exported macros: {:?}\n", exported_macros.keys());
         }
 
         program_info.included_units.insert(asm_unit.path.to_path_buf(), (exported_labels.clone(), exported_macros.clone()));
@@ -428,12 +454,12 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
 
     for reference in label_info.label_references {
 
-        let real_address = label_info.local_labels.get(&reference.name).unwrap_or_else(
+        let label = label_info.local_labels.get(&reference.name).unwrap_or_else(
             || error::undeclared_label(asm_unit.path, &reference.name, &label_info.local_labels, reference.line_number, &asm_unit.assembly[reference.line_number - 1])
         );
 
         // Substitute the label with the real address (little endian)
-        program_info.byte_code[reference.location..reference.location + ADDRESS_SIZE].copy_from_slice(&real_address.to_le_bytes());
+        program_info.byte_code[reference.location..reference.location + ADDRESS_SIZE].copy_from_slice(&label.address.to_le_bytes());
 
     }
 
@@ -442,7 +468,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
             println!("\nEnd of main assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
         } else {
             println!("\nEnd of assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
-            println!("Exported labels: {:?}\n", label_info.export_labels);
+            println!("Exported labels: {:?}\n", label_info.export_labels.keys());
             println!("Exported macros: {:?}\n", macro_info.export_macros.keys());
         }
     }
@@ -557,13 +583,13 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 || panic!("Internal assembler error: included unit not found in included units map. This is a bug.")
             );
 
-            label_info.local_labels.extend(exported_labels.clone());
-            macro_info.local_macros.extend(exported_macros.clone());
-
             if to_export {
                 label_info.export_labels.extend(exported_labels.clone());
                 macro_info.export_macros.extend(exported_macros.clone());
             }
+
+            label_info.local_labels.extend(exported_labels.clone());
+            macro_info.local_macros.extend(exported_macros.clone());
 
         },
 
@@ -605,11 +631,13 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             // Encode the string data into byte code
             let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
 
+            let label_declaration = LabelDeclaration::new(program_info.byte_code.len(), asm_unit.path.to_path_buf());
+
             // Add the data name and its address in the binary to the data map
-            label_info.local_labels.insert(label.to_string(), program_info.byte_code.len());
+            label_info.local_labels.insert(label.to_string(), label_declaration.clone());
 
             if to_export {
-                label_info.export_labels.insert(label.to_string(), program_info.byte_code.len());
+                label_info.export_labels.insert(label.to_string(), label_declaration);
             }
 
             // Add the data to the byte code
@@ -639,14 +667,16 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                     error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
                 }
 
-                if label_info.local_labels.insert(label.to_string(), program_info.byte_code.len()).is_some() {
+                let label_declaration = LabelDeclaration::new(program_info.byte_code.len(), asm_unit.path.to_path_buf());
+
+                if asm_unit.is_main_unit && label == "start" || to_export {
+                    label_info.export_labels.insert(label.to_string(), label_declaration.clone());
+                }
+
+                if label_info.local_labels.insert(label.to_string(), label_declaration).is_some() {
                     error::label_redeclaration(asm_unit.path, label, line_number, line);
                 }
 
-                if asm_unit.is_main_unit && label == "start" || to_export {
-                    label_info.export_labels.insert(label.to_string(), program_info.byte_code.len());
-                }
-                
                 return;
             }
 
@@ -696,7 +726,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                         .map(|arg_name| {
 
                             if !is_identifier_name(arg_name) {
-                                error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Macro argument names can only contain alphabetic characters, numbers (except for the first character), and underscores.");
+                                error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("Macro argument names can only contain alphabetic characters, numbers (except for the first character), and underscores.\nInvalid argument name: \"{}\"", arg_name).as_str());
                             }
 
                             if is_reserved_name(arg_name) {
@@ -820,7 +850,7 @@ fn assemble_instruction(asm_unit: &AssemblyUnit, trimmed_line: &str, line: &str,
 
 
 /// Assembles the assembly code into byte code
-pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> ByteCode {
+pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path, just_check: bool) -> ByteCode {
 
     let mut program_info = ProgramInfo::new();
 
@@ -828,6 +858,10 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> Byte
 
     // Assemble recursively the main assembly unit and its dependencies
     assemble_unit(asm_unit, verbose, &mut program_info);
+
+    if just_check {
+        std::process::exit(0);
+    }
 
     // Append the exit instruction to the end of the binary
     program_info.byte_code.push(ByteCodes::EXIT as u8);
@@ -842,11 +876,11 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path) -> Byte
         || error::undeclared_label(unit_path, "start", label_map, 0, "The program must have a start label.")
     );
 
-    program_info.byte_code.extend(program_start.to_le_bytes());
+    program_info.byte_code.extend(program_start.address.to_le_bytes());
 
     if verbose {
         println!("Byte code size is {} bytes", program_info.byte_code.len());
-        println!("Start address is {}", program_start);
+        println!("Start address is {}", program_start.address);
     }
 
     program_info.byte_code

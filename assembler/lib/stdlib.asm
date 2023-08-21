@@ -8,4 +8,5 @@
     @@ stdlib/ascii_to_int.asm
     @@ stdlib/exit.asm
     @@ stdlib/memory.asm
-
+    @@ stdlib/rand.asm
+    

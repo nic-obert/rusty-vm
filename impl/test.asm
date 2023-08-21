@@ -1,7 +1,7 @@
 
 .include:
 
-    stdlib.asm
+    math.asm
     stdio.asm
 
 .data:
@@ -11,7 +11,9 @@
 
 @start
 
-    !malloc 4
+    mov8 r1 -9
 
-    !println_uint r1
-    
+    !sign_bit r1
+
+    !println_int r1
+

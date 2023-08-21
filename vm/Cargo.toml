@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 assert_exists = "0.1.0"
 clap = { version = "4.3", features = ["derive"] }
+rand = "0.8.5"
 rust_vm_lib = { path = "../rust_vm_lib" }

@@ -320,6 +320,7 @@ Interrupts are defined in the [`interrupts.asm`](assembler/lib/interrupts.asm) l
 | `INPUT_STRING`  | Get the next string input from the console, push it onto the stack, and store its address in the `input` register.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
 | `MALLOC`        | Allocate a block of memory of the size specified in `r1` and store its address in the `r1` register.<br>If the allocation fails, set the `error` register. |
 | `FREE`          | Free the block of memory at the address specified in `r1`. If the deallocatoin fails, set the `error` register. |
+| `RAND`          | Generate a random 8-byte number and store it in the `r1` register. |
 
 ## Assembly unit sections
 

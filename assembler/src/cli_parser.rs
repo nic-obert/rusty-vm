@@ -16,6 +16,10 @@ pub struct CliParser {
     /// Run the assembler in verbose mode
     #[clap(short = 'v', action)]
     pub verbose: bool,
+
+    /// Just check the assembly without writing the byte code to a file
+    #[clap(short = 'c', long = "check", action)]
+    pub check: bool,
     
 }
 

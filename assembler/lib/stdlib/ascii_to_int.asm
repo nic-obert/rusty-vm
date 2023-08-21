@@ -12,6 +12,7 @@
     ctype.asm
     stdlib/ascii_to_digit.asm
     errors.asm
+    asmutils/to_signed.asm
 
 
 .text:
@@ -112,10 +113,7 @@
     cmp1 r8 1
     jmpnz sign_is_positive
 
-        # Convert positive integer to its two's complement negative counterpart
-        mov r2 r1
-        mov1 r1 0
-        isub
+        !to_signed r1
     
     @ sign_is_positive
 

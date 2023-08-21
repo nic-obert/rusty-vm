@@ -39,7 +39,7 @@ fn main() {
 
     };
 
-    let byte_code = assembler::assemble(assembly, args.verbose, &main_path);
+    let byte_code = assembler::assemble(assembly, args.verbose, &main_path, args.check);
     
     if let Some(output_raw) = &args.output {
 

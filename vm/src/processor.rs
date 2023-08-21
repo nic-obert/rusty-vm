@@ -3,6 +3,7 @@
 
 use std::io::Write;
 use std::io;
+use rand::Rng;
 
 use assert_exists::assert_exists;
 
@@ -1980,7 +1981,15 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 10 ] = [
+    fn handle_random(&mut self) {
+        let mut rng = rand::thread_rng();
+        let random_number = rng.gen_range(u64::MIN..u64::MAX);
+
+        self.set_register(Registers::R1, random_number);
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 11 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -1991,6 +2000,7 @@ impl Processor {
         Self::handle_input_string, // 7
         Self::handle_malloc, // 8
         Self::handle_free, // 9
+        Self::handle_random, // 10
     ];
 
 
