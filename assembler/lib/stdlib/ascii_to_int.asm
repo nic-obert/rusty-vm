@@ -12,7 +12,7 @@
     ctype.asm
     stdlib/ascii_to_digit.asm
     errors.asm
-    asmutils/to_signed.asm
+    math/to_signed.asm
 
 
 .text:

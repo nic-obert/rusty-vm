@@ -9,7 +9,7 @@
 
 .text:
 
-    %% print_char c:
+    %% println_char c:
 
         mov1 print {c}
         intr [PRINT_CHAR]
@@ -19,7 +19,7 @@
     %endmacro
 
 
-    %% println_char c:
+    %% print_char c:
 
         mov1 print {c}
         intr [PRINT_CHAR]

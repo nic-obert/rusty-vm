@@ -1843,7 +1843,7 @@ impl Processor {
 
     fn handle_print_char(&mut self) {
         let value = self.get_register(Registers::PRINT);
-        print!("{}", value as u8 as char);
+        io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");
         io::stdout().flush().expect("Failed to flush stdout");
     }
 

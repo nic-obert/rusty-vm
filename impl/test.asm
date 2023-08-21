@@ -3,28 +3,24 @@
 
     string.asm
     stdio.asm
+    stdlib.asm
 
 .data:
-
-    A1 [char] ['a', 'b', 'c', 'd']
-    A2 [char] ['m', 'n', 'o', 'p']
 
 
 .text:
 
 @start
 
-    !println_bytes A1 4
-    !println_bytes A2 4
+    mov1 r1 123
 
-    !println
+    call str_from_uint
 
-    mov8 r1 A1
-    mov8 r2 A2
-    mov1 r3 4
+    !print_char '"'
+    !print_char '"'
+
+    !println_str r1
     
-    call memswap
 
-    !println_bytes A1 4
-    !println_bytes A2 4
+    !free r1
 
