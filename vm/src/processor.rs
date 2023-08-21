@@ -454,7 +454,7 @@ impl Processor {
 
             println!(
                 "Stack: #{} {:?} #{}",
-                self.get_stack_top(), &self.memory.get_raw()[base_bound .. top_bound], top_bound
+                top_bound, &self.memory.get_raw()[top_bound .. base_bound], self.get_stack_top()
             );
 
             io::stdin().read_line(&mut String::new()).unwrap();

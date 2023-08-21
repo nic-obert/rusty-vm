@@ -11,4 +11,5 @@
     @@ string/strncpy.asm
     @@ string/memcpy.asm
     @@ string/memmove.asm
+    @@ string/memswap.asm
 

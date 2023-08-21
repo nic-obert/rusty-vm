@@ -236,7 +236,7 @@ impl<'a> Iterator for StringDataIterator<'a> {
 
                 } else if c == self.string_delimiter {
                     in_string = false;
-                    data_string = Some(&self.string[start_index..self.index]);
+                    data_string = Some(&self.string[start_index..=self.index]);
 
                 } else if c == '\\' {
                     escape = true;
@@ -259,7 +259,7 @@ impl<'a> Iterator for StringDataIterator<'a> {
 
                         ',' => {
                             if data_string.is_none() {
-                                return Some(Err("Expected a character literal".to_string()));
+                                return Some(Err("Expected a string or character literal".to_string()));
                             }
     
                             self.string = &self.string[self.index + 1..];
@@ -283,6 +283,11 @@ impl<'a> Iterator for StringDataIterator<'a> {
             }
 
             self.index += 1;
+        }
+
+        if let Some(data_string) = data_string {
+            self.string = "";
+            return Some(Ok(data_string));
         }
 
         None

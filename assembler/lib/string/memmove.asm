@@ -39,16 +39,12 @@
 
 # Unsafe overlap case
 
-    # Copy to an intermediate buffer on the stack
-
-    mov r1 r4
-    mov r2 sp
-
-    # Save the intermediate buffer start address
-    mov r7 sp
-
     # Allocate the intermediate buffer of n bytes on the stack
     pushsp r3
+
+    # Load the addresses
+    mov r1 r4
+    mov r2 sbp
 
     # Save number of bytes to copy
     mov r8 r3
@@ -57,7 +53,7 @@
     call memcpy
 
     # Change source from original address to intermediate buffer
-    mov r1 r7
+    mov r1 sbp
     # Put number of bytes to copy back into r3
     mov r3 r8
 

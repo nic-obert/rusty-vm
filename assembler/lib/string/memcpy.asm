@@ -1,6 +1,9 @@
 # memcpy
 # Copy r3 bytes from the memory location r1 into the memory location r2
 # Source and destination memory buffers should not overlap
+# r1: source address
+# r2: destination address
+# r3: bytes to copy
 
 
 .text:

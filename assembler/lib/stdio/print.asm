@@ -45,16 +45,18 @@
     %endmacro
 
 
-    %% print_bytes addr:
+    %% print_bytes addr len:
 
+        mov8 r1 {len}
         mov8 print {addr}
         intr [PRINT_BYTES]
 
     %endmacro
 
 
-    %% println_bytes addr:
+    %% println_bytes addr len:
 
+        mov8 r1 {len}
         mov8 print {addr}
         intr [PRINT_BYTES]
         mov1 print 10

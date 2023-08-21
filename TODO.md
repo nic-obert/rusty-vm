@@ -15,6 +15,7 @@
 
 ### Done ✅
 
+- [ ] update memmove with new stack pointers  
 - [ ] allow procedure calls inside macros  
 - [ ] implement heap allocation interrupts  
 - [ ] implement an allocator for allocating on the heap  
