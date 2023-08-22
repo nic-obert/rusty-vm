@@ -11,11 +11,11 @@
 
 ### In Progress ···
 
-- [ ] implement other more appropriate allocators  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] implement other more appropriate allocators  
 - [ ] add stackoverflow checks when pushing  
 - [ ] add .bss section  
 - [ ] update memmove with new stack pointers  

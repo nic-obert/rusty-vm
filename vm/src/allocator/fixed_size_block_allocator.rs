@@ -21,6 +21,8 @@ impl FixedSizeBlockAllocator {
 
 
     pub fn new(heap_start: Address, heap_size: usize) -> FixedSizeBlockAllocator {
+        debug_assert!(heap_size >= Self::BLOCK_SIZE);
+
         let block_count = heap_size / Self::BLOCK_SIZE;
 
         FixedSizeBlockAllocator {
@@ -28,6 +30,12 @@ impl FixedSizeBlockAllocator {
             heap_start,
             heap_end: heap_start + heap_size,
         }
+    }
+
+
+    #[inline(always)]
+    fn heap_size(&self) -> usize {
+        self.heap_end - self.heap_start
     }
 
 }
@@ -43,18 +51,13 @@ impl Allocator for FixedSizeBlockAllocator {
             return Err(ErrorCodes::AllocationTooLarge);
         }
 
-        // Check for heap overflow
-        if size >= self.heap_end - self.heap_start {
-            return Err(ErrorCodes::HeapOverflow);
-        }
-
         // Find free block
         let address = self.blocks.iter_mut().enumerate().find(
             |(_index, &mut taken)| !taken
         ).map(
-            |(_index, taken)| {
+            |(index, taken)| {
                 *taken = true;
-                self.heap_start + _index * Self::BLOCK_SIZE
+                self.heap_start + index * Self::BLOCK_SIZE
             }
         );
 
@@ -127,16 +130,6 @@ mod tests {
         let result = allocator.allocate(0);
 
         assert!(matches!(result, Err(ErrorCodes::AllocationTooLarge)));
-    }
-
-
-    #[test]
-    fn test_allocate_heap_overflow() {
-        let mut allocator = FixedSizeBlockAllocator::new(0, 64);
-
-        let result = allocator.allocate(64);
-
-        assert!(matches!(result, Err(ErrorCodes::HeapOverflow)));
     }
 
 
