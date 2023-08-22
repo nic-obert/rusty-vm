@@ -49,6 +49,7 @@ pub struct Processor {
     registers: [u64; REGISTER_COUNT],
     memory: Memory,
     start_time: SystemTime,
+    quiet_exit: bool,
 
 }
 
@@ -58,12 +59,13 @@ impl Processor {
     const STATIC_PROGRAM_ADDRESS: Address = 0;
 
 
-    pub fn new(max_memory_size: Option<usize>) -> Self {
+    pub fn new(max_memory_size: Option<usize>, quiet_exit: bool) -> Self {
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(max_memory_size),
             // Initialize temporarily, will be reinitialized in `execute`
             start_time: SystemTime::now(),
+            quiet_exit,
         }
     }
 
@@ -150,6 +152,18 @@ impl Processor {
     fn push_stack_pointer(&mut self, offset: usize) {
         self.registers[Registers::STACK_TOP_POINTER as usize] += offset as u64;
         self.registers[Registers::STACK_BASE_POINTER as usize] -= offset as u64;
+
+        self.check_stack_overflow();
+    }
+
+
+    /// Checks if the stack has overflowed into the heap
+    /// If the stack has overflowed, set the error register and terminate the program (stack overflow is unrecoverable)
+    fn check_stack_overflow(&mut self) {
+        if (self.get_register(Registers::STACK_BASE_POINTER) as usize) < self.memory.get_heap_end() {
+            self.set_error(ErrorCodes::StackOverflow);
+            self.handle_exit();
+        }
     }
 
 
@@ -445,7 +459,7 @@ impl Processor {
 
         println!("Running VM in interactive mode");
         println!("Byte code size is {} bytes", byte_code_size);
-        println!("Start address is: {}", self.get_pc());
+        println!("Start address is: {:#X}", self.get_pc());
         println!();
 
         loop {
@@ -459,7 +473,7 @@ impl Processor {
             let base_bound = self.get_stack_top();
 
             println!(
-                "Stack: #{} {:?} #{}",
+                "Stack: {:#X} {:?} {:#X}",
                 top_bound, &self.memory.get_raw()[top_bound .. base_bound], self.get_stack_top()
             );
 
@@ -1697,7 +1711,13 @@ impl Processor {
     fn handle_exit(&mut self) {
         assert_exists!(ByteCodes::EXIT);
 
-        let exit_code = self.get_register(Registers::EXIT);
+        let exit_code_n = self.get_register(Registers::EXIT) as u8;
+        let exit_code = ErrorCodes::from(exit_code_n);
+
+        if !self.quiet_exit {
+            println!("Program exited with code {} ({})", exit_code_n, exit_code);
+        }
+        
         std::process::exit(exit_code as i32);
     }
 
@@ -1942,6 +1962,7 @@ impl Processor {
                 }
 
                 self.set_register(Registers::INPUT, input.len() as u64);
+                // TODO: use heap allocation instead of stack
                 self.push_stack_bytes(input.as_bytes());
                 self.set_error(ErrorCodes::NoError); 
             },

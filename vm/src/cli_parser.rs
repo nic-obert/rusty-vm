@@ -20,6 +20,10 @@ pub struct CliParser {
     #[clap(short = 'm', long, default_value="n")]
     pub mode: ExecutionMode,
 
+    /// Don't print any message when exiting
+    #[clap(short = 'q', long, action)]
+    pub quiet: bool,
+
 }
 
 

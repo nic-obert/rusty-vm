@@ -1,9 +1,7 @@
-use std::cmp::min;
-
 use rust_vm_lib::vm::{Address, ErrorCodes};
 
 use crate::allocator::{Allocator, BlankAllocator};
-use crate::allocator::fixed_size_block_allocator::FixedSizeBlockAllocator;
+use crate::allocator::buddy_allocator::BuddyAllocator;
 
 
 pub type Byte = u8;
@@ -14,7 +12,9 @@ pub struct Memory {
 
     memory: Vec<Byte>,
     allocator: Box<dyn Allocator>,
-    max_size: usize,
+    /// Hard limit on the amount of memory that can be allocated.
+    /// If None, there is no upper limit.
+    max_size: Option<usize>,
 
 }
 
@@ -23,9 +23,9 @@ impl Memory {
 
     pub fn new(max_size: Option<usize>) -> Memory {
         Memory {
-            memory: vec![],
+            memory: vec![0; max_size.unwrap_or(0)],
             allocator: Box::new(BlankAllocator{}),
-            max_size: max_size.unwrap_or(usize::MAX),
+            max_size,
         }
     }
 
@@ -36,24 +36,55 @@ impl Memory {
     }
 
 
+    pub fn get_heap_end(&self) -> Address {
+        self.allocator.get_heap_end()
+    }
+
+
     /// Initialize the memory layout
     /// This function should be called before any other memory function
     /// Allocate a memory chunk large enough to hold the program, stack, and heap
     pub fn init_layout(&mut self, static_program_end: Address) {
 
-        // The heap is located after the static program section
-        let heap_start = static_program_end;
+        // TODO: use different allocators depending on the available memory
+        // For example, if there are no limits on memory size, there's no need to pack the stack and heap together
         
-        // Give the stack 1/4 of the available memory
-        // Give the heap 3/4 of the available memory
-        let stack_size = min(static_program_end * 4, self.max_size / 4);
-        let heap_size = stack_size * 3;
+        if let Some(max_size) = self.max_size {
 
-        // Resize the memory to fit the program, stack, and heap
-        self.memory.resize(stack_size + heap_size, 0);
+            if static_program_end > max_size {
+                panic!("Static program section ({}) is larger than the maximum memory size ({})", static_program_end, max_size);
+            }
 
-        // Initialize the allocator with the new program size info
-        self.allocator = Box::new(FixedSizeBlockAllocator::new(heap_start, heap_size));
+            // The heap is located after the static program section
+            let heap_start = static_program_end;
+
+            let total_available_memory = max_size - heap_start;
+
+            // As a rule of thumb, allocate roughly 1/4 of the available memory for the stack          
+            // The heap size must be a power of 2 in order to use the buddy allocator
+
+            let base_heap_size = total_available_memory / 4 * 3;
+            
+            // Calculate the nearest floor power of 2
+            let highest_exp = base_heap_size.ilog2();
+
+            if highest_exp == 0 {
+                panic!("Not enough memory to allocate the stack and heap: {} bytes", total_available_memory);
+            }
+
+            let heap_size = 2usize.pow(highest_exp);
+
+            // Leave the rest of the memory for the stack
+
+            // If the max size is defined, the memory was already allocated
+            // We just need to initialize the allocator
+
+            self.allocator = Box::new(BuddyAllocator::new(heap_start, heap_size));
+
+        } else {
+            unimplemented!("Memory layout initialization without a max size is not implemented, yet")
+        }
+
     }
 
 

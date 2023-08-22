@@ -16,6 +16,7 @@
 
 ### Done ✅
 
+- [ ] add stackoverflow checks when pushing  
 - [ ] add .bss section  
 - [ ] update memmove with new stack pointers  
 - [ ] allow procedure calls inside macros  

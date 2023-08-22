@@ -7,6 +7,7 @@ pub struct FixedSizeBlockAllocator {
 
     /// Keeps track of which blocks are taken
     blocks: Vec<bool>,
+
     heap_start: Address,
     heap_end: Address,
 
@@ -15,6 +16,7 @@ pub struct FixedSizeBlockAllocator {
 
 impl FixedSizeBlockAllocator {
 
+    /// Size of an allocation block in bytes
     const BLOCK_SIZE: usize = 64;
 
 
@@ -83,6 +85,11 @@ impl Allocator for FixedSizeBlockAllocator {
         self.blocks[block_index] = false;
 
         Ok(())
+    }
+
+
+    fn get_heap_end(&self) -> Address {
+        self.heap_end
     }
 
 }
