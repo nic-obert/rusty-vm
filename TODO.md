@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] implement other allocators  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] add support for floating point arithmetic  
 - [ ] update the disassembler  
@@ -12,10 +11,12 @@
 
 ### In Progress ···
 
+- [ ] implement other more appropriate allocators  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] add .bss section  
 - [ ] update memmove with new stack pointers  
 - [ ] allow procedure calls inside macros  
 - [ ] implement heap allocation interrupts  

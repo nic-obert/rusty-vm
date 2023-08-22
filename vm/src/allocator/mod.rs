@@ -1,3 +1,6 @@
+#![allow(unused)]
+
+
 pub mod fixed_size_block_allocator;
 
 
@@ -17,6 +20,8 @@ pub trait Allocator {
 }
 
 
+/// A dummy allocator that does nothing
+/// Can be used as a placeholder
 pub struct BlankAllocator {
 
 }

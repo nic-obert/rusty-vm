@@ -123,6 +123,7 @@ enum ProgramSection {
     Data,
     Text,
     Include,
+    Bss,
 
     /// Not really a program section, but works to tell the assembler that it's parsing a macro.
     MacroDefinition,
@@ -137,6 +138,7 @@ struct SectionInfo {
     pub has_data_section: bool,
     pub has_text_section: bool,
     pub has_include_section: bool,
+    pub has_bss_section: bool,
     pub current_section: ProgramSection,
 
 }
@@ -149,6 +151,7 @@ impl SectionInfo {
             has_data_section: false,
             has_text_section: false,
             has_include_section: false,
+            has_bss_section: false,
             current_section: ProgramSection::None,
         }
     }
@@ -490,6 +493,15 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 
         match section_name {
 
+            "bss" => {
+                // Check for duplicate sections
+                if section_info.has_bss_section {
+                    error::invalid_section_declaration(asm_unit.path, section_name, line_number, line, "An assembly unit can only have one bss section.")
+                }
+                section_info.current_section = ProgramSection::Bss;
+                section_info.has_bss_section = true;
+            }
+
             "include" => {
                 // Check for duplicate sections
                 if section_info.has_include_section {
@@ -642,6 +654,59 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 
             // Add the data to the byte code
             program_info.byte_code.extend(encoded_data);
+
+        },
+
+        ProgramSection::Bss => {
+
+            // Check if the bss label has to be exported (double consecutive @)
+            let (to_export, trimmed_line) = {
+                if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
+                    // Trim the line again to remove eventual extra spaces
+                    (true, trimmed_line.trim())
+                } else {
+                    (false, trimmed_line)
+                }
+            };
+
+            // Extract the label name
+            let (label, other) = trimmed_line.split_once(char::is_whitespace).unwrap_or_else(
+                || error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations must have a label")
+            );
+
+            // Check if the label is a reserved keyword
+            if is_reserved_name(label) {
+                error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
+            }
+
+            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
+                || error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations must have a type")
+            );
+
+            let data_type = DataType::from_name(data_type_name).unwrap_or_else(
+                || error::invalid_bss_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
+            );
+
+            let data_size = data_type.size().unwrap_or_else(
+                || error::invalid_bss_declaration(asm_unit.path, line_number, line, format!("Static size for {} is unknown", data_type_name).as_str())
+            );
+
+            if other.trim() != "" {
+                error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations cannot have anything after the data type");
+            }
+
+            let label_declaration = LabelDeclaration::new(program_info.byte_code.len(), asm_unit.path.to_path_buf());
+
+            // Add the data name and its address in the binary to the data map
+            label_info.local_labels.insert(label.to_string(), label_declaration.clone());
+
+            if to_export {
+                label_info.export_labels.insert(label.to_string(), label_declaration);
+            }
+
+            // Add a data placeholder to the byte code
+            // Doesn't take advantage of the .bss section optimization, though
+            program_info.byte_code.extend(vec![0; data_size]);
 
         },
 

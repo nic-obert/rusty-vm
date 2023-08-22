@@ -9,7 +9,7 @@ use crate::tokenizer::evaluate_string;
 /// Represents a data type in static data declarations
 pub enum DataType {
 
-    String,
+    String { size: Option<usize> },
     Char,
     Unsigned1,
     Unsigned2,
@@ -19,28 +19,81 @@ pub enum DataType {
     Signed2,
     Signed4,
     Signed8,
-    Array(Box<DataType>),
+    Array { dt: Box<DataType>, size: Option<usize> },
     
 }
 
 
 impl DataType {
 
+    pub fn size(&self) -> Option<usize> {
+
+        match self {
+                
+                DataType::String { size } => *size,
+                DataType::Char => Some(1),
+                DataType::Unsigned1 => Some(1),
+                DataType::Unsigned2 => Some(2),
+                DataType::Unsigned4 => Some(4),
+                DataType::Unsigned8 => Some(8),
+                DataType::Signed1 => Some(1),
+                DataType::Signed2 => Some(2),
+                DataType::Signed4 => Some(4),
+                DataType::Signed8 => Some(8),
+                DataType::Array {dt, size} => {
+
+                    if let Some(size) = size {
+                        Some(size * dt.size()?)
+                    } else {
+                         None 
+                    }
+                },
+        }
+
+    }
+
+
     /// Returns a data type from its string name
     pub fn from_name(name: &str) -> Option<Self> {
 
         // Check if the data type is an array
-        if let Some(name) = name.strip_prefix('[')
-            .and_then(|name| name.strip_suffix(']')).map(|name| name.trim())
-        {   
-            // Recursively get the data type of the array item
-            let item_type = Self::from_name(name)?;
-            return Some(DataType::Array(Box::new(item_type)));
+        if let Some(array_str) = name.strip_prefix('[').map(|s| s.trim_start()) {
+        
+            // Check if the array has a size specified
+            if let Some(dt_str) = array_str.rfind(':').map(|i| array_str[..i].trim_end()) {
+
+                let array_len = array_str[array_str.rfind(':').unwrap() + 1..].trim_end().parse::<usize>().ok();
+
+                // Recursively get the data type of the array
+                let dt = Self::from_name(dt_str)?;
+
+                let array_size: Option<usize> = (|| { 
+                    if let Some(array_len) = array_len {
+                        Some(array_len * dt.size()?)
+                    } else {
+                        None
+                    }
+                })();
+
+                return Some(DataType::Array { dt: Box::new(dt), size: array_size });
+            }
+
+            return None;
+   
+        }
+
+        // Check for string data type
+        if let Some(size_str) = name.strip_prefix("string") {
+            if size_str.is_empty() {
+                return Some(DataType::String { size: None });
+            } else {
+                let size = size_str.parse::<usize>().ok()?;
+                return Some(DataType::String { size: Some(size) });
+            }
         }
 
         match name {
 
-            "string" => Some(DataType::String),
             "char" => Some(DataType::Char),
             "u1" => Some(DataType::Unsigned1),
             "u2" => Some(DataType::Unsigned2),
@@ -80,7 +133,7 @@ impl DataType {
                 evaluated_string.into_bytes()
             },
 
-            DataType::String => {
+            DataType::String { size } => {
 
                 // Remove the enclosing double quotes
                 let string = string.strip_prefix('"').unwrap_or_else(
@@ -90,7 +143,15 @@ impl DataType {
                 );
 
                 // Return the evaluated and encoded string
-                evaluate_string(string, '"', line_number, line, unit_path).into_bytes()
+                let string = evaluate_string(string, '"', line_number, line, unit_path).into_bytes();
+
+                if let Some(size) = size {
+                    if string.len() != *size {
+                        error::invalid_data_declaration(unit_path, line_number, line, format!("Expected a string of size {}. Got a string of size {}", size, string.len()).as_str());
+                    }
+                }
+
+                string
             },
 
             DataType::Unsigned1 => {
@@ -149,7 +210,7 @@ impl DataType {
                 vec![number as u8, (number >> 8) as u8, (number >> 16) as u8, (number >> 24) as u8, (number >> 32) as u8, (number >> 40) as u8, (number >> 48) as u8, (number >> 56) as u8]
             },
 
-            DataType::Array(item_type) => {
+            DataType::Array { dt, size } => {
 
                 let data_string = string.strip_prefix('[').and_then(|data| data.strip_suffix(']')).unwrap_or_else(
                     || error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an array literal. Got \"{}\"", string).as_str())
@@ -157,13 +218,21 @@ impl DataType {
 
                 let mut byte_code = ByteCode::new();
 
-                match item_type.as_ref() {
+                match dt.as_ref() {
 
-                    DataType::String => {
-                        for string in iter_strings(data_string) {
+                    DataType::String { .. } => {
+
+                        for (index, string) in iter_strings(data_string).enumerate() {
+
+                            if let Some(length) = size {
+                                if index >= *length {
+                                    error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an array of size {}. Got an array of at least size {}", length, index + 1).as_str());
+                                }
+                            }
+
                             match string {
                                 Ok(string) => {
-                                    byte_code.extend(item_type.encode(string, line_number, line, unit_path));
+                                    byte_code.extend(dt.encode(string, line_number, line, unit_path));
                                 },
                                 Err(error) => error::invalid_data_declaration(unit_path, line_number, line, error.as_str())
                             }
@@ -171,21 +240,37 @@ impl DataType {
                     },
 
                     DataType::Char => {
-                        for char_string in iter_chars(data_string) {
+
+                        for (index, char_string) in iter_chars(data_string).enumerate() {
+
+                            if let Some(length) = size {
+                                if index >= *length {
+                                    error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an array of size {}. Got an array of at least size {}", length, index + 1).as_str());
+                                }
+                            }
+
                             match char_string {
                                 Ok(char_string) => {
-                                    byte_code.extend(item_type.encode(char_string, line_number, line, unit_path));
+                                    byte_code.extend(dt.encode(char_string, line_number, line, unit_path));
                                 },
                                 Err(error) => error::invalid_data_declaration(unit_path, line_number, line, error.as_str())
                             }
                         }
                     },
 
-                    DataType::Array(_) => {
-                        for array_string in iter_arrays(data_string) {
+                    DataType::Array { .. } => {
+
+                        for (index, array_string) in iter_arrays(data_string).enumerate() {
+
+                            if let Some(length) = size {
+                                if index >= *length {
+                                    error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an array of size {}. Got an array of at least size {}", length, index + 1).as_str());
+                                }
+                            }
+
                             match array_string {
                                 Ok(array_string) => {
-                                    byte_code.extend(item_type.encode(array_string, line_number, line, unit_path));
+                                    byte_code.extend(dt.encode(array_string, line_number, line, unit_path));
                                 },
                                 Err(error) => error::invalid_data_declaration(unit_path, line_number, line, error.as_str())
                             }
@@ -193,8 +278,16 @@ impl DataType {
                     },
 
                     _ => {
-                        for item in data_string.split(',') {
-                            byte_code.extend(item_type.encode(item.trim(), line_number, line, unit_path));
+                        
+                        for (index, item) in data_string.split(',').enumerate() {
+
+                            if let Some(length) = size {
+                                if index >= *length {
+                                    error::invalid_data_declaration(unit_path, line_number, line, format!("Expected an array of size {}. Got an array of at least size {}", length, index + 1).as_str());
+                                }
+                            }
+
+                            byte_code.extend(dt.encode(item.trim(), line_number, line, unit_path));
                         }
                     }
                 }

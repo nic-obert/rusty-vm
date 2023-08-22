@@ -134,7 +134,7 @@ mod tests {
 
 
     #[test]
-    fn assert_register_names_consistency() {
+    fn register_names_consistency() {
         for (i, name) in REGISTER_NAMES.iter().enumerate() {
             assert_eq!(Registers::from(i as u8).to_string(), *name);
         }

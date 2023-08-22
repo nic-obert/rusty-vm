@@ -41,6 +41,11 @@ impl Allocator for FixedSizeBlockAllocator {
             return Err(ErrorCodes::AllocationTooLarge);
         }
 
+        // Check for heap overflow
+        if size >= self.heap_end - self.heap_start {
+            return Err(ErrorCodes::HeapOverflow);
+        }
+
         // Find free block
         let address = self.blocks.iter_mut().enumerate().find(
             |(_index, &mut taken)| !taken
@@ -78,6 +83,131 @@ impl Allocator for FixedSizeBlockAllocator {
         self.blocks[block_index] = false;
 
         Ok(())
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_allocate() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let address = allocator.allocate(64).unwrap();
+
+        assert_eq!(address, 0);
+    }
+
+
+    #[test]
+    fn test_allocate_too_large() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let result = allocator.allocate(FixedSizeBlockAllocator::BLOCK_SIZE + 1);
+
+        assert!(matches!(result, Err(ErrorCodes::AllocationTooLarge)));
+    }
+
+
+    #[test]
+    fn test_allocate_zero() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let result = allocator.allocate(0);
+
+        assert!(matches!(result, Err(ErrorCodes::AllocationTooLarge)));
+    }
+
+
+    #[test]
+    fn test_allocate_heap_overflow() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 64);
+
+        let result = allocator.allocate(64);
+
+        assert!(matches!(result, Err(ErrorCodes::HeapOverflow)));
+    }
+
+
+    #[test]
+    fn test_free() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let address = allocator.allocate(64).unwrap();
+
+        allocator.free(address).unwrap();
+    }
+
+
+    #[test]
+    fn test_free_out_of_bounds() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let result = allocator.free(1024);
+
+        assert!(matches!(result, Err(ErrorCodes::OutOfBounds)));
+    }
+
+
+    #[test]
+    fn test_free_unaligned() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let result = allocator.free(1);
+
+        assert!(matches!(result, Err(ErrorCodes::UnalignedAddress)));
+    }
+
+
+    #[test]
+    fn test_free_double_free() {
+        let mut allocator = FixedSizeBlockAllocator::new(0, 1024);
+
+        let address = allocator.allocate(64).unwrap();
+
+        allocator.free(address).unwrap();
+
+        let result = allocator.free(address);
+
+        assert!(matches!(result, Err(ErrorCodes::DoubleFree)));
+    }
+
+
+    #[test]
+    fn test_many_allocations() {
+        let heap_size = 1024;
+        let mut allocator = FixedSizeBlockAllocator::new(0, heap_size);
+
+        let mut addresses = Vec::new();
+
+        for i in 0..heap_size / FixedSizeBlockAllocator::BLOCK_SIZE {
+            let address = allocator.allocate(34).unwrap();
+            assert_eq!(address, i * FixedSizeBlockAllocator::BLOCK_SIZE);
+            addresses.push(address);
+        }
+
+        for address in addresses {
+            allocator.free(address).unwrap();
+        }
+    }
+
+
+    #[test]
+    fn test_too_many_allocations() {
+        let heap_size = 1024;
+        let mut allocator = FixedSizeBlockAllocator::new(0, heap_size);
+
+        for _ in 0..heap_size / FixedSizeBlockAllocator::BLOCK_SIZE {
+            allocator.allocate(64).unwrap();
+        }
+
+        let result = allocator.allocate(64);
+
+        assert!(matches!(result, Err(ErrorCodes::HeapOverflow)));
     }
 
 }

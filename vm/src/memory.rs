@@ -106,3 +106,46 @@ impl Memory {
 
 }
 
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_overlapping_memcpy() {
+        let mut memory = Memory::new(None);
+        memory.memory = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        memory.memcpy(0, 4, 4);
+        assert_eq!(memory.memory, vec![0, 1, 2, 3, 0, 1, 2, 3]);
+    }
+
+
+    #[test]
+    fn test_non_overlapping_memcpy() {
+        let mut memory = Memory::new(None);
+        memory.memory = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        memory.memcpy(0, 4, 3);
+        assert_eq!(memory.memory, vec![0, 1, 2, 3, 0, 1, 2, 7]);
+    }
+
+
+    #[test]
+    fn test_memcpy_to_self() {
+        let mut memory = Memory::new(None);
+        memory.memory = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        memory.memcpy(0, 0, 4);
+        assert_eq!(memory.memory, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+    }
+
+
+    #[test]
+    fn test_memcpy_to_self_overlapping() {
+        let mut memory = Memory::new(None);
+        memory.memory = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        memory.memcpy(0, 2, 4);
+        assert_eq!(memory.memory, vec![0, 1, 0, 1, 2, 3, 6, 7]);
+    }    
+
+}
+

@@ -180,6 +180,21 @@ pub fn undeclared_label(unit_path: &Path, label: &str, local_labels: &LabelMap, 
 }
 
 
+pub fn invalid_bss_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        Error in assembly unit \"{}\"
+
+        Invalid BSS declaration at line {}:
+        {}
+
+        {}
+        ",
+        unit_path.display(), line_number, line, hint
+    );
+    std::process::exit(1);
+}
+
+
 pub fn undeclared_macro(unit_path: &Path, macro_name: &str, local_macros: &MacroMap, line_number: usize, line: &str) -> ! {
     printdoc!("
         Error in assembly unit \"{}\"

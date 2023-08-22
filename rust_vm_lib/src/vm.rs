@@ -4,7 +4,7 @@ pub type Address = usize;
 pub const ADDRESS_SIZE: usize = std::mem::size_of::<Address>();
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ErrorCodes {
 
     NoError = 0,
