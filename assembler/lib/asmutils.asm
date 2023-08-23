@@ -5,4 +5,5 @@
 .include:
 
     @@ asmutils/const_math.asm
+    @@ asmutils/error_handling.asm
 

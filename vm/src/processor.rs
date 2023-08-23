@@ -1965,6 +1965,7 @@ impl Processor {
 
 
     fn handle_print_signed(&mut self) {
+        
         let value = self.get_register(Registers::PRINT);
         print!("{}", value as i64);
         io::stdout().flush().expect("Failed to flush stdout");
@@ -1972,6 +1973,7 @@ impl Processor {
 
 
     fn handle_print_unsigned(&mut self) {
+
         let value = self.get_register(Registers::PRINT);
         print!("{}", value);
         io::stdout().flush().expect("Failed to flush stdout");
@@ -1979,6 +1981,7 @@ impl Processor {
 
 
     fn handle_print_char(&mut self) {
+
         let value = self.get_register(Registers::PRINT);
         io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");
         io::stdout().flush().expect("Failed to flush stdout");
@@ -1986,6 +1989,7 @@ impl Processor {
 
 
     fn handle_print_string(&mut self) {
+
         let string_address = self.get_register(Registers::PRINT) as Address;
         let length = self.strlen(string_address);
         let bytes = self.memory.get_bytes(string_address, length);
@@ -1996,6 +2000,7 @@ impl Processor {
 
 
     fn handle_print_bytes(&mut self) {
+
         let bytes_address = self.get_register(Registers::PRINT) as Address;
         let length = self.get_register(Registers::R1) as usize;
         let bytes = self.memory.get_bytes(bytes_address, length);
@@ -2006,7 +2011,9 @@ impl Processor {
 
 
     fn handle_input_signed_int(&mut self) {
+
         let mut input = String::new();
+
         match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
 
@@ -2062,7 +2069,9 @@ impl Processor {
 
 
     fn handle_input_string(&mut self) {
+
         let mut input = String::new();
+
         match io::stdin().read_line(&mut input) {
             Ok(bytes_read) => {
 
@@ -2072,11 +2081,22 @@ impl Processor {
                     return;
                 }
 
-                self.set_register(Registers::INPUT, input.len() as u64);
-                // TODO: use heap allocation instead of stack
-                self.push_stack_bytes(input.as_bytes());
+                // Allocate the user input on the heap
+                let address = match self.memory.allocate(input.len()) {
+                    Ok(address) => address,
+                    Err(e) => {
+                        self.set_error(e);
+                        return;
+                    }
+                };
+                self.memory.set_bytes(address, input.as_bytes());
+
+                self.set_register(Registers::INPUT, address as u64);
+                self.set_register(Registers::R1, input.len() as u64);
+
                 self.set_error(ErrorCodes::NoError); 
             },
+
             Err(_) => {
                 self.set_error(ErrorCodes::GenericError);
             },
@@ -2085,6 +2105,7 @@ impl Processor {
 
 
     fn handle_malloc(&mut self) {
+
         let size = self.get_register(Registers::R1) as usize;
 
         match self.memory.allocate(size) {
@@ -2103,6 +2124,7 @@ impl Processor {
 
 
     fn handle_free(&mut self) {
+
         let address = self.get_register(Registers::R1) as Address;
 
         match self.memory.free(address) {
@@ -2120,6 +2142,7 @@ impl Processor {
 
 
     fn handle_random(&mut self) {
+
         let mut rng = rand::thread_rng();
         let random_number = rng.gen_range(u64::MIN..u64::MAX);
 
@@ -2128,6 +2151,7 @@ impl Processor {
 
 
     fn handle_host_time_nanos(&mut self) {
+
         // Casting to u64 will be ok until around 2500
         let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
 
@@ -2136,6 +2160,7 @@ impl Processor {
 
 
     fn handle_elapsed_time_nanos(&mut self) {
+
         // Casting to u64 will be ok until around 2500
         let time = SystemTime::now().duration_since(self.start_time).unwrap().as_nanos() as u64;
 

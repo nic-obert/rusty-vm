@@ -9,10 +9,12 @@
 
 ### In Progress ···
 
+- [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] implement data declaration inside .text  
 - [ ] add programs written in asm  
 - [ ] add inline macros  
 - [ ] add support for floating point arithmetic  

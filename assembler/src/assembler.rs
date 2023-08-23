@@ -978,7 +978,8 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 return;
             }
 
-            // The line doesn't contain label declarations, macros, or special stuff: it is a regular instruction
+
+            // The line doesn't contain label declarations, macros, or special operators, so it's an instruction
             assemble_instruction(asm_unit, trimmed_line, line, line_number, &mut program_info.byte_code, &mut label_info.label_references);
 
         },
@@ -991,12 +992,72 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 }
 
 
+#[derive(Clone, Copy)]
+/// Enum representing assembly pseudo instructions
+enum PseudoInstruction {
+
+    DefineData = 0,
+
+}
+
+
+fn get_pseudo_instruction(name: &str) -> Option<PseudoInstruction> {
+
+    match name {
+
+        "dd" => Some(PseudoInstruction::DefineData),
+
+        _ => None
+    }
+}
+
+
+#[inline(always)]
+fn handle_pseudo_instruction(pi: PseudoInstruction, asm_unit: &AssemblyUnit, args: &str, line: &str, line_number: usize, byte_code: &mut ByteCode) {
+
+    match pi {
+
+        PseudoInstruction::DefineData => {
+
+            let (data_type_name, other) = args.split_once(char::is_whitespace).unwrap_or_else(
+                || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a type")
+            );
+
+            let data_type = DataType::from_name(data_type_name).unwrap_or_else(
+                || error::invalid_data_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
+            );
+
+            // The data string is everything following the data type
+            let data_string = other.trim();
+
+            // Encode the string data into byte code
+            let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
+
+            // Add the data to the byte code
+            byte_code.extend(encoded_data);
+        }
+
+    }
+
+}
+
+
+/// Assemble an instruction into byte code
 fn assemble_instruction(asm_unit: &AssemblyUnit, trimmed_line: &str, line: &str, line_number: usize, byte_code: &mut ByteCode, label_reference_registry: &mut LabelReferenceRegistry) {
 
     // Split the operator from its arguments
     let (operator_name, raw_tokens): (&str, &str) = trimmed_line.split_once(char::is_whitespace).unwrap_or((
         trimmed_line, ""
     ));
+
+
+    // Check for pseudo instructions
+    if let Some(pi) = get_pseudo_instruction(operator_name) {
+        handle_pseudo_instruction(pi, asm_unit, raw_tokens.trim_start(), line, line_number, byte_code);
+        return;
+    }
+
+    // The instruction is a regular instruction
 
     let operands = tokenize_operands(raw_tokens, line_number, line, asm_unit.path);
     

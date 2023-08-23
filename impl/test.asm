@@ -8,10 +8,13 @@
 
 .text:
 
-    %-ZERO: 0
-
 @start
 
-    !println_int =ZERO
+    jmp A
+    @S1
+        dd string "Hello\0"
+    @A
+
+    !println_str S1
     
 
