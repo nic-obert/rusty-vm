@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Rust:"
-find . -name "*.rs" | xargs wc -l | sort -nr
+find . -type f -name "*.rs" ! -wholename "**/target/*" | xargs wc -l | sort -nr
 
 echo $'\nAssembly:'
 find . -name "*.asm" | xargs wc -l | sort -nr
