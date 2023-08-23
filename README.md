@@ -97,11 +97,11 @@ The virtual machine has 17 8-byte registers. Registers are identified by their n
 | `stp`     | Stores the stack top pointer. |
 | `sbp`     | Stores the stack base pointer. |
 | `pc`      | Stores the program counter. |
-| `zf`      | Stores the zero flag. |
-| `sf`      | Stores the sign flag. |
-| `rf`      | Stores the remainder flag. |
-| `cf`      | Stores the carry flag. |
-| `of`      | Stores the overflow flag. |
+| `zf`      | Zero flag. Set to 1 if the last operation returned 0. Set to 0 otherwise. |
+| `sf`      | Sign flag. Set to 1 if the last operation returned a negative number. Set to 0 otherwise. |
+| `rf`      | Remainder flag. Stores the remainder of the last operation. Set to zero if there was no remainder.<br>In floating point arithmetic, it's set to 1 if the result was `NaN`. Set to zero otherwise. |
+| `cf`      | Carry flag. Set to 1 if the last operation had an overflowing carry bit. Set to zero otherwise.<br>In floating point arithmetic, it's set to 1 if the result was `+inf`. Set to zero otherwise. |
+| `of`      | Overflow flag. Set to 1 if the last operation overflowed or underflowed. Set to zero otherwise.<br>In floating point arithmetic, it's set to 1 if the result was `-inf`. Set to zero otherwise. |
 
 ## Assembly operators and symbols
 
@@ -218,6 +218,11 @@ The first operand is treated as the destination by the processor, whereas the se
 | `imul`      | Multiply the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
 | `idiv`      | Divide the integer values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
 | `imod`      | Store the remainder of the integer division between the values stored in registers `r1` and `r2` in register `r1`. Update the arithmetical flags. |
+| `fadd`      | Add the floating point values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `fsub`      | Subtract the floating point values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `fmul`      | Multiply the floating point values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `fdiv`      | Divide the floating point values stored in registers `r1` and `r2`. Store the result in register `r1`. Update the arithmetical flags. |
+| `fmod`      | Store the remainder of the floating point division between the values stored in registers `r1` and `r2` in register `r1`. Update the arithmetical flags. |
 | `inc a`     | Increment the integer value stored in the specified register `a`. Update the arithmetical flags. |
 | `inc1 a`    | Increment the 1-byte integer value stored at `a`. Update the arithmetical flags. |
 | `inc2 a`    | Increment the 2-byte integer value stored at `a`. Update the arithmetical flags. |

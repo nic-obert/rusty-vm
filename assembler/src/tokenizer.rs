@@ -1,8 +1,9 @@
 use std::mem;
 use std::path::Path;
 
-use rust_vm_lib::registers::Registers;
+use rust_vm_lib::registers::{Registers, REGISTER_SIZE};
 use rust_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
+use rust_vm_lib::vm::Address;
 
 use crate::error;
 use crate::argmuments_table;
@@ -193,9 +194,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         NumberFormat::Decimal => {
                             if let Some(digit) = c.to_digit(10) {
                                 *value = value.checked_mul(10).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
                                 ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
                                 );
         
                                 continue;
@@ -205,9 +206,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         NumberFormat::Hexadecimal => {
                             if let Some(digit) = c.to_digit(16) {
                                 *value = value.checked_mul(16).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
                                 ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
                                 );
         
                                 continue;
@@ -217,9 +218,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         NumberFormat::Binary => {
                             if let Some(digit) = c.to_digit(2) {
                                 *value = value.checked_mul(2).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
                                 ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value as i64, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
                                 );
         
                                 continue;
@@ -236,6 +237,8 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
 
                             continue;
                         },
+
+                        NumberFormat::Float { .. } => unreachable!("Cannot have a float address literal. This is a bug."),
 
                     }  
 
@@ -301,12 +304,29 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
 
                         NumberFormat::Decimal => {
                             if let Some(digit) = c.to_digit(10) {
-                                *value = value.checked_mul(10).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
-                                ).checked_add(digit as i64).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
-                                );
-        
+
+                                if matches!(sign, NumberSign::Negative) {
+
+                                    *value = value.checked_mul(10).unwrap_or_else(
+                                        || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
+                                    ).checked_add(digit as i64).unwrap_or_else(
+                                        || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
+                                    );
+
+                                } else {
+
+                                    *value = (*value as u64).checked_mul(10).unwrap_or_else(
+                                        || error::number_out_of_range::<u64>(unit_path, format!("{}{}", *value as u64, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
+                                    ).checked_add(digit as u64).unwrap_or_else(
+                                        || error::number_out_of_range::<u64>(unit_path, format!("{}{}", *value as u64, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
+                                    ) as i64;
+
+                                }
+
+                                continue;
+
+                            } else if c == '.' {
+                                *format = NumberFormat::Float { decimal: String::new() };
                                 continue;
                             }
         
@@ -319,9 +339,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         NumberFormat::Hexadecimal => {
                             if let Some(digit) = c.to_digit(16) {
                                 *value = value.checked_mul(16).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
                                 ).checked_add(digit as i64).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
                                 );
         
                                 continue;
@@ -331,9 +351,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                         NumberFormat::Binary => {
                             if let Some(digit) = c.to_digit(2) {
                                 *value = value.checked_mul(2).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
                                 ).checked_add(digit as i64).unwrap_or_else(
-                                    || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
                                 );
         
                                 continue;
@@ -352,9 +372,9 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                                         *format = NumberFormat::Decimal;
 
                                         *value = value.checked_mul(10).unwrap_or_else(
-                                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                            || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
                                         ).checked_add(digit as i64).unwrap_or_else(
-                                            || error::number_out_of_range(unit_path, *value, mem::size_of::<i64>() as u8, line_number, line)
+                                            || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
                                         );
 
                                     } else {
@@ -365,6 +385,29 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                             }
 
                             continue;
+                        },
+                        
+                        NumberFormat::Float { decimal } => {
+                            if c.is_ascii_digit() {
+                                decimal.push(c);
+                                continue;
+                            }
+
+                            if c == '.' {
+                                error::invalid_character(unit_path, c, line_number, char_index, line, "Floats can only have one decimal point.");
+                            }
+
+                            let decimal = decimal.parse::<f64>().unwrap_or_else(
+                                |e| error::invalid_float_number(unit_path, format!("{}.{}", value, decimal).as_str(), line_number, line, e.to_string().as_str())
+                            );
+
+                            // After the decimal number is constructed, evaluate its sign
+                            if matches!(sign, NumberSign::Negative) {
+                                *value = (*value as f64 - decimal) as i64;
+                            } else {
+                                *value = (*value as f64 + decimal) as i64;
+                            }
+
                         },
 
                     }                    
@@ -395,6 +438,11 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
 
         match c {
             ' ' | '\t' => continue,
+
+            '.' => {
+                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Float { decimal: String::new() } }));
+                continue;
+            }
 
             '+' => {
                 current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));

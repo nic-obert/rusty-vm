@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use indoc::printdoc;
+use num::{FromPrimitive, Num};
+use num::traits::ToBytes;
 
 use rust_vm_lib::token::Token;
 
@@ -249,7 +251,9 @@ pub fn invalid_token_argument(unit_path: &Path, instruction: &str, arg: &Token, 
 }
 
 
-pub fn number_out_of_range(unit_path: &Path, number: i64, size_bytes: u8, line_number: usize, line: &str) -> ! {
+pub fn number_out_of_range<N>(unit_path: &Path, number: &str, radix: u32, size_bytes: u8, line_number: usize, line: &str) -> ! 
+    where N: Num + ToBytes + FromPrimitive
+{
     printdoc!("
         Error in assembly unit \"{}\"
 
@@ -259,7 +263,23 @@ pub fn number_out_of_range(unit_path: &Path, number: i64, size_bytes: u8, line_n
         The number must fit in {} bytes.
         Bytes: {:?}
         ",
-        unit_path.display(), number, line_number, line, size_bytes, number.to_le_bytes()
+        unit_path.display(), number, line_number, line, size_bytes,
+        N::from_str_radix(number, radix).map(|n| n.to_le_bytes()).unwrap_or(N::from_f32(f32::NAN).unwrap().to_le_bytes())
+    );
+    std::process::exit(1);
+}
+
+
+pub fn invalid_float_number(unit_path: &Path, number: &str, line_number: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        Error in assembly unit \"{}\"
+
+        Invalid float number {} at line {}:
+        {}
+
+        {}
+        ",
+        unit_path.display(), number, line_number, line, hint
     );
     std::process::exit(1);
 }

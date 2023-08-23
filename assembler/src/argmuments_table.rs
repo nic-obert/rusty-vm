@@ -170,6 +170,16 @@ const IDIV_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_DIV,
 
 const IMOD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::INTEGER_MOD, 0, 0));
 
+const FADD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::FLOAT_ADD, 0, 0));  
+
+const FSUB_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::FLOAT_SUB, 0, 0));
+
+const FMUL_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::FLOAT_MUL, 0, 0));
+
+const FDIV_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::FLOAT_DIV, 0, 0));
+
+const FMOD_ARGS: ArgTable = ArgTable::Zero(Mnemonic::new(ByteCodes::FLOAT_MOD, 0, 0));
+
 const INC_ARGS: ArgTable = ArgTable::One([ 
     // Register
     Some(Mnemonic::new(ByteCodes::INC_REG, 0, REGISTER_ID_SIZE)),
@@ -1522,6 +1532,16 @@ pub fn get_arguments_table(operator_name: &str) -> Option<&'static ArgTable> {
         "idiv" => &IDIV_ARGS,
 
         "imod" => &IMOD_ARGS,
+
+        "fadd" => &FADD_ARGS,
+
+        "fsub" => &FSUB_ARGS,
+
+        "fmul" => &FMUL_ARGS,
+
+        "fdiv" => &FDIV_ARGS,
+
+        "fmod" => &FMOD_ARGS,
 
         "inc" => &INC_ARGS, 
     

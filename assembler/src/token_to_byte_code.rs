@@ -86,6 +86,11 @@ fn convert_no_operands_generic(_operands: Vec<Token>, _handled_size: u8, _label_
     assert_exists!(ByteCodes::INTEGER_MUL);
     assert_exists!(ByteCodes::INTEGER_DIV);
     assert_exists!(ByteCodes::INTEGER_MOD);
+    assert_exists!(ByteCodes::FLOAT_ADD);
+    assert_exists!(ByteCodes::FLOAT_SUB);
+    assert_exists!(ByteCodes::FLOAT_MUL);
+    assert_exists!(ByteCodes::FLOAT_DIV);
+    assert_exists!(ByteCodes::FLOAT_MOD);
     assert_exists!(ByteCodes::NO_OPERATION);
     assert_exists!(ByteCodes::RETURN);
     assert_exists!(ByteCodes::AND);
@@ -211,7 +216,7 @@ fn convert_move_into_reg_from_const(mut operands: Vec<Token>, handled_size: u8, 
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -282,7 +287,7 @@ fn convert_move_into_addr_in_reg_from_const(mut operands: Vec<Token>, handled_si
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -381,7 +386,7 @@ fn convert_move_into_addr_literal_from_const(mut operands: Vec<Token>, handled_s
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -450,7 +455,7 @@ fn convert_push_from_const(mut operands: Vec<Token>, handled_size: u8, label_reg
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -512,7 +517,7 @@ fn convert_push_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, 
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -613,7 +618,7 @@ fn convert_pop_stack_pointer_const(mut operands: Vec<Token>, handled_size: u8, l
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -710,7 +715,7 @@ fn convert_compare_reg_const(mut operands: Vec<Token>, handled_size: u8, label_r
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -781,7 +786,7 @@ fn convert_compare_addr_in_reg_const(mut operands: Vec<Token>, handled_size: u8,
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -827,7 +832,7 @@ fn convert_compare_const_reg(mut operands: Vec<Token>, handled_size: u8, label_r
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -854,7 +859,7 @@ fn convert_compare_const_addr_in_reg(mut operands: Vec<Token>, handled_size: u8,
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -881,7 +886,7 @@ fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -895,7 +900,7 @@ fn convert_compare_const_const(mut operands: Vec<Token>, handled_size: u8, label
     match &mut operands[1].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -919,7 +924,7 @@ fn convert_compare_const_addr_literal(mut operands: Vec<Token>, handled_size: u8
     match &mut operands[0].value {
         TokenValue::Number { value, .. }=> {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -1005,7 +1010,7 @@ fn convert_compare_addr_literal_const(mut operands: Vec<Token>, handled_size: u8
     match &mut operands[1].value {
         TokenValue::Number { value, .. } => {
             let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, handled_size, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -1074,7 +1079,7 @@ fn convert_interrupt_const(mut operands: Vec<Token>, _handled_size: u8, _label_r
     match &mut operands[0].value {
         TokenValue::Number { value, .. } => {
             let repr = fit_into_bytes(*value, 1).unwrap_or_else(
-                || error::number_out_of_range(unit_path, *value, 1, line_number, line)
+                || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, 1, line_number, line)
             );
             bytes.extend(repr);
         },
@@ -1103,11 +1108,17 @@ fn convert_interrupt_addr_literal(mut operands: Vec<Token>, _handled_size: u8, l
 /// The following functions are used to convert the operand tokens to bytes.
 const INSTRUCTION_CONVERSION_TABLE: [ TokenConverter; BYTE_CODE_COUNT ] = [
 
-    convert_no_operands_generic, // ByteCodes::ADD
-    convert_no_operands_generic, // ByteCodes::SUB
-    convert_no_operands_generic, // ByteCodes::MUL
-    convert_no_operands_generic, // ByteCodes::DIV
-    convert_no_operands_generic, // ByteCodes::MOD
+    convert_no_operands_generic, // ByteCodes::INTEGER_ADD
+    convert_no_operands_generic, // ByteCodes::INTEGER_SUB
+    convert_no_operands_generic, // ByteCodes::INTEGER_MUL
+    convert_no_operands_generic, // ByteCodes::INTEGER_DIV
+    convert_no_operands_generic, // ByteCodes::INTEGER_MOD
+
+    convert_no_operands_generic, // ByteCodes::FLOAT_ADD
+    convert_no_operands_generic, // ByteCodes::FLOAT_SUB
+    convert_no_operands_generic, // ByteCodes::FLOAT_MUL
+    convert_no_operands_generic, // ByteCodes::FLOAT_DIV
+    convert_no_operands_generic, // ByteCodes::FLOAT_MOD
 
     convert_inc_reg, 
     convert_inc_addr_in_reg,

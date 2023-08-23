@@ -9,6 +9,12 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
     "INTEGER_DIV",
     "INTEGER_MOD",
 
+    "FLOAT_ADD",
+    "FLOAT_SUB",
+    "FLOAT_MUL",
+    "FLOAT_DIV",
+    "FLOAT_MOD",
+
     "INC_REG",
     "INC_ADDR_IN_REG",
     "INC_ADDR_LITERAL",
@@ -112,6 +118,12 @@ pub enum ByteCodes {
     INTEGER_MUL,
     INTEGER_DIV,
     INTEGER_MOD,
+
+    FLOAT_ADD,
+    FLOAT_SUB,
+    FLOAT_MUL,
+    FLOAT_DIV,
+    FLOAT_MOD,
 
     INC_REG,
     INC_ADDR_IN_REG,

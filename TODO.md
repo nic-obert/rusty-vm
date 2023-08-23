@@ -3,7 +3,6 @@
 ### Todo
 
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
-- [ ] add support for floating point arithmetic  
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
@@ -15,6 +14,7 @@
 
 ### Done ✅
 
+- [ ] add support for floating point arithmetic  
 - [ ] implement other more appropriate allocators  
 - [ ] add stackoverflow checks when pushing  
 - [ ] add .bss section  

@@ -8,6 +8,8 @@ pub enum NumberFormat {
     Decimal,
     Hexadecimal,
     Binary,
+    Float { decimal: String },
+
     Unknown,
 }
 

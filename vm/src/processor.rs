@@ -522,7 +522,7 @@ impl Processor {
     // Instruction handlers
 
 
-    fn handle_add(&mut self) {
+    fn handle_integer_add(&mut self) {
         assert_exists!(ByteCodes::INTEGER_ADD);
 
         let r1 = self.get_register(Registers::R1);
@@ -545,7 +545,7 @@ impl Processor {
     }
 
 
-    fn handle_sub(&mut self) {
+    fn handle_integer_sub(&mut self) {
         assert_exists!(ByteCodes::INTEGER_SUB);
         
         let r1 = self.get_register(Registers::R1);
@@ -568,7 +568,7 @@ impl Processor {
     }
 
 
-    fn handle_mul(&mut self) {
+    fn handle_integer_mul(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MUL);
         
         let r1 = self.get_register(Registers::R1);
@@ -591,7 +591,7 @@ impl Processor {
     }
 
 
-    fn handle_div(&mut self) {
+    fn handle_integer_div(&mut self) {
         assert_exists!(ByteCodes::INTEGER_DIV);
 
         let r1 = self.get_register(Registers::R1);
@@ -617,7 +617,7 @@ impl Processor {
     }
 
 
-    fn handle_mod(&mut self) {
+    fn handle_integer_mod(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MOD);
         
         let r1 = self.get_register(Registers::R1);
@@ -638,6 +638,111 @@ impl Processor {
             0,
             false,
             false
+        );
+    }
+
+
+    fn handle_float_add(&mut self) {
+        assert_exists!(ByteCodes::FLOAT_ADD);
+
+        let r1 = self.get_register(Registers::R1) as f64;
+        let r2 = self.get_register(Registers::R2) as f64;
+        
+        let result = r1 + r2;
+
+        self.set_register(Registers::R1, result as u64);
+
+        self.set_arithmetical_flags(
+            result == 0.0,
+            result.is_sign_negative(),
+            // Use unused integer flags as float flags
+            result.is_nan() as u64,
+            result.is_infinite() && result.is_sign_positive(),
+            result.is_infinite() && result.is_sign_negative()
+        );
+    }
+
+
+    fn handle_float_sub(&mut self) {
+        assert_exists!(ByteCodes::FLOAT_SUB);
+
+        let r1 = self.get_register(Registers::R1) as f64;
+        let r2 = self.get_register(Registers::R2) as f64;
+        
+        let result = r1 - r2;
+
+        self.set_register(Registers::R1, result as u64);
+
+        self.set_arithmetical_flags(
+            result == 0.0,
+            result.is_sign_negative(),
+            // Use unused integer flags as float flags
+            result.is_nan() as u64,
+            result.is_infinite() && result.is_sign_positive(),
+            result.is_infinite() && result.is_sign_negative()
+        );
+    }
+
+
+    fn handle_float_mul(&mut self) {
+        assert_exists!(ByteCodes::FLOAT_MUL);
+
+        let r1 = self.get_register(Registers::R1) as f64;
+        let r2 = self.get_register(Registers::R2) as f64;
+        
+        let result = r1 * r2;
+
+        self.set_register(Registers::R1, result as u64);
+
+        self.set_arithmetical_flags(
+            result == 0.0,
+            result.is_sign_negative(),
+            // Use unused integer flags as float flags
+            result.is_nan() as u64,
+            result.is_infinite() && result.is_sign_positive(),
+            result.is_infinite() && result.is_sign_negative()
+        );
+    }
+
+
+    fn handle_float_div(&mut self) {
+        assert_exists!(ByteCodes::FLOAT_DIV);
+
+        let r1 = self.get_register(Registers::R1) as f64;
+        let r2 = self.get_register(Registers::R2) as f64;
+        
+        let result = r1 / r2;
+
+        self.set_register(Registers::R1, result as u64);
+
+        self.set_arithmetical_flags(
+            result == 0.0,
+            result.is_sign_negative(),
+            // Use unused integer flags as float flags
+            result.is_nan() as u64,
+            result.is_infinite() && result.is_sign_positive(),
+            result.is_infinite() && result.is_sign_negative()
+        );
+    }
+
+
+    fn handle_float_mod(&mut self) {
+        assert_exists!(ByteCodes::FLOAT_MOD);
+
+        let r1 = self.get_register(Registers::R1) as f64;
+        let r2 = self.get_register(Registers::R2) as f64;
+        
+        let result = r1 % r2;
+
+        self.set_register(Registers::R1, result as u64);
+
+        self.set_arithmetical_flags(
+            result == 0.0,
+            result.is_sign_negative(),
+            // Use unused integer flags as float flags
+            result.is_nan() as u64,
+            result.is_infinite() && result.is_sign_positive(),
+            result.is_infinite() && result.is_sign_negative()
         );
     }
 
@@ -1723,11 +1828,17 @@ impl Processor {
 
 
     const INSTRUCTION_HANDLER_TABLE: [ fn(&mut Self); BYTE_CODE_COUNT ] = [
-        Self::handle_add,
-        Self::handle_sub,
-        Self::handle_mul,
-        Self::handle_div,
-        Self::handle_mod,
+        Self::handle_integer_add,
+        Self::handle_integer_sub,
+        Self::handle_integer_mul,
+        Self::handle_integer_div,
+        Self::handle_integer_mod,
+
+        Self::handle_float_add,
+        Self::handle_float_sub,
+        Self::handle_float_mul,
+        Self::handle_float_div,
+        Self::handle_float_mod,
 
         Self::handle_inc_reg,
         Self::handle_inc_addr_in_reg,
