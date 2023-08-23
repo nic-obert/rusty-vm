@@ -2,16 +2,16 @@
 .include:
 
     stdio.asm
-    time.asm
 
 .data:
 
 
 .text:
 
+    %-ZERO: 0
+
 @start
 
-    !elapsed_nanos
-
-    !println_uint r1
+    !println_int =ZERO
+    
 

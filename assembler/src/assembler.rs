@@ -4,7 +4,7 @@ use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::data_types::DataType;
 use crate::error;
-use crate::tokenizer::{tokenize_operands, is_identifier_name, is_reserved_name};
+use crate::tokenizer::{tokenize_operands, is_identifier_name, is_reserved_name, is_identifier_char};
 use crate::argmuments_table::get_arguments_table;
 use crate::token_to_byte_code::{get_token_converter, use_converter};
 use crate::files;
@@ -43,6 +43,36 @@ impl MacroDefinition {
             unit_path,
             line_number,
             to_export,
+        }
+    }
+
+}
+
+
+/// Maps a contant macro name to its definition
+pub type ConstMacroMap = HashMap<String, ConstMacroDefinition>;
+
+
+#[derive(Clone, Debug)]
+/// Represents a constant macro definition in the assembly code
+pub struct ConstMacroDefinition {
+
+    pub name: String,
+    pub replace: String,
+    pub unit_path: PathBuf,
+    pub line_number: usize,
+
+}
+
+
+impl ConstMacroDefinition {
+
+    pub fn new(name: String, replace: String, unit_path: PathBuf, line_number: usize) -> ConstMacroDefinition {
+        ConstMacroDefinition {
+            name,
+            replace,
+            unit_path,
+            line_number,
         }
     }
 
@@ -164,6 +194,8 @@ struct MacroInfo {
     pub current_macro: Option<MacroDefinition>,
     pub local_macros: MacroMap,
     pub export_macros: MacroMap,
+    pub local_const_macros: ConstMacroMap,
+    pub export_const_macros: ConstMacroMap,
 
 }
 
@@ -175,6 +207,8 @@ impl MacroInfo {
             current_macro: None,
             local_macros: MacroMap::new(),
             export_macros: MacroMap::new(),
+            local_const_macros: ConstMacroMap::new(),
+            export_const_macros: ConstMacroMap::new(),
         }
     }
 
@@ -223,7 +257,7 @@ impl ProgramInfo {
 }
 
 
-type ASMUnitMap = HashMap<PathBuf, (LabelMap, MacroMap)>;
+type ASMUnitMap = HashMap<PathBuf, (LabelMap, MacroMap, ConstMacroMap)>;
 
 
 struct AssemblyUnit<'a> {
@@ -294,13 +328,17 @@ fn load_asm_unit(unit_name: &str, current_unit_path: &Path) -> io::Result<(PathB
 
 
 /// Evaluates special compile time assembly symbols and returns the evaluated line
+/// 
 /// Substitutes $ symbols with the current binary address
+/// 
 /// Does not substitute $ symbols inside strings or character literals
+/// 
 /// Does not evaluate escape characters inside strings or character literals
-fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_number: usize, unit_path: &Path) -> String {
+fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_number: usize, unit_path: &Path, local_const_macros: &ConstMacroMap) -> String {
 
     enum TextType {
         Asm,
+        ConstMacro { starts_at: usize },
         String { starts_at: (usize, usize) },
         Char {starts_at: (usize, usize) },
     }
@@ -331,6 +369,9 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                     '#' => {
                         // Skip comments
                         break;
+                    }
+                    '=' => {
+                        text_type = TextType::ConstMacro { starts_at: char_index };
                     }
                     _ => {
                         evaluated_line.push(c);
@@ -364,7 +405,25 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                     escape_char = true;
                 }
 
-            }
+            },
+
+            TextType::ConstMacro { starts_at } => {
+
+                if is_identifier_char(c, starts_at + 1 == char_index) {
+                    continue;
+                }
+
+                // The const macro name is finished
+                let const_macro_name = &line[starts_at + 1..char_index];
+
+                let const_macro = local_const_macros.get(const_macro_name).unwrap_or_else(
+                    || error::undeclared_const_macro(unit_path, const_macro_name, local_const_macros, line_number, line)
+                );
+
+                evaluated_line.push_str(const_macro.replace.as_str());
+
+                text_type = TextType::Asm;
+            },
 
         }
     }
@@ -380,6 +439,17 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
         TextType::String { starts_at } => {
             error::unclosed_string_literal(unit_path, starts_at.0, starts_at.1, line);
         }
+        TextType::ConstMacro { starts_at } => {
+
+            // The const macro name is finished
+            let const_macro_name = &line[starts_at + 1..];
+
+            let const_macro = local_const_macros.get(const_macro_name).unwrap_or_else(
+                || error::undeclared_const_macro(unit_path, const_macro_name, local_const_macros, line_number, line)
+            );
+
+            evaluated_line.push_str(const_macro.replace.as_str());
+        }
     }
 
     evaluated_line
@@ -390,18 +460,19 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
 fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut ProgramInfo) {
 
     // Check if the assembly unit has already been included
-    if let Some((exported_labels, exported_macros)) = program_info.included_units.get(asm_unit.path) {
+    if let Some((exported_labels, exported_macros, exported_const_macros)) = program_info.included_units.get(asm_unit.path) {
         if verbose {
             println!("Unit already included: {}", asm_unit.path.display());
             println!("Exported labels: {:?}\n", exported_labels.keys());
             println!("Exported macros: {:?}\n", exported_macros.keys());
+            println!("Exported const macros: {:?}\n", exported_const_macros.keys());
         }
 
-        program_info.included_units.insert(asm_unit.path.to_path_buf(), (exported_labels.clone(), exported_macros.clone()));
+        program_info.included_units.insert(asm_unit.path.to_path_buf(), (exported_labels.clone(), exported_macros.clone(), exported_const_macros.clone()));
         return;
     }
     // Insert a temporary entry in the included units map to avoid infinite recursive unit inclusion
-    program_info.included_units.insert(asm_unit.path.to_path_buf(), (LabelMap::new(), MacroMap::new()));
+    program_info.included_units.insert(asm_unit.path.to_path_buf(), (LabelMap::new(), MacroMap::new(), ConstMacroMap::new()));
 
 
     if verbose {
@@ -426,7 +497,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
         }
 
         // Evaluate the compile-time special symbols
-        let evaluated_line = evaluate_special_symbols(line, program_info.byte_code.len(), line_number, asm_unit.path);
+        let evaluated_line = evaluate_special_symbols(line, program_info.byte_code.len(), line_number, asm_unit.path, &macro_info.local_const_macros);
 
         // Remove redundant whitespaces
         let trimmed_line = evaluated_line.trim();
@@ -473,11 +544,12 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
             println!("\nEnd of assembly unit {} ({})\n", asm_unit.path.file_name().unwrap().to_string_lossy(), asm_unit.path.display());
             println!("Exported labels: {:?}\n", label_info.export_labels.keys());
             println!("Exported macros: {:?}\n", macro_info.export_macros.keys());
+            println!("Exported const macros: {:?}\n", macro_info.export_const_macros.keys());
         }
     }
 
     // Add the assembly unit to the included units
-    program_info.included_units.insert(asm_unit.path.to_path_buf(), (label_info.export_labels, macro_info.export_macros));
+    program_info.included_units.insert(asm_unit.path.to_path_buf(), (label_info.export_labels, macro_info.export_macros, macro_info.export_const_macros));
 
 }
 
@@ -565,7 +637,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 
             } else {
                 // The line is part of the macro body
-                macro_definition.body.push(line.trim().to_string());
+                macro_definition.body.push(trimmed_line.to_string());
             }
 
         },
@@ -591,17 +663,19 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             // Assemble the included assembly unit
             assemble_unit(new_asm_unit, verbose, program_info);
                 
-            let (exported_labels, exported_macros): &(LabelMap, MacroMap) = program_info.included_units.get(&include_path).unwrap_or_else(
+            let (exported_labels, exported_macros, exported_const_macros): &(LabelMap, MacroMap, ConstMacroMap) = program_info.included_units.get(&include_path).unwrap_or_else(
                 || panic!("Internal assembler error: included unit not found in included units map. This is a bug.")
             );
 
             if to_export {
                 label_info.export_labels.extend(exported_labels.clone());
                 macro_info.export_macros.extend(exported_macros.clone());
+                macro_info.export_const_macros.extend(exported_const_macros.clone());
             }
 
             label_info.local_labels.extend(exported_labels.clone());
             macro_info.local_macros.extend(exported_macros.clone());
+            macro_info.local_const_macros.extend(exported_const_macros.clone());
 
         },
 
@@ -752,9 +826,18 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 // Check if the macro is to be exported (double consecutive %)
                 let (macro_declaration, to_export): (&str, bool) = {
                     if let Some(macro_declaration) = macro_declaration.strip_prefix('%') {
-                        (macro_declaration.trim(), true)
+                        (macro_declaration.trim_start(), true)
                     } else {
-                        (macro_declaration.trim(), false)
+                        (macro_declaration.trim_start(), false)
+                    }
+                };
+
+                // Check if this is a const macro declaration
+                let (macro_declaration, is_const_macro): (&str, bool) = {
+                    if let Some(macro_declaration) = macro_declaration.strip_prefix('-') {
+                        (macro_declaration.trim_start(), true)
+                    } else {
+                        (macro_declaration.trim_start(), false)
                     }
                 };
 
@@ -770,6 +853,33 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
 
                 if is_reserved_name(macro_name) {
                     error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, format!("\"{}\" is a reserved name.", macro_name).as_str());
+                }
+
+                // Constant macros don't accept arguments
+                if is_const_macro {
+
+                    let replace = post.trim_start();
+
+                    if replace.is_empty() {
+                        error::invalid_macro_declaration(asm_unit.path, macro_name, line_number, line, "Constant macros must have a replacement text value");
+                    }
+
+                    let macro_declaration = ConstMacroDefinition::new(
+                        macro_name.to_string(), 
+                        replace.to_string(), 
+                        asm_unit.path.to_path_buf(), 
+                        line_number
+                    );
+
+                    if macro_info.local_const_macros.insert(macro_name.to_string(), macro_declaration.clone()).is_some() {
+                        error::macro_redeclaration(asm_unit.path, macro_name, line_number, line);
+                    }
+
+                    if to_export {
+                        macro_info.export_const_macros.insert(macro_name.to_string(), macro_declaration);
+                    }
+
+                    return;
                 }
 
                 let post = post.trim();
@@ -933,7 +1043,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path, just_ch
 
     // Append the address of the program start to the end of the binary
 
-    let (label_map, _macro_map) = program_info.included_units.get(unit_path).unwrap_or_else(
+    let (label_map, _macro_map, _const_macro_map) = program_info.included_units.get(unit_path).unwrap_or_else(
         || panic!("Internal assembler error: main assembly unit not found in included units map. This is a bug.")
     );
 

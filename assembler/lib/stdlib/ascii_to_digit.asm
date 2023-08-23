@@ -34,6 +34,6 @@
 @ invalid
 
     # Set the error code and return
-    mov1 error [INVALID_INPUT]
+    mov1 error =INVALID_INPUT
     ret
 

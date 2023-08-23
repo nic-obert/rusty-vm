@@ -11,21 +11,21 @@
 
     %% input_signed:
 
-        intr [INPUT_SIGNED]
+        intr =INPUT_SIGNED
 
     %endmacro
 
 
     %% input_unsigned:
 
-        intr [INPUT_UNSIGNED]
+        intr =INPUT_UNSIGNED
 
     %endmacro
 
 
     %% input_str:
 
-        intr [INPUT_STRING]
+        intr =INPUT_STRING
 
     %endmacro
 

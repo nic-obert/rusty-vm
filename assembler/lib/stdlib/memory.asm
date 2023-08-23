@@ -13,7 +13,7 @@
     %% malloc size:
 
         mov8 r1 {size}
-        intr [MALLOC]
+        intr =MALLOC
 
     %endmacro
 
@@ -22,7 +22,7 @@
     %% free addr:
 
         mov8 r1 {addr}
-        intr [FREE]
+        intr =FREE
 
     %endmacro
 
@@ -49,7 +49,7 @@
         # Save into r2 the bytes to initialize
         mov r2 r1
 
-        intr [MALLOC]
+        intr =MALLOC
         
         # r1 is now the address of the memory block
 

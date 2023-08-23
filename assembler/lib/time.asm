@@ -11,14 +11,14 @@
 
     %% time_nanos:
 
-        intr [HOST_TIME_NANOS]
+        intr =HOST_TIME_NANOS
 
     %endmacro
 
 
     %% time_micros:
 
-        intr [HOST_TIME_NANOS]
+        intr =HOST_TIME_NANOS
         mov2 r2 1000
         idiv
 
@@ -27,7 +27,7 @@
 
     %% time_millis:
 
-        intr [HOST_TIME_NANOS]
+        intr =HOST_TIME_NANOS
         mov4 r2 1000000
         idiv
     
@@ -36,7 +36,7 @@
 
     %% time_secs:
 
-        intr [HOST_TIME_NANOS]
+        intr =HOST_TIME_NANOS
         mov4 r2 1000000000
         idiv
 
@@ -45,14 +45,14 @@
 
     %% elapsed_nanos:
 
-        intr [ELAPSED_TIME_NANOS]
+        intr =ELAPSED_TIME_NANOS
 
     %endmacro
 
 
     %% elapsed_micros:
 
-        intr [ELAPSED_TIME_NANOS]
+        intr =ELAPSED_TIME_NANOS
         mov2 r2 1000
         idiv
 
@@ -61,7 +61,7 @@
 
     %% elapsed_millis:
 
-        intr [ELAPSED_TIME_NANOS]
+        intr =ELAPSED_TIME_NANOS
         mov4 r2 1000000
         idiv
 
@@ -70,7 +70,7 @@
 
     %% elapsed_secs:
 
-        intr [ELAPSED_TIME_NANOS]
+        intr =ELAPSED_TIME_NANOS
         mov4 r2 1000000000
         idiv
 

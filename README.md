@@ -27,6 +27,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
     - [Address literals](#address-literals)
     - [Labels](#labels)
     - [Macros](#macros)
+    - [Constant macros](#constant-macros)
   - [Assembly instructions](#assembly-instructions)
     - [Arithmetical instructions](#arithmetical-instructions)
     - [No operation instructions](#no-operation-instructions)
@@ -202,6 +203,38 @@ To export a macro, prefix it with a double `%` instead.
   # Using an exported macro
   !my_macro
 ```
+
+### Constant macros
+
+Constant macros are compile-time symbols that represent text to be inserted in the source code. Constant macros are declared in the assembly code by prefixing them with the `%-` symbol.
+Constant macros can only be declared and referenced in the `.text:` section of the assembly code. A constant macro must be declared before it's used.  
+Constant macros don't accept arguments.  
+To use a constant macro, prefix its reference with the `=` symbol.  
+
+```asm
+.text:
+
+  # Defining a constant macro
+  %-ZERO: 0
+
+  # Using a constant macro
+  mov1 r1 =ZERO
+```
+
+To export a constant macro, prefix it with `%%-` instead.
+
+```asm
+.text:
+
+  # Exporting a constant macro
+  %%-ZERO: 0
+
+  # Using an exported constant macro
+  mov1 r1 =ZERO
+```
+
+Constant macros are useful to define constants that are not supported by the assembly language. Moreover, constant macros aren't compiled into the binary, so they don't take up any static data space.
+
 
 ## Assembly instructions
 

@@ -6,7 +6,7 @@ use num::traits::ToBytes;
 
 use rust_vm_lib::token::Token;
 
-use crate::assembler::{LabelMap, MacroMap};
+use crate::assembler::{LabelMap, MacroMap, ConstMacroMap};
 
 
 pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
@@ -19,6 +19,25 @@ pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str
         {}
         ",
         unit_path.display(), line_number, line, hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn undeclared_const_macro(unit_path: &Path, macro_name: &str, local_const_macros: &ConstMacroMap, line_number: usize, line: &str) -> ! {
+    printdoc!("
+        Error in assembly unit \"{}\"
+
+        Undeclared const macro \"{}\" at line {}:
+        {}
+
+        Available const macros are:
+        {}
+        ",
+        unit_path.display(), macro_name, line_number, line,
+        local_const_macros.iter().map(
+            |(name, def)| format!("{} in {}", name, def.unit_path.display())
+        ).collect::<Vec<String>>().join("\n")
     );
     std::process::exit(1);
 }

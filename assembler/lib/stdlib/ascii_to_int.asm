@@ -77,7 +77,7 @@
         call ascii_to_digit
 
         # Check for errors
-        cmp1 error [INVALID_INPUT]
+        cmp1 error =INVALID_INPUT
 
         jmpz endloop_num
 
@@ -104,7 +104,7 @@
     @ endloop_num
 
     # Clean error register
-    mov1 error [NO_ERROR]
+    mov1 error =NO_ERROR
 
     # Move the output into r1 for operations
     mov r1 r7

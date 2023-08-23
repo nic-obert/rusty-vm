@@ -11,7 +11,7 @@
 
     %% rand:
 
-        intr [RAND]
+        intr =RANDOM
     
     %endmacro
 

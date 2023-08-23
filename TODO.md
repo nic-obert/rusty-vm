@@ -10,6 +10,7 @@
 
 ### In Progress ···
 
+- [ ] add inline macros  
 - [ ] test the new vm  
 
 ### Done ✅
