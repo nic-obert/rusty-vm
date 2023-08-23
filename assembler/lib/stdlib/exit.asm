@@ -6,7 +6,7 @@
 
     %% _exit code:
 
-        mov1 error [{code}]
+        mov1 exit {code}
         exit
 
     %endmacro

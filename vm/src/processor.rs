@@ -2044,7 +2044,7 @@ impl Processor {
                     return;
                 }
 
-                match input.parse::<u64>() {
+                match input.trim().parse::<u64>() {
                     Ok(value) => {
                         self.set_register(Registers::INPUT, value);
                         self.set_error(ErrorCodes::NoError);

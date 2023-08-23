@@ -6,15 +6,15 @@
 - [ ] update the disassembler  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
-- [ ] add programs written in asm  
 
 ### In Progress ···
 
-- [ ] add inline macros  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] add programs written in asm  
+- [ ] add inline macros  
 - [ ] add support for floating point arithmetic  
 - [ ] implement other more appropriate allocators  
 - [ ] add stackoverflow checks when pushing  
