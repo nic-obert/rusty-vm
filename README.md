@@ -112,7 +112,7 @@ The `$` symbol represents the current address in the binary as it's being assemb
 The assembler will replace every `$` symbol with the literal current address at the time of the assembly.  
 Note that `$` has no knowledge of runtime stack pointers, so it's undefined behavior to use it inside procedures.
 
-```asm
+```py
 mov1 r1 $
 ```
 
@@ -121,7 +121,7 @@ mov1 r1 $
 Address literals are used to specify a memory address in the binary.
 Address lierals are 8-byte unsigned integers enclosed in square brackets.
 
-```asm
+```py
 mov1 r1 [1234]
 ```
 
@@ -130,7 +130,7 @@ mov1 r1 [1234]
 A label is a compile time symbol that represents a memory address in the binary. Labels are declared in the assembly code using the `@` symbol. To export a label, prefix it with `@@` instead.  
 Label names can only contain alphabetic characters and underscores. Also, they must not overwrite any of the reserved assembly instructions or registers.
 
-```asm
+```py
 # Regular label
 @my_label
 
@@ -145,7 +145,7 @@ Macros can only be declared and reference in the `.text:` section of the assembl
 Macros work internally by replacing every reference to them in the source code with the actual instructions they represent.  
 Note that you cannot declare a macro inside another macro.
 
-```asm
+```py
 .text:
 
   # Defining a macro
@@ -169,7 +169,7 @@ Note that you cannot declare a macro inside another macro.
 Macros may accept a number of space-separated positional arguments, specified after the macro name.  
 The arguments are referenced in the macro body by enclosing their name in curly brackets: `{arg_name}`.
 
-```asm
+```py
 .text:
 
   # Defining a macro with arguments
@@ -187,7 +187,7 @@ The arguments are referenced in the macro body by enclosing their name in curly 
 
 To export a macro, prefix it with a double `%` instead.
 
-```asm
+```py
 .text:
 
   # Exporting a macro
@@ -211,7 +211,7 @@ Constant macros can only be declared and referenced in the `.text:` section of t
 Constant macros don't accept arguments.  
 To use a constant macro, prefix its reference with the `=` symbol.  
 
-```asm
+```py
 .text:
 
   # Defining a constant macro
@@ -223,7 +223,7 @@ To use a constant macro, prefix its reference with the `=` symbol.
 
 To export a constant macro, prefix it with `%%-` instead.
 
-```asm
+```py
 .text:
 
   # Exporting a constant macro
