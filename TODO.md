@@ -9,6 +9,7 @@
 
 ### In Progress ···
 
+- [ ] adapt procedures into self-countaned functions wrapped in a macro  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 

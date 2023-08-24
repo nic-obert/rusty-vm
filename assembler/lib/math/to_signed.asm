@@ -1,10 +1,15 @@
 # to_signed
-# Convert positive integer to its two's complement negative counterpart
-# Store the result in r1
 
 
 .text:
 
+    # Convert a positive integer to its two's complement negative counterpart
+    # Args:
+    #   - num: the number to converter
+    #
+    # Return:
+    #   - r1: the converted number
+    #
     %% to_signed num:
 
         mov8 r2 {num}

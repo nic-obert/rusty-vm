@@ -1,35 +1,74 @@
 # memcpy
-# Copy r3 bytes from the memory location r1 into the memory location r2
-# Source and destination memory buffers should not overlap
-# r1: source address
-# r2: destination address
-# r3: bytes to copy
+
+
+.include:
+
+    asmutils/load_arg.asm
 
 
 .text:
 
-@@ memcpy
+    # Copy `num` bytes from `src` into `dest` without checking for overlapping memory regions.
+    # For copying overlapping memory regions, consider using `memmove`
+    #
+    # Args:
+    #   - src: source memory region address (8 bytes)
+    #   - dest: destination memory region address (8 bytes)
+    #   - num: number of bytes to copy (8 bytes)
+    #
+    %% memcpy src dest num:
 
-    @ loop
+        push8 {src}
+        push8 {dest}
+        push8 {num}
 
-        # Check if all bytes have been copied
-        cmp1 r3 0
-        jmpz endloop
+        call memcpy
 
-        # Copy the byte
-        mov1 [r2] [r1]
+        popsp 24
 
-        # Increment the byte pointers
-        inc r1
-        inc r2
+    %endmacro
 
-        # Decrement the bytes still to write
-        dec r3
+    @@ memcpy
 
-        jmp loop
+        # Save current register states
+        push8 r1
+        push8 r2
+        push8 r3
 
-    
-    @ endloop
+
+        %- src: r1
+        %- dest: r2
+        %- num: r3
+
+        !load_arg8: 8 =num
+        !load_arg8: 16 =dest
+        !load_arg8: 24 =src
+
+        @ loop
+
+            # Check if all bytes have been copied
+            cmp1 =num 0
+            jmpz endloop
+
+            # Copy the byte
+            mov1 [=dest] [=src]
+
+            # Increment the byte pointers
+            inc =src
+            inc =dest
+
+            # Decrement the bytes still to write
+            dec =num
+
+            jmp loop
+
+        @ endloop
+
+
+        # Restore previous register states
+        pop8 r3
+        pop8 r2
+        pop8 r1
 
         ret
 

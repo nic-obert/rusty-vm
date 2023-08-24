@@ -1,32 +1,51 @@
 # strlen
-# Return the length of a null-terminated string stored in r1
-# The returned length excludes the null termination character
-# The return value is stored in the r1 register
 
 
 .text:
 
-@@strlen
+    # Return the length of a null-terminated string
+    #
+    # Args:
+    #   - str: string address (8 bytes)
+    #
+    # Return:
+    #   - r1: length of the string in bytes
+    #
+    %% strlen str:
 
-    # Store the start char* in r2
-    mov r2 r1
+        mov8 r1 {str}
 
-    @ loop
+        call strlen
 
-        # Check if the current char is null. If so, exit the loop
-        cmp1 [r1] 0
-        jmpz endloop
-        
-        # Increment the char* and continue
-        inc r1
-        jmp loop
+    %endmacro
+
+    @@ strlen
+
+        push8 r2
 
 
-    @ endloop
+        # Store the start char* in r2
+        mov r2 r1
 
-    # Calculate the string length
-    # r1 points to the null byte, r2 points to the start of the string
-    isub
+        @ loop
 
-    ret
+            # Check if the current char is null. If so, exit the loop
+            cmp1 [r1] 0
+            jmpz endloop
+            
+            # Increment the current char* and continue
+            inc r1
+            jmp loop
+
+
+        @ endloop
+
+        # Calculate the string length
+        # r1 points to the null byte, r2 points to the start of the string
+        isub
+
+
+        pop8 r2
+
+        ret
 

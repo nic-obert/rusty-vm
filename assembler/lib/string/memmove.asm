@@ -1,82 +1,84 @@
 # memmove
-# r1: source address
-# r2: destination address
-# r3: bytes to copy
-# Allow safe copy if source and destination memory regions overlap
 
 
 .include:
 
     string/memcpy.asm
+    asmutils/load_arg.asm
 
 
 .text:
 
-@@ memmove
+    # Copy `num` bytes from `src` into `dest`, checking overlapping memory regions.
+    # For copying unsafely overlapping memory regions, implements a safe copy using an intermediate buffer.
+    #
+    # Args:
+    #   - src: source memory region address (8 bytes)
+    #   - dest: destination memory region address (8 bytes)
+    #   - num: number of bytes to copy (8 bytes)
+    #
+    %% memmove src dest num:
 
-    # Move pointers
-    mov r4 r1
-    mov r5 r2
+        push8 {src}
+        push8 {dest}
+        push8 (num)
 
-    # Check if source and destination regions unsafely overlap
-    # Unsafe overlap configuration is (src < dest && src + n > dest)
-    # Other overlapping configurations are safe for memcpy
+        call memmove
 
-    # Filter out non-overlapping and safely overlapping configurations
+        popsp 24
 
-    # src < dest
-    cmp r1 r2
-    jmpge no_overlap
+    %endmacro
 
-    # src + n
-    mov r2 r3
-    iadd
+    @@ memmove
 
-    # src + n > dest
-    cmp r1 r5
-    jmple no_overlap
+        %- src: r4
+        %- dest: r5
+        %- num: r3
 
-
-# Unsafe overlap case
-
-    # Allocate the intermediate buffer of n bytes on the stack
-    pushsp r3
-
-    # Load the addresses
-    mov r1 r4
-    mov r2 sbp
-
-    # Save number of bytes to copy
-    mov r8 r3
-
-    # Copy source into intermediate buffer
-    call memcpy
-
-    # Change source from original address to intermediate buffer
-    mov r1 sbp
-    # Put number of bytes to copy back into r3
-    mov r3 r8
-
-    # Reload the destination address
-    mov r2 r5
-
-    # Copy intermediate buffer into destination
-    call memcpy 
-
-    # Pop the intermediate buffer after it's being used
-    popsp r8
-
-    ret
+        !load_arg8 8 =num
+        !load_arg8 16 =dest
+        !load_arg8 24 =src
 
 
-@ no_overlap
+        # Check if source and destination regions unsafely overlap
+        # Unsafe overlap configuration is (src < dest && src + num > dest)
+        # Other overlapping configurations are safe for memcpy
 
-    # Load the pointers 
-    mov r1 r4
-    mov r2 r5
+        # Filter out non-overlapping and safely overlapping configurations
 
-    # Copy source (or buffer) into destination
-    call memcpy
+        # src < dest
+        cmp =src =dest
+        jmpge no_overlap
 
-    ret
+        mov r1 =src
+        mov r2 =num
+        iadd
+
+        # src + num > dest
+        cmp r1 =dest
+        jmple no_overlap
+
+
+    # Unsafe overlap case
+
+        # Allocate the intermediate buffer of `num` bytes on the stack
+        pushsp =num
+
+        # Copy source into intermediate buffer on the stack
+        !memcpy =src sbp =num
+
+        # Copy intermediate buffer into destination
+        !memcpy sbp =dest =num
+
+        # Pop the intermediate buffer after it's being used
+        popsp =num
+
+        ret
+
+
+    @ no_overlap
+
+        !memcpy =src =dest =num
+
+        ret
 

@@ -1,51 +1,67 @@
 # memswap
-# Swap the two regions of memory
-# r1: address of first region of memory
-# r2: address of second regoin of memory
-# r3: memory region size in bytes
 
 
 .include:
 
     string/memcpy.asm
+    asmutils/load_arg.asm
 
 
 .text:
 
+    # Swap the content of two memory regions
+    #
+    # Args:
+    #   - first: address of the first memory region (8 bytes)
+    #   - second: address of the second memory region (8 bytes)
+    #   - num: number of bytes to swap (8 bytes)
+    #
+    %% memswap first second num:
+
+        push8 {first}
+        push8 {second}
+        push8 {num}
+
+        call memswap
+
+        popsp 24
+
+    %endmacro
+
     @@ memswap
 
-        # Save the parameters
-        mov r4 r1
-        mov r5 r2
-        mov r6 r3
+        push8 r4
+        push8 r5
+        push8 r6
+
+
+        %- first: r4
+        %- second: r5
+        %- num: r6
+
+        !load_arg8 8 =num
+        !load_arg8 16 =second
+        !load_arg8 24 =first
 
         # Allocate an intermediate buffer on the stack
-        pushsp r3
+        pushsp =num
 
         # Copy the first memory region into the buffer
-
-        mov r2 sbp
-
-        call memcpy
+        !memcpy =first sbp =num
 
         # Copy the second memory region into the first one
-
-        mov r1 r5
-        mov r2 r4
-        mov r3 r6
-
-        call memcpy
+        !memcpy =second =first =num
 
         # Copy the temporary buffer into the second memory region
-
-        mov r1 sbp
-        mov r2 r5
-        mov r3 r6
-
-        call memcpy
+        !memcpy sbp =second =num
 
         # Pop the intermediate buffer from the stack
         popsp r6
+
+
+        pop8 r6
+        pop8 r5
+        pop8 r4
 
         ret
 
