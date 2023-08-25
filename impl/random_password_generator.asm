@@ -22,6 +22,10 @@
 
 @start
 
+    %- len: r8
+    %- i: r7
+    %- pwd: r6
+
     !print_str INPUT_PROMPT
 
     !input_unsigned
@@ -38,7 +42,7 @@
     @input_not_zero
 
     # Save the length
-    mov r8 r1
+    mov =len r1
 
     # Increment the length to store the null termination character
     inc r1
@@ -47,10 +51,10 @@
     !malloc r1
 
     # Store the string* into r6
-    mov r6 r1
+    mov =pwd r1
 
     # Initialize a char counter
-    mov1 r7 0
+    mov1 =i 0
 
     # Generate the random password
     @loop
@@ -74,24 +78,24 @@
         mov r5 r1
 
         # Calculare the char address
-        mov r1 r6
-        mov r2 r7
+        mov r1 =pwd
+        mov r2 =i
         iadd
 
         # Copy the char into the string
         mov1 [r1] r5
 
         # Increment the char counter
-        inc r7
+        inc =i
 
         # Check if the string is finished
-        cmp r7 r8
+        cmp =i =len
         jmpnz loop
 
     
     # Add the null termination character to the end of the string
-    mov r1 r6
-    mov r2 r8
+    mov r1 =pwd
+    mov r2 =len
     iadd
 
     mov1 [r1] '\0'
@@ -99,7 +103,7 @@
     # Print the string to the console
 
     !print_str PASS_OUTPUT
-    !println_str r6
+    !println_str =pwd
     
     exit
 

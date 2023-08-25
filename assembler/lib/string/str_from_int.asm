@@ -1,32 +1,56 @@
 # str_from_int
-# Converts the unsigned integer in r1 into a null-terminated string
-# The returned string is stored on the heap
-# r1: num
 
 
 .include:
 
     stdlib/memory.asm
     stdio/print.asm
+    asmutils/load_arg.asm
 
 
 .text:
+
+    # Convert the unsigned integer `num` into a heap-allocated null-terminated string
+    #
+    # Args:
+    #   - num: the unsigned integer to convert
+    #
+    # Return:
+    #   - r1: the returned string address (8 bytes)
+    #
+    %% str_from_uint num:
+
+        mov8 r1 {num}
+
+        call str_from_uint
+
+    %endmacro
 
     @@ str_from_uint
 
         # TODO: eventually, implement this using log10(number)
 
-        # Save the number
-        mov r8 r1
+        push8 r2
+        push8 r6
+        push8 r7
+        push8 r8
 
-        # Initialize the length counter (1 to account for the null termination)
-        mov1 r7 1
+
+        %- num: r8
+        %- len: r7
+        %- str: r6
+
+        # Save the number
+        mov =num r1
+
+        # Initialize the length counter to 1 to account for the null termination
+        mov1 =len 1
 
         # If the number is 0, increment the length by 1 because it won't be counted as a display_registers
-        cmp1 r1 0
+        cmp1 =num 0
         jmpnz not_zero
 
-            inc r7
+            inc =len
 
         @not_zero
 
@@ -43,30 +67,32 @@
 
             idiv
 
-            inc r7
+            inc =len
             jmp length_loop
 
         @length_endloop
 
 
         # Allocate the memory buffer for the string and store it in r6
-        !malloc r7
+        !malloc =len
+
+        # Save the string address
+        mov =str r1
 
         # Decrement length because indices start at 0
-        dec r7
-
-        mov r6 r1
+        dec =len
 
         # Transform the string length into a pointer to the current character
-        mov r2 r7
+        # r1 is still the string address
+        %- cc: =len
+        mov r2 =len
         iadd
-
-        mov r7 r1
+        mov =cc r1
 
         # Set the last byte of the string to the null character
-        mov1 [r7] '\0'
+        mov1 [=cc] '\0'
 
-        dec r7
+        dec =cc
 
 
         # Convert the number to a string
@@ -75,7 +101,7 @@
         @convert_loop
 
             # Get the numbers back into the registers
-            mov r1 r8
+            mov r1 =num
             mov1 r2 10
 
             imod
@@ -87,24 +113,30 @@
             iadd
 
             # Copy the char into the string
-            mov1 [r7] r1
+            mov1 [=cc] r1
 
-            dec r7
+            dec =cc
 
             # Divide the number by 10 to remove the digit
-            mov r1 r8
+            mov r1 =num
             mov1 r2 10
             idiv
 
-            mov r8 r1
+            mov =num r1
 
             # Check if this is the last char
-            cmp r7 r6
+            cmp =cc =str
             jmpge convert_loop
 
         
         # Load the string address into r1 and return
-        mov r1 r6
+        mov r1 =str
+
+
+        pop8 r8
+        pop8 r7
+        pop8 r6
+        pop8 r2
 
         ret
 

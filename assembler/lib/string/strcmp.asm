@@ -1,65 +1,78 @@
 # strcmp
-# Compare two null-terminated strings stored in r1 and r2 registers
-# Return 0 if strings are not equal
-# Return 1 if strings are equal
-# Return value is stored in r1
+
+
+.include:
+
+    asmutils/load_arg.asm
 
 
 .text:
 
-@@ strcmp
+    # Compare two null-terminated strings and return whether they are equal
+    #
+    # Args:
+    #   - s1: the first string address (8 bytes)
+    #   - s2: the second string address (8 bytes)
+    #
+    # Return:
+    #   - r1: 1 if the strings are equal, 0 otherwise
+    #
+    %% strcmp s1 s2:
 
-    # Initialize the character index register
-    mov8 r8 0
+        push8 {s1}
+        # Take advantage of r1 invalidation to use it to pass the argument without pushing it onto the stack
+        mov8 r1 {s2}
 
-    # Move the strings into r3 and r4 registers
-    mov r3 r1
-    mov r4 r2
+        call strcmp
 
-    # Initialize the return value to 0 (strings are not equal)
-    mov1 r7 0
+        popsp 8
 
-    @ loop
+    %endmacro
 
-        # Calculate the address of the char of s1
-        mov r2 r8
-        iadd
+    @@ strcmp
 
-        # Store the char of s1 to compare
-        mov1 r5 [r1]
+        push8 r3
+        push8 r4
 
-        # Calculate the address of the char from s2
-        mov r1 r4
-        # r2 is still the char index
-        iadd
 
-        # Deref the char
-        mov1 r1 [r1]
+        %- s1: r3
+        %- s2: r4
+        %- eq: r1
 
-        # Compare the chars
-        cmp r5 r1
-        
-        # If the chars are different, return
-        jmpnz endloop
+        !load_arg8 8 =s1
+        mov =s2 r1
 
-        # The chars are equal, check if they are null and finish
-        cmp1 r1 0
-        jmpz equal
+        # Initialize the return value to 0 (strings are not equal)
+        mov1 =eq 0
 
-        # If the chars are equal but not null, continue
-        inc r8
-        jmp loop
+        @ loop
+
+            # Compare the chars
+            cmp1 [=s1] [=s2]
+            jmpnz not_equal
+
+            # The chars are equal here
+            # Check if they are null and finish
+            cmp1 [=s1] 0
+            jmpz equal
+
+            # If the chars are equal but not null, increment the pointers and continue
+            inc =s1
+            inc =s2
+
+            jmp loop
 
 
     @ equal
         # Set return value to 1
-        mov1 r7 1
+        mov1 =eq 1
 
 
-    @ endloop
+    @ not_equal
 
-    # Set return value
-    mov r1 r7
+
+    pop8 r4
+    pop8 r3
 
     ret
 

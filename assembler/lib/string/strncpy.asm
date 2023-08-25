@@ -1,57 +1,100 @@
 # strncpy
-# Copy the number of characters specified in r3 from string in r1 over to string in r2
-# If the null termination is reached before writing the requested amount of characters,
-# the destination string is padded with zeroes until the requested amount of characters are is written.
-# The resulting string shall not be considered null-terminated, as the null termination may not be copied.
+
+
+.include:
+
+    asmutils/load_arg.asm
 
 
 .text:
 
-@@ strncpy
+    # Copy `num` characters from `src` over to `dest`.
+    # If the null termination is reached before writing `num` characters, 
+    # `dest` is padded with zeros until `num` characters have been written.
+    # The resulting string in `dest` shall not be considered null-terminated, 
+    # as the null termination may not be copied.
+    #
+    # Args:
+    #   - src: the source string address to copy from (8 bytes)
+    #   - dest: the destination buffer address (8 bytes)
+    #   - num: the number of characters to copy (8 bytes)
+    #
+    %% strncpy src dest num:
 
-    @ loop_copy
+        push8 {src}
+        push8 {dest}
+        push8 {num}
 
-        # Check if the requested chars have been copied
-        cmp1 r3 0
-        jmpz endloop
+        call strncpy
 
-        # Copy the chars
-        mov1 [r2] [r1]
+        popsp 24
 
-        # Check if the source char is null (source string is finished)
-        cmp1 [r1] 0
-        jmpz pad_with_zeroes
+    %endmacro
 
-        # Increment the char*
-        inc r1
-        inc r2
+    @@ strncpy
 
-        # Decrement the chars still to write
-        dec r3
-
-        jmp loop_copy
-
-
-@ pad_with_zeroes
-
-    @ loop_pad
-
-        # Check if the requested chars have been copied
-        cmp1 r3 0
-        jmpz endloop
-
-        # Write 0 to destination
-        mov1 [r2] 0
-
-        # Increment the char*
-        inc r2
-
-        # Decrement the chars still to write
-        dec r3
-
-        jmp loop_pad
+        push8 r3
+        push8 r4
+        push8 r5
 
 
-@ endloop
+        %- src: r3
+        %- dest: r4
+        %- num: r5
+
+        !load_arg8 8 =num
+        !load_arg8 16 =dest
+        !load_arg8 24 =src
+
+        @ loop_copy
+
+            # Check if the requested chars have been copied
+            cmp1 =num 0
+            jmpz endloop
+
+            # Copy the chars
+            mov1 [=dest] [=src]
+
+            # Check if the source char is null (source string is finished)
+            cmp1 [=src] 0
+            jmpz pad_with_zeroes
+
+            # Increment the char*
+            inc =src
+            inc =dest
+
+            # Decrement the chars still to write
+            dec =num
+
+            jmp loop_copy
+
+
+    @ pad_with_zeroes
+
+        @ loop_pad
+
+            # Check if the requested chars have been copied
+            cmp1 =num 0
+            jmpz endloop
+
+            # Write 0 to destination
+            mov1 [=dest] 0
+
+            # Increment the char*
+            inc =dest
+
+            # Decrement the chars still to write
+            dec =num
+
+            jmp loop_pad
+
+
+    @ endloop
+
+
+    pop8 r5
+    pop8 r4
+    pop8 r3
 
     ret
+

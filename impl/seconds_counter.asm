@@ -17,8 +17,10 @@
 
 @start
 
+    %- last_time: r8
+
     # Initialize the last time register
-    mov1 r8 0
+    mov1 =last_time 0
 
     !println
 
@@ -26,14 +28,14 @@
 
         !elapsed_secs
 
-        cmp r1 r8
+        cmp r1 =last_time
         jmpz loop
 
         !print_char '\r'
         !print_str OS
         !print_uint r1
 
-        mov r8 r1
+        mov =last_time r1
 
         jmp loop
 

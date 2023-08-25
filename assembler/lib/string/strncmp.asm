@@ -1,59 +1,74 @@
 # strncmp
-# Compare two byte strings stored in r1 and r2 up to the length in r3.
-# Null bytes are treaded as normal bytes.
-# Return 0 if strings are not equal
-# Return 1 if strings are equal
-# Return value is stored in r1
+
+
+.include:
+
+    asmutils/load_arg.asm
 
 
 .text:
 
-@@ strncmp
+    # Compare two null-terminated strings up to the specified length
+    #
+    # Args:
+    #   - s1: the first string address (8 bytes)
+    #   - s2: the second string address (8 bytes)
+    #   - num: the number of bytes to compare (8 bytes)
+    #
+    # Return:
+    #   - r1: 1 if the strings are equal, 0 otherwise
+    #
+    %% strncmp s1 s2 num:
 
-    # Initialize the char index register r8
-    mov1 r8 0
+        push8 {s1}
+        push8 {s2}
+        # Use r1 since it will be invalidated
+        mov8 r1 {num}
 
-    # Move the strings
-    mov r4 r1
-    mov r5 r2
+        call strncmp
 
-    # Initialize the return value to 0 (strings are not equal)
-    mov1 r7 0
+        popsp1 16
 
-    @ loop
+    %endmacro
 
-        # Check if the check is finished
-        cmp r8 r3
-        jmpgr endloop
+    @@ strncmp
 
-        # Calculate char address of s1
-        mov r2 r8
-        iadd
+        %- s1: r4
+        %- s2: r5
+        %- num: r3
+        %- eq: r1
 
-        # Store the char from s1
-        mov1 r6 [r1]
+        mov =num r1
+        !load_arg8 8 =s2
+        !load_arg8 16 =s1
 
-        # Calculate char address of s2
-        mov r1 r5
-        iadd
+        # Initialize the return value to 1 (strings are equal)
+        mov1 =eq 1
 
-        # Compare the chars
-        cmp1 [r1] r6
-        jmpnz not_equal
+        @ loop
 
-        # Continue the loop
-        inc r8
-        jmp loop
+            # Check if the comparison is finished
+            cmp1 =num 0
+            jmpz endloop
+
+            # Compare the chars
+            cmp1 [=s1] [=s2]
+            jmpnz not_equal
+
+            # Continue the loop
+            inc =s1
+            inc =s2
+            dec =num
+
+            jmp loop
 
 
-    @ not_equal
-        mov1 r7 1
+        @ not_equal
+
+            mov1 =eq 0
 
 
-    @ endloop
+        @ endloop
 
-    # Set the return value
-    mov r1 r7
-
-    ret
-    
+        ret
+        

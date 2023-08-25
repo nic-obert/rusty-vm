@@ -9,12 +9,12 @@
 
 ### In Progress ···
 
-- [ ] adapt procedures into self-countaned functions wrapped in a macro  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] adapt procedures into self-countaned functions wrapped in a macro  
 - [ ] implement data declaration inside .text  
 - [ ] add programs written in asm  
 - [ ] add inline macros  

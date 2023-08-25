@@ -24,7 +24,7 @@
 
         call memcpy
 
-        popsp 24
+        popsp1 24
 
     %endmacro
 
@@ -40,9 +40,9 @@
         %- dest: r2
         %- num: r3
 
-        !load_arg8: 8 =num
-        !load_arg8: 16 =dest
-        !load_arg8: 24 =src
+        !load_arg8 8 =num
+        !load_arg8 16 =dest
+        !load_arg8 24 =src
 
         @ loop
 

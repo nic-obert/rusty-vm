@@ -235,7 +235,6 @@ To export a constant macro, prefix it with `%%-` instead.
 
 Constant macros are useful to define constants that are not supported by the assembly language. Moreover, constant macros aren't compiled into the binary, so they don't take up any static data space.
 
-
 ## Assembly instructions
 
 Every assembly intruction can be represented as a 1-byte integer code, internally identifie with the `ByteCodes` enum, that identifies a set of operations to be performed by the virtual machine. The precise machine instruction it gets traslated to depends on its arguments.

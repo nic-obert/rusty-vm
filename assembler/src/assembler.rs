@@ -353,31 +353,7 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
         match text_type {
 
             TextType::Asm => {
-                
-                match c {
-                    '$' => {
-                        evaluated_line.push_str(format!("{}", current_binary_address).as_str());
-                    },
-                    '"' => {
-                        evaluated_line.push('"');
-                        text_type = TextType::String { starts_at: (line_number, char_index) };
-                    },
-                    '\'' => {
-                        evaluated_line.push('\'');
-                        text_type = TextType::Char { starts_at: (line_number, char_index) };
-                    },
-                    '#' => {
-                        // Skip comments
-                        break;
-                    }
-                    '=' => {
-                        text_type = TextType::ConstMacro { starts_at: char_index };
-                    }
-                    _ => {
-                        evaluated_line.push(c);
-                    }
-                }
-
+                // Has to be handled later
             },
 
             TextType::String {..} => {
@@ -391,6 +367,8 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                 } else if c == '\\' {
                     escape_char = true;
                 }
+
+                continue;
             },
 
             TextType::Char {..} => {
@@ -404,7 +382,8 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                 } else if c == '\\' {
                     escape_char = true;
                 }
-
+                
+                continue;
             },
 
             TextType::ConstMacro { starts_at } => {
@@ -425,6 +404,32 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                 text_type = TextType::Asm;
             },
 
+        }
+
+        // TextType::Asm
+
+        match c {
+            '$' => {
+                evaluated_line.push_str(format!("{}", current_binary_address).as_str());
+            },
+            '"' => {
+                evaluated_line.push('"');
+                text_type = TextType::String { starts_at: (line_number, char_index) };
+            },
+            '\'' => {
+                evaluated_line.push('\'');
+                text_type = TextType::Char { starts_at: (line_number, char_index) };
+            },
+            '#' => {
+                // Skip comments
+                break;
+            }
+            '=' => {
+                text_type = TextType::ConstMacro { starts_at: char_index };
+            }
+            _ => {
+                evaluated_line.push(c);
+            }
         }
     }
 
@@ -509,7 +514,7 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
 
         let last_byte_code_address: Address = program_info.byte_code.len();
 
-        parse_line(trimmed_line, &mut macro_info, &asm_unit, line, line_number, program_info, &mut label_info, &mut section_info, verbose);
+        parse_line(trimmed_line, &mut macro_info, &asm_unit, &evaluated_line, line_number, program_info, &mut label_info, &mut section_info, verbose);
         
         if verbose && last_byte_code_address != program_info.byte_code.len() {
             println!(" => {:?}", &program_info.byte_code[last_byte_code_address..]);
