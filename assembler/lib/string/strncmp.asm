@@ -33,6 +33,12 @@
 
     @@ strncmp
 
+        !set_fstart
+
+        !save_reg_state r3
+        !save_reg_state r4
+        !save_reg_state r5
+
         %- s1: r4
         %- s2: r5
         %- num: r3
@@ -69,6 +75,10 @@
 
 
         @ endloop
+
+        !restore_reg_state r5
+        !restore_reg_state r4
+        !restore_reg_state r3
 
         ret
         

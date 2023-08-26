@@ -5,7 +5,6 @@
 
     stdlib/memory.asm
     stdio/print.asm
-    asmutils/load_arg.asm
 
 
 .text:
@@ -30,11 +29,10 @@
 
         # TODO: eventually, implement this using log10(number)
 
-        push8 r2
-        push8 r6
-        push8 r7
-        push8 r8
-
+        !save_reg_state r2
+        !save_reg_state r6
+        !save_reg_state r7
+        !save_reg_state r8
 
         %- num: r8
         %- len: r7
@@ -133,10 +131,10 @@
         mov r1 =str
 
 
-        pop8 r8
-        pop8 r7
-        pop8 r6
-        pop8 r2
+        !restore_reg_state r8
+        !restore_reg_state r7
+        !restore_reg_state r6
+        !restore_reg_state r2
 
         ret
 

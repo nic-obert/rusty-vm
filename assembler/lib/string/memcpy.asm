@@ -30,11 +30,11 @@
 
     @@ memcpy
 
-        # Save current register states
-        push8 r1
-        push8 r2
-        push8 r3
+        !set_fstart
 
+        !save_reg_state r1
+        !save_reg_state r2
+        !save_reg_state r3
 
         %- src: r1
         %- dest: r2
@@ -66,9 +66,9 @@
 
 
         # Restore previous register states
-        pop8 r3
-        pop8 r2
-        pop8 r1
+        !restore_reg_state r3
+        !restore_reg_state r2
+        !restore_reg_state r1
 
         ret
 

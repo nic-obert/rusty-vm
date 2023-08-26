@@ -31,6 +31,15 @@
 
     @@ memmove
 
+        !set_fstart
+
+        !save_reg_state r1
+        !save_reg_state r2
+        !save_reg_state r3
+        !save_reg_state r4
+        !save_reg_state r5
+
+
         %- src: r4
         %- dest: r5
         %- num: r3
@@ -78,7 +87,13 @@
 
     @ no_overlap
 
-        !memcpy =src =dest =num
+    !memcpy =src =dest =num
 
-        ret
+    !restore_reg_state r5
+    !restore_reg_state r4
+    !restore_reg_state r3
+    !restore_reg_state r2
+    !restore_reg_state r1
+
+    ret
 

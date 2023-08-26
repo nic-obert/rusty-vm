@@ -13,4 +13,5 @@
     @@ array/item_size.asm
     @@ array/length.asm
     @@ array/new.asm
+    @@ array/set.asm
 

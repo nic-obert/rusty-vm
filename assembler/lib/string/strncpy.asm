@@ -33,10 +33,11 @@
 
     @@ strncpy
 
-        push8 r3
-        push8 r4
-        push8 r5
+        !set_fstart
 
+        !save_reg_state r3
+        !save_reg_state r4
+        !save_reg_state r5
 
         %- src: r3
         %- dest: r4
@@ -91,10 +92,9 @@
 
     @ endloop
 
-
-    pop8 r5
-    pop8 r4
-    pop8 r3
+    !restore_reg_state r5
+    !restore_reg_state r4
+    !restore_reg_state r3
 
     ret
 

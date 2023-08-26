@@ -50,6 +50,7 @@ pub struct Processor {
     memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
+    interactive_last_instruction_pc: Address,
 
 }
 
@@ -66,6 +67,7 @@ impl Processor {
             // Initialize temporarily, will be reinitialized in `execute`
             start_time: SystemTime::now(),
             quiet_exit,
+            interactive_last_instruction_pc: 0,
         }
     }
 
@@ -463,7 +465,18 @@ impl Processor {
         println!();
 
         loop {
+
+            let previous_args = self.memory.get_bytes(
+                self.interactive_last_instruction_pc,
+                self.get_pc() - self.interactive_last_instruction_pc
+            );
+            println!("Previous args: {:?}", previous_args);
+
             let opcode = ByteCodes::from(self.get_next_byte());
+
+            self.interactive_last_instruction_pc = self.get_pc();
+
+            println!();
 
             println!("PC: {}, opcode: {}", self.get_pc(), opcode);
             println!("Registers: {}", self.display_registers());
@@ -480,8 +493,6 @@ impl Processor {
             io::stdin().read_line(&mut String::new()).unwrap();
 
             self.handle_instruction(opcode);
-
-            println!();
 
         }
     }
@@ -868,6 +879,8 @@ impl Processor {
 
         let size = self.get_next_byte();
         let dest_reg = Registers::from(self.get_next_byte());
+
+        // Hack the borrow checker
         let src_address = self.get_pc();
 
         self.move_bytes_into_register(src_address, dest_reg, size);

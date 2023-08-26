@@ -2,6 +2,7 @@
 .include:
 
     stdio.asm
+    stdlib.asm
 
 .data:
 
@@ -10,11 +11,9 @@
 
 @start
 
-    jmp A
-    @S1
-        dd string "Hello\0"
-    @A
+    !rand_range 32 126
 
-    !println_str S1
-    
+    !println_uint r1
+
+    exit
 

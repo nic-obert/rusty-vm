@@ -20,9 +20,10 @@
     %endmacro
 
     @@ strlen
-
-        push8 r2
-
+        
+        !set_fstart
+        
+        !save_reg_state r2
 
         # Store the start char* in r2
         mov r2 r1
@@ -44,8 +45,7 @@
         # r1 points to the null byte, r2 points to the start of the string
         isub
 
-
-        pop8 r2
+        !restore_reg_state r2
 
         ret
 

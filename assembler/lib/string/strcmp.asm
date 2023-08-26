@@ -31,8 +31,10 @@
 
     @@ strcmp
 
-        push8 r3
-        push8 r4
+        !set_fstart
+
+        !save_reg_state r3
+        !save_reg_state r4
 
 
         %- s1: r3
@@ -71,8 +73,8 @@
     @ not_equal
 
 
-    pop8 r4
-    pop8 r3
+    !restore_reg_state r4
+    !restore_reg_state r3
 
     ret
 

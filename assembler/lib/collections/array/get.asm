@@ -1,6 +1,6 @@
 .include:
 
-    asmutils/load_arg.asm
+    asmutils/functional.asm
     string/memcpy.asm
 
     item_size.asm
@@ -36,14 +36,14 @@
 
     @@ array_get
 
-        # Save current register states
-        push8 r1
-        push8 r2
-        push8 r5
-        push8 r6
-        push8 r7
-        push8 r8
+        !set_fstart
 
+        !save_reg_state r1
+        !save_reg_state r2
+        !save_reg_state r5
+        !save_reg_state r6
+        !save_reg_state r7
+        !save_reg_state r8
 
         %- item_addr: r5
         %- item_size: r6
@@ -74,13 +74,12 @@
         !memcpy =item_addr r1 =item_size
 
 
-        # Restore previous register states
-        pop8 r8
-        pop8 r7
-        pop8 r6
-        pop8 r5
-        pop8 r2
-        pop8 r1
+        !restore_reg_state r8
+        !restore_reg_state r7
+        !restore_reg_state r6
+        !restore_reg_state r5
+        !restore_reg_state r2
+        !restore_reg_state r1
 
         ret
 

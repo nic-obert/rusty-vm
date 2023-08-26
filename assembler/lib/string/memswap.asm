@@ -30,10 +30,11 @@
 
     @@ memswap
 
-        push8 r4
-        push8 r5
-        push8 r6
+        !set_fstart
 
+        !save_reg_state r4
+        !save_reg_state r5
+        !save_reg_state r6
 
         %- first: r4
         %- second: r5
@@ -59,9 +60,9 @@
         popsp r6
 
 
-        pop8 r6
-        pop8 r5
-        pop8 r4
+        !restore_reg_state r6
+        !restore_reg_state r5
+        !restore_reg_state r4
 
         ret
 

@@ -61,20 +61,11 @@
 
         %- PRINTABLE_FIRST: 32
         %- PRINTABLE_LAST: 126
-        %- PRINTABLE_COUNT: 95
 
-        # Generate a random number in r1
-        !rand
+        # Generate a random number in the printable range
+        !rand_range =PRINTABLE_FIRST =PRINTABLE_LAST
 
-        # Clamp the random number in r1 into range 0..94
-        mov1 r2 =PRINTABLE_COUNT
-        imod
-
-        # Move the range into 32..126
-        mov1 r2 =PRINTABLE_FIRST
-        iadd
-
-        # Save the character
+        # Save the random character
         mov r5 r1
 
         # Calculare the char address
