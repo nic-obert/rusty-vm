@@ -1,8 +1,8 @@
 
 .include:
 
-    stdio.asm
-    stdlib.asm
+    stdio/print.asm
+    asmutils/static_def.asm
 
 .data:
 
@@ -11,9 +11,11 @@
 
 @start
 
-    !rand_range 32 126
+    !static_def str string "Hello World!\0"
 
-    !println_uint r1
+    !println_str str
+
+    mov r1 =boh
 
     exit
 

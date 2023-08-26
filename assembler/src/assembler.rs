@@ -395,11 +395,13 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
                 // The const macro name is finished
                 let const_macro_name = &line[starts_at + 1..char_index];
 
-                let const_macro = local_const_macros.get(const_macro_name).unwrap_or_else(
-                    || error::undeclared_const_macro(unit_path, const_macro_name, local_const_macros, line_number, line)
-                );
-
-                evaluated_line.push_str(const_macro.replace.as_str());
+                if let Some(const_macro) = local_const_macros.get(const_macro_name) {
+                    // See if the macro can be replaced now
+                    evaluated_line.push_str(const_macro.replace.as_str());
+                } else {
+                    // Maybe the macro will be replaced later
+                    evaluated_line.push_str(format!("={}", const_macro_name).as_str());
+                }
 
                 text_type = TextType::Asm;
             },
@@ -426,6 +428,10 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
             }
             '=' => {
                 text_type = TextType::ConstMacro { starts_at: char_index };
+            },
+            '&' => {
+                let symbol = get_unique_symbol_name();
+                evaluated_line.push_str(symbol.as_str());
             }
             _ => {
                 evaluated_line.push(c);
@@ -449,11 +455,13 @@ fn evaluate_special_symbols(line: &str, current_binary_address: Address, line_nu
             // The const macro name is finished
             let const_macro_name = &line[starts_at + 1..];
 
-            let const_macro = local_const_macros.get(const_macro_name).unwrap_or_else(
-                || error::undeclared_const_macro(unit_path, const_macro_name, local_const_macros, line_number, line)
-            );
-
-            evaluated_line.push_str(const_macro.replace.as_str());
+            if let Some(const_macro) = local_const_macros.get(const_macro_name) {
+                // See if the macro can be replaced now
+                evaluated_line.push_str(const_macro.replace.as_str());
+            } else {
+                // Maybe the macro will be replaced later
+                evaluated_line.push_str(format!("={}", const_macro_name).as_str());
+            }
         }
     }
 
@@ -507,8 +515,8 @@ fn assemble_unit(asm_unit: AssemblyUnit, verbose: bool, program_info: &mut Progr
         // Remove redundant whitespaces
         let trimmed_line = evaluated_line.trim();
 
-        if trimmed_line.is_empty() || trimmed_line.starts_with('#') {
-            // The line is either empty or a comment, skip it
+        if trimmed_line.is_empty() {
+            // The line is either empty, skip it
             continue;
         }
 
@@ -623,10 +631,10 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             );
             
             // Check for macro definition end
-            if let Some(mline) = trimmed_line.strip_prefix('%') {
+            if let Some(mline) = trimmed_line.strip_prefix("%endmacro") {
 
-                if mline.trim() != "endmacro" {
-                    error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definitions must end with \"%endmacro\".");
+                if !mline.is_empty() {
+                    error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definition end `%endmacro` must be on its own line");
                 }
 
                 if macro_info.local_macros.insert(macro_definition.name.clone(), macro_definition.clone()).is_some() {
@@ -949,10 +957,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 );
 
                 // Get the arguments of the macro call
-                let macro_args: Vec<&str> = post.split_whitespace()
-                    .map(|s| s.trim())
-                    .filter(|s| !s.is_empty())
-                    .collect();             
+                let macro_args: Vec<&str> = MacroArgIterator::new(post).collect();
                 
                 if macro_args.len() != def.args.len() {
                     error::invalid_macro_call(asm_unit.path, line_number, line, format!("Macro \"{}\" ({}, {}) expects {} arguments, but {} were given.", macro_name, def.unit_path.display(), def.line_number, def.args.len(), macro_args.len()).as_str());
@@ -975,6 +980,9 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                     if verbose {
                         println!("Macro {: >3}, Pos: {: >5} | {}", line_number, program_info.byte_code.len(), mline);
                     }
+
+                    // Evaluate the compile-time special symbols that were not evaluated before
+                    let mline = evaluate_special_symbols(mline.as_str(), program_info.byte_code.len(), line_number, asm_unit.path, &macro_info.local_const_macros);
 
                     parse_line(&mline, macro_info, asm_unit, line, line_number, program_info, label_info, section_info, verbose);
 
@@ -1037,10 +1045,10 @@ fn handle_pseudo_instruction(pi: PseudoInstruction, asm_unit: &AssemblyUnit, arg
 
             // Encode the string data into byte code
             let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
-
+            
             // Add the data to the byte code
             byte_code.extend(encoded_data);
-        }
+        },
 
     }
 
@@ -1125,5 +1133,150 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path, just_ch
     }
 
     program_info.byte_code
+}
+
+
+struct MacroArgIterator<'a> {
+
+    args: &'a str,
+
+}
+
+
+impl MacroArgIterator<'_> {
+
+    fn new(args: &str) -> MacroArgIterator<'_> {
+        MacroArgIterator {
+            args,
+        }
+    }
+
+}
+
+
+impl<'a> Iterator for MacroArgIterator<'a> {
+
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        
+        if self.args.is_empty() {
+            return None;
+        }
+
+        enum TextType {
+            String,
+            Char,
+            Array,
+            None,
+        }
+        
+        let mut text_type = TextType::None;
+        let mut string_escape = false;
+        let mut array_depth: usize = 0;
+
+        for (index, c) in self.args.chars().enumerate() {
+
+            match text_type {
+
+                TextType::Array => match c {
+
+                    '[' => array_depth += 1,
+
+                    ']' => {
+                        array_depth -= 1;
+                        if array_depth == 0 {
+                            text_type = TextType::None;
+                        }
+                    },
+
+                    _ => {}
+
+                },
+
+                TextType::None => match c {
+
+                    '[' => {
+                        text_type = TextType::Array;
+                        array_depth = 1;
+                    },
+
+                    ' ' | '\t' 
+                    => {
+                        let arg = self.args[..index].trim();
+                        if arg.is_empty() {
+                            return None;
+                        }
+
+                        self.args = &self.args[index + 1..];
+
+                        return Some(arg);
+                    },
+                    
+                    '\'' => {
+                        text_type = TextType::Char;
+                    },
+
+                    '"' => {
+                        text_type = TextType::String;
+                    },
+
+                    _ => {}
+                    
+                },
+
+                TextType::String => {
+                        
+                    if string_escape {
+                        string_escape = false;
+
+                    } else if c == '"' {
+                        text_type = TextType::None;
+
+                    } else if c == '\\' {
+                        string_escape = true;
+                    }
+
+                },
+
+                TextType::Char => {
+
+                    if string_escape {
+                        string_escape = false;
+
+                    } else if c == '\'' {
+                        text_type = TextType::None;
+
+                    } else if c == '\\' {
+                        string_escape = true;
+                    }
+
+                },
+            }
+        }
+
+        let arg = self.args.trim();
+        if arg.is_empty() {
+            return None;
+        }
+
+        self.args = "";
+
+        Some(arg)
+    }
+
+}
+
+
+static mut LAST_UNIQUE_SYMBOL_INDEX: usize = 0;
+
+/// Genetate a unique symbol name
+fn get_unique_symbol_name() -> String {
+    let symbol_name: String;
+    unsafe {
+        symbol_name = format!("__unique_symbol_{}", LAST_UNIQUE_SYMBOL_INDEX);
+        LAST_UNIQUE_SYMBOL_INDEX += 1;
+    }
+    symbol_name
 }
 

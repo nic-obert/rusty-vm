@@ -24,6 +24,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
   - [Registers](#registers)
   - [Assembly operators and symbols](#assembly-operators-and-symbols)
     - [$: current address](#-current-address)
+    - [\&: unique symbol](#-unique-symbol)
     - [Address literals](#address-literals)
     - [Labels](#labels)
     - [Macros](#macros)
@@ -115,6 +116,16 @@ Note that `$` has no knowledge of runtime stack pointers, so it's undefined beha
 ```py
 mov1 r1 $
 ```
+
+### &: unique symbol
+
+The `&` symbol represents a unique symbol that will be replaced with a unique text string at the time of the assembly.
+
+```py
+# Define a unique label
+@&
+```
+
 
 ### Address literals
 

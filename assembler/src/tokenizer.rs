@@ -467,6 +467,8 @@ pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_pa
                 continue;
             },
 
+            '=' => error::invalid_character(unit_path, c, line_number, char_index, line, "The given character wans't expected in this context. Maybe you forgot to declare a const macro?"),
+
             _ => error::invalid_character(unit_path, c, line_number, char_index, line, "The given character wans't expected in this context.")
         }
 

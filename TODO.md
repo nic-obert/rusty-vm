@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] add automatic jumping before dd  
 - [ ] add optional debug information in compiled binaries with -d assembler flag  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] update the disassembler  
@@ -11,12 +10,13 @@
 
 ### In Progress ···
 
-- [ ] fix macro call print_char with space as argument (handled as 2 args instead of 1) (assembler.rs line 952)  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] add automatic jumping before dd  
+- [ ] fix macro call print_char with space as argument (handled as 2 args instead of 1) (assembler.rs line 952)  
 - [ ] debug the push intruction  
 - [ ] rewrite all library functions using the new register state macros (beware of invalidated returns through registes since the previous register states get restored)  
 - [ ] reimplement calloc using a function pattern  
