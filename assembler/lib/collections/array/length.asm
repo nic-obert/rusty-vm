@@ -1,3 +1,6 @@
+.include:
+
+    @@ metadata.asm
 
 
 .text:
@@ -10,21 +13,15 @@
     # Return:
     #   - r1: array length (8 bytes)
     #
+    # Invalidate:
+    #   - r2
+    #
     %% array_length array:
 
-        # Save the register states
-        push8 r2
-
-        # Calculate the address of the length field
-        mov8 r1 {array}
-        mov1 r2 8
-        iadd
+        !array_get_length_ptr     
 
         # Get the length field
         mov8 r1 [r1]
-
-        # Restore the register states
-        pop8 r2
 
     %endmacro
 

@@ -33,8 +33,10 @@
 
         !save_reg_state r2
         !save_reg_state r3
+        !save_reg_state r4
 
         %- array: r3
+        %- item_offset: r4
 
         # Load the index into r2 for later use
         !load_arg8 8 r2
@@ -42,16 +44,19 @@
 
         !array_item_size =array
 
-        # Calculate the offset
+        # Calculate the item offset
         # r1 is `item_size`
         # r2 is `index`
         imul
+        mov =item_offset r1
 
-        # Calculate the item address
-        mov r2 =array
+        # Calculate the item address (array* + data offset + item offset)
+        !array_get_data_ptr
+        mov r2 =item_offset
         iadd
 
 
+        !restore_reg_state r4
         !restore_reg_state r3
         !restore_reg_state r2
 

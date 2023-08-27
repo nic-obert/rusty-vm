@@ -1,7 +1,9 @@
 .include:
 
-    asmutils/load_arg.asm
+    asmutils/functional.asm
     stdlib/memory.asm
+
+    metadata.asm
 
 
 .text:
@@ -30,14 +32,14 @@
    
     @@ array_new
 
-        # Save the current state of the register the procedure will invalidate
-        push8 r2
-        push8 r7
-        push8 r8
+        !set_fstart
+
+        !save_reg_state r2
+        !save_reg_state r7
+        !save_reg_state r8
 
         %- item_size: r7
         %- length: r8
-        %- META_SIZE: 16
 
         # Load the arguments
 
@@ -50,15 +52,16 @@
         mov r2 =item_size
         imul
         
-        mov1 r2 =META_SIZE
+        mov1 r2 =ARRAY_METADATA_SIZE
         iadd
 
+        # Allocate the new array
         !malloc r1
 
-        # Reload the saved register states in reverse order
-        pop8 r8
-        pop8 r7
-        pop8 r2
+
+        !restore_reg_state r8
+        !restore_reg_state r7
+        !restore_reg_state r2
 
         ret
 

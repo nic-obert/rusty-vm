@@ -14,4 +14,6 @@
     @@ array/length.asm
     @@ array/new.asm
     @@ array/set.asm
+    @@ array/resize.asm
+    @@ array/shared.asm
 

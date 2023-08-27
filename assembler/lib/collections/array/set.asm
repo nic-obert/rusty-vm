@@ -4,6 +4,7 @@
     string/memcpy.asm
 
     item_size.asm
+    metadata.asm
 
 
 .text:
@@ -33,6 +34,7 @@
 
         !save_reg_state r1
         !save_reg_state r2
+        !save_reg_state r4
         !save_reg_state r5
         !save_reg_state r6
         !save_reg_state r7
@@ -42,6 +44,7 @@
         %- item_size: r7
         %- index: r6
         %- value: r5
+        %- item_offset: r4
 
         !load_arg8 8 =value
         !load_arg8 16 =index
@@ -54,9 +57,11 @@
         # r1 is already `item_size`
         mov r2 =index
         imul
+        mov =item_offset r1
 
-        # Calculate the item address (array* + offset)
-        mov r2 =array
+        # Calculate the item address (array* + data offset + item offset)
+        !array_get_data_ptr
+        mov r2 =item_offset
         iadd
 
         # Copy the value into the array slot
@@ -67,6 +72,7 @@
         !restore_reg_state r7
         !restore_reg_state r6
         !restore_reg_state r5
+        !restore_reg_state r4
         !restore_reg_state r2
         !restore_reg_state r1
 
