@@ -4,7 +4,7 @@
 
 - [ ] implement some kind of virtual disk (without a file system, since it should be managed by the os)  
 - [ ] implement a default built-in allocator for unlimited memory  
-- [ ] add optional debug information in compiled binaries with -d assembler flag  
+- [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
 - [ ] update the disassembler (when the vm and assembler become more stable)  
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  

@@ -30,7 +30,7 @@
         call array_get
 
         # Pop arguments
-        popsp 16
+        popsp1 16
 
     %endmacro
 

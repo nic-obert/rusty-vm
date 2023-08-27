@@ -4,7 +4,7 @@
 .include:
 
     string/memcpy.asm
-    asmutils/load_arg.asm
+    asmutils/functional.asm
 
 
 .text:

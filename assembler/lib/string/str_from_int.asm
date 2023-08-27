@@ -5,6 +5,7 @@
 
     stdlib/memory.asm
     stdio/print.asm
+    asmutils/functional.asm
 
 
 .text:
@@ -28,6 +29,8 @@
     @@ str_from_uint
 
         # TODO: eventually, implement this using log10(number)
+
+        # No need to !set_fstart since there are no args to load
 
         !save_reg_state r2
         !save_reg_state r6

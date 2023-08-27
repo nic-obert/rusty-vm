@@ -3,7 +3,7 @@
 
 .include:
 
-    asmutils/load_arg.asm
+    asmutils/functoinal.asm
 
 
 .text:

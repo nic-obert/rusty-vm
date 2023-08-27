@@ -21,8 +21,6 @@
 
     @@ strlen
         
-        !set_fstart
-        
         !save_reg_state r2
 
         # Store the start char* in r2
