@@ -3,6 +3,7 @@ mod processor;
 mod memory;
 mod files;
 mod cli_parser;
+mod error;
 
 use std::path::Path;
 
@@ -16,12 +17,12 @@ fn main() {
     let args = CliParser::parse();
 
     let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
-        |err| panic!("Failed to canonicalize path \"{}\"\n\n{}", args.input_file.display(), err)
+        |err| error::io_error(&args.input_file, &err, format!("Failed to canonicalize path \"{}\"", args.input_file.display()).as_str())
     );
 
     if let Some(extension) = main_path.extension() {
         if extension != "bc" {
-            println!("Warning: The input file extension is not \".bc\".");
+            error::warn("The input file extension is not \".bc\".");
         }
     }
 

@@ -18,14 +18,14 @@ fn main() {
 
     let args = CliParser::parse();
 
-    let phantom_path = Path::new("_start_");
+    let phantom_path = Path::new(&args.input_file);
     let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
         |err| error::io_error(phantom_path, &err, format!("Failed to canonicalize path \"{}\"", &args.input_file).as_str())
     );
 
     if let Some(extension) = main_path.extension() {
         if extension != "asm" {
-            println!("Warning: The input file extension is not \".asm\".");
+            error::warn("The input file extension is not \".asm\".");
         }
     }
 

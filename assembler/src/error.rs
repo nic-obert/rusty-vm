@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use indoc::printdoc;
+use indoc::{printdoc, formatdoc};
+use colored::Colorize;
 use num::{FromPrimitive, Num};
 use num::traits::ToBytes;
 
@@ -9,9 +10,18 @@ use rust_vm_lib::token::Token;
 use crate::assembler::{LabelMap, MacroMap};
 
 
+pub fn warn(message: &str) {
+    println!("{}", formatdoc!("
+        ⚠️  Warning: {}
+        ",
+        message
+    ).bright_yellow());
+}
+
+
 pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit_path \"{}\"
+        ❌ Error in assembly unit_path \"{}\"
 
         Invalid data declaration at line {}:
         {}
@@ -26,7 +36,7 @@ pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str
 
 pub fn invalid_macro_declaration(unit_path: &Path, macro_name: &str, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid macro declaration \"{}\" at line {}:
         {}
@@ -41,7 +51,7 @@ pub fn invalid_macro_declaration(unit_path: &Path, macro_name: &str, line_number
 
 pub fn invalid_macro_call(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid macro call at line {}:
         {}
@@ -56,7 +66,7 @@ pub fn invalid_macro_call(unit_path: &Path, line_number: usize, line: &str, hint
 
 pub fn macro_redeclaration(unit_path: &Path, macro_name: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Macro \"{}\" redeclaration at line {}:
         {}
@@ -69,7 +79,7 @@ pub fn macro_redeclaration(unit_path: &Path, macro_name: &str, line_number: usiz
 
 pub fn out_of_section(unit_path: &Path, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
         
         Instruction or data declaration outside of a section at line {}:
         {}
@@ -82,7 +92,7 @@ pub fn out_of_section(unit_path: &Path, line_number: usize, line: &str) -> ! {
 
 pub fn invalid_section_declaration(unit_path: &Path, name: &str, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid section declaration \"{}\" at line {}:
         {}
@@ -97,7 +107,7 @@ pub fn invalid_section_declaration(unit_path: &Path, name: &str, line_number: us
 
 pub fn label_redeclaration(unit_path: &Path, label: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Label \"{}\" redeclaration at line {}:
         {}
@@ -110,7 +120,7 @@ pub fn label_redeclaration(unit_path: &Path, label: &str, line_number: usize, li
 
 pub fn invalid_character(unit_path: &Path, c: char, line_number: usize, char_index: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid character '{}' at line {};{}:
         {}
@@ -125,7 +135,7 @@ pub fn invalid_character(unit_path: &Path, c: char, line_number: usize, char_ind
 
 pub fn invalid_instruction_name(unit_path: &Path, name: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid instruction name '{}' at line {}:
         {}
@@ -138,7 +148,7 @@ pub fn invalid_instruction_name(unit_path: &Path, name: &str, line_number: usize
 
 pub fn invalid_arg_number(unit_path: &Path, given: usize, expected: usize, line_number: usize, line: &str, instruction: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid number of arguments for instruction `{}` at line {}:
         {}
@@ -153,7 +163,7 @@ pub fn invalid_arg_number(unit_path: &Path, given: usize, expected: usize, line_
 
 pub fn unclosed_macro_definition(unit_path: &Path, macro_name: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Unclosed macro definition \"{}\" at line {}:
         {}
@@ -166,7 +176,7 @@ pub fn unclosed_macro_definition(unit_path: &Path, macro_name: &str, line_number
 
 pub fn undeclared_label(unit_path: &Path, label: &str, local_labels: &LabelMap, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Undeclared label \"{}\" at line {}:
         {}
@@ -184,7 +194,7 @@ pub fn undeclared_label(unit_path: &Path, label: &str, local_labels: &LabelMap, 
 
 pub fn invalid_bss_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid BSS declaration at line {}:
         {}
@@ -199,7 +209,7 @@ pub fn invalid_bss_declaration(unit_path: &Path, line_number: usize, line: &str,
 
 pub fn undeclared_macro(unit_path: &Path, macro_name: &str, local_macros: &MacroMap, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Undeclared macro \"{}\" at line {}:
         {}
@@ -218,7 +228,7 @@ pub fn undeclared_macro(unit_path: &Path, macro_name: &str, local_macros: &Macro
 
 pub fn invalid_label_name(unit_path: &Path, name: &str, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid label name \"{}\" at line {}:
         {}
@@ -233,7 +243,7 @@ pub fn invalid_label_name(unit_path: &Path, name: &str, line_number: usize, line
 
 pub fn invalid_token_argument(unit_path: &Path, instruction: &str, arg: &Token, line_number: usize, line: &str, possible_arguments: &[String]) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid argument \"{}\" for instruction `{}` at line {}:
         {}
@@ -255,7 +265,7 @@ pub fn number_out_of_range<N>(unit_path: &Path, number: &str, radix: u32, size_b
     where N: Num + ToBytes + FromPrimitive
 {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Number {} is out of range at line {}:
         {}
@@ -272,7 +282,7 @@ pub fn number_out_of_range<N>(unit_path: &Path, number: &str, radix: u32, size_b
 
 pub fn invalid_float_number(unit_path: &Path, number: &str, line_number: usize, line: &str, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid float number {} at line {}:
         {}
@@ -287,7 +297,7 @@ pub fn invalid_float_number(unit_path: &Path, number: &str, line_number: usize, 
 
 pub fn unclosed_string_literal(unit_path: &Path, line_number: usize, char_index: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Unclosed string literal at line {};{}:
         {}
@@ -300,7 +310,7 @@ pub fn unclosed_string_literal(unit_path: &Path, line_number: usize, char_index:
 
 pub fn unclosed_char_literal(unit_path: &Path, line_number: usize, char_index: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Unclosed character literal at line {};{}:
         {}
@@ -313,7 +323,7 @@ pub fn unclosed_char_literal(unit_path: &Path, line_number: usize, char_index: u
 
 pub fn io_error(unit_path: &Path, error: &std::io::Error, hint: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         IO error: {}
 
@@ -327,7 +337,7 @@ pub fn io_error(unit_path: &Path, error: &std::io::Error, hint: &str) -> ! {
 
 pub fn include_error(unit_path: &Path, error: &std::io::Error, file_path: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Failed to include file \"{}\" at line {}:
         {}
@@ -342,7 +352,7 @@ pub fn include_error(unit_path: &Path, error: &std::io::Error, file_path: &str, 
 
 pub fn invalid_address_identifier(unit_path: &Path, name: &str, line_number: usize, line: &str) -> ! {
     printdoc!("
-        Error in assembly unit \"{}\"
+        ❌ Error in assembly unit \"{}\"
 
         Invalid address identifier \"{}\" at line {}:
         {}

@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] add colored output  
 - [ ] implement some kind of virtual disk (without a file system, since it should be managed by the os)  
 - [ ] implement a default built-in allocator for unlimited memory  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
@@ -18,6 +17,7 @@
 
 ### Done ✅
 
+- [ ] add colored output  
 - [ ] add automatic jumping before dd  
 - [ ] fix macro call print_char with space as argument (handled as 2 args instead of 1) (assembler.rs line 952)  
 - [ ] debug the push intruction  
