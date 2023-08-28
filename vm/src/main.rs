@@ -4,12 +4,14 @@ mod memory;
 mod files;
 mod cli_parser;
 mod error;
+mod storage;
 
 use std::path::Path;
 
 use clap::Parser;
 
 use cli_parser::CliParser;
+use processor::StorageOptions;
 
 
 fn main() {
@@ -31,6 +33,14 @@ fn main() {
     let mut processor = processor::Processor::new(
         if args.max_memory_size == 0 { None } else { Some(args.max_memory_size) },
         args.quiet,
+        if let Some(storage_file) = args.storage_file {
+            Some(StorageOptions {
+                file_path: storage_file,
+                max_size: if args.max_storage_size == 0 { None } else { Some(args.max_storage_size) },
+            })
+        } else {
+            None
+        }
     );
 
     processor.execute(&byte_code, args.mode);

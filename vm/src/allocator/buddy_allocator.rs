@@ -1,4 +1,5 @@
 use crate::allocator::Allocator;
+use crate::error;
 
 use rust_vm_lib::vm::{Address, ErrorCodes};
 
@@ -190,7 +191,7 @@ impl BuddyAllocator {
 
         // Assert that the heap size is at least the minimum block size
         if heap_size < MIN_BLOCK_SIZE {
-            panic!("Heap size ({}) is too small to fit the minimum block size ({})", heap_size, MIN_BLOCK_SIZE);
+            error::error(format!("Heap size ({}) is too small to fit the minimum block size ({})", heap_size, MIN_BLOCK_SIZE).as_str());
         }
 
         BuddyAllocator { 

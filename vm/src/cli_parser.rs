@@ -8,7 +8,7 @@ use clap::{ValueEnum, Parser};
 pub struct CliParser {
 
     /// The input bytecode file to execute
-    #[clap(value_parser)]
+    #[clap(value_parser, required = true)]
     pub input_file: PathBuf,
 
     /// Maximum memory size in bytes. Set to 0 for unlimited memory (not recommended).
@@ -23,6 +23,14 @@ pub struct CliParser {
     /// Don't print any message when exiting
     #[clap(short = 'q', long, action)]
     pub quiet: bool,
+
+    /// Attach a storage file to the VM
+    #[clap(short = 's', long = "storage-file", action)]
+    pub storage_file: Option<PathBuf>,
+
+    /// Maximum storage size in bytes. Set to 0 for unlimited storage (not recommended). Only works if a storage file is attached.
+    #[clap(long = "max-storage", default_value="1000000", requires = "storage_file")]
+    pub max_storage_size: usize,
 
 }
 

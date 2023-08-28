@@ -3,6 +3,7 @@
 
 use std::io::Write;
 use std::io;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 
@@ -14,6 +15,8 @@ use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
 use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
+use crate::error;
+use crate::storage::Storage;
 
 
 /// Return whether the most significant bit of the given value is set
@@ -30,7 +33,7 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
         2 => u16::from_le_bytes(bytes.try_into().unwrap()) as u64,
         4 => u32::from_le_bytes(bytes.try_into().unwrap()) as u64,
         8 => u64::from_le_bytes(bytes.try_into().unwrap()),
-        _ => panic!("Invalid number size: {}", handled_size),
+        _ => error::error(format!("Invalid number size: {}", handled_size).as_str()),
     }
 }
 
@@ -51,6 +54,27 @@ pub struct Processor {
     start_time: SystemTime,
     quiet_exit: bool,
     interactive_last_instruction_pc: Address,
+    storage: Option<Storage>,
+
+}
+
+
+pub struct StorageOptions {
+
+    pub file_path: PathBuf,
+    pub max_size: Option<usize>,
+
+}
+
+
+impl StorageOptions {
+
+    pub fn new(file_path: PathBuf, max_size: Option<usize>) -> Self {
+        Self {
+            file_path,
+            max_size,
+        }
+    }
 
 }
 
@@ -60,7 +84,8 @@ impl Processor {
     const STATIC_PROGRAM_ADDRESS: Address = 0;
 
 
-    pub fn new(max_memory_size: Option<usize>, quiet_exit: bool) -> Self {
+    pub fn new(max_memory_size: Option<usize>, quiet_exit: bool, storage: Option<StorageOptions>) -> Self {
+
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(max_memory_size),
@@ -68,6 +93,11 @@ impl Processor {
             start_time: SystemTime::now(),
             quiet_exit,
             interactive_last_instruction_pc: 0,
+            storage: if let Some(storage) = storage {
+                Some(Storage::new(storage.file_path, storage.max_size))
+            } else {
+                None
+            },
         }
     }
 
@@ -78,7 +108,7 @@ impl Processor {
         // Set the program counter to the start of the program
 
         if byte_code.len() < ADDRESS_SIZE {
-            panic!("Bytecode is too small to contain a start address: minimum required size is {} bytes, got {}", ADDRESS_SIZE, byte_code.len());
+            error::error(format!("Bytecode is too small to contain a start address: minimum required size is {} bytes, got {}", ADDRESS_SIZE, byte_code.len()).as_str());
         }
 
         let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
@@ -270,7 +300,7 @@ impl Processor {
                 (res, carry)
             },
 
-            _ => panic!("Invalid size for incrementing bytes: {}.", size),
+            _ => error::error(format!("Invalid size for incrementing bytes: {}.", size).as_str()),
         };
 
         self.set_arithmetical_flags(
@@ -345,7 +375,7 @@ impl Processor {
                 (res, carry)
             },
 
-            _ => panic!("Invalid size for decrementing bytes: {}.", size),
+            _ => error::error(format!("Invalid size for decrementing bytes: {}.", size).as_str()),
         };
 
         self.set_arithmetical_flags(
@@ -428,7 +458,7 @@ impl Processor {
             2 => self.memory.set_bytes(dest_address, &(value as u16).to_le_bytes()),
             4 => self.memory.set_bytes(dest_address, &(value as u32).to_le_bytes()),
             8 => self.memory.set_bytes(dest_address, &value.to_le_bytes()),
-            _ => panic!("Invalid size for move instruction {}.", handled_size),
+            _ => error::error(format!("Invalid size for move instruction {}.", handled_size).as_str()),
         }
     }
         

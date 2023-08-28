@@ -25,3 +25,13 @@ pub fn warn(message: &str) {
     ).bright_yellow());
 }
 
+
+pub fn error(message: &str) -> ! {
+    printdoc!("
+        ❌ Error: {}
+
+        ",
+        message
+    );
+    std::process::exit(1);
+}

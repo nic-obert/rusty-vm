@@ -2,6 +2,7 @@ use rust_vm_lib::vm::{Address, ErrorCodes};
 
 use crate::allocator::{Allocator, BlankAllocator};
 use crate::allocator::buddy_allocator::BuddyAllocator;
+use crate::error;
 
 
 pub type Byte = u8;
@@ -52,7 +53,7 @@ impl Memory {
         if let Some(max_size) = self.max_size {
 
             if static_program_end > max_size {
-                panic!("Static program section ({}) is larger than the maximum memory size ({})", static_program_end, max_size);
+                error::error(format!("Static program section ({}) is larger than the maximum memory size ({})", static_program_end, max_size).as_str());
             }
 
             // The heap is located after the static program section
@@ -69,7 +70,7 @@ impl Memory {
             let highest_exp = base_heap_size.ilog2();
 
             if highest_exp == 0 {
-                panic!("Not enough memory to allocate the stack and heap: {} bytes", total_available_memory);
+                error::error(format!("Not enough memory to allocate the stack and heap: {} bytes", total_available_memory).as_str());
             }
 
             let heap_size = 2usize.pow(highest_exp);
