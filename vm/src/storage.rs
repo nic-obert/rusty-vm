@@ -1,6 +1,6 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions, self};
 use std::os::unix::prelude::FileExt;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::io;
 
 use rust_vm_lib::vm::ErrorCodes;
@@ -22,7 +22,12 @@ impl Storage {
     pub fn new(file_path: PathBuf, max_size: Option<usize>) -> Self {
 
         let file: File = if file_path.exists() {
-            let file = File::open(&file_path).unwrap_or_else(
+            let file = OpenOptions::new()
+                .create(false)
+                .write(true)
+                .read(true)
+                .open(&file_path)
+                .unwrap_or_else(
                 |err| error::io_error(&file_path, &err, format!("Failed to open storage file \"{}\"", file_path.display()).as_str())
             );
             
@@ -35,7 +40,19 @@ impl Storage {
             file
 
         } else {
-            File::create(&file_path).unwrap_or_else(
+            fs::create_dir_all(Path::new(&file_path).parent().unwrap_or_else(
+                || error::error(format!("Failed to get parent directory of storage file \"{}\"", file_path.display()).as_str())
+            )).unwrap_or_else(
+                |err| error::io_error(&file_path, &err, format!("Failed to create parent directory of storage file \"{}\"", file_path.display()).as_str())
+            );
+
+            OpenOptions::new()  
+
+                .create_new(true)
+                .write(true)
+                .read(true)
+                .open(&file_path)
+                .unwrap_or_else(
                 |err| error::io_error(&file_path, &err, format!("Failed to create storage file \"{}\"", file_path.display()).as_str())
             )
         };
@@ -70,16 +87,19 @@ impl Storage {
     /// Try to write `data` to the storage file at `offset`.
     pub fn write(&self, offset: usize, data: &[u8]) -> Result<(), ErrorCodes> {
 
+        if let Some(max_size) = self.max_size {
+            if offset + data.len() > max_size {
+                return Err(ErrorCodes::OutOfBounds);
+            }
+        }
+
         match self.file.write_all_at(data, offset as u64) {
 
             Ok(_) => {
-                if let Some(max_size) = self.max_size {
-                    if self.file.metadata().unwrap_or_else(
-                        |err| error::io_error(&self.file_path, &err, format!("Failed to get metadata of storage file \"{}\"", self.file_path.display()).as_str())
-                    ).len() > max_size as u64 {
-                        return Err(ErrorCodes::OutOfBounds);
-                    }
-                }
+                self.file.sync_all().unwrap_or_else(
+                    |err| error::io_error(&self.file_path, &err, format!("Failed to sync storage file \"{}\"", self.file_path.display()).as_str())
+                );
+
                 Ok(())
             },
             
@@ -88,6 +108,86 @@ impl Storage {
         }
     }
 
+
+}
+
+
+impl Drop for Storage {
+
+    fn drop(&mut self) {
+        self.file.sync_all().unwrap_or_else(
+            |err| error::io_error(&self.file_path, &err, format!("Failed to sync storage file \"{}\"", self.file_path.display()).as_str())
+        );
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    static LAST_UNIQUE_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    fn get_unique_file_path() -> String {
+        let id = LAST_UNIQUE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        format!("test/test_storage_{}.disk", id)
+    }
+    
+
+    #[test]
+    fn test_create_storage() {
+        let file = get_unique_file_path();
+        let storage = Storage::new(PathBuf::from(&file), None);
+        assert_eq!(storage.file_path, PathBuf::from(&file).canonicalize().unwrap());
+    }
+
+
+    #[test]
+    fn test_read_write() {
+        let storage = Storage::new(PathBuf::from(get_unique_file_path()), None);
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        storage.write(0, &data).unwrap();
+        assert_eq!(storage.read(0, 8).unwrap(), data);
+
+    }
+
+
+    #[test]
+    fn test_read_write_offset() {
+        let storage = Storage::new(PathBuf::from(get_unique_file_path()), None);
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        storage.write(0, &data).unwrap();
+        assert_eq!(storage.read(4, 4).unwrap(), vec![4, 5, 6, 7]);
+    }
+
+
+    #[test]
+    fn test_read_write_offset_out_of_bounds() {
+        let storage = Storage::new(PathBuf::from(get_unique_file_path()), None);
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        storage.write(0, &data).unwrap();
+        assert!(matches!(storage.read(8, 4).err().unwrap(), ErrorCodes::EndOfFile));
+    }
+
+
+    #[test]
+    fn test_write_overflow() {
+        let storage = Storage::new(PathBuf::from(get_unique_file_path()), Some(8));
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let res = storage.write(0, &data);
+        assert!(matches!(res.err().unwrap(), ErrorCodes::OutOfBounds));
+    }
+
+
+    #[test]
+    fn test_read_write_max_size_exact() {
+        let storage = Storage::new(PathBuf::from(get_unique_file_path()), Some(8));
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        storage.write(0, &data).unwrap();
+        assert_eq!(storage.read(0, 8).unwrap(), data);
+    }
 
 }
 
