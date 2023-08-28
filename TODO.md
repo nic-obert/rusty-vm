@@ -2,8 +2,6 @@
 
 ### Todo
 
-- [ ] add disk operations (interrupts)  
-- [ ] add basic io errors to the vm error codes  
 - [ ] implement a default built-in allocator for unlimited memory  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] print byte operands when vm is in interactive mode (use expected operand size + handled size) (kind of a disassembly, wait till disassembler is done)  
@@ -18,6 +16,8 @@
 
 ### Done ✅
 
+- [ ] add basic io errors to the vm error codes  
+- [ ] add disk operations (interrupts)  
 - [ ] implement some kind of virtual disk (without a file system, since it should be managed by the os)  
 - [ ] add an attach storage option to the vm  
 - [ ] use assembler-like errors in vm without panicking  

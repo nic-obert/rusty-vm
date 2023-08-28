@@ -34,10 +34,10 @@ fn main() {
         if args.max_memory_size == 0 { None } else { Some(args.max_memory_size) },
         args.quiet,
         if let Some(storage_file) = args.storage_file {
-            Some(StorageOptions {
-                file_path: storage_file,
-                max_size: if args.max_storage_size == 0 { None } else { Some(args.max_storage_size) },
-            })
+            Some(StorageOptions::new(
+                storage_file,
+                if args.max_storage_size == 0 { None } else { Some(args.max_storage_size) }
+            ))
         } else {
             None
         }

@@ -22,3 +22,6 @@
     %%- HOST_TIME_NANOS: 11
     %%- ELAPSED_TIME_NANOS: 12
 
+    %%- DISK_READ: 13
+    %%- DISK_WRITE: 14
+

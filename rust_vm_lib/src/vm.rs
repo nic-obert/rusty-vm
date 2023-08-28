@@ -27,6 +27,8 @@ pub enum ErrorCodes {
 
     UnalignedAddress,
 
+    PermissionDenied,
+
     // This has to be the last variant
     GenericError
 
@@ -50,6 +52,7 @@ const ERROR_CODE_REPR: [&str; ERROR_CODES_COUNT] = [
     "Double free",
     "Out of bounds",
     "Unaligned address",
+    "Permission denied",
 
     "Generic error"
 ];

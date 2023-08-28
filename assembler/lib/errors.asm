@@ -14,7 +14,8 @@
     %%- DOUBLE_FREE: 7
     %%- OUT_OF_BOUNDS: 8
     %%- UNALIGNED_ADDRESS: 9
+    %%- PERMISSION_DENIED: 10
 
-    %%- GENERIC_ERROR: 10
+    %%- GENERIC_ERROR: 11
 
     

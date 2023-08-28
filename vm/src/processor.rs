@@ -2211,7 +2211,50 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 13 ] = [
+    fn handle_disk_read(&mut self) {
+
+        let disk_address = self.get_register(Registers::R1) as Address;
+        let buffer_address = self.get_register(Registers::R2) as Address;
+        let size = self.get_register(Registers::R3) as usize;
+
+        let err = if let Some(storage) = &self.storage {
+            match storage.read(disk_address, size) {
+                Ok(bytes) => {
+                    self.memory.set_bytes(buffer_address, &bytes);
+                    ErrorCodes::NoError
+                },
+                Err(e) => e
+            }
+        } else {
+            ErrorCodes::PermissionDenied
+        };
+
+        self.set_error(err);
+    }
+
+
+    fn handle_disk_write(&mut self) {
+
+        let disk_address = self.get_register(Registers::R1) as Address;
+        let data_address = self.get_register(Registers::R2) as Address;
+        let size = self.get_register(Registers::R3) as usize;
+
+        let buffer = self.memory.get_bytes(data_address, size);
+
+        self.set_error(
+            if let Some(storage) = &self.storage {
+                match storage.write(disk_address, buffer) {
+                    Ok(_) => ErrorCodes::NoError,
+                    Err(e) => e
+                }
+            } else {
+                ErrorCodes::PermissionDenied
+            }
+        );
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 15 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -2225,6 +2268,8 @@ impl Processor {
         Self::handle_random, // 10
         Self::handle_host_time_nanos, // 11
         Self::handle_elapsed_time_nanos, // 12
+        Self::handle_disk_read, // 13
+        Self::handle_disk_write, // 14
     ];
 
 

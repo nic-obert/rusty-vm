@@ -371,6 +371,8 @@ Interrupts are defined in the [`interrupts.asm`](assembler/lib/interrupts.asm) l
 | `RAND`          | Generate a random 8-byte number and store it in the `r1` register. |
 | `HOST_TIME_NANOS` | Get the current host system time in nanoseconds and store it in the `r1` register. |
 | `ELAPSED_TIME_NANOS` | Get the elapsed time since the program started in nanoseconds and store it in the `r1` register. |
+| `DISK_READ`     | Read `r3` bytes from local storage at the address specified in `r1` and store them at the address specified in `r2`. If the read fails, set the `error` register. |
+| `DISK_WRITE`    | Write `r3` bytes from the address specified in `r2` to local storage at the address specified in `r1`. If the write fails, set the `error` register. |
 
 ## Assembly unit sections
 
