@@ -25,3 +25,5 @@
     %%- DISK_READ: 13
     %%- DISK_WRITE: 14
 
+    %%- TERM_INTR: 15
+

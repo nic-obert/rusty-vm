@@ -184,13 +184,6 @@ fn handle_clear_before(_processor: &mut Processor) -> std::io::Result<()> {
 }
 
 
-fn handle_clear_screen(_processor: &mut Processor) -> std::io::Result<()> {
-    print!("{}", termion::clear::All);
-
-    Ok(())
-}
-
-
 fn handle_clear_until_newline(_processor: &mut Processor) -> std::io::Result<()> {
     print!("{}", termion::clear::UntilNewline);
 
@@ -226,7 +219,7 @@ fn handle_get_cursor_position(processor: &mut Processor) -> std::io::Result<()> 
 }
 
 
-const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 28 ] = [
+const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 27 ] = [
     handle_goto,
     handle_clear,
     handle_blink,
@@ -250,7 +243,6 @@ const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 28 ] = [
     handle_clear_line,
     handle_clear_after,
     handle_clear_before,
-    handle_clear_screen,
     handle_clear_until_newline,
     handle_get_terminal_size,
     handle_get_terminal_size_pixels,
