@@ -47,6 +47,7 @@
 
         !save_reg_state r2
         !save_reg_state r3
+        !save_reg_state r4
 
         %- start: r3
         %- end: r4
@@ -70,6 +71,7 @@
         mov r2 =start
         iadd
 
+        !restore_reg_state r4
         !restore_reg_state r3
         !restore_reg_state r2
 

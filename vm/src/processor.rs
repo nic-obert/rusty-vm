@@ -2289,7 +2289,21 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 16 ] = [
+    fn handle_set_timer_nanos(&mut self) {
+
+        let time = self.get_register(Registers::R1);
+        let duration = std::time::Duration::from_nanos(time);
+
+        std::thread::sleep(duration);
+    }
+
+
+    fn handle_flush_stdout(&mut self) {
+        io::stdout().flush().expect("Failed to flush stdout");
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 18 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -2306,6 +2320,8 @@ impl Processor {
         Self::handle_disk_read, // 13
         Self::handle_disk_write, // 14
         Self::handle_terminal, // 15
+        Self::handle_set_timer_nanos, // 16
+        Self::handle_flush_stdout, // 17
     ];
 
 

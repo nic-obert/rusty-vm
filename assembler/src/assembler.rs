@@ -700,7 +700,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             let (to_export, trimmed_line) = {
                 if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
                     // Trim the line again to remove eventual extra spaces
-                    (true, trimmed_line.trim())
+                    (true, trimmed_line.trim_start())
                 } else {
                     (false, trimmed_line)
                 }
@@ -716,16 +716,18 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
             }
 
-            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
-                || error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a type")
-            );
+            if other.trim_start().is_empty() {
+                error::invalid_data_declaration(asm_unit.path, line_number, line, "Static data declarations must have a type");
+            }
+
+            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or((other, ""));
 
             let data_type = DataType::from_name(data_type_name).unwrap_or_else(
                 || error::invalid_data_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
             );
 
             // The data string is everything following the data type
-            let data_string = other.trim();
+            let data_string = other.trim_start();
 
             // Encode the string data into byte code
             let encoded_data: ByteCode = data_type.encode(data_string, line_number, line, asm_unit.path);
@@ -750,7 +752,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
             let (to_export, trimmed_line) = {
                 if let Some(trimmed_line) = trimmed_line.strip_prefix("@@") {
                     // Trim the line again to remove eventual extra spaces
-                    (true, trimmed_line.trim())
+                    (true, trimmed_line.trim_start())
                 } else {
                     (false, trimmed_line)
                 }
@@ -766,9 +768,11 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 error::invalid_label_name(asm_unit.path, label, line_number, line, format!("\"{}\" is a reserved name.", label).as_str());
             }
 
-            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or_else(
-                || error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations must have a type")
-            );
+            if other.trim_start().is_empty() {
+                error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations must have a type");
+            }
+
+            let (data_type_name, other) = other.split_once(char::is_whitespace).unwrap_or((other, ""));
 
             let data_type = DataType::from_name(data_type_name).unwrap_or_else(
                 || error::invalid_bss_declaration(asm_unit.path, line_number, line, format!("Unknown data type \"{}\"", data_type_name).as_str())
@@ -778,7 +782,7 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                 || error::invalid_bss_declaration(asm_unit.path, line_number, line, format!("Static size for {} is unknown", data_type_name).as_str())
             );
 
-            if other.trim() != "" {
+            if !other.trim_start().is_empty() {
                 error::invalid_bss_declaration(asm_unit.path, line_number, line, "Static BSS declarations cannot have anything after the data type");
             }
 

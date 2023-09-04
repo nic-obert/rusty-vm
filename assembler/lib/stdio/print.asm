@@ -108,3 +108,10 @@
 
     %endmacro
 
+
+    %% flush_stdout:
+
+        intr =FLUSH_STDOUT
+
+    %endmacro
+    

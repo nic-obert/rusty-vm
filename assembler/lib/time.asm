@@ -77,3 +77,40 @@
     %endmacro
 
 
+    %% set_timer_nanos t:
+
+        mov8 r1 {t}
+        intr =SET_TIMER_NANOS
+
+    %endmacro
+
+
+    %% set_timer_micros t:
+
+        mov8 r1 {t}
+        mov2 r2 1000
+        imul
+        intr =SET_TIMER_NANOS
+    
+    %endmacro
+
+
+    %% set_timer_millis t:
+
+        mov8 r1 {t}
+        mov4 r2 1000000
+        imul
+        intr =SET_TIMER_NANOS
+    
+    %endmacro
+
+
+    %% set_timer_secs t:
+
+        mov8 r1 {t}
+        mov4 r2 1000000000
+        imul
+        intr =SET_TIMER_NANOS
+    
+    %endmacro
+

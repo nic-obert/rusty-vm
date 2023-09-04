@@ -5,6 +5,8 @@
 .include:
 
     @@ interrupts.asm
+    @@ stdbool.asm
+    @@ errors.asm
 
 
 .text:

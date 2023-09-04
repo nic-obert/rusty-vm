@@ -1,0 +1,85 @@
+.include:
+
+    term.asm
+    time.asm
+    stdio.asm
+    stdlib.asm
+    asmutils.asm
+
+
+.bss:
+
+    COLUMNS u8
+    ROWS u8
+
+
+.text:
+
+    # Constants
+
+    %- TARGET_CHAR: 'X'
+
+
+    # Functions
+
+    @ setup_screen
+
+        !term_hide_cursor
+        !term_clear
+        !flush_stdout
+
+        !term_get_terminal_size
+        mov8 [COLUMNS] r1
+        mov8 [ROWS] r2
+
+        !static_def s string "Screen size: "
+        !print_uint r1
+        !print_char 'x'
+        !print_uint r2
+        !println
+
+        !set_timer_secs 1
+        !term_clear
+        !flush_stdout
+
+        ret
+
+
+    @ restore_screen
+
+        !term_reset
+        !term_show_cursor
+
+        ret
+
+
+    @ spawn_target
+
+        !rand_range 0 [COLUMNS]
+        mov r3 r1
+        !rand_range 0 [ROWS]
+        mov r2 r1
+        mov r1 r3
+
+        !term_goto
+        !print_char =TARGET_CHAR
+
+        !flush_stdout
+
+        ret
+        
+
+@start
+
+    call setup_screen
+
+    !set_timer_secs 1
+
+    call spawn_target
+
+    !set_timer_secs 3
+
+    call restore_screen
+
+    exit
+

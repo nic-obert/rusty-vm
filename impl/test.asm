@@ -2,20 +2,21 @@
 .include:
 
     stdio/print.asm
-    asmutils/static_def.asm
+    stdlib.asm
+
 
 .data:
+
+    UPPER u8 28
 
 
 .text:
 
 @start
 
-    !static_def str string "Hello World!\0"
+    !rand_range 0 [UPPER]
 
-    !println_str str
-
-    mov r1 =boh
+    !println_uint r1
 
     exit
 

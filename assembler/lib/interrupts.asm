@@ -27,3 +27,7 @@
 
     %%- TERM_INTR: 15
 
+    %%- SET_TIMER_NANOS: 16
+
+    %%- FLUSH_STDOUT: 17
+
