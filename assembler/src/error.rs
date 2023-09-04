@@ -64,14 +64,16 @@ pub fn invalid_macro_call(unit_path: &Path, line_number: usize, line: &str, hint
 }
 
 
-pub fn macro_redeclaration(unit_path: &Path, macro_name: &str, line_number: usize, line: &str) -> ! {
+pub fn macro_redeclaration(unit_path: &Path, macro_name: &str, prev_declaration_line: usize, prev_declaration_unit: &Path, line_number: usize, line: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
         Macro \"{}\" redeclaration at line {}:
         {}
+
+        Previously declared at line {} in unit \"{}\".
         ",
-        unit_path.display(), macro_name, line_number, line
+        unit_path.display(), macro_name, line_number, line, prev_declaration_line, prev_declaration_unit.display()
     );
     std::process::exit(1);
 }

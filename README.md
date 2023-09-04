@@ -434,4 +434,11 @@ An error code is represented as a 1-byte unsigned integer.
 | `END_OF_FILE`   | End of file reached while reading input. |
 | `INVALID_INPUT` | The input from the console was not a valid integer. |
 | `ZERO_DIVISION` | A division by zero occurred. |
+| `ALLOCATION_TOO_LARGE` | The requested allocation size was too large. |
+| `STACK_OVERFLOW` | The stack overflowed. |
+| `HEAP_OVERFLOW` | The heap overflowed. |
+| `DOUBLE_FREE` | A double free occurred. |
+| `OUT_OF_BOUNDS` | An out of bounds memory access occurred. |
+| `UNALIGNED_ADDRESS` | An unaligned memory access occurred. |
+| `PERMISSION_DENIED` | A permission denied error occurred. |
 | `GENERIC_ERROR` | A generic error occurred. |

@@ -12,3 +12,4 @@ colored = "2.0.4"
 indoc = "2.0.3"
 rand = "0.8.5"
 rust_vm_lib = { path = "../rust_vm_lib" }
+termion = "2.0.1"

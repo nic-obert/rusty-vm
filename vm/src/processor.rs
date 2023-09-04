@@ -17,6 +17,7 @@ use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
 use crate::error;
 use crate::storage::Storage;
+use crate::terminal;
 
 
 /// Return whether the most significant bit of the given value is set
@@ -47,14 +48,35 @@ fn bytes_as_address(bytes: &[Byte]) -> Address {
 }
 
 
+struct Modules {
+
+    storage: Option<Storage>,
+
+}
+
+
+impl Modules {
+
+    fn new(storage: Option<Storage>) -> Self {
+        Self {
+            storage,
+        }
+    }
+
+}
+
+
 pub struct Processor {
 
     registers: [u64; REGISTER_COUNT],
     memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
+    /// The program counter of the last instruction executed in interactive mode.
+    /// 
+    /// This is only used in interactive mode
     interactive_last_instruction_pc: Address,
-    storage: Option<Storage>,
+    modules: Modules,
 
 }
 
@@ -86,6 +108,12 @@ impl Processor {
 
     pub fn new(max_memory_size: Option<usize>, quiet_exit: bool, storage: Option<StorageOptions>) -> Self {
 
+        let storage = if let Some(storage) = storage {
+            Some(Storage::new(storage.file_path, storage.max_size))
+        } else {
+            None
+        };
+
         Self {
             registers: [0; REGISTER_COUNT],
             memory: Memory::new(max_memory_size),
@@ -93,11 +121,9 @@ impl Processor {
             start_time: SystemTime::now(),
             quiet_exit,
             interactive_last_instruction_pc: 0,
-            storage: if let Some(storage) = storage {
-                Some(Storage::new(storage.file_path, storage.max_size))
-            } else {
-                None
-            },
+            modules: Modules::new(
+                storage,
+            ),
         }
     }
 
@@ -210,14 +236,14 @@ impl Processor {
 
     /// Get the value of the given register
     #[inline(always)]
-    fn get_register(&self, register: Registers) -> u64 {
+    pub fn get_register(&self, register: Registers) -> u64 {
         self.registers[register as usize]
     }
 
 
     /// Set the value of the given register
     #[inline(always)]
-    fn set_register(&mut self, register: Registers, value: u64) {
+    pub fn set_register(&mut self, register: Registers, value: u64) {
         self.registers[register as usize] = value;
     }
 
@@ -2217,7 +2243,7 @@ impl Processor {
         let buffer_address = self.get_register(Registers::R2) as Address;
         let size = self.get_register(Registers::R3) as usize;
 
-        let err = if let Some(storage) = &self.storage {
+        let err = if let Some(storage) = &self.modules.storage {
             match storage.read(disk_address, size) {
                 Ok(bytes) => {
                     self.memory.set_bytes(buffer_address, &bytes);
@@ -2242,7 +2268,7 @@ impl Processor {
         let buffer = self.memory.get_bytes(data_address, size);
 
         self.set_error(
-            if let Some(storage) = &self.storage {
+            if let Some(storage) = &self.modules.storage {
                 match storage.write(disk_address, buffer) {
                     Ok(_) => ErrorCodes::NoError,
                     Err(e) => e
@@ -2254,7 +2280,16 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 15 ] = [
+    fn handle_terminal(&mut self) {
+
+        let term_code = self.get_register(Registers::PRINT); 
+
+        let err = terminal::handle_code(term_code as usize, self);
+        self.set_error(err);
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 16 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -2270,6 +2305,7 @@ impl Processor {
         Self::handle_elapsed_time_nanos, // 12
         Self::handle_disk_read, // 13
         Self::handle_disk_write, // 14
+        Self::handle_terminal, // 15
     ];
 
 

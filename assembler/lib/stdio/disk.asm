@@ -2,6 +2,8 @@
 
     interrupts.asm
     asmutils/functional.asm
+    errors.asm
+    stdbool.asm
 
 
 .text:
@@ -37,9 +39,9 @@
         %- buffer: r2
         %- size: r3
 
-        !load_arg8 8 {size}
-        !load_arg8 16 {buffer}
-        !load_arg8 24 {address}
+        !load_arg8 8 =size
+        !load_arg8 16 =buffer
+        !load_arg8 24 =address
 
         intr =DISK_READ
 
@@ -81,15 +83,32 @@
         %- buffer: r2
         %- size: r3
 
-        !load_arg8 8 {size}
-        !load_arg8 16 {buffer}
-        !load_arg8 24 {address}
+        !load_arg8 8 =size
+        !load_arg8 16 =buffer
+        !load_arg8 24 =address
 
         intr =DISK_WRITE
 
         !restore_reg_state r3
         !restore_reg_state r2
         !restore_reg_state r1
+
+        ret
+    
+
+    # Check if a disk is available
+    #
+    # Return:
+    #   - r1: 1 if a disk is available, 0 otherwise
+    #
+    @@ has_disk
+
+        # Dummy read, fails if no disk is available
+        !disk_read 0 0 0
+
+        cmp1 error =PERMISSION_DENIED
+        !bool_invert_zf
+        mov r1 zf
 
         ret
 

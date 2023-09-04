@@ -637,8 +637,8 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                     error::invalid_macro_declaration(asm_unit.path, macro_definition.name.as_str(), line_number, line, "Macro definition end `%endmacro` must be on its own line");
                 }
 
-                if macro_info.local_macros.insert(macro_definition.name.clone(), macro_definition.clone()).is_some() {
-                    error::macro_redeclaration(asm_unit.path, macro_definition.name.as_str(), line_number, line);
+                if let Some(def) = macro_info.local_macros.insert(macro_definition.name.clone(), macro_definition.clone()) {
+                    error::macro_redeclaration(asm_unit.path, macro_definition.name.as_str(), def.line_number, &def.unit_path, line_number, line);
                 }
 
                 if macro_definition.to_export {
@@ -883,10 +883,9 @@ fn parse_line(trimmed_line: &str, macro_info: &mut MacroInfo, asm_unit: &Assembl
                         asm_unit.path.to_path_buf(), 
                         line_number
                     );
-
-                    if macro_info.local_const_macros.insert(macro_name.to_string(), macro_declaration.clone()).is_some() {
-                        error::macro_redeclaration(asm_unit.path, macro_name, line_number, line);
-                    }
+                    
+                    // Const macros can be redeclared
+                    macro_info.local_const_macros.insert(macro_name.to_string(), macro_declaration.clone());
 
                     if to_export {
                         macro_info.export_const_macros.insert(macro_name.to_string(), macro_declaration);
@@ -1109,6 +1108,7 @@ pub fn assemble(assembly: AssemblyCode, verbose: bool, unit_path: &Path, just_ch
     assemble_unit(asm_unit, verbose, &mut program_info);
 
     if just_check {
+        println!("✅ No errors found.");
         std::process::exit(0);
     }
 
