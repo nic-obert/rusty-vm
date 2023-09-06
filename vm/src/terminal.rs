@@ -1,5 +1,6 @@
-use rust_vm_lib::vm::ErrorCodes;
+use rust_vm_lib::vm::{ErrorCodes, Address};
 use termion::cursor;
+use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::cursor::DetectCursorPos;
 
@@ -219,7 +220,55 @@ fn handle_get_cursor_position(processor: &mut Processor) -> std::io::Result<()> 
 }
 
 
-const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 27 ] = [
+/// Start a thread that listens for key events and writes them to the given address.
+/// A key event is 2 bytes: the first byte is the modifier code, the second byte is the key code
+fn handle_get_key_listener(processor: &mut Processor) -> std::io::Result<()> {
+    const KEY_DATA_SIZE: usize = 2;
+    let key_store_address = processor.get_register(Registers::R1) as Address;
+    let key_data_slice = processor.memory.get_bytes_mut(key_store_address, KEY_DATA_SIZE).as_mut_ptr() as Address;
+    
+    std::thread::spawn(move || {
+        use termion::event::Key;
+
+        let key_data_slice: &mut [u8; KEY_DATA_SIZE] = unsafe {
+            &mut *(key_data_slice as *mut [u8; KEY_DATA_SIZE])
+        };
+
+        let stdin = std::io::stdin();
+        let _stdout = std::io::stdout().into_raw_mode().unwrap();
+
+        for c in stdin.keys() {
+            let key_data: [u8; KEY_DATA_SIZE] = match c.unwrap() {
+                Key::Backspace => [1, 0],
+                Key::Left => [2, 0],
+                Key::Right => [3, 0],
+                Key::Up => [4, 0],
+                Key::Down => [5, 0],
+                Key::Home => [6, 0],
+                Key::End => [7, 0],
+                Key::PageUp => [8, 0],
+                Key::PageDown => [9, 0],
+                Key::BackTab => [10, 0],
+                Key::Delete => [11, 0],
+                Key::Insert => [12, 0],
+                Key::F(n) => [13, n],
+                Key::Char(c) => [14, c as u8],
+                Key::Alt(c) => [15, c as u8],
+                Key::Ctrl(c) => [16, c as u8],
+                Key::Null => [17, 0],
+                Key::Esc => [18, 0],
+                Key::__IsNotComplete => [19, 0],
+            };
+
+            key_data_slice.copy_from_slice(&key_data);
+        }
+    });
+
+    Ok(())
+}
+
+
+const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 28 ] = [
     handle_goto,
     handle_clear,
     handle_blink,
@@ -247,5 +296,6 @@ const CODE_HANDLERS: [ fn(&mut Processor) -> std::io::Result<()>; 27 ] = [
     handle_get_terminal_size,
     handle_get_terminal_size_pixels,
     handle_get_cursor_position,
+    handle_get_key_listener,
 ];
 

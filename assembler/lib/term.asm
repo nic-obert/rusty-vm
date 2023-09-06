@@ -7,6 +7,8 @@
     @@ interrupts.asm
     @@ stdbool.asm
     @@ errors.asm
+    asmutils/functional.asm
+    asmutils/ptr_index.asm
 
 
 .text:
@@ -40,10 +42,34 @@
     %%- TERM_GET_TERMINAL_SIZE: 24
     %%- TERM_GET_TERMINAL_SIZE_PIXELS: 25
     %%- TERM_GET_CURSOR_POSITION: 26
+    %%- TERM_GET_KEY_LISTENER: 27
 
     # Constants
 
     %- TERM_CODE_REG: print
+
+    %%- TERM_KEY_DATA_SIZE: 2
+
+    %%- TERM_KEYCODE_NOKEY: 0
+    %%- TERM_KEYCODE_BACKSPACE: 1
+    %%- TERM_KEYCODE_LEFT: 2
+    %%- TERM_KEYCODE_RIGHT: 3
+    %%- TERM_KEYCODE_UP: 4
+    %%- TERM_KEYCODE_DOWN: 5
+    %%- TERM_KEYCODE_HOME: 6
+    %%- TERM_KEYCODE_END: 7
+    %%- TERM_KEYCODE_PAGEUP: 8
+    %%- TERM_KEYCODE_PAGEDOWN: 9
+    %%- TERM_KEYCODE_BACKTAB: 10
+    %%- TERM_KEYCODE_DELETE: 11
+    %%- TERM_KEYCODE_INSERT: 12
+    %%- TERM_KEYCODE_FUNCTION: 13
+    %%- TERM_KEYCODE_CHAR: 14
+    %%- TERM_KEYCODE_ALT: 15
+    %%- TERM_KEYCODE_CTRL: 16
+    %%- TERM_KEYCODE_NULL: 17
+    %%- TERM_KEYCODE_ESC: 18
+    %%- TERM_KEYCODE_INCOMPLETE: 19
 
 
     %% term_goto:
@@ -258,6 +284,89 @@
 
         mov1 =TERM_CODE_REG =TERM_GET_CURSOR_POSITION
         intr =TERM_INTR
+    
+    %endmacro
+
+
+    # Start a keyboard listener and store the key data at the address in r1
+    #
+    # Args:
+    #   - r1: address of a 2-byte memory buffer to store the key data (8 bytes)
+    #
+    %% term_get_key_listener:
+
+        # Clear the key data space first in case of dirty memory
+        !clear_key_data r1
+
+        mov1 =TERM_CODE_REG =TERM_GET_KEY_LISTENER
+        intr =TERM_INTR
+
+    %endmacro
+
+
+    %% clear_key_data key_data_address:
+
+        mov2 [{key_data_address}] 0
+
+    %endmacro
+
+
+    # Reads the key data and consume the read value
+    #
+    # Args:
+    #   - key_data_address: the address of the key data buffer (8 bytes)
+    #
+    # Return:
+    #   - r1: key modifier code (1 byte)
+    #   - r2: key char code (1 byte)
+    #
+    %% read_key_data key_data_address:
+
+        mov8 r1 {key_data_address}
+
+        call read_key_data
+
+    %endmacro
+
+    @@ read_key_data
+
+        !set_fstart
+
+        !save_reg_state r3
+
+        %- key_data_address: r3
+
+        # Load the argument
+        mov r3 r1
+
+        # Put keydata[1] into r2
+        !ptr_index1 =key_data_address 1
+        mov r2 r1
+
+        # Put keydata[0] into r1 (dereference ptr as 1-byte*)
+        mov1 r1 [=key_data_address]
+
+        # Consume the read value
+        !clear_key_data =key_data_address
+
+        !restore_reg_state r3
+
+        ret
+
+
+    # Return whether the given data listener has new key data
+    #
+    # Args:
+    #   - key_data_address: the address of the key data buffer (8 bytes)
+    #
+    # Return:
+    #   - r1: 1 if new data is present, 0 otherwise
+    #
+    %% has_key_data key_data_address:
+
+        cmp1 [{key_data_address}] =TERM_KEYCODE_NOKEY
+        !bool_invert_zf
+        mov r1 zf
     
     %endmacro
 

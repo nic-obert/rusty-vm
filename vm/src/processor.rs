@@ -69,7 +69,7 @@ impl Modules {
 pub struct Processor {
 
     registers: [u64; REGISTER_COUNT],
-    memory: Memory,
+    pub memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
     /// The program counter of the last instruction executed in interactive mode.
@@ -524,7 +524,7 @@ impl Processor {
 
             let previous_args = self.memory.get_bytes(
                 self.interactive_last_instruction_pc,
-                self.get_pc() - self.interactive_last_instruction_pc
+                self.get_pc().saturating_sub(self.interactive_last_instruction_pc)
             );
             println!("Previous args: {:?}", previous_args);
 
@@ -1499,7 +1499,7 @@ impl Processor {
 
         let left_address_reg = Registers::from(self.get_next_byte());
         let left_address = self.get_register(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, ADDRESS_SIZE), size);
+        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
         
         let right_reg = Registers::from(self.get_next_byte());
         let right_value = self.get_register(right_reg);
@@ -1523,7 +1523,7 @@ impl Processor {
 
         let left_address_reg = Registers::from(self.get_next_byte());
         let left_address = self.get_register(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, ADDRESS_SIZE), size);
+        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
         
         let right_address_reg = Registers::from(self.get_next_byte());
         let right_address = self.get_register(right_address_reg) as Address;
@@ -1548,7 +1548,7 @@ impl Processor {
 
         let left_address_reg = Registers::from(self.get_next_byte());
         let left_address = self.get_register(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, ADDRESS_SIZE), size);
+        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
        
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
@@ -1571,7 +1571,7 @@ impl Processor {
 
         let left_address_reg = Registers::from(self.get_next_byte());
         let left_address = self.get_register(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, ADDRESS_SIZE), size);
+        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
        
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);

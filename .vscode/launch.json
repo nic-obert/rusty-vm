@@ -20,7 +20,7 @@
                 }
             },
             "args": [
-                "impl/test.asm"
+                "impl/terminal_clicker/main.asm"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -78,8 +78,8 @@
                 }
             },
             "args": [
-                "impl/test.bc",
-                "--max-mem", "1024",
+                "impl/terminal_clicker/main.bc",
+                "--max-mem", "2048",
             ],
             "cwd": "${workspaceFolder}"
         },

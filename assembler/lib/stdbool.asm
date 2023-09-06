@@ -4,6 +4,10 @@
 
 .text:
 
+    %%- TRUE: 1
+    %%- FALSE: 0
+    
+
     # Convert an integer into a boolean
     #
     # Args:

@@ -9,4 +9,5 @@
     @@ asmutils/functional.asm
     @@ asmutils/static_def.asm
     @@ asmutils/debug.asm
+    @@ asmutils/ptr_index.asm
 

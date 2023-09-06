@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] add state struct to the terminal module to store the listeners and allow to stop them from the assembly  
 - [ ] add colors to built-in terminal  
 - [ ] add video module (separate process/thread that reads from video memory and writes to screen, don't worry about race conditions)  
 - [ ] implement a default built-in allocator for unlimited memory  

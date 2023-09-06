@@ -5,6 +5,7 @@
     stdio.asm
     stdlib.asm
     asmutils.asm
+    stdbool.asm
 
 
 .bss:
@@ -32,13 +33,6 @@
         mov8 [COLUMNS] r1
         mov8 [ROWS] r2
 
-        !static_def s string "Screen size: "
-        !print_uint r1
-        !print_char 'x'
-        !print_uint r2
-        !println
-
-        !set_timer_secs 1
         !term_clear
         !flush_stdout
 
@@ -71,13 +65,27 @@
 
 @start
 
+    %- listener: r3
+
     call setup_screen
 
-    !set_timer_secs 1
+    pushsp1 =TERM_KEY_DATA_SIZE
+    mov r1 sbp
+    
+    !term_get_key_listener
+    mov =listener r1
 
-    call spawn_target
+    @loop
 
-    !set_timer_secs 3
+        !has_key_data =listener
+        cmp1 r1 =TRUE
+        jmpnz loop
+
+            !read_key_data =listener
+
+            cmp1 r1 =TERM_KEYCODE_ESC
+            jmpnz loop
+
 
     call restore_screen
 
