@@ -6,6 +6,8 @@ mod cli_parser;
 mod error;
 mod storage;
 mod terminal;
+mod register;
+mod modules;
 
 use std::path::Path;
 

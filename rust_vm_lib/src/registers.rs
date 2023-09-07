@@ -1,10 +1,8 @@
 use std::fmt;
 
-use crate::vm::ADDRESS_SIZE;
-
-
 pub const REGISTER_ID_SIZE: usize = 1;
-pub const REGISTER_SIZE: usize = ADDRESS_SIZE;
+pub type RegisterContentType = u64;
+pub const REGISTER_SIZE: usize = std::mem::size_of::<RegisterContentType>();
 
 
 #[allow(dead_code, non_camel_case_types)]

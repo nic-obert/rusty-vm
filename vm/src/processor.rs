@@ -9,15 +9,17 @@ use rand::Rng;
 
 use assert_exists::assert_exists;
 
-use rust_vm_lib::registers::{Registers, REGISTER_COUNT, self};
+use rust_vm_lib::registers::{Registers, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
 use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
 use crate::error;
+use crate::modules::CPUModules;
+use crate::register::CPURegisters;
 use crate::storage::Storage;
-use crate::terminal;
+use crate::terminal::Terminal;
 
 
 /// Return whether the most significant bit of the given value is set
@@ -48,27 +50,9 @@ fn bytes_as_address(bytes: &[Byte]) -> Address {
 }
 
 
-struct Modules {
-
-    storage: Option<Storage>,
-
-}
-
-
-impl Modules {
-
-    fn new(storage: Option<Storage>) -> Self {
-        Self {
-            storage,
-        }
-    }
-
-}
-
-
 pub struct Processor {
 
-    registers: [u64; REGISTER_COUNT],
+    registers: CPURegisters,
     pub memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
@@ -76,7 +60,7 @@ pub struct Processor {
     /// 
     /// This is only used in interactive mode
     interactive_last_instruction_pc: Address,
-    modules: Modules,
+    modules: CPUModules,
 
 }
 
@@ -115,14 +99,15 @@ impl Processor {
         };
 
         Self {
-            registers: [0; REGISTER_COUNT],
+            registers: CPURegisters::new(),
             memory: Memory::new(max_memory_size),
             // Initialize temporarily, will be reinitialized in `execute`
             start_time: SystemTime::now(),
             quiet_exit,
             interactive_last_instruction_pc: 0,
-            modules: Modules::new(
+            modules: CPUModules::new(
                 storage,
+                Terminal::new()
             ),
         }
     }
@@ -138,13 +123,13 @@ impl Processor {
         }
 
         let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
-        self.set_register(Registers::PROGRAM_COUNTER, program_start as u64);
+        self.registers.set(Registers::PROGRAM_COUNTER, program_start as u64);
 
         // Set the heap start to after the static program section
         self.memory.init_layout(byte_code.len() as Address);
 
         // Initialize the stack pointer
-        self.set_register(Registers::STACK_BASE_POINTER, self.memory.get_stack_start() as u64);
+        self.registers.set(Registers::STACK_BASE_POINTER, self.memory.get_stack_start() as u64);
 
         // Load the program into memory
         self.memory.set_bytes(Self::STATIC_PROGRAM_ADDRESS, byte_code);
@@ -175,41 +160,13 @@ impl Processor {
     }
 
 
-    /// Increment the program counter by the given offset.
-    #[inline(always)]
-    fn inc_pc(&mut self, offset: usize) {
-        self.registers[Registers::PROGRAM_COUNTER as usize] += offset as u64;
-    }
-
-
-    /// Get the program counter
-    #[inline(always)]
-    fn get_pc(&self) -> Address {
-        self.registers[Registers::PROGRAM_COUNTER as usize] as Address
-    }
-
-
-    /// Get the stack base pointer
-    #[inline(always)]
-    fn get_stack_base(&self) -> Address {
-        self.registers[Registers::STACK_BASE_POINTER as usize] as Address
-    }
-
-
-    /// Get the stack top pointer
-    #[inline(always)]
-    fn get_stack_top(&self) -> Address {
-        self.registers[Registers::STACK_TOP_POINTER as usize] as Address
-    }
-
-
     /// Push the stack pointer forward
     /// Increment the stack top pointer
     /// Decrement the stack base pointer
     #[inline(always)]
     fn push_stack_pointer(&mut self, offset: usize) {
-        self.registers[Registers::STACK_TOP_POINTER as usize] += offset as u64;
-        self.registers[Registers::STACK_BASE_POINTER as usize] -= offset as u64;
+        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 + offset as u64);
+        self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 - offset as u64);
 
         self.check_stack_overflow();
     }
@@ -218,8 +175,8 @@ impl Processor {
     /// Checks if the stack has overflowed into the heap
     /// If the stack has overflowed, set the error register and terminate the program (stack overflow is unrecoverable)
     fn check_stack_overflow(&mut self) {
-        if (self.get_register(Registers::STACK_BASE_POINTER) as usize) < self.memory.get_heap_end() {
-            self.set_error(ErrorCodes::StackOverflow);
+        if (self.registers.get(Registers::STACK_BASE_POINTER) as usize) < self.memory.get_heap_end() {
+            self.registers.set_error(ErrorCodes::StackOverflow);
             self.handle_exit();
         }
     }
@@ -229,37 +186,16 @@ impl Processor {
     /// Decrement the stack top pointer
     /// Increment the stack base pointer
     fn pop_stack_pointer(&mut self, offset: usize) {
-        self.registers[Registers::STACK_TOP_POINTER as usize] -= offset as u64;
-        self.registers[Registers::STACK_BASE_POINTER as usize] += offset as u64;
-    }
-
-
-    /// Get the value of the given register
-    #[inline(always)]
-    pub fn get_register(&self, register: Registers) -> u64 {
-        self.registers[register as usize]
-    }
-
-
-    /// Set the value of the given register
-    #[inline(always)]
-    pub fn set_register(&mut self, register: Registers, value: u64) {
-        self.registers[register as usize] = value;
-    }
-
-
-    /// Set the error register
-    #[inline(always)]
-    fn set_error(&mut self, error: ErrorCodes) {
-        self.registers[Registers::ERROR as usize] = error as u64;
+        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 - offset as u64);
+        self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 + offset as u64);
     }
 
 
     /// Get the next address in the bytecode
     #[inline(always)]
     fn get_next_address(&mut self) -> Address {
-        let pc = self.get_pc();
-        self.inc_pc(ADDRESS_SIZE);
+        let pc = self.registers.pc();
+        self.registers.inc_pc(ADDRESS_SIZE);
         bytes_as_address(self.memory.get_bytes(pc, ADDRESS_SIZE))
     }
 
@@ -417,7 +353,7 @@ impl Processor {
     /// Mobe a number of bytes from the given address into the given register
     fn move_bytes_into_register(&mut self, src_address: Address, dest_reg: Registers, handled_size: Byte) {
         let bytes = self.memory.get_bytes(src_address, handled_size as usize);
-        self.set_register(
+        self.registers.set(
             dest_reg,
             bytes_to_int(bytes, handled_size)
         );
@@ -427,7 +363,7 @@ impl Processor {
     /// Jump (set the pc) to the given address
     #[inline(always)]
     fn jump_to(&mut self, address: Address) {
-        self.set_register(Registers::PROGRAM_COUNTER, address as u64);
+        self.registers.set(Registers::PROGRAM_COUNTER, address as u64);
     }
 
 
@@ -439,7 +375,7 @@ impl Processor {
 
         // Copy the bytes onto the stack
         self.memory.set_bytes(
-            self.get_stack_base(),
+            self.registers.stack_base(),
             bytes,
         );
     }
@@ -452,7 +388,7 @@ impl Processor {
         self.push_stack_pointer(size);
 
         // Copy the bytes onto the stack
-        self.memory.memcpy(src_address, self.get_stack_base(), size);
+        self.memory.memcpy(src_address, self.registers.stack_base(), size);
     }
 
 
@@ -469,7 +405,7 @@ impl Processor {
 
         // Subtract the size from the stack base pointer to get the address of the previous top of the stack
         self.memory.get_bytes(
-            self.get_stack_base() - size,
+            self.registers.stack_base() - size,
             size,
         )
     }
@@ -477,7 +413,7 @@ impl Processor {
 
     /// Move a number of bytes from the given register into the given address
     fn move_from_register_into_address(&mut self, src_reg: Registers, dest_address: Address, handled_size: Byte) {
-        let value = self.get_register(src_reg);
+        let value = self.registers.get(src_reg);
 
         match handled_size {
             1 => self.memory.set_bytes(dest_address, &(value as u8).to_le_bytes()),
@@ -491,16 +427,16 @@ impl Processor {
     
     /// Get the next `size` bytes in the bytecode
     fn get_next_bytes(&mut self, size: usize) -> &[Byte] {
-        let pc = self.get_pc();
-        self.inc_pc(size);
+        let pc = self.registers.pc();
+        self.registers.inc_pc(size);
         self.memory.get_bytes(pc, size)
     }
 
 
     /// Get the next byte in the bytecode
     fn get_next_byte(&mut self) -> Byte {
-        let pc = self.get_pc();
-        self.inc_pc(1);
+        let pc = self.registers.pc();
+        self.registers.inc_pc(1);
         self.memory.get_byte(pc)
     }
 
@@ -517,33 +453,33 @@ impl Processor {
 
         println!("Running VM in interactive mode");
         println!("Byte code size is {} bytes", byte_code_size);
-        println!("Start address is: {:#X}", self.get_pc());
+        println!("Start address is: {:#X}", self.registers.pc());
         println!();
 
         loop {
 
             let previous_args = self.memory.get_bytes(
                 self.interactive_last_instruction_pc,
-                self.get_pc().saturating_sub(self.interactive_last_instruction_pc)
+                self.registers.pc().saturating_sub(self.interactive_last_instruction_pc)
             );
             println!("Previous args: {:?}", previous_args);
 
             let opcode = ByteCodes::from(self.get_next_byte());
 
-            self.interactive_last_instruction_pc = self.get_pc();
+            self.interactive_last_instruction_pc = self.registers.pc();
 
             println!();
 
-            println!("PC: {}, opcode: {}", self.get_pc(), opcode);
+            println!("PC: {}, opcode: {}", self.registers.pc(), opcode);
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
-            let top_bound = self.get_stack_top().saturating_sub(MAX_STACK_VIEW_RANGE);
-            let base_bound = self.get_stack_top();
+            let top_bound = self.registers.stack_top().saturating_sub(MAX_STACK_VIEW_RANGE);
+            let base_bound = self.registers.stack_top();
 
             println!(
                 "Stack: {:#X} {:?} {:#X}",
-                top_bound, &self.memory.get_raw()[top_bound .. base_bound], self.get_stack_top()
+                top_bound, &self.memory.get_raw()[top_bound .. base_bound], self.registers.stack_top()
             );
 
             io::stdin().read_line(&mut String::new()).unwrap();
@@ -555,8 +491,8 @@ impl Processor {
 
 
     fn display_registers(&self) -> String {
-        (0..REGISTER_COUNT).map(
-            |i| format!("{}: {}, ", registers::REGISTER_NAMES[i], self.registers[i])
+        self.registers.iter().enumerate().map(
+            |(i, reg)| format!("{}: {}, ", registers::REGISTER_NAMES[i], reg)
         ).collect()
     }
 
@@ -564,7 +500,7 @@ impl Processor {
     fn run_verbose(&mut self) {
         loop {
             let opcode = ByteCodes::from(self.get_next_byte());
-            println!("PC: {}, opcode: {}", self.get_pc(), opcode);
+            println!("PC: {}, opcode: {}", self.registers.pc(), opcode);
             self.handle_instruction(opcode);
         }
     }
@@ -578,11 +514,11 @@ impl Processor {
 
     /// Set the arithmetical flags
     fn set_arithmetical_flags(&mut self, zf: bool, sf: bool, rf: u64, cf: bool, of: bool) {
-        self.set_register(Registers::ZERO_FLAG, zf as u64);
-        self.set_register(Registers::SIGN_FLAG, sf as u64);
-        self.set_register(Registers::REMAINDER_FLAG, rf);
-        self.set_register(Registers::CARRY_FLAG, cf as u64);
-        self.set_register(Registers::OVERFLOW_FLAG, of as u64);
+        self.registers.set(Registers::ZERO_FLAG, zf as u64);
+        self.registers.set(Registers::SIGN_FLAG, sf as u64);
+        self.registers.set(Registers::REMAINDER_FLAG, rf);
+        self.registers.set(Registers::CARRY_FLAG, cf as u64);
+        self.registers.set(Registers::OVERFLOW_FLAG, of as u64);
     }
 
 
@@ -592,15 +528,15 @@ impl Processor {
     fn handle_integer_add(&mut self) {
         assert_exists!(ByteCodes::INTEGER_ADD);
 
-        let r1 = self.get_register(Registers::R1);
-        let r2 = self.get_register(Registers::R2);
+        let r1 = self.registers.get(Registers::R1);
+        let r2 = self.registers.get(Registers::R2);
         
         let (result, carry) = match r1.checked_add(r2) {
             Some(result) => (result, false),
             None => (r1.wrapping_add(r2), true)
         };
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -615,15 +551,15 @@ impl Processor {
     fn handle_integer_sub(&mut self) {
         assert_exists!(ByteCodes::INTEGER_SUB);
         
-        let r1 = self.get_register(Registers::R1);
-        let r2 = self.get_register(Registers::R2);
+        let r1 = self.registers.get(Registers::R1);
+        let r2 = self.registers.get(Registers::R2);
 
         let (result, carry) = match r1.checked_sub(r2) {
             Some(result) => (result, false),
             None => (r1.wrapping_sub(r2), true)
         };
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -638,15 +574,15 @@ impl Processor {
     fn handle_integer_mul(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MUL);
         
-        let r1 = self.get_register(Registers::R1);
-        let r2 = self.get_register(Registers::R2);
+        let r1 = self.registers.get(Registers::R1);
+        let r2 = self.registers.get(Registers::R2);
 
         let (result, carry) = match r1.checked_mul(r2) {
             Some(result) => (result, false),
             None => (r1.wrapping_mul(r2), true)
         };
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -661,18 +597,18 @@ impl Processor {
     fn handle_integer_div(&mut self) {
         assert_exists!(ByteCodes::INTEGER_DIV);
 
-        let r1 = self.get_register(Registers::R1);
-        let r2 = self.get_register(Registers::R2);
+        let r1 = self.registers.get(Registers::R1);
+        let r2 = self.registers.get(Registers::R2);
 
         if r2 == 0 {
-            self.set_error(ErrorCodes::ZeroDivision);
+            self.registers.set_error(ErrorCodes::ZeroDivision);
             return;
         }
 
         // Assume no carry or overflow
         let result = r1 / r2;
         
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -687,17 +623,17 @@ impl Processor {
     fn handle_integer_mod(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MOD);
         
-        let r1 = self.get_register(Registers::R1);
-        let r2 = self.get_register(Registers::R2);
+        let r1 = self.registers.get(Registers::R1);
+        let r2 = self.registers.get(Registers::R2);
 
         if r2 == 0 {
-            self.set_error(ErrorCodes::ZeroDivision);
+            self.registers.set_error(ErrorCodes::ZeroDivision);
             return;
         }
 
         let result = r1 % r2;
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -712,12 +648,12 @@ impl Processor {
     fn handle_float_add(&mut self) {
         assert_exists!(ByteCodes::FLOAT_ADD);
 
-        let r1 = self.get_register(Registers::R1) as f64;
-        let r2 = self.get_register(Registers::R2) as f64;
+        let r1 = self.registers.get(Registers::R1) as f64;
+        let r2 = self.registers.get(Registers::R2) as f64;
         
         let result = r1 + r2;
 
-        self.set_register(Registers::R1, result as u64);
+        self.registers.set(Registers::R1, result as u64);
 
         self.set_arithmetical_flags(
             result == 0.0,
@@ -733,12 +669,12 @@ impl Processor {
     fn handle_float_sub(&mut self) {
         assert_exists!(ByteCodes::FLOAT_SUB);
 
-        let r1 = self.get_register(Registers::R1) as f64;
-        let r2 = self.get_register(Registers::R2) as f64;
+        let r1 = self.registers.get(Registers::R1) as f64;
+        let r2 = self.registers.get(Registers::R2) as f64;
         
         let result = r1 - r2;
 
-        self.set_register(Registers::R1, result as u64);
+        self.registers.set(Registers::R1, result as u64);
 
         self.set_arithmetical_flags(
             result == 0.0,
@@ -754,12 +690,12 @@ impl Processor {
     fn handle_float_mul(&mut self) {
         assert_exists!(ByteCodes::FLOAT_MUL);
 
-        let r1 = self.get_register(Registers::R1) as f64;
-        let r2 = self.get_register(Registers::R2) as f64;
+        let r1 = self.registers.get(Registers::R1) as f64;
+        let r2 = self.registers.get(Registers::R2) as f64;
         
         let result = r1 * r2;
 
-        self.set_register(Registers::R1, result as u64);
+        self.registers.set(Registers::R1, result as u64);
 
         self.set_arithmetical_flags(
             result == 0.0,
@@ -775,12 +711,12 @@ impl Processor {
     fn handle_float_div(&mut self) {
         assert_exists!(ByteCodes::FLOAT_DIV);
 
-        let r1 = self.get_register(Registers::R1) as f64;
-        let r2 = self.get_register(Registers::R2) as f64;
+        let r1 = self.registers.get(Registers::R1) as f64;
+        let r2 = self.registers.get(Registers::R2) as f64;
         
         let result = r1 / r2;
 
-        self.set_register(Registers::R1, result as u64);
+        self.registers.set(Registers::R1, result as u64);
 
         self.set_arithmetical_flags(
             result == 0.0,
@@ -796,12 +732,12 @@ impl Processor {
     fn handle_float_mod(&mut self) {
         assert_exists!(ByteCodes::FLOAT_MOD);
 
-        let r1 = self.get_register(Registers::R1) as f64;
-        let r2 = self.get_register(Registers::R2) as f64;
+        let r1 = self.registers.get(Registers::R1) as f64;
+        let r2 = self.registers.get(Registers::R2) as f64;
         
         let result = r1 % r2;
 
-        self.set_register(Registers::R1, result as u64);
+        self.registers.set(Registers::R1, result as u64);
 
         self.set_arithmetical_flags(
             result == 0.0,
@@ -818,14 +754,14 @@ impl Processor {
         assert_exists!(ByteCodes::INC_REG);
 
         let dest_reg = Registers::from(self.get_next_byte());
-        let value = self.get_register(dest_reg);
+        let value = self.registers.get(dest_reg);
 
         let (result, carry) = match value.checked_add(1) {
             Some(result) => (result, false),
             None => (value.saturating_add(1), true)
         };
 
-        self.set_register(dest_reg, result);
+        self.registers.set(dest_reg, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -842,7 +778,7 @@ impl Processor {
 
         let size = self.get_next_byte();
         let address_reg = Registers::from(self.get_next_byte());
-        let address: Address = self.get_register(address_reg) as Address;
+        let address: Address = self.registers.get(address_reg) as Address;
         
         self.increment_bytes(address, size);
     }
@@ -862,14 +798,14 @@ impl Processor {
         assert_exists!(ByteCodes::DEC_REG);
 
         let dest_reg = Registers::from(self.get_next_byte());
-        let value = self.get_register(dest_reg);
+        let value = self.registers.get(dest_reg);
 
         let (result, carry) = match value.checked_sub(1) {
             Some(result) => (result, false),
             None => (value.wrapping_sub(1), true)
         };
 
-        self.set_register(dest_reg, result);
+        self.registers.set(dest_reg, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -886,7 +822,7 @@ impl Processor {
 
         let size = self.get_next_byte();
         let address_reg = Registers::from(self.get_next_byte());
-        let address: Address = self.get_register(address_reg) as Address;
+        let address: Address = self.registers.get(address_reg) as Address;
         
         self.decrement_bytes(address, size);
     }
@@ -914,7 +850,7 @@ impl Processor {
 
         let dest_reg = Registers::from(self.get_next_byte());
         let source_reg = Registers::from(self.get_next_byte());
-        self.set_register(dest_reg, self.get_register(source_reg));
+        self.registers.set(dest_reg, self.registers.get(source_reg));
     }
 
 
@@ -924,7 +860,7 @@ impl Processor {
         let size = self.get_next_byte();
         let dest_reg = Registers::from(self.get_next_byte());
         let address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.get_register(address_reg) as Address;
+        let src_address = self.registers.get(address_reg) as Address;
 
         self.move_bytes_into_register(src_address, dest_reg, size);
     }
@@ -937,10 +873,10 @@ impl Processor {
         let dest_reg = Registers::from(self.get_next_byte());
 
         // Hack the borrow checker
-        let src_address = self.get_pc();
+        let src_address = self.registers.pc();
 
         self.move_bytes_into_register(src_address, dest_reg, size);
-        self.inc_pc(size as usize);
+        self.registers.inc_pc(size as usize);
     }
 
 
@@ -961,7 +897,7 @@ impl Processor {
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let src_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.get_register(dest_address_reg) as Address;
+        let dest_address = self.registers.get(dest_address_reg) as Address;
 
         self.move_from_register_into_address(src_reg, dest_address, size);
     }
@@ -973,8 +909,8 @@ impl Processor {
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
         let src_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.get_register(dest_address_reg) as Address;
-        let src_address = self.get_register(src_address_reg) as Address;
+        let dest_address = self.registers.get(dest_address_reg) as Address;
+        let src_address = self.registers.get(src_address_reg) as Address;
         
         self.memory.memcpy(src_address, dest_address, size as usize);
     }
@@ -985,11 +921,11 @@ impl Processor {
 
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.get_register(dest_address_reg) as Address;
-        let src_address = self.get_pc();
+        let dest_address = self.registers.get(dest_address_reg) as Address;
+        let src_address = self.registers.pc();
         
         self.memory.memcpy(src_address, dest_address, size as usize);
-        self.inc_pc(size as usize);
+        self.registers.inc_pc(size as usize);
     }
 
 
@@ -998,7 +934,7 @@ impl Processor {
 
         let size = self.get_next_byte();
         let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.get_register(dest_address_reg) as Address;
+        let dest_address = self.registers.get(dest_address_reg) as Address;
         let src_address = self.get_next_address();
 
         self.memory.memcpy(src_address, dest_address, size as usize);
@@ -1022,7 +958,7 @@ impl Processor {
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
         let src_address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.get_register(src_address_reg) as Address;
+        let src_address = self.registers.get(src_address_reg) as Address;
 
         self.memory.memcpy(src_address, dest_address, size as usize);
     }
@@ -1033,10 +969,10 @@ impl Processor {
 
         let size = self.get_next_byte();
         let dest_address = self.get_next_address();
-        let src_address = self.get_pc();
+        let src_address = self.registers.pc();
 
         self.memory.memcpy(src_address, dest_address, size as usize);
-        self.inc_pc(size as usize);
+        self.registers.inc_pc(size as usize);
     }
 
 
@@ -1056,7 +992,7 @@ impl Processor {
 
         let src_reg = Registers::from(self.get_next_byte());
 
-        self.push_stack(self.get_register(src_reg));
+        self.push_stack(self.registers.get(src_reg));
     }
 
 
@@ -1066,7 +1002,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let src_address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.get_register(src_address_reg) as Address;
+        let src_address = self.registers.get(src_address_reg) as Address;
 
         self.push_stack_from_address(src_address, size as usize);
     }
@@ -1078,8 +1014,8 @@ impl Processor {
         let size = self.get_next_byte();
 
         // Hack to get around the borrow checker
-        self.push_stack_from_address(self.get_pc(), size as usize);
-        self.inc_pc(size as usize);
+        self.push_stack_from_address(self.registers.pc(), size as usize);
+        self.registers.inc_pc(size as usize);
     }
 
 
@@ -1098,7 +1034,7 @@ impl Processor {
         assert_exists!(ByteCodes::PUSH_STACK_POINTER_REG);
 
         let reg = Registers::from(self.get_next_byte());
-        let offset = self.get_register(reg);
+        let offset = self.registers.get(reg);
 
         self.push_stack_pointer(offset as usize);
     }
@@ -1110,7 +1046,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
+        let address = self.registers.get(address_reg) as Address;
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
@@ -1151,7 +1087,7 @@ impl Processor {
         let bytes = self.pop_stack_bytes(size as usize);
         let value = bytes_to_int(bytes, size);
 
-        self.set_register(dest_reg, value);
+        self.registers.set(dest_reg, value);
     }
 
 
@@ -1161,9 +1097,9 @@ impl Processor {
         let size = self.get_next_byte();
 
         let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.get_register(dest_address_reg) as Address;
+        let dest_address = self.registers.get(dest_address_reg) as Address;
 
-        self.memory.memcpy(self.get_stack_base(), dest_address, size as usize);
+        self.memory.memcpy(self.registers.stack_base(), dest_address, size as usize);
 
         self.pop_stack_pointer(size as usize);
     }
@@ -1176,7 +1112,7 @@ impl Processor {
 
         let dest_address = self.get_next_address();
 
-        self.memory.memcpy(self.get_stack_base(), dest_address, size as usize);
+        self.memory.memcpy(self.registers.stack_base(), dest_address, size as usize);
 
         self.pop_stack_pointer(size as usize);
     }
@@ -1186,7 +1122,7 @@ impl Processor {
         assert_exists!(ByteCodes::POP_STACK_POINTER_REG);
 
         let reg = Registers::from(self.get_next_byte());
-        let offset = self.get_register(reg);
+        let offset = self.registers.get(reg);
 
         self.pop_stack_pointer(offset as usize);
     }
@@ -1198,7 +1134,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
+        let address = self.registers.get(address_reg) as Address;
 
         let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
 
@@ -1250,7 +1186,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::ZERO_FLAG) == 0 {
+        if self.registers.get(Registers::ZERO_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -1261,7 +1197,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::ZERO_FLAG) == 1 {
+        if self.registers.get(Registers::ZERO_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }
@@ -1272,8 +1208,8 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) == self.get_register(Registers::OVERFLOW_FLAG)
-            && self.get_register(Registers::ZERO_FLAG) == 0 {
+        if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG)
+            && self.registers.get(Registers::ZERO_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -1284,7 +1220,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) == self.get_register(Registers::OVERFLOW_FLAG) {
+        if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG) {
             self.jump_to(jump_address);
         }
     }
@@ -1295,7 +1231,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) != self.get_register(Registers::OVERFLOW_FLAG) {
+        if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG) {
             self.jump_to(jump_address);
         }
     }
@@ -1306,8 +1242,8 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) != self.get_register(Registers::OVERFLOW_FLAG)
-            || self.get_register(Registers::ZERO_FLAG) == 1 {
+        if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG)
+            || self.registers.get(Registers::ZERO_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }
@@ -1318,7 +1254,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::OVERFLOW_FLAG) == 1 {
+        if self.registers.get(Registers::OVERFLOW_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }
@@ -1329,7 +1265,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::OVERFLOW_FLAG) == 0 {
+        if self.registers.get(Registers::OVERFLOW_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -1340,7 +1276,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::CARRY_FLAG) == 1 {
+        if self.registers.get(Registers::CARRY_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }
@@ -1351,7 +1287,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::CARRY_FLAG) == 0 {
+        if self.registers.get(Registers::CARRY_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -1362,7 +1298,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) == 1 {
+        if self.registers.get(Registers::SIGN_FLAG) == 1 {
             self.jump_to(jump_address);
         }
     }
@@ -1373,7 +1309,7 @@ impl Processor {
 
         let jump_address = self.get_next_address();
 
-        if self.get_register(Registers::SIGN_FLAG) == 0 {
+        if self.registers.get(Registers::SIGN_FLAG) == 0 {
             self.jump_to(jump_address);
         }
     }
@@ -1385,7 +1321,7 @@ impl Processor {
         let jump_address = self.get_next_address();
 
         // Push the return address onto the stack (return address is the current pc)
-        self.push_stack(self.get_pc() as u64);
+        self.push_stack(self.registers.pc() as u64);
 
         // Jump to the subroutine
         self.jump_to(jump_address);
@@ -1411,7 +1347,7 @@ impl Processor {
         let left_reg = Registers::from(self.get_next_byte());
         let right_reg = Registers::from(self.get_next_byte());
     
-        let result = self.get_register(left_reg) as i64 - self.get_register(right_reg) as i64;
+        let result = self.registers.get(left_reg) as i64 - self.registers.get(right_reg) as i64;
 
         self.set_arithmetical_flags(
             result == 0,
@@ -1429,10 +1365,10 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.get_register(left_reg);
+        let left_value = self.registers.get(left_reg);
 
         let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.get_register(right_address_reg) as Address;
+        let right_address = self.registers.get(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
         let result = left_value as i64 - right_value as i64;
@@ -1453,7 +1389,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.get_register(left_reg);
+        let left_value = self.registers.get(left_reg);
 
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
 
@@ -1475,7 +1411,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.get_register(left_reg);
+        let left_value = self.registers.get(left_reg);
 
         let right_address = self.get_next_address();
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
@@ -1498,11 +1434,11 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.get_register(left_address_reg) as Address;
+        let left_address = self.registers.get(left_address_reg) as Address;
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
         
         let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.get_register(right_reg);
+        let right_value = self.registers.get(right_reg);
 
         let result = left_value as i64 - right_value as i64;
 
@@ -1522,11 +1458,11 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.get_register(left_address_reg) as Address;
+        let left_address = self.registers.get(left_address_reg) as Address;
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
         
         let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.get_register(right_address_reg) as Address;
+        let right_address = self.registers.get(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
         let result = left_value as i64 - right_value as i64;
@@ -1547,7 +1483,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.get_register(left_address_reg) as Address;
+        let left_address = self.registers.get(left_address_reg) as Address;
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
        
         let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
@@ -1570,7 +1506,7 @@ impl Processor {
         let size = self.get_next_byte();
 
         let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.get_register(left_address_reg) as Address;
+        let left_address = self.registers.get(left_address_reg) as Address;
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
        
         let right_address = self.get_next_address();
@@ -1597,7 +1533,7 @@ impl Processor {
         let left_value = bytes_to_int(left_address, size);
 
         let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.get_register(right_reg);
+        let right_value = self.registers.get(right_reg);
         
         let result = left_value as i64 - right_value as i64;
 
@@ -1620,7 +1556,7 @@ impl Processor {
         let left_value = bytes_to_int(left_address, size);
 
         let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.get_register(right_address_reg) as Address;
+        let right_address = self.registers.get(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
         let result = left_value as i64 - right_value as i64;
@@ -1690,7 +1626,7 @@ impl Processor {
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
         let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.get_register(right_reg);
+        let right_value = self.registers.get(right_reg);
 
         let result = left_value as i64 - right_value as i64;
 
@@ -1713,7 +1649,7 @@ impl Processor {
         let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
         let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.get_register(right_address_reg) as Address;
+        let right_address = self.registers.get(right_address_reg) as Address;
         let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
         let result = left_value as i64 - right_value as i64;
@@ -1777,9 +1713,9 @@ impl Processor {
     fn handle_and(&mut self) {
         assert_exists!(ByteCodes::AND);
 
-        let result = self.get_register(Registers::R1) & self.get_register(Registers::R2);
+        let result = self.registers.get(Registers::R1) & self.registers.get(Registers::R2);
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -1794,9 +1730,9 @@ impl Processor {
     fn handle_or(&mut self) {
         assert_exists!(ByteCodes::OR);
 
-        let result = self.get_register(Registers::R1) | self.get_register(Registers::R2);
+        let result = self.registers.get(Registers::R1) | self.registers.get(Registers::R2);
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -1811,9 +1747,9 @@ impl Processor {
     fn handle_xor(&mut self) {
         assert_exists!(ByteCodes::XOR);
 
-        let result = self.get_register(Registers::R1) ^ self.get_register(Registers::R2);
+        let result = self.registers.get(Registers::R1) ^ self.registers.get(Registers::R2);
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -1828,9 +1764,9 @@ impl Processor {
     fn handle_not(&mut self) {
         assert_exists!(ByteCodes::NOT);
 
-        let result = !self.get_register(Registers::R1);
+        let result = !self.registers.get(Registers::R1);
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
 
         self.set_arithmetical_flags(
             result == 0,
@@ -1845,24 +1781,24 @@ impl Processor {
     fn handle_shift_left(&mut self) {
         assert_exists!(ByteCodes::SHIFT_LEFT);
 
-        let value = self.get_register(Registers::R1);
-        let shift_amount = self.get_register(Registers::R2);
+        let value = self.registers.get(Registers::R1);
+        let shift_amount = self.registers.get(Registers::R2);
 
         let result = value.overflowing_shl(shift_amount as u32).0;
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
     }
 
 
     fn handle_shift_right(&mut self) {
         assert_exists!(ByteCodes::SHIFT_RIGHT);
 
-        let value = self.get_register(Registers::R1);
-        let shift_amount = self.get_register(Registers::R2);
+        let value = self.registers.get(Registers::R1);
+        let shift_amount = self.registers.get(Registers::R2);
 
         let result = value.overflowing_shr(shift_amount as u32).0;
 
-        self.set_register(Registers::R1, result);
+        self.registers.set(Registers::R1, result);
     }
 
 
@@ -1870,7 +1806,7 @@ impl Processor {
         assert_exists!(ByteCodes::INTERRUPT_REG);
 
         let reg = Registers::from(self.get_next_byte());
-        let intr_code = self.get_register(reg) as u8;
+        let intr_code = self.registers.get(reg) as u8;
 
         self.handle_interrupt(intr_code);
     }
@@ -1885,7 +1821,7 @@ impl Processor {
     fn handle_exit(&mut self) {
         assert_exists!(ByteCodes::EXIT);
 
-        let exit_code_n = self.get_register(Registers::EXIT) as u8;
+        let exit_code_n = self.registers.get(Registers::EXIT) as u8;
         let exit_code = ErrorCodes::from(exit_code_n);
 
         if !self.quiet_exit {
@@ -2007,7 +1943,7 @@ impl Processor {
         assert_exists!(ByteCodes::INTERRUPT_ADDR_IN_REG);
 
         let address_reg = Registers::from(self.get_next_byte());
-        let address = self.get_register(address_reg) as Address;
+        let address = self.registers.get(address_reg) as Address;
         let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
 
         self.handle_interrupt(intr_code);
@@ -2035,7 +1971,7 @@ impl Processor {
 
     fn handle_print_signed(&mut self) {
         
-        let value = self.get_register(Registers::PRINT);
+        let value = self.registers.get(Registers::PRINT);
         print!("{}", value as i64);
         io::stdout().flush().expect("Failed to flush stdout");
     }
@@ -2043,7 +1979,7 @@ impl Processor {
 
     fn handle_print_unsigned(&mut self) {
 
-        let value = self.get_register(Registers::PRINT);
+        let value = self.registers.get(Registers::PRINT);
         print!("{}", value);
         io::stdout().flush().expect("Failed to flush stdout");
     }
@@ -2051,7 +1987,7 @@ impl Processor {
 
     fn handle_print_char(&mut self) {
 
-        let value = self.get_register(Registers::PRINT);
+        let value = self.registers.get(Registers::PRINT);
         io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");
         io::stdout().flush().expect("Failed to flush stdout");
     }
@@ -2059,7 +1995,7 @@ impl Processor {
 
     fn handle_print_string(&mut self) {
 
-        let string_address = self.get_register(Registers::PRINT) as Address;
+        let string_address = self.registers.get(Registers::PRINT) as Address;
         let length = self.strlen(string_address);
         let bytes = self.memory.get_bytes(string_address, length);
 
@@ -2070,8 +2006,8 @@ impl Processor {
 
     fn handle_print_bytes(&mut self) {
 
-        let bytes_address = self.get_register(Registers::PRINT) as Address;
-        let length = self.get_register(Registers::R1) as usize;
+        let bytes_address = self.registers.get(Registers::PRINT) as Address;
+        let length = self.registers.get(Registers::R1) as usize;
         let bytes = self.memory.get_bytes(bytes_address, length);
 
         io::stdout().write_all(bytes).expect("Failed to write to stdout");
@@ -2088,22 +2024,22 @@ impl Processor {
 
                 // Check for EOF errors
                 if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
+                    self.registers.set_error(ErrorCodes::EndOfFile);
                     return;
                 }
 
                 match input.parse::<i64>() {
                     Ok(value) => {
-                        self.set_register(Registers::INPUT, value as u64);
-                        self.set_error(ErrorCodes::NoError);
+                        self.registers.set(Registers::INPUT, value as u64);
+                        self.registers.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
-                        self.set_error(ErrorCodes::InvalidInput);
+                        self.registers.set_error(ErrorCodes::InvalidInput);
                     }
                 }
             },
             Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
+                self.registers.set_error(ErrorCodes::GenericError);
             },
         }
     }
@@ -2116,22 +2052,22 @@ impl Processor {
 
                 // Check for EOF errors
                 if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
+                    self.registers.set_error(ErrorCodes::EndOfFile);
                     return;
                 }
 
                 match input.trim().parse::<u64>() {
                     Ok(value) => {
-                        self.set_register(Registers::INPUT, value);
-                        self.set_error(ErrorCodes::NoError);
+                        self.registers.set(Registers::INPUT, value);
+                        self.registers.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
-                        self.set_error(ErrorCodes::InvalidInput);
+                        self.registers.set_error(ErrorCodes::InvalidInput);
                     }
                 }
             },
             Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
+                self.registers.set_error(ErrorCodes::GenericError);
             },
         }
     }
@@ -2146,7 +2082,7 @@ impl Processor {
 
                 // Check for EOF errors
                 if bytes_read == 0 {
-                    self.set_error(ErrorCodes::EndOfFile);
+                    self.registers.set_error(ErrorCodes::EndOfFile);
                     return;
                 }
 
@@ -2154,20 +2090,20 @@ impl Processor {
                 let address = match self.memory.allocate(input.len()) {
                     Ok(address) => address,
                     Err(e) => {
-                        self.set_error(e);
+                        self.registers.set_error(e);
                         return;
                     }
                 };
                 self.memory.set_bytes(address, input.as_bytes());
 
-                self.set_register(Registers::INPUT, address as u64);
-                self.set_register(Registers::R1, input.len() as u64);
+                self.registers.set(Registers::INPUT, address as u64);
+                self.registers.set(Registers::R1, input.len() as u64);
 
-                self.set_error(ErrorCodes::NoError); 
+                self.registers.set_error(ErrorCodes::NoError); 
             },
 
             Err(_) => {
-                self.set_error(ErrorCodes::GenericError);
+                self.registers.set_error(ErrorCodes::GenericError);
             },
         }
     }
@@ -2175,17 +2111,17 @@ impl Processor {
 
     fn handle_malloc(&mut self) {
 
-        let size = self.get_register(Registers::R1) as usize;
+        let size = self.registers.get(Registers::R1) as usize;
 
         match self.memory.allocate(size) {
 
             Ok(address) => {
-                self.set_register(Registers::R1, address as u64);
-                self.set_error(ErrorCodes::NoError);
+                self.registers.set(Registers::R1, address as u64);
+                self.registers.set_error(ErrorCodes::NoError);
             },
 
             Err(e) => {
-                self.set_error(e);
+                self.registers.set_error(e);
             }
 
         }
@@ -2194,16 +2130,16 @@ impl Processor {
 
     fn handle_free(&mut self) {
 
-        let address = self.get_register(Registers::R1) as Address;
+        let address = self.registers.get(Registers::R1) as Address;
 
         match self.memory.free(address) {
 
             Ok(_) => {
-                self.set_error(ErrorCodes::NoError);
+                self.registers.set_error(ErrorCodes::NoError);
             },
 
             Err(e) => {
-                self.set_error(e);
+                self.registers.set_error(e);
             }
 
         }
@@ -2215,7 +2151,7 @@ impl Processor {
         let mut rng = rand::thread_rng();
         let random_number = rng.gen_range(u64::MIN..u64::MAX);
 
-        self.set_register(Registers::R1, random_number);
+        self.registers.set(Registers::R1, random_number);
     }
 
 
@@ -2224,7 +2160,7 @@ impl Processor {
         // Casting to u64 will be ok until around 2500
         let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
 
-        self.set_register(Registers::R1, time);
+        self.registers.set(Registers::R1, time);
     }
 
 
@@ -2233,15 +2169,15 @@ impl Processor {
         // Casting to u64 will be ok until around 2500
         let time = SystemTime::now().duration_since(self.start_time).unwrap().as_nanos() as u64;
 
-        self.set_register(Registers::R1, time);
+        self.registers.set(Registers::R1, time);
     }
 
 
     fn handle_disk_read(&mut self) {
 
-        let disk_address = self.get_register(Registers::R1) as Address;
-        let buffer_address = self.get_register(Registers::R2) as Address;
-        let size = self.get_register(Registers::R3) as usize;
+        let disk_address = self.registers.get(Registers::R1) as Address;
+        let buffer_address = self.registers.get(Registers::R2) as Address;
+        let size = self.registers.get(Registers::R3) as usize;
 
         let err = if let Some(storage) = &self.modules.storage {
             match storage.read(disk_address, size) {
@@ -2255,19 +2191,19 @@ impl Processor {
             ErrorCodes::PermissionDenied
         };
 
-        self.set_error(err);
+        self.registers.set_error(err);
     }
 
 
     fn handle_disk_write(&mut self) {
 
-        let disk_address = self.get_register(Registers::R1) as Address;
-        let data_address = self.get_register(Registers::R2) as Address;
-        let size = self.get_register(Registers::R3) as usize;
+        let disk_address = self.registers.get(Registers::R1) as Address;
+        let data_address = self.registers.get(Registers::R2) as Address;
+        let size = self.registers.get(Registers::R3) as usize;
 
         let buffer = self.memory.get_bytes(data_address, size);
 
-        self.set_error(
+        self.registers.set_error(
             if let Some(storage) = &self.modules.storage {
                 match storage.write(disk_address, buffer) {
                     Ok(_) => ErrorCodes::NoError,
@@ -2282,16 +2218,16 @@ impl Processor {
 
     fn handle_terminal(&mut self) {
 
-        let term_code = self.get_register(Registers::PRINT); 
+        let term_code = self.registers.get(Registers::PRINT); 
 
-        let err = terminal::handle_code(term_code as usize, self);
-        self.set_error(err);
+        let err = self.modules.terminal.handle_code(term_code as usize, &mut self.registers, &mut self.memory);
+        self.registers.set_error(err);
     }
 
 
     fn handle_set_timer_nanos(&mut self) {
 
-        let time = self.get_register(Registers::R1);
+        let time = self.registers.get(Registers::R1);
         let duration = std::time::Duration::from_nanos(time);
 
         std::thread::sleep(duration);
