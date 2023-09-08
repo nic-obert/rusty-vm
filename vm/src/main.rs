@@ -8,6 +8,7 @@ mod storage;
 mod terminal;
 mod register;
 mod modules;
+mod host_fs;
 
 use std::path::Path;
 

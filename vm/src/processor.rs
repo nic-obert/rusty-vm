@@ -13,6 +13,7 @@ use rust_vm_lib::registers::{Registers, self};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
+use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
 use crate::error;
@@ -107,7 +108,8 @@ impl Processor {
             interactive_last_instruction_pc: 0,
             modules: CPUModules::new(
                 storage,
-                Terminal::new()
+                Terminal::new(),
+                HostFS::new()
             ),
         }
     }
@@ -2239,7 +2241,16 @@ impl Processor {
     }
 
 
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 18 ] = [
+    fn handle_host_fs(&mut self) {
+        
+        let fs_code = self.registers.get(Registers::PRINT);
+
+        let err = self.modules.host_fs.handle_code(fs_code as usize, &mut self.registers, &mut self.memory);
+        self.registers.set_error(err);
+    }
+
+
+    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 19 ] = [
         Self::handle_print_signed, // 0
         Self::handle_print_unsigned, // 1
         Self::handle_print_char, // 2
@@ -2258,6 +2269,7 @@ impl Processor {
         Self::handle_terminal, // 15
         Self::handle_set_timer_nanos, // 16
         Self::handle_flush_stdout, // 17
+        Self::handle_host_fs, // 18
     ];
 
 
