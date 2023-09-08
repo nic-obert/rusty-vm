@@ -1,4 +1,6 @@
 use std::sync::mpsc::{self, Sender};
+use std::io;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use rust_vm_lib::vm::{ErrorCodes, Address};
@@ -9,6 +11,7 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::cursor::DetectCursorPos;
 
+use crate::error;
 use crate::memory::Memory;
 use crate::register::CPURegisters;
 
@@ -17,12 +20,12 @@ const KEY_DATA_SIZE: usize = 2;
 const KEYBOARD_LISTENER_INTERVAL: Duration = Duration::from_millis(50);
 
 // This type definition is placed here because it's unstable to place it inside the Terminal impl block
-type CodeHanlder = fn(&mut Terminal, &mut CPURegisters, &mut Memory) -> std::io::Result<()>;
+type CodeHanlder = fn(&mut Terminal, &mut CPURegisters, &mut Memory) -> io::Result<()>;
 
 
 pub struct Terminal {
 
-    key_listener: Option<Sender<()>>,
+    key_listener: Option<(Sender<()>, JoinHandle<()>)>,
 
 }
 
@@ -44,7 +47,7 @@ impl Terminal {
     }
 
 
-    fn handle_goto(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_goto(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let column = registers.get(Registers::R1);
         let row = registers.get(Registers::R2);
 
@@ -54,56 +57,56 @@ impl Terminal {
     }
 
 
-    fn handle_clear(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_clear(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::clear::All);
 
         Ok(())
     }
 
 
-    fn handle_blink(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_blink(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::style::Blink);
 
         Ok(())
     }
 
 
-    fn handle_bold(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_bold(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::style::Bold);
 
         Ok(())
     }
 
 
-    fn handle_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::style::Underline);
 
         Ok(())
     }
 
 
-    fn handle_reset(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_reset(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::style::Reset);
 
         Ok(())
     }
 
 
-    fn handle_hide_cursor(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_hide_cursor(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::cursor::Hide);
 
         Ok(())
     }
 
 
-    fn handle_show_cursor(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_show_cursor(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::cursor::Show);
 
         Ok(())
     }
 
 
-    fn handle_down(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_down(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let n = registers.get(Registers::R1);
         print!("{}", cursor::Down(n as u16));
 
@@ -111,7 +114,7 @@ impl Terminal {
     }
 
 
-    fn handle_up(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_up(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let n = registers.get(Registers::R1);
         print!("{}", cursor::Up(n as u16));
 
@@ -119,7 +122,7 @@ impl Terminal {
     }
 
 
-    fn handle_right(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_right(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let n = registers.get(Registers::R1);
         print!("{}", cursor::Right(n as u16));
 
@@ -127,7 +130,7 @@ impl Terminal {
     }
 
 
-    fn handle_left(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_left(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let n = registers.get(Registers::R1);
         print!("{}", cursor::Left(n as u16));
 
@@ -135,91 +138,91 @@ impl Terminal {
     }
 
 
-    fn handle_blinking_block(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_blinking_block(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::BlinkingBlock);
 
         Ok(())
     }
 
 
-    fn handle_steady_block(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_steady_block(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::SteadyBlock);
 
         Ok(())
     }
 
 
-    fn handle_blinking_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_blinking_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::BlinkingUnderline);
 
         Ok(())
     }
 
 
-    fn handle_steady_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_steady_underline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::SteadyUnderline);
 
         Ok(())
     }
 
 
-    fn handle_blinking_bar(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_blinking_bar(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::BlinkingBar);
 
         Ok(())
     }
 
 
-    fn handle_steady_bar(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_steady_bar(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::SteadyBar);
 
         Ok(())
     }
 
 
-    fn handle_save_cursor_position(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_save_cursor_position(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::Save);
 
         Ok(())
     }
 
 
-    fn handle_restore_cursor_position(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_restore_cursor_position(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", cursor::Restore);
 
         Ok(())
     }
 
 
-    fn handle_clear_line(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_clear_line(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::clear::CurrentLine);
 
         Ok(())
     }
 
 
-    fn handle_clear_after(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_clear_after(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::clear::AfterCursor);
 
         Ok(())
     }
 
 
-    fn handle_clear_before(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_clear_before(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::clear::BeforeCursor);
 
         Ok(())
     }
 
 
-    fn handle_clear_until_newline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_clear_until_newline(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         print!("{}", termion::clear::UntilNewline);
 
         Ok(())
     }
 
 
-    fn handle_get_terminal_size(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_get_terminal_size(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let (width, height) = termion::terminal_size()?;
         registers.set(Registers::R1, width as u64);
         registers.set(Registers::R2, height as u64);
@@ -228,7 +231,7 @@ impl Terminal {
     }
 
 
-    fn handle_get_terminal_size_pixels(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_get_terminal_size_pixels(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
         let (width, height) = termion::terminal_size_pixels()?;
         registers.set(Registers::R1, width as u64);
         registers.set(Registers::R2, height as u64);
@@ -237,8 +240,8 @@ impl Terminal {
     }
 
 
-    fn handle_get_cursor_position(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> std::io::Result<()> {
-        let mut stdout = std::io::stdout().into_raw_mode()?;
+    fn handle_get_cursor_position(&mut self, registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
+        let mut stdout = io::stdout().into_raw_mode()?;
         let (column, row) = stdout.cursor_pos()?;
         registers.set(Registers::R1, column as u64);
         registers.set(Registers::R2, row as u64);
@@ -249,11 +252,11 @@ impl Terminal {
 
     /// Start a thread that listens for key events and writes them to the given address.
     /// A key event is 2 bytes: the first byte is the modifier code, the second byte is the key code
-    fn handle_get_key_listener(&mut self, registers: &mut CPURegisters, memory: &mut Memory) -> std::io::Result<()> {
+    fn handle_get_key_listener(&mut self, registers: &mut CPURegisters, memory: &mut Memory) -> io::Result<()> {
         
         // Check if a listener is already active
         if self.key_listener.is_some() {
-            return Err(std::io::ErrorKind::AlreadyExists.into());
+            return Err(io::ErrorKind::AlreadyExists.into());
         }
 
         let key_store_address = registers.get(Registers::R1) as Address;
@@ -261,9 +264,7 @@ impl Terminal {
         
         let (tx, rx) = mpsc::channel::<()>();
 
-        self.key_listener = Some(tx);
-
-        std::thread::spawn(move || {
+        let join_handle = thread::spawn(move || {
             use termion::event::Key;
 
             let key_data_slice: &mut [u8; KEY_DATA_SIZE] = unsafe {
@@ -271,7 +272,7 @@ impl Terminal {
             };
 
             let mut key_events = termion::async_stdin().keys();
-            let _stdout = std::io::stdout().into_raw_mode().unwrap();
+            let _stdout = io::stdout().into_raw_mode().unwrap();
             
             loop {
 
@@ -307,15 +308,35 @@ impl Terminal {
                     key_data_slice.copy_from_slice(&key_data);
                 }
 
-                std::thread::sleep(KEYBOARD_LISTENER_INTERVAL);
+                thread::sleep(KEYBOARD_LISTENER_INTERVAL);
             }
         });
+
+        self.key_listener = Some((tx, join_handle));
 
         Ok(())
     }
 
 
-    const CODE_HANDLERS: [ CodeHanlder; 28 ] = [
+    fn handle_stop_key_listener(&mut self, _registers: &mut CPURegisters, _memory: &mut Memory) -> io::Result<()> {
+
+        match self.key_listener.take() {
+            Some((tx, join_handle)) => {
+                if tx.send(()).is_err() {
+                    Err(io::ErrorKind::Other.into())
+                } else {
+                    join_handle.join().unwrap_or_else(
+                        |err| error::error(format!("Could not join the keyboard listener thread\n{:?}", err).as_str())
+                    );
+                    Ok(())
+                }
+            },
+            None => Err(io::ErrorKind::NotFound.into())
+        }
+    }
+
+
+    const CODE_HANDLERS: [ CodeHanlder; 29 ] = [
         Self::handle_goto,
         Self::handle_clear,
         Self::handle_blink,
@@ -344,6 +365,7 @@ impl Terminal {
         Self::handle_get_terminal_size_pixels,
         Self::handle_get_cursor_position,
         Self::handle_get_key_listener,
+        Self::handle_stop_key_listener,
     ];
 
 }

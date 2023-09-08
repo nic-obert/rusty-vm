@@ -43,6 +43,7 @@
     %%- TERM_GET_TERMINAL_SIZE_PIXELS: 25
     %%- TERM_GET_CURSOR_POSITION: 26
     %%- TERM_GET_KEY_LISTENER: 27
+    %%- TERM_STOP_KEY_LISTENER: 28
 
     # Constants
 
@@ -299,6 +300,14 @@
         !clear_key_data r1
 
         mov1 =TERM_CODE_REG =TERM_GET_KEY_LISTENER
+        intr =TERM_INTR
+
+    %endmacro
+
+
+    %% term_stop_key_listener:
+
+        mov1 =TERM_CODE_REG =TERM_STOP_KEY_LISTENER
         intr =TERM_INTR
 
     %endmacro

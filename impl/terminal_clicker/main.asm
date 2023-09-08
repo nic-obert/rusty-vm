@@ -87,6 +87,8 @@
             jmpnz loop
 
 
+    !term_stop_key_listener
+
     call restore_screen
 
     exit

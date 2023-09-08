@@ -13,12 +13,12 @@
 
 ### In Progress ···
 
-- [ ] add state struct to the terminal module to store the listeners and allow to stop them from the assembly  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] add state struct to the terminal module to store the listeners and allow to stop them from the assembly  
 - [ ] write built-in asm terminal library  
 - [ ] add library for boolean logic  
 - [ ] update error documentation  
