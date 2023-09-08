@@ -27,6 +27,24 @@
     %endmacro
 
 
+    %% print_char_reg reg:
+
+        mov print {reg}
+        intr =PRINT_CHAR
+
+    %endmacro
+
+
+    %% println_char_reg reg:
+
+        mov print {reg}
+        intr =PRINT_CHAR
+        mov1 print 10
+        intr =PRINT_CHAR
+
+    %endmacro
+
+
     %% print_str s:
 
         mov8 print {s}
