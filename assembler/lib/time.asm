@@ -4,7 +4,7 @@
 
 .include:
 
-    @@ interrupts.asm
+    interrupts.asm
 
 
 .text:

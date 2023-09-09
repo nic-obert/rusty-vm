@@ -1,7 +1,7 @@
 .include:
 
-    @@ interrupts.asm
-    @@ stdio/print.asm
+    interrupts.asm
+    stdio/print.asm
 
 
 .text:

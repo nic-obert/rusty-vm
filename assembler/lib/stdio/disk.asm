@@ -106,7 +106,7 @@
         # Dummy read, fails if no disk is available
         !disk_read 0 0 0
 
-        cmp1 error =PERMISSION_DENIED
+        cmp1 error =MODULE_UNAVAILABLE
         !bool_invert_zf
         mov r1 zf
 

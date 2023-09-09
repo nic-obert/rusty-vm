@@ -6,7 +6,7 @@
 
     # Use a non-standard register to store the start of the function's stack
     #
-    %%- FSTART_REG: input
+    %- FSTART_REG: input
 
 
     # Set the start of the function stack.

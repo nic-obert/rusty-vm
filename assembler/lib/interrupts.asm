@@ -31,3 +31,5 @@
 
     %%- FLUSH_STDOUT: 17
 
+    %%- HOST_FS_INTR: 18
+

@@ -15,7 +15,15 @@
     %%- OUT_OF_BOUNDS: 8
     %%- UNALIGNED_ADDRESS: 9
     %%- PERMISSION_DENIED: 10
+    %%- TIMED_OUT: 11
+    %%- NOT_FOUND: 12
+    %%- ALREADY_EXISTS: 13
+    %%- INVALID_DATA: 14
+    %%- INTERRUPTED: 15
+    %%- OUT_OF_MEMORY: 16
+    %%- WRITE_ZERO: 17
+    %%- MODULE_UNAVAILABLE: 18
 
-    %%- GENERIC_ERROR: 11
+    %%- GENERIC_ERROR: 255
 
     

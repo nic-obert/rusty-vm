@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] test host_fs module (with copilot)  
 - [ ] implement a linked list in assembly  
 - [ ] create a low level language and a compiler for it (use regex for tokenization)  
 - [ ] add colors to built-in terminal  
@@ -15,12 +16,14 @@
 
 ### In Progress ···
 
-- [ ] implement host fs module and relative assemly library  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
 ### Done ✅
 
+- [ ] implement host fs module and relative assemly library  
+- [ ] unexport inline macros that shouldn't be leaked outside of libraries  
+- [ ] use the new io::Error -> ErrorCodes converter through the vm  
 - [ ] add state struct to the terminal module to store the listeners and allow to stop them from the assembly  
 - [ ] write built-in asm terminal library  
 - [ ] add library for boolean logic  

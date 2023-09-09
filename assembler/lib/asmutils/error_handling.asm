@@ -4,7 +4,7 @@
 
 .include:
 
-    @@ errors.asm
+    errors.asm
 
 
 .text:

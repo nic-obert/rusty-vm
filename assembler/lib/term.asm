@@ -4,9 +4,9 @@
 
 .include:
 
-    @@ interrupts.asm
-    @@ stdbool.asm
-    @@ errors.asm
+    interrupts.asm
+    stdbool.asm
+    errors.asm
     asmutils/functional.asm
     asmutils/ptr_index.asm
 
@@ -15,35 +15,35 @@
 
     # Terminal-specific operation codes
 
-    %%- TERM_GOTO: 0
-    %%- TERM_CLEAR: 1
-    %%- TERM_BLINK: 2
-    %%- TERM_BOLD: 3
-    %%- TERM_UNDERLINE: 4
-    %%- TERM_RESET: 5
-    %%- TERM_HIDE_CURSOR: 6
-    %%- TERM_SHOW_CURSOR: 7
-    %%- TERM_DOWN: 8
-    %%- TERM_UP: 9
-    %%- TERM_RIGHT: 10
-    %%- TERM_LEFT: 11
-    %%- TERM_BLINKING_BLOCK: 12
-    %%- TERM_STEADY_BLOCK: 13
-    %%- TERM_BLINKING_UNDERLINE: 14
-    %%- TERM_STEADY_UNDERLINE: 15
-    %%- TERM_BLINKING_BAR: 16
-    %%- TERM_STEADY_BAR: 17
-    %%- TERM_SAVE_CURSOR_POSITION: 18
-    %%- TERM_RESTORE_CURSOR_POSITION: 19
-    %%- TERM_CLEAR_LINE: 20
-    %%- TERM_CLEAR_AFTER: 21
-    %%- TERM_CLEAR_BEFORE: 22
-    %%- TERM_CLEAR_UNTIL_NEWLINE: 23
-    %%- TERM_GET_TERMINAL_SIZE: 24
-    %%- TERM_GET_TERMINAL_SIZE_PIXELS: 25
-    %%- TERM_GET_CURSOR_POSITION: 26
-    %%- TERM_GET_KEY_LISTENER: 27
-    %%- TERM_STOP_KEY_LISTENER: 28
+    %- TERM_GOTO: 0
+    %- TERM_CLEAR: 1
+    %- TERM_BLINK: 2
+    %- TERM_BOLD: 3
+    %- TERM_UNDERLINE: 4
+    %- TERM_RESET: 5
+    %- TERM_HIDE_CURSOR: 6
+    %- TERM_SHOW_CURSOR: 7
+    %- TERM_DOWN: 8
+    %- TERM_UP: 9
+    %- TERM_RIGHT: 10
+    %- TERM_LEFT: 11
+    %- TERM_BLINKING_BLOCK: 12
+    %- TERM_STEADY_BLOCK: 13
+    %- TERM_BLINKING_UNDERLINE: 14
+    %- TERM_STEADY_UNDERLINE: 15
+    %- TERM_BLINKING_BAR: 16
+    %- TERM_STEADY_BAR: 17
+    %- TERM_SAVE_CURSOR_POSITION: 18
+    %- TERM_RESTORE_CURSOR_POSITION: 19
+    %- TERM_CLEAR_LINE: 20
+    %- TERM_CLEAR_AFTER: 21
+    %- TERM_CLEAR_BEFORE: 22
+    %- TERM_CLEAR_UNTIL_NEWLINE: 23
+    %- TERM_GET_TERMINAL_SIZE: 24
+    %- TERM_GET_TERMINAL_SIZE_PIXELS: 25
+    %- TERM_GET_CURSOR_POSITION: 26
+    %- TERM_GET_KEY_LISTENER: 27
+    %- TERM_STOP_KEY_LISTENER: 28
 
     # Constants
 

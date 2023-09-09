@@ -9,7 +9,7 @@ use rand::Rng;
 
 use assert_exists::assert_exists;
 
-use rust_vm_lib::registers::{Registers, self};
+use rust_vm_lib::registers::{self, Registers};
 use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
@@ -2190,7 +2190,7 @@ impl Processor {
                 Err(e) => e
             }
         } else {
-            ErrorCodes::PermissionDenied
+            ErrorCodes::ModuleUnavailable
         };
 
         self.registers.set_error(err);
@@ -2212,7 +2212,7 @@ impl Processor {
                     Err(e) => e
                 }
             } else {
-                ErrorCodes::PermissionDenied
+                ErrorCodes::ModuleUnavailable
             }
         );
     }
