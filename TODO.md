@@ -2,9 +2,9 @@
 
 ### Todo
 
+- [ ] change project name  
 - [ ] test host_fs module (with copilot)  
-- [ ] implement a linked list in assembly  
-- [ ] create a low level language and a compiler for it (use regex for tokenization)  
+- [ ] create a low level language and a compiler for it  
 - [ ] add colors to built-in terminal  
 - [ ] add video module (separate process/thread that reads from video memory and writes to screen, don't worry about race conditions)  
 - [ ] implement a default built-in allocator for unlimited memory  
@@ -16,6 +16,8 @@
 
 ### In Progress ···
 
+- [ ] create an intermediate representation and bytecode  
+- [ ] implement a linked list in assembly  
 - [ ] implement a fixed size array in assembly  
 - [ ] test the new vm  
 
