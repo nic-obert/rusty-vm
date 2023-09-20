@@ -3,3 +3,4 @@ pub mod assembly;
 pub mod registers;
 pub mod token;
 pub mod vm;
+pub mod ir;

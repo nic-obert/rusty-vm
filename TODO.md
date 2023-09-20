@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] bump up clap  
 - [ ] change project name  
 - [ ] test host_fs module (with copilot)  
 - [ ] create a low level language and a compiler for it  

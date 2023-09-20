@@ -1,0 +1,14 @@
+
+
+fn main() -> void {
+
+    let x0: i32 = 1+1
+
+    x0 = 432
+
+    # this is a comment
+
+    let f: f32 = -40.32
+
+}
+
