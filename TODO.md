@@ -2,10 +2,8 @@
 
 ### Todo
 
-- [ ] bump up clap  
 - [ ] change project name  
 - [ ] test host_fs module (with copilot)  
-- [ ] create a low level language and a compiler for it  
 - [ ] add colors to built-in terminal  
 - [ ] add video module (separate process/thread that reads from video memory and writes to screen, don't worry about race conditions)  
 - [ ] implement a default built-in allocator for unlimited memory  
@@ -24,6 +22,7 @@
 
 ### Done ✅
 
+- [ ] bump up clap  
 - [ ] implement host fs module and relative assemly library  
 - [ ] unexport inline macros that shouldn't be leaked outside of libraries  
 - [ ] use the new io::Error -> ErrorCodes converter through the vm  
