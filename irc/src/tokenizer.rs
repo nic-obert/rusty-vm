@@ -15,8 +15,7 @@ use rust_vm_lib::ir::IRCode;
 
 lazy_static! {
 
-    // TODO: add support for strings, char literals, escape chars in strings
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|[-+*/%\[\](){}=:#<>]|\S"#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|[-+*/%\[\](){}=:#<>]|\S"#).unwrap();
 
 }
 
@@ -52,6 +51,32 @@ impl StringToken<'_> {
 }
 
 
+fn escape_string(string: &str) -> String {
+    let mut s = String::with_capacity(string.len());
+
+    let mut escape = false;
+
+    for c in string.chars() {
+        if escape {
+            escape = false;
+            s.push(match c {
+                'n' => '\n',
+                'r' => '\r',
+                '0' => '\0',
+                't' => '\t',
+                '\\' => '\\',
+                c => c
+            })
+        } else if c == '\\' {
+            escape = true;
+        }
+    }
+
+    s
+}
+
+
+#[inline]
 fn is_numeric(c: char) -> bool {
     c.is_numeric() || c == '-' || c == '+' || c == '.'
 }
@@ -80,17 +105,39 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
     // Transform the string tokens into syntax tokens
 
     let mut tokens: Vec<Token> = Vec::with_capacity(matches.len());
+
+    let mut parenthesis_depth: usize = 0;
+    let mut square_depth: usize = 0;
+    let mut curly_depth: usize = 0;
+
     for mat in matches {
         
         let token = match mat.string {
 
             "->" => Token::Arrow,
-            "{" => Token::ScopeOpen,
-            "}" => Token::ScopeClose,
-            "(" => Token::ParOpen,
-            ")" => Token::ParClose,
-            "[" => Token::GroupOpen,
-            "]" => Token::GroupClose,
+            "{" => {
+                curly_depth += 1;
+                Token::ScopeOpen
+            },
+            "}" => {
+                curly_depth -= 1;
+                Token::ScopeClose
+            },
+            "(" => {
+                parenthesis_depth += 1;
+                Token::ParOpen
+            },
+            ")" => {
+                parenthesis_depth -= 1;
+                Token::ParClose
+            },
+            "[" => {
+                square_depth += 1;Token::GroupOpen
+            },
+            "]" => {
+                square_depth -= 1;
+                Token::GroupClose
+            },
             ":" => Token::Semicolon,
             "+" => Token::Op(Ops::Add),
             "-" => Token::Op(Ops::Sub),
@@ -107,8 +154,10 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
             "&" => Token::Op(Ops::Ref),
 
             string => {
-
+                
+                // Numbers
                 if string.starts_with(is_numeric) {
+
                     if string.contains('.') {
                         Token::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
@@ -120,8 +169,28 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                     } else {
                         Token::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
-                        ))) })
+                        ))) 
+                    })
                     }
+
+                // Strings
+                } else if string.starts_with('"') {
+
+                    Token::Value(Value::Literal { 
+                        value: LiteralValue::String(escape_string(string))
+                    })
+                
+                } else if string.starts_with('\'') {
+                    
+                    let s = escape_string(string);
+                    if s.len() != 1 {
+                        error::invalid_char_literal(unit_path, &s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
+                    }
+
+                    Token::Value(Value::Literal { 
+                        value: LiteralValue::Char(s.chars().next().unwrap())
+                    })
+
                 } else {
                     
                     match string {
@@ -129,6 +198,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                         "fn" => Token::Fn,
                         "return" => Token::Op(Ops::Return),
                         "jmp" => Token::Op(Ops::Jump),
+                        "let" => Token::Let,
 
                         "i8" => Token::DataType(DataType::I8),
                         "i16" => Token::DataType(DataType::I16),

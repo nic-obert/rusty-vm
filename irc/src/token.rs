@@ -1,7 +1,32 @@
 use std::fmt::Display;
+use std::path::Path;
 
 use crate::operations::Ops;
 use crate::data_types::DataType;
+
+
+pub struct TokenContext<'a> {
+
+    line: usize,
+    start: usize,
+    unit_path: &'a Path,
+    priority: usize,
+    
+}
+
+
+impl TokenContext<'_> {
+
+    pub fn new(line: usize, start: usize, unit_path: &Path, priority: usize) -> TokenContext<'_> {
+        TokenContext {
+            line,
+            start,
+            unit_path,
+            priority
+        }
+    }
+
+}
 
 
 #[derive(Debug)]

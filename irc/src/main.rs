@@ -5,9 +5,11 @@ mod tokenizer;
 mod cli_parser;
 mod files;
 mod error;
+mod ast;
 
 use std::path::Path;
 
+use ast::AST;
 use clap::Parser;
 
 use crate::cli_parser::CliParser;
@@ -29,7 +31,9 @@ fn main() {
 
     let tokens = tokenizer::tokenize(&source, input_file);
 
-    println!("{:?}", tokens);
+    // println!("{:?}", tokens);
+
+    let ast = AST::build(&tokens);
 
 }
 
