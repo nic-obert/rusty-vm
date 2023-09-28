@@ -20,6 +20,15 @@ pub enum Ops {
     Less,
     GreaterEqual,
     LessEqual,
+    LogicalNot,
+    BitwiseNot,
+    LogicalAnd,
+    LogicalOr,
+    BitShiftLeft,
+    BitShiftRight,
+    BitwiseOr,
+    BitwiseAnd,
+    BitwiseXor,
 
 }
 

@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 use crate::data_types::DataType;
-use crate::token::{Token, LiteralValue, Number};
+use crate::token::{TokenValue, LiteralValue, Number, Token, Priority};
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
@@ -15,7 +15,21 @@ use rust_vm_lib::ir::IRCode;
 
 lazy_static! {
 
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|[-+*/%\[\](){}=:#<>]|\S"#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(r#"
+        (?m)
+        ((?:'|").*(?:'|"))
+        |\w+
+        |[+-]?\d+[.]\d*|[+-]?[.]\d+
+        |->
+        |==
+        |<=
+        |>=
+        |!=
+        |&&
+        |\|\|
+        |[-+*/%\[\](){}=:#<>!^&|~]
+        |\S
+    "#).unwrap();
 
 }
 
@@ -82,7 +96,17 @@ fn is_numeric(c: char) -> bool {
 }
 
 
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
+#[inline]
+fn may_be_value(token: Option<&Token>) -> bool {
+    token.map(|t| matches!(t.value,
+        TokenValue::Symbol(_) |
+        TokenValue::ParClose |
+        TokenValue::SquareClose
+    )).unwrap_or(false)
+}
+
+
+pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
 
     // Divide the source code lines into string tokens 
 
@@ -106,52 +130,77 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
 
     let mut tokens: Vec<Token> = Vec::with_capacity(matches.len());
 
-    let mut parenthesis_depth: usize = 0;
-    let mut square_depth: usize = 0;
-    let mut curly_depth: usize = 0;
+    let mut parenthesis_depth: usize = 1;
+    let mut square_depth: usize = 1;
+    let mut curly_depth: usize = 1;
+    let mut base_priority: usize = 0;
 
     for mat in matches {
         
         let token = match mat.string {
 
-            "->" => Token::Arrow,
+            "->" => TokenValue::Arrow,
             "{" => {
                 curly_depth += 1;
-                Token::ScopeOpen
+                base_priority += Priority::Max as usize;
+                TokenValue::ScopeOpen
             },
             "}" => {
                 curly_depth -= 1;
-                Token::ScopeClose
+                if curly_depth == 0 {
+                    error::unmatched_delimiter(unit_path, '}', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '{'?")
+                }
+                base_priority -= Priority::Max as usize;
+                TokenValue::ScopeClose
             },
             "(" => {
                 parenthesis_depth += 1;
-                Token::ParOpen
+                base_priority += Priority::Max as usize;
+                if may_be_value(tokens.last()) { TokenValue::Op(Ops::Call) } else { TokenValue::ParOpen }
             },
             ")" => {
                 parenthesis_depth -= 1;
-                Token::ParClose
+                if parenthesis_depth == 0 {
+                    error::unmatched_delimiter(unit_path, ')', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '('?")
+                }
+                base_priority -= Priority::Max as usize;
+                TokenValue::ParClose
             },
             "[" => {
-                square_depth += 1;Token::GroupOpen
+                square_depth += 1;
+                base_priority += Priority::Max as usize;
+                TokenValue::SquareOpen
             },
             "]" => {
                 square_depth -= 1;
-                Token::GroupClose
+                if square_depth == 0 {
+                    error::unmatched_delimiter(unit_path, ']', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '['?")
+                }
+                base_priority -= Priority::Max as usize;
+                TokenValue::SquareClose
             },
-            ":" => Token::Semicolon,
-            "+" => Token::Op(Ops::Add),
-            "-" => Token::Op(Ops::Sub),
-            "*" => if tokens.last().map(|t| !matches!(t, Token::Symbol(_))).unwrap_or(true) { Token::Op(Ops::Deref) } else { Token::Op(Ops::Mul) },
-            "/" => Token::Op(Ops::Div),
-            "%" => Token::Op(Ops::Mod),
-            "=" => Token::Op(Ops::Assign),
-            "==" => Token::Op(Ops::Equal),
-            "!=" => Token::Op(Ops::NotEqual),
-            "<" => Token::Op(Ops::Less),
-            ">" => Token::Op(Ops::Greater),
-            "<=" => Token::Op(Ops::LessEqual),
-            ">=" => Token::Op(Ops::GreaterEqual),
-            "&" => Token::Op(Ops::Ref),
+            ":" => TokenValue::Semicolon,
+            "+" => TokenValue::Op(Ops::Add),
+            "-" => TokenValue::Op(Ops::Sub),
+            "*" => if may_be_value(tokens.last()) { TokenValue::Op(Ops::Mul) } else { TokenValue::Op(Ops::Deref) },
+            "/" => TokenValue::Op(Ops::Div),
+            "%" => TokenValue::Op(Ops::Mod),
+            "=" => TokenValue::Op(Ops::Assign),
+            "==" => TokenValue::Op(Ops::Equal),
+            "!=" => TokenValue::Op(Ops::NotEqual),
+            "<" => TokenValue::Op(Ops::Less),
+            ">" => TokenValue::Op(Ops::Greater),
+            "<=" => TokenValue::Op(Ops::LessEqual),
+            ">=" => TokenValue::Op(Ops::GreaterEqual),
+            "&" => if may_be_value(tokens.last()) { TokenValue::Op(Ops::BitwiseAnd) } else { TokenValue::Op(Ops::Ref) },
+            "^" => TokenValue::Op(Ops::BitwiseXor),
+            "<<" => TokenValue::Op(Ops::BitShiftLeft),
+            ">>" => TokenValue::Op(Ops::BitShiftRight),
+            "~" => TokenValue::Op(Ops::BitwiseNot),
+            "!" => TokenValue::Op(Ops::LogicalNot),
+            "&&" => TokenValue::Op(Ops::LogicalAnd),
+            "||" => TokenValue::Op(Ops::LogicalOr),
+            "|" => TokenValue::Op(Ops::BitwiseOr),
 
             string => {
                 
@@ -159,15 +208,15 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                 if string.starts_with(is_numeric) {
 
                     if string.contains('.') {
-                        Token::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
+                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else if string.starts_with('-') {
-                        Token::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
+                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else {
-                        Token::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
+                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) 
                     })
@@ -176,7 +225,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                 // Strings
                 } else if string.starts_with('"') {
 
-                    Token::Value(Value::Literal { 
+                    TokenValue::Value(Value::Literal { 
                         value: LiteralValue::String(escape_string(string))
                     })
                 
@@ -187,7 +236,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                         error::invalid_char_literal(unit_path, &s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
                     }
 
-                    Token::Value(Value::Literal { 
+                    TokenValue::Value(Value::Literal { 
                         value: LiteralValue::Char(s.chars().next().unwrap())
                     })
 
@@ -195,26 +244,26 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
                     
                     match string {
 
-                        "fn" => Token::Fn,
-                        "return" => Token::Op(Ops::Return),
-                        "jmp" => Token::Op(Ops::Jump),
-                        "let" => Token::Let,
+                        "fn" => TokenValue::Fn,
+                        "return" => TokenValue::Op(Ops::Return),
+                        "jmp" => TokenValue::Op(Ops::Jump),
+                        "let" => TokenValue::Let,
 
-                        "i8" => Token::DataType(DataType::I8),
-                        "i16" => Token::DataType(DataType::I16),
-                        "i32" => Token::DataType(DataType::I32),
-                        "i64" => Token::DataType(DataType::I64),
-                        "u8" => Token::DataType(DataType::U8),
-                        "u16" => Token::DataType(DataType::U16),
-                        "u32" => Token::DataType(DataType::U32),
-                        "u64" => Token::DataType(DataType::U64),
-                        "f32" => Token::DataType(DataType::F32),
-                        "f64" => Token::DataType(DataType::F64),
-                        "char" => Token::DataType(DataType::Char),
-                        "str" => Token::DataType(DataType::String),
+                        "i8" => TokenValue::DataType(DataType::I8),
+                        "i16" => TokenValue::DataType(DataType::I16),
+                        "i32" => TokenValue::DataType(DataType::I32),
+                        "i64" => TokenValue::DataType(DataType::I64),
+                        "u8" => TokenValue::DataType(DataType::U8),
+                        "u16" => TokenValue::DataType(DataType::U16),
+                        "u32" => TokenValue::DataType(DataType::U32),
+                        "u64" => TokenValue::DataType(DataType::U64),
+                        "f32" => TokenValue::DataType(DataType::F32),
+                        "f64" => TokenValue::DataType(DataType::F64),
+                        "char" => TokenValue::DataType(DataType::Char),
+                        "str" => TokenValue::DataType(DataType::String),
 
                         string => {
-                            Token::Symbol(string)
+                            TokenValue::Symbol(string)
                         }
 
                     }
@@ -224,7 +273,10 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &Path) -> Vec<Token<'a>> {
             }
         };
 
-        tokens.push(token);
+
+        tokens.push(
+            Token::new(token, mat.line, mat.start, unit_path, base_priority)
+        );
     }
 
     tokens

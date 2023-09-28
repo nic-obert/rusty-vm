@@ -33,7 +33,7 @@ fn main() {
 
     // println!("{:?}", tokens);
 
-    let ast = AST::build(&tokens);
+    let ast = AST::build(&tokens, &source);
 
 }
 

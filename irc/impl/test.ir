@@ -10,5 +10,7 @@ fn main() -> void {
 
     let f: f32 = -40.32
 
+    let s: str = "hello world!\n"
+
 }
 
