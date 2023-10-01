@@ -9,7 +9,6 @@ mod ast;
 
 use std::path::Path;
 
-use ast::AST;
 use clap::Parser;
 
 use crate::cli_parser::CliParser;
@@ -29,11 +28,13 @@ fn main() {
         }
     };
 
-    let tokens = tokenizer::tokenize(&source, input_file);
+    let mut tokens = tokenizer::tokenize(&source, input_file);
 
-    // println!("{:?}", tokens);
+    for token in tokens {
+        println!("{}", token);
+    }
 
-    let ast = AST::build(&tokens, &source);
+    //let syntax = ast::parse_syntax_tree(tokens, &source);
 
 }
 

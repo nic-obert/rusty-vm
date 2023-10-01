@@ -1,16 +1,27 @@
 use std::fmt::Display;
 use std::path::Path;
+use std::ptr::null_mut;
 
 use crate::operations::Ops;
 use crate::data_types::DataType;
 
 
 #[derive(Debug)]
-pub enum Value {
+pub enum Value<'a> {
 
-    Literal { value: LiteralValue },
-    Symbol { id: String }
+    Literal { value: LiteralValue<'a> },
+    Symbol { id: &'a str }
 
+}
+
+
+impl Display for Value<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Literal { value } => write!(f, "Literal({})", value),
+            Value::Symbol { id } => write!(f, "Ref({})", id),
+        }
+    }
 }
 
 
@@ -24,16 +35,39 @@ pub enum Number {
 }
 
 
+impl Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Number::Int(n) => write!(f, "{}", n),
+            Number::Uint(n) => write!(f, "{}", n),
+            Number::Float(n) => write!(f, "{}", n),
+        }
+    }
+}
+
+
 #[derive(Debug)]
-pub enum LiteralValue {
+pub enum LiteralValue<'a> {
 
     Char (char),
     String (String),
 
-    Array { dt: DataType, items: Vec<Value> },
+    Array { dt: DataType, items: Vec<Value<'a>> },
 
     Numeric (Number),
 
+}
+
+
+impl Display for LiteralValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LiteralValue::Char(c) => write!(f, "'{}'", c),
+            LiteralValue::String(s) => write!(f, "\"{}\"", s),
+            LiteralValue::Array { dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
+            LiteralValue::Numeric(n) => write!(f, "{}", n),
+        }
+    }
 }
 
 
@@ -48,11 +82,10 @@ pub struct Function {
 
 
 #[derive(Debug)]
-pub enum TokenValue<'a> {
+pub enum TokenKind<'a> {
 
     Op (Ops),
-    Symbol (&'a str),
-    Value (Value),
+    Value (Value<'a>),
     DataType (DataType),
 
     Fn,
@@ -60,6 +93,7 @@ pub enum TokenValue<'a> {
 
     Arrow,
     Semicolon,
+    Colon,
 
     SquareOpen,
     SquareClose,
@@ -98,11 +132,11 @@ pub enum Priority {
 }
 
 
-impl TokenValue<'_> {
+impl TokenKind<'_> {
 
     pub fn type_priority(&self) -> usize {
         (match self {
-            TokenValue::Op(op) => match op {
+            TokenKind::Op(op) => match op {
 
                 Ops::Add |
                 Ops::Sub
@@ -151,23 +185,23 @@ impl TokenValue<'_> {
 
             },
 
-            TokenValue::Fn |
-            TokenValue::Let
+            TokenKind::Fn |
+            TokenKind::Let
              => Priority::Least,
 
-            TokenValue::Symbol(_) |
-            TokenValue::Value(_) |
-            TokenValue::DataType(_) |
-            TokenValue::Arrow |
-            TokenValue::Semicolon
+            TokenKind::Value(_) |
+            TokenKind::DataType(_) |
+            TokenKind::Arrow |
+            TokenKind::Semicolon |
+            TokenKind::Colon
              => Priority::Zero,
 
-            TokenValue::SquareOpen |
-            TokenValue::SquareClose |
-            TokenValue::ParOpen |
-            TokenValue::ParClose |
-            TokenValue::ScopeOpen |
-            TokenValue::ScopeClose
+            TokenKind::SquareOpen |
+            TokenKind::SquareClose |
+            TokenKind::ParOpen |
+            TokenKind::ParClose |
+            TokenKind::ScopeOpen |
+            TokenKind::ScopeClose
              => Priority::Max,
 
         } as usize)
@@ -176,18 +210,9 @@ impl TokenValue<'_> {
 }
 
 
-impl Display for TokenValue<'_> {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-
-}
-
-
 pub struct Token<'a> {
 
-    pub value: TokenValue<'a>,
+    pub value: TokenKind<'a>,
     pub line: usize,
     pub start: usize,
     pub unit_path: &'a Path,
@@ -198,7 +223,7 @@ pub struct Token<'a> {
 
 impl Token<'_> {
 
-    pub fn new<'a>(value: TokenValue<'a>, line: usize, start: usize, unit_path: &'a Path, base_priority: usize) -> Token<'a> {
+    pub fn new<'a>(value: TokenKind<'a>, line: usize, start: usize, unit_path: &'a Path, base_priority: usize) -> Token<'a> {
 
         let value_priority = value.type_priority();
 
@@ -207,7 +232,142 @@ impl Token<'_> {
             line,
             start,
             unit_path,
-            priority: base_priority + value_priority
+            priority: base_priority + value_priority,
+        }
+    }
+
+}
+
+
+impl Display for Token<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.value {
+            TokenKind::Op(op) => write!(f, "{}", op),
+            TokenKind::Value(v) => write!(f, "{}", v),
+            TokenKind::DataType(dt) => write!(f, "DataType({})", dt),
+            TokenKind::Fn => write!(f, "fn"),
+            TokenKind::Let => write!(f, "let"),
+            TokenKind::Arrow => write!(f, "->"),
+            TokenKind::Semicolon => write!(f, ";"),
+            TokenKind::SquareOpen => write!(f, "["),
+            TokenKind::SquareClose => write!(f, "]"),
+            TokenKind::ParOpen => write!(f, "("),
+            TokenKind::ParClose => write!(f, ")"),
+            TokenKind::ScopeOpen => write!(f, "{{"),
+            TokenKind::ScopeClose => write!(f, "}}"),
+            TokenKind::Colon => write!(f, ":"),
+        }
+    }
+}
+
+
+pub struct TokenList<'a> {
+
+    first: *mut TokenNode<'a>,
+    last: *mut TokenNode<'a>
+
+}
+
+
+impl TokenList<'_> {
+
+    pub fn new<'a>() -> TokenList<'a> {
+        TokenList {
+            first: null_mut(),
+            last: null_mut()
+        }
+    }
+
+
+    pub fn append(&mut self, token: Token) {
+        let token = unsafe {
+            // Cast away lifetimes
+            std::mem::transmute::<Token<'_>, Token<'static>>(token)
+        };
+
+        if self.last.is_null() {
+            self.last = Box::leak(Box::new(TokenNode::new(token, null_mut()))) as *mut TokenNode;
+            self.first = self.last;
+        } else {
+            let new_node = Box::leak(Box::new(TokenNode::new(token, self.last))) as *mut TokenNode;
+            unsafe {
+                (*self.last).right = new_node;
+            }
+            self.last = new_node;
+        }
+    }
+
+
+    pub fn last(&self) -> Option<&Token> {
+        if self.last.is_null() {
+            None
+        } else {
+            unsafe {
+                Some(&(*self.last).token)
+            }
+        }
+    }
+
+}
+
+
+impl<'a> IntoIterator for TokenList<'a> {
+    type Item = &'a Token<'a>;
+
+    type IntoIter = TokenIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TokenIterator {
+            node: self.first
+        }
+    }
+}
+
+
+pub struct TokenIterator<'a> {
+
+    node: *mut TokenNode<'a>
+
+}
+
+
+impl<'a> Iterator for TokenIterator<'a> {
+    type Item = &'a Token<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.node.is_null() {
+            None
+        } else {
+            let node = unsafe {
+                &mut *self.node
+            };
+            self.node = node.right;
+            Some(&node.token)
+        }
+    }
+}
+
+
+struct TokenNode<'a> {
+
+    pub token: Token<'a>,
+
+    pub left: *mut TokenNode<'a>,
+    pub right: *mut TokenNode<'a>,
+
+    pub children: Vec<TokenNode<'a>>
+
+}
+
+
+impl TokenNode<'_> {
+
+    pub fn new<'a>(token: Token<'a>, left: *mut TokenNode<'a>) -> TokenNode<'a> {
+        TokenNode { 
+            token,
+            left,
+            right: null_mut(),
+            children: vec![]
         }
     }
 

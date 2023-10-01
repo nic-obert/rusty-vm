@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 use crate::data_types::DataType;
-use crate::token::{TokenValue, LiteralValue, Number, Token, Priority};
+use crate::token::{TokenKind, LiteralValue, Number, Token, Priority, TokenList};
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
@@ -15,21 +15,7 @@ use rust_vm_lib::ir::IRCode;
 
 lazy_static! {
 
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"
-        (?m)
-        ((?:'|").*(?:'|"))
-        |\w+
-        |[+-]?\d+[.]\d*|[+-]?[.]\d+
-        |->
-        |==
-        |<=
-        |>=
-        |!=
-        |&&
-        |\|\|
-        |[-+*/%\[\](){}=:#<>!^&|~]
-        |\S
-    "#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||[-+*/%\[\](){}=:#<>!^&|~]|\S"#).unwrap();
 
 }
 
@@ -99,19 +85,41 @@ fn is_numeric(c: char) -> bool {
 #[inline]
 fn may_be_value(token: Option<&Token>) -> bool {
     token.map(|t| matches!(t.value,
-        TokenValue::Symbol(_) |
-        TokenValue::ParClose |
-        TokenValue::SquareClose
+        TokenKind::ParClose |
+        TokenKind::SquareClose |
+        TokenKind::Value(_)
     )).unwrap_or(false)
 }
 
 
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
+fn is_symbol_name(name: &str) -> bool {
+    let mut chars = name.chars();
+
+    if let Some(c) = chars.next() {
+        if !(c.is_alphabetic() || c == '_') {
+            return false;
+        }
+    }
+
+    for c in chars {
+        if !(c.is_alphanumeric() || c == '_') {
+            return false;
+        }
+    }
+
+    true
+}
+
+
+pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
     // Divide the source code lines into string tokens 
 
     let matches: Vec<StringToken> = source.iter().enumerate().flat_map(
         |(line_number, line)| {
+            if line.trim().is_empty() {
+                return Vec::new();
+            }
             let mut matches = Vec::new();
             for mat in TOKEN_REGEX.find_iter(line) {
                 // Stop on comments
@@ -128,7 +136,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
 
     // Transform the string tokens into syntax tokens
 
-    let mut tokens: Vec<Token> = Vec::with_capacity(matches.len());
+    let mut tokens = TokenList::new();
 
     let mut parenthesis_depth: usize = 1;
     let mut square_depth: usize = 1;
@@ -139,11 +147,11 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
         
         let token = match mat.string {
 
-            "->" => TokenValue::Arrow,
+            "->" => TokenKind::Arrow,
             "{" => {
                 curly_depth += 1;
                 base_priority += Priority::Max as usize;
-                TokenValue::ScopeOpen
+                TokenKind::ScopeOpen
             },
             "}" => {
                 curly_depth -= 1;
@@ -151,12 +159,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                     error::unmatched_delimiter(unit_path, '}', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '{'?")
                 }
                 base_priority -= Priority::Max as usize;
-                TokenValue::ScopeClose
+                TokenKind::ScopeClose
             },
             "(" => {
                 parenthesis_depth += 1;
                 base_priority += Priority::Max as usize;
-                if may_be_value(tokens.last()) { TokenValue::Op(Ops::Call) } else { TokenValue::ParOpen }
+                if may_be_value(tokens.last()) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
             },
             ")" => {
                 parenthesis_depth -= 1;
@@ -164,12 +172,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                     error::unmatched_delimiter(unit_path, ')', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '('?")
                 }
                 base_priority -= Priority::Max as usize;
-                TokenValue::ParClose
+                TokenKind::ParClose
             },
             "[" => {
                 square_depth += 1;
                 base_priority += Priority::Max as usize;
-                TokenValue::SquareOpen
+                TokenKind::SquareOpen
             },
             "]" => {
                 square_depth -= 1;
@@ -177,30 +185,31 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                     error::unmatched_delimiter(unit_path, ']', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '['?")
                 }
                 base_priority -= Priority::Max as usize;
-                TokenValue::SquareClose
+                TokenKind::SquareClose
             },
-            ":" => TokenValue::Semicolon,
-            "+" => TokenValue::Op(Ops::Add),
-            "-" => TokenValue::Op(Ops::Sub),
-            "*" => if may_be_value(tokens.last()) { TokenValue::Op(Ops::Mul) } else { TokenValue::Op(Ops::Deref) },
-            "/" => TokenValue::Op(Ops::Div),
-            "%" => TokenValue::Op(Ops::Mod),
-            "=" => TokenValue::Op(Ops::Assign),
-            "==" => TokenValue::Op(Ops::Equal),
-            "!=" => TokenValue::Op(Ops::NotEqual),
-            "<" => TokenValue::Op(Ops::Less),
-            ">" => TokenValue::Op(Ops::Greater),
-            "<=" => TokenValue::Op(Ops::LessEqual),
-            ">=" => TokenValue::Op(Ops::GreaterEqual),
-            "&" => if may_be_value(tokens.last()) { TokenValue::Op(Ops::BitwiseAnd) } else { TokenValue::Op(Ops::Ref) },
-            "^" => TokenValue::Op(Ops::BitwiseXor),
-            "<<" => TokenValue::Op(Ops::BitShiftLeft),
-            ">>" => TokenValue::Op(Ops::BitShiftRight),
-            "~" => TokenValue::Op(Ops::BitwiseNot),
-            "!" => TokenValue::Op(Ops::LogicalNot),
-            "&&" => TokenValue::Op(Ops::LogicalAnd),
-            "||" => TokenValue::Op(Ops::LogicalOr),
-            "|" => TokenValue::Op(Ops::BitwiseOr),
+            ":" => TokenKind::Colon,
+            ";" => TokenKind::Semicolon,
+            "+" => TokenKind::Op(Ops::Add),
+            "-" => TokenKind::Op(Ops::Sub),
+            "*" => if may_be_value(tokens.last()) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) },
+            "/" => TokenKind::Op(Ops::Div),
+            "%" => TokenKind::Op(Ops::Mod),
+            "=" => TokenKind::Op(Ops::Assign),
+            "==" => TokenKind::Op(Ops::Equal),
+            "!=" => TokenKind::Op(Ops::NotEqual),
+            "<" => TokenKind::Op(Ops::Less),
+            ">" => TokenKind::Op(Ops::Greater),
+            "<=" => TokenKind::Op(Ops::LessEqual),
+            ">=" => TokenKind::Op(Ops::GreaterEqual),
+            "&" => if may_be_value(tokens.last()) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) },
+            "^" => TokenKind::Op(Ops::BitwiseXor),
+            "<<" => TokenKind::Op(Ops::BitShiftLeft),
+            ">>" => TokenKind::Op(Ops::BitShiftRight),
+            "~" => TokenKind::Op(Ops::BitwiseNot),
+            "!" => TokenKind::Op(Ops::LogicalNot),
+            "&&" => TokenKind::Op(Ops::LogicalAnd),
+            "||" => TokenKind::Op(Ops::LogicalOr),
+            "|" => TokenKind::Op(Ops::BitwiseOr),
 
             string => {
                 
@@ -208,15 +217,15 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                 if string.starts_with(is_numeric) {
 
                     if string.contains('.') {
-                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
+                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else if string.starts_with('-') {
-                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
+                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else {
-                        TokenValue::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
+                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
                             |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
                         ))) 
                     })
@@ -225,7 +234,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                 // Strings
                 } else if string.starts_with('"') {
 
-                    TokenValue::Value(Value::Literal { 
+                    TokenKind::Value(Value::Literal { 
                         value: LiteralValue::String(escape_string(string))
                     })
                 
@@ -236,7 +245,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                         error::invalid_char_literal(unit_path, &s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
                     }
 
-                    TokenValue::Value(Value::Literal { 
+                    TokenKind::Value(Value::Literal { 
                         value: LiteralValue::Char(s.chars().next().unwrap())
                     })
 
@@ -244,26 +253,32 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
                     
                     match string {
 
-                        "fn" => TokenValue::Fn,
-                        "return" => TokenValue::Op(Ops::Return),
-                        "jmp" => TokenValue::Op(Ops::Jump),
-                        "let" => TokenValue::Let,
+                        "fn" => TokenKind::Fn,
+                        "return" => TokenKind::Op(Ops::Return),
+                        "jmp" => TokenKind::Op(Ops::Jump),
+                        "let" => TokenKind::Let,
 
-                        "i8" => TokenValue::DataType(DataType::I8),
-                        "i16" => TokenValue::DataType(DataType::I16),
-                        "i32" => TokenValue::DataType(DataType::I32),
-                        "i64" => TokenValue::DataType(DataType::I64),
-                        "u8" => TokenValue::DataType(DataType::U8),
-                        "u16" => TokenValue::DataType(DataType::U16),
-                        "u32" => TokenValue::DataType(DataType::U32),
-                        "u64" => TokenValue::DataType(DataType::U64),
-                        "f32" => TokenValue::DataType(DataType::F32),
-                        "f64" => TokenValue::DataType(DataType::F64),
-                        "char" => TokenValue::DataType(DataType::Char),
-                        "str" => TokenValue::DataType(DataType::String),
+                        "i8" => TokenKind::DataType(DataType::I8),
+                        "i16" => TokenKind::DataType(DataType::I16),
+                        "i32" => TokenKind::DataType(DataType::I32),
+                        "i64" => TokenKind::DataType(DataType::I64),
+                        "u8" => TokenKind::DataType(DataType::U8),
+                        "u16" => TokenKind::DataType(DataType::U16),
+                        "u32" => TokenKind::DataType(DataType::U32),
+                        "u64" => TokenKind::DataType(DataType::U64),
+                        "f32" => TokenKind::DataType(DataType::F32),
+                        "f64" => TokenKind::DataType(DataType::F64),
+                        "char" => TokenKind::DataType(DataType::Char),
+                        "str" => TokenKind::DataType(DataType::String),
+                        "void" => TokenKind::DataType(DataType::Void),
 
                         string => {
-                            TokenValue::Symbol(string)
+                        
+                            if !is_symbol_name(string) {
+                                error::invalid_token(unit_path, string, mat.line, mat.start, &source[mat.line], "The token doesn't have meaning");
+                            }
+
+                            TokenKind::Value(Value::Symbol { id: string })
                         }
 
                     }
@@ -274,7 +289,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> Vec<Token<'a>> {
         };
 
 
-        tokens.push(
+        tokens.append(
             Token::new(token, mat.line, mat.start, unit_path, base_priority)
         );
     }

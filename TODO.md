@@ -2,6 +2,7 @@
 
 ### Todo
 
+- [ ] implement doubly linked list for tokens  
 - [ ] change project name  
 - [ ] test host_fs module (with copilot)  
 - [ ] add colors to built-in terminal  

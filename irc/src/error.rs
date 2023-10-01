@@ -60,3 +60,19 @@ pub fn invalid_char_literal(unit_path: &Path, literal: &str, line_number: usize,
     std::process::exit(1);
 }
 
+
+pub fn invalid_token(unit_path: &Path, token: &str, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Invalid token \"{}\" at line {}:{}:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), token, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+

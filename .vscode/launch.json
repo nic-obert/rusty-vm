@@ -4,6 +4,26 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug irc",
+        "cargo": {
+            "args": [
+                "build",
+                "--bin=irc",
+                "--package=irc"
+            ],
+            "filter": {
+                "name": "irc",
+                "kind": "bin"
+            }
+        },
+        "args": [
+            "irc/impl/test.ir"
+        ],
+        "cwd": "${workspaceFolder}"
+    },
         {
             "type": "lldb",
             "request": "launch",
