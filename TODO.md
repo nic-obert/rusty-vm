@@ -2,7 +2,6 @@
 
 ### Todo
 
-- [ ] implement doubly linked list for tokens  
 - [ ] change project name  
 - [ ] test host_fs module (with copilot)  
 - [ ] add colors to built-in terminal  
@@ -23,6 +22,7 @@
 
 ### Done ✅
 
+- [ ] implement doubly linked list for tokens  
 - [ ] bump up clap  
 - [ ] implement host fs module and relative assemly library  
 - [ ] unexport inline macros that shouldn't be leaked outside of libraries  

@@ -51,12 +51,15 @@ impl StringToken<'_> {
 }
 
 
-fn escape_string(string: &str) -> String {
+fn escape_string_copy(string: &str, checked_until: usize) -> String {
     let mut s = String::with_capacity(string.len());
 
-    let mut escape = false;
+    // Copy the part of the string before the escape character
+    s.push_str(&string[..checked_until]);
 
-    for c in string.chars() {
+    let mut escape = true;
+
+    for c in string[checked_until + 1..].chars() {
         if escape {
             escape = false;
             s.push(match c {
@@ -69,10 +72,27 @@ fn escape_string(string: &str) -> String {
             })
         } else if c == '\\' {
             escape = true;
+        } else {
+            s.push(c);
         }
     }
 
     s
+}
+
+
+fn escape_string<'a>(string: &'a str) -> &'a str {
+    // Ignore the enclosing quote characters
+    let string = &string[1..string.len() - 1];
+    
+    for (i, c) in string.chars().enumerate() {
+        if c == '\\' {
+            let copied_string = escape_string_copy(string, i);
+            return Box::leak(copied_string.into_boxed_str());
+        }
+    }
+
+    string
 }
 
 
@@ -164,7 +184,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             "(" => {
                 parenthesis_depth += 1;
                 base_priority += Priority::Max as usize;
-                if may_be_value(tokens.last()) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
+                if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
             },
             ")" => {
                 parenthesis_depth -= 1;
@@ -191,7 +211,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             ";" => TokenKind::Semicolon,
             "+" => TokenKind::Op(Ops::Add),
             "-" => TokenKind::Op(Ops::Sub),
-            "*" => if may_be_value(tokens.last()) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) },
+            "*" => if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) },
             "/" => TokenKind::Op(Ops::Div),
             "%" => TokenKind::Op(Ops::Mod),
             "=" => TokenKind::Op(Ops::Assign),
@@ -201,7 +221,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             ">" => TokenKind::Op(Ops::Greater),
             "<=" => TokenKind::Op(Ops::LessEqual),
             ">=" => TokenKind::Op(Ops::GreaterEqual),
-            "&" => if may_be_value(tokens.last()) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) },
+            "&" => if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) },
             "^" => TokenKind::Op(Ops::BitwiseXor),
             "<<" => TokenKind::Op(Ops::BitShiftLeft),
             ">>" => TokenKind::Op(Ops::BitShiftRight),

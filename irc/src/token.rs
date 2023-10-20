@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::path::Path;
-use std::ptr::null_mut;
+
+use rs_bush::bush::Bush;
 
 use crate::operations::Ops;
 use crate::data_types::DataType;
@@ -50,7 +51,7 @@ impl Display for Number {
 pub enum LiteralValue<'a> {
 
     Char (char),
-    String (String),
+    String (&'a str),
 
     Array { dt: DataType, items: Vec<Value<'a>> },
 
@@ -261,115 +262,5 @@ impl Display for Token<'_> {
 }
 
 
-pub struct TokenList<'a> {
-
-    first: *mut TokenNode<'a>,
-    last: *mut TokenNode<'a>
-
-}
-
-
-impl TokenList<'_> {
-
-    pub fn new<'a>() -> TokenList<'a> {
-        TokenList {
-            first: null_mut(),
-            last: null_mut()
-        }
-    }
-
-
-    pub fn append(&mut self, token: Token) {
-        let token = unsafe {
-            // Cast away lifetimes
-            std::mem::transmute::<Token<'_>, Token<'static>>(token)
-        };
-
-        if self.last.is_null() {
-            self.last = Box::leak(Box::new(TokenNode::new(token, null_mut()))) as *mut TokenNode;
-            self.first = self.last;
-        } else {
-            let new_node = Box::leak(Box::new(TokenNode::new(token, self.last))) as *mut TokenNode;
-            unsafe {
-                (*self.last).right = new_node;
-            }
-            self.last = new_node;
-        }
-    }
-
-
-    pub fn last(&self) -> Option<&Token> {
-        if self.last.is_null() {
-            None
-        } else {
-            unsafe {
-                Some(&(*self.last).token)
-            }
-        }
-    }
-
-}
-
-
-impl<'a> IntoIterator for TokenList<'a> {
-    type Item = &'a Token<'a>;
-
-    type IntoIter = TokenIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        TokenIterator {
-            node: self.first
-        }
-    }
-}
-
-
-pub struct TokenIterator<'a> {
-
-    node: *mut TokenNode<'a>
-
-}
-
-
-impl<'a> Iterator for TokenIterator<'a> {
-    type Item = &'a Token<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.node.is_null() {
-            None
-        } else {
-            let node = unsafe {
-                &mut *self.node
-            };
-            self.node = node.right;
-            Some(&node.token)
-        }
-    }
-}
-
-
-struct TokenNode<'a> {
-
-    pub token: Token<'a>,
-
-    pub left: *mut TokenNode<'a>,
-    pub right: *mut TokenNode<'a>,
-
-    pub children: Vec<TokenNode<'a>>
-
-}
-
-
-impl TokenNode<'_> {
-
-    pub fn new<'a>(token: Token<'a>, left: *mut TokenNode<'a>) -> TokenNode<'a> {
-        TokenNode { 
-            token,
-            left,
-            right: null_mut(),
-            children: vec![]
-        }
-    }
-
-}
+pub type TokenList<'a> = Bush<Token<'a>>;
 
