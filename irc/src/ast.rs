@@ -36,3 +36,14 @@ use crate::token::{Token, TokenKind, TokenList};
 //     None
 // }
 
+
+pub fn parse_token_syntax(tokens: &mut TokenList, source: &IRCode) {
+
+    loop {
+
+
+
+    }
+
+}
+

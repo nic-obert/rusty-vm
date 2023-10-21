@@ -51,15 +51,16 @@ impl StringToken<'_> {
 }
 
 
-fn escape_string_copy(string: &str, checked_until: usize) -> String {
-    let mut s = String::with_capacity(string.len());
+fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, mat: &StringToken, source: &IRCode) -> String {
+    // use -1 because the escape character won't be copied
+    let mut s = String::with_capacity(string.len() - 1);
 
     // Copy the part of the string before the escape character
     s.push_str(&string[..checked_until]);
 
     let mut escape = true;
 
-    for c in string[checked_until + 1..].chars() {
+    for (i, c) in string[checked_until + 1..].chars().enumerate() {
         if escape {
             escape = false;
             s.push(match c {
@@ -68,7 +69,7 @@ fn escape_string_copy(string: &str, checked_until: usize) -> String {
                 '0' => '\0',
                 't' => '\t',
                 '\\' => '\\',
-                c => c
+                c => error::invalid_escape_character(unit_path, c, mat.line, mat.start + checked_until + i + 2, &source[mat.line], "Invalid escape character")
             })
         } else if c == '\\' {
             escape = true;
@@ -81,13 +82,13 @@ fn escape_string_copy(string: &str, checked_until: usize) -> String {
 }
 
 
-fn escape_string<'a>(string: &'a str) -> &'a str {
+fn escape_string<'a>(string: &'a str, unit_path: &Path, mat: &StringToken, source: &IRCode) -> &'a str {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
     
     for (i, c) in string.chars().enumerate() {
         if c == '\\' {
-            let copied_string = escape_string_copy(string, i);
+            let copied_string = escape_string_copy(string, i, unit_path, mat, source);
             return Box::leak(copied_string.into_boxed_str());
         }
     }
@@ -165,6 +166,8 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
     for mat in matches {
         
+        println!("{}", mat.string);
+
         let token = match mat.string {
 
             "->" => TokenKind::Arrow,
@@ -254,15 +257,23 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
                 // Strings
                 } else if string.starts_with('"') {
 
+                    if string.len() == 1 {
+                        error::unmatched_delimiter(unit_path, '"', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '\"'?")
+                    }
+
                     TokenKind::Value(Value::Literal { 
-                        value: LiteralValue::String(escape_string(string))
+                        value: LiteralValue::String(escape_string(string, unit_path, &mat, source))
                     })
                 
                 } else if string.starts_with('\'') {
+
+                    if string.len() == 1 {
+                        error::unmatched_delimiter(unit_path, '\'', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a \"'?\"?")
+                    }
                     
-                    let s = escape_string(string);
+                    let s = escape_string(string, unit_path, &mat, source);
                     if s.len() != 1 {
-                        error::invalid_char_literal(unit_path, &s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
+                        error::invalid_char_literal(unit_path, s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
                     }
 
                     TokenKind::Value(Value::Literal { 
