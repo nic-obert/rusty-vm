@@ -493,9 +493,10 @@ impl Processor {
 
 
     fn display_registers(&self) -> String {
-        self.registers.iter().enumerate().map(
-            |(i, reg)| format!("{}: {}, ", registers::REGISTER_NAMES[i], reg)
-        ).collect()
+        self.registers.iter().enumerate().fold(String::new(), |mut output, (i, reg)| {
+            output.push_str(format!("{}: {}, ", registers::REGISTER_NAMES[i], reg).as_str());
+            output
+        })
     }
 
 
@@ -2030,7 +2031,7 @@ impl Processor {
                     return;
                 }
 
-                match input.parse::<i64>() {
+                match input.trim().parse::<i64>() {
                     Ok(value) => {
                         self.registers.set(Registers::INPUT, value as u64);
                         self.registers.set_error(ErrorCodes::NoError);
