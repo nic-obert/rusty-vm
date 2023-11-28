@@ -30,11 +30,9 @@ fn main() {
 
     let mut tokens = tokenizer::tokenize(&source, input_file);
 
-    // for token in tokens.iter_items() {
-    //     println!("{}", token);
-    // }
+    ast::parse_scope_hierarchy(&mut tokens);
 
-    let syntax = ast::parse_token_syntax(&mut tokens, &source);
+    tokens.print(0);
 
 }
 

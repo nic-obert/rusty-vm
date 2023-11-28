@@ -1,8 +1,6 @@
 use std::fmt::Display;
 use std::path::Path;
 
-use rs_bush::bush::Bush;
-
 use crate::operations::Ops;
 use crate::data_types::DataType;
 
@@ -260,7 +258,4 @@ impl Display for Token<'_> {
         }
     }
 }
-
-
-pub type TokenList<'a> = Bush<Token<'a>>;
 

@@ -2,10 +2,11 @@ use std::fmt::Display;
 use std::path::Path;
 
 use crate::data_types::DataType;
-use crate::token::{TokenKind, LiteralValue, Number, Token, Priority, TokenList};
+use crate::token::{TokenKind, LiteralValue, Number, Token, Priority};
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
+use crate::ast::TokenTree;
 
 use regex::Regex;
 use lazy_static::lazy_static;
@@ -24,7 +25,7 @@ struct StringToken<'a> {
 
     pub string: &'a str,
     pub line: usize,
-    pub start: usize,
+    pub columm: usize,
 
 }
 
@@ -44,7 +45,7 @@ impl StringToken<'_> {
         StringToken {
             string,
             line,
-            start
+            columm: start
         }
     }
 
@@ -69,7 +70,7 @@ fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, mat:
                 '0' => '\0',
                 't' => '\t',
                 '\\' => '\\',
-                c => error::invalid_escape_character(unit_path, c, mat.line, mat.start + checked_until + i + 2, &source[mat.line], "Invalid escape character")
+                c => error::invalid_escape_character(unit_path, c, mat.line, mat.columm + checked_until + i + 2, &source[mat.line], "Invalid escape character")
             })
         } else if c == '\\' {
             escape = true;
@@ -132,7 +133,7 @@ fn is_symbol_name(name: &str) -> bool {
 }
 
 
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
+pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
     // Divide the source code lines into string tokens 
 
@@ -148,7 +149,8 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
                     break;
                 }
                 matches.push(
-                    StringToken::new(mat.as_str(), line_number, mat.start())
+                    // Offset +1 because the regex starts counting at 0, but code editors start counting at 1
+                    StringToken::new(mat.as_str(), line_number + 1, mat.start() + 1)
                 );
             }
             matches
@@ -157,7 +159,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
     // Transform the string tokens into syntax tokens
 
-    let mut tokens = TokenList::new();
+    let mut tokens = TokenTree::new();
 
     let mut parenthesis_depth: usize = 1;
     let mut square_depth: usize = 1;
@@ -166,8 +168,6 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
     for mat in matches {
         
-        println!("{}", mat.string);
-
         let token = match mat.string {
 
             "->" => TokenKind::Arrow,
@@ -179,7 +179,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             "}" => {
                 curly_depth -= 1;
                 if curly_depth == 0 {
-                    error::unmatched_delimiter(unit_path, '}', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '{'?")
+                    error::unmatched_delimiter(unit_path, '}', mat.line, mat.columm, &source[mat.line], "Unexpected closing delimiter. Did you forget a '{'?")
                 }
                 base_priority -= Priority::Max as usize;
                 TokenKind::ScopeClose
@@ -192,7 +192,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             ")" => {
                 parenthesis_depth -= 1;
                 if parenthesis_depth == 0 {
-                    error::unmatched_delimiter(unit_path, ')', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '('?")
+                    error::unmatched_delimiter(unit_path, ')', mat.line, mat.columm, &source[mat.line], "Unexpected closing delimiter. Did you forget a '('?")
                 }
                 base_priority -= Priority::Max as usize;
                 TokenKind::ParClose
@@ -205,7 +205,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
             "]" => {
                 square_depth -= 1;
                 if square_depth == 0 {
-                    error::unmatched_delimiter(unit_path, ']', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '['?")
+                    error::unmatched_delimiter(unit_path, ']', mat.line, mat.columm, &source[mat.line], "Unexpected closing delimiter. Did you forget a '['?")
                 }
                 base_priority -= Priority::Max as usize;
                 TokenKind::SquareClose
@@ -241,15 +241,15 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
                     if string.contains('.') {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, mat.line, mat.columm, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else if string.starts_with('-') {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, mat.line, mat.columm, &source[mat.line], e.to_string().as_str())
                         ))) })
                     } else {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, mat.line, mat.start, &source[mat.line], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, mat.line, mat.columm, &source[mat.line], e.to_string().as_str())
                         ))) 
                     })
                     }
@@ -258,7 +258,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
                 } else if string.starts_with('"') {
 
                     if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '"', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a '\"'?")
+                        error::unmatched_delimiter(unit_path, '"', mat.line, mat.columm, &source[mat.line], "Unexpected closing delimiter. Did you forget a '\"'?")
                     }
 
                     TokenKind::Value(Value::Literal { 
@@ -268,12 +268,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
                 } else if string.starts_with('\'') {
 
                     if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '\'', mat.line, mat.start, &source[mat.line], "Unexpected closing delimiter. Did you forget a \"'?\"?")
+                        error::unmatched_delimiter(unit_path, '\'', mat.line, mat.columm, &source[mat.line], "Unexpected closing delimiter. Did you forget a \"'?\"?")
                     }
                     
                     let s = escape_string(string, unit_path, &mat, source);
                     if s.len() != 1 {
-                        error::invalid_char_literal(unit_path, s, mat.line, mat.start, &source[mat.line], "Character literals can only be one character long")
+                        error::invalid_char_literal(unit_path, s, mat.line, mat.columm, &source[mat.line], "Character literals can only be one character long")
                     }
 
                     TokenKind::Value(Value::Literal { 
@@ -306,7 +306,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
                         string => {
                         
                             if !is_symbol_name(string) {
-                                error::invalid_token(unit_path, string, mat.line, mat.start, &source[mat.line], "The token doesn't have meaning");
+                                error::invalid_token(unit_path, string, mat.line, mat.columm, &source[mat.line], "The token doesn't have meaning");
                             }
 
                             TokenKind::Value(Value::Symbol { id: string })
@@ -321,7 +321,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenList<'a> {
 
 
         tokens.append(
-            Token::new(token, mat.line, mat.start, unit_path, base_priority)
+            Token::new(token, mat.line, mat.columm, unit_path, base_priority)
         );
     }
 

@@ -227,7 +227,6 @@ dependencies = [
  "indoc",
  "lazy_static",
  "regex",
- "rs-bush",
  "rust_vm_lib",
 ]
 
@@ -448,12 +447,6 @@ name = "regex-syntax"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbb5fb1acd8a1a18b3dd5be62d25485eb770e05afb408a9627d14d451bae12da"
-
-[[package]]
-name = "rs-bush"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "462bad8b07dd5c5d47e324e1dd28a616fdc0e2e6a2ad20e2f8eb1c28a329df4e"
 
 [[package]]
 name = "rust_vm_lib"
