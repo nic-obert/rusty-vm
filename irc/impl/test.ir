@@ -22,3 +22,7 @@ fn main() -> void {
 
 }
 
+let a = 3;
+
+let b = 43;
+

@@ -3,6 +3,10 @@ use rust_vm_lib::ir::IRCode;
 use crate::token::{Token, TokenKind};
 
 use std::ptr;
+use std::fmt::Debug;
+
+
+pub type Statements<'a> = Vec<TokenTree<'a>>;
 
 
 pub struct TokenNode<'a> {
@@ -65,14 +69,32 @@ impl<'a> TokenTree<'a> {
         } else {
             unsafe {
                 (*self.last).right = node;
-                (*node).left = self.last;
+                node.left = self.last;
                 self.last = node;
             }
         }
     }
 
 
-    pub fn first_item(&self) -> Option<&Token> {
+    pub fn drop_last(&mut self) {
+        if self.last.is_null() {
+            return;
+        }
+
+        unsafe {
+            let new_last = (*self.last).left;
+            (*self.last).left = ptr::null_mut();
+            if !new_last.is_null() {
+                (*new_last).right = ptr::null_mut();
+            }
+            // Drop the last node
+            let _ = Box::from_raw(self.last);
+            self.last = new_last;
+        }
+    }
+
+
+    pub fn first_item(&self) -> Option<&'a Token> {
         if self.first.is_null() {
             None
         } else {
@@ -81,7 +103,7 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn last_item(&self) -> Option<&Token> {
+    pub fn last_item(&self) -> Option<&'a Token> {
         if self.last.is_null() {
             None
         } else {
@@ -92,6 +114,11 @@ impl<'a> TokenTree<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.first.is_null()
+    }
+
+
+    pub fn has_one_item(&self) -> bool {
+        !self.first.is_null() && self.first == self.last
     }
 
 
@@ -126,21 +153,33 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn print(&self, indent: usize) -> std::fmt::Result {
+    pub fn fmt(&self, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut node = self.first;
 
         while !node.is_null() {
             let node_ref = unsafe { &(*node) };
 
             for _ in 0..indent {
-                print!(" | ");
+                write!(f, "  ")?;
             }
+            write!(f, "| ")?;
 
-            println!("{:?}", node_ref.item.value);
+            if let TokenKind::ScopeOpen { statements: Some(statements) } = &node_ref.item.value {
+                writeln!(f, "ScopeOpen:")?;
 
-            if let Some(children) = &node_ref.children {
-                children.print(indent + 1)?;
-            }
+                for statement in statements {
+                    statement.fmt(indent + 1, f)?;
+                    writeln!(f, "EndStatement")?;
+                }
+
+                writeln!(f)?;
+            } else {
+                writeln!(f, "{:?}", node_ref.item.value)?;
+
+                if let Some(children) = &node_ref.children {
+                    children.fmt(indent + 1, f)?;
+                }
+            }            
 
             node = node_ref.right;
         }
@@ -164,26 +203,11 @@ impl Drop for TokenTree<'_> {
 }
 
 
-// fn find_highest_priority<'a>(tokens: &'a TokenList<'a>) -> Option<&'a BushNode<Token<'a>>> {
-
-//     let mut highest_priority: Option<&'a BushNode<Token>> = None;
-
-//     for node in tokens.iter_nodes() {
-            
-//         // Don't search past the end of the statement or into a new scope
-//         if matches!(node.item.value, TokenKind::Semicolon | TokenKind::ScopeOpen) {
-//             break;
-//         }
-
-//         if let Some(hp) = highest_priority {
-//             if node.item.priority > hp.item.priority {
-//                 highest_priority = Some(node);
-//             }
-//         }
-//     }
-
-//     highest_priority
-// }
+impl Debug for TokenTree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt(0, f)
+    }
+}
 
 
 fn find_next_scope(tokens: *mut TokenNode) -> Option<*mut TokenNode> {
@@ -191,7 +215,7 @@ fn find_next_scope(tokens: *mut TokenNode) -> Option<*mut TokenNode> {
 
     while !token.is_null() {
         
-        if matches!(unsafe { &(*token).item.value }, &TokenKind::ScopeOpen) {
+        if matches!(unsafe { &(*token).item.value }, &TokenKind::ScopeOpen { .. }) {
             return Some(token);
         }
 
@@ -210,7 +234,7 @@ fn find_scope_end(tokens: *mut TokenNode) -> *mut TokenNode {
     while !token.is_null() {
 
         match unsafe { &(*token).item.value } {
-            TokenKind::ScopeOpen => scope_depth += 1,
+            TokenKind::ScopeOpen { .. } => scope_depth += 1,
             TokenKind::ScopeClose => scope_depth -= 1,
             _ => (),
         }
@@ -226,15 +250,8 @@ fn find_scope_end(tokens: *mut TokenNode) -> *mut TokenNode {
 }
 
 
-// TODO: create a new bush-like data structure that is specialized for this use case
-
-
-
-
-
 pub fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
-    // This function shouldn't fail because the tokenizer has already checked 
-    // that the scopes are balanced
+    // This function shouldn't fail because the tokenizer has already checked that the scopes are balanced
 
     let mut node = tokens.first;
 
@@ -266,4 +283,92 @@ pub fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
 
     }
 }
+
+
+pub fn divide_statements(mut tokens: TokenTree) -> Statements {
+    // Divide the tree into separate statements recursively
+
+    let mut statements = Statements::new();
+    let mut node = tokens.first;
+
+    while !node.is_null() {
+
+        let node_ref = unsafe { &mut *node };
+        match &mut node_ref.item.value {
+
+            TokenKind::Semicolon => {
+                // End of statement
+                let mut statement = tokens.extract_slice(tokens.first, node);
+
+                // Check if the statement is empty (contains only a semicolon)
+                if !statement.has_one_item() {
+                    // Drop the semicolon token
+                    statement.drop_last();
+                    statements.push(statement);
+                }
+
+                node = tokens.first;
+            },
+
+            TokenKind::ScopeOpen { statements: scope_statements } => {
+                // End of statement
+                // Recursively parse the nested scope into separate statements
+
+                // Extract the scope statements from the scope token children if the scope isn't empty
+                if let Some(children) = node_ref.children.take() {
+                    *scope_statements = Some(divide_statements(children));
+                }
+
+                let statement = tokens.extract_slice(tokens.first, node);
+                statements.push(statement);
+
+                node = tokens.first;
+            },
+
+            _ => node = node_ref.right,
+        }
+    }
+
+    if !tokens.is_empty() {
+        statements.push(tokens);
+    }
+
+    statements
+}
+
+
+// fn find_highest_priority(tokens: &TokenTree) -> Option<*mut TokenNode> {
+
+//     let mut highest_priority: Option<*mut TokenNode> = None;
+//     let mut node = tokens.first;
+
+//     while !node.is_null() {
+            
+//         // Don't search past the end of the statement or into a new scope
+//         if matches!(node.item.value, TokenKind::Semicolon | TokenKind::ScopeOpen) {
+//             break;
+//         }
+
+//         if let Some(hp) = highest_priority {
+//             if node.item.priority > hp.item.priority {
+//                 highest_priority = Some(node);
+//             }
+//         }
+//     }
+
+//     highest_priority
+// }
+
+
+// pub fn parse_operator_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
+//     // Recursively parse the operator hierarchy based on token priority
+
+//     loop {
+
+//         let node = find_highest_priority(tokens);
+
+//     }
+
+
+// }
 

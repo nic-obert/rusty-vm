@@ -32,7 +32,12 @@ fn main() {
 
     ast::parse_scope_hierarchy(&mut tokens);
 
-    tokens.print(0);
+    println!("\n\nTokens:\n{:#?}\n\n", tokens);
+
+    let statements = ast::divide_statements(tokens);
+
+    println!("Statements:\n{:#?}", statements);
+    println!("Number of outer statements: {}", statements.len());
 
 }
 

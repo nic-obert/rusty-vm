@@ -168,13 +168,13 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
     for mat in matches {
         
-        let token = match mat.string {
+        let token_kind = match mat.string {
 
             "->" => TokenKind::Arrow,
             "{" => {
                 curly_depth += 1;
                 base_priority += Priority::Max as usize;
-                TokenKind::ScopeOpen
+                TokenKind::ScopeOpen { statements: None }
             },
             "}" => {
                 curly_depth -= 1;
@@ -187,7 +187,9 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "(" => {
                 parenthesis_depth += 1;
                 base_priority += Priority::Max as usize;
-                if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
+                // Get around the borrow checker not recognizing that last_token immutable reference is dropped before tokens is borrowed mutably when appending the token
+                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
+                if may_be_value(last_token) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
             },
             ")" => {
                 parenthesis_depth -= 1;
@@ -214,7 +216,10 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             ";" => TokenKind::Semicolon,
             "+" => TokenKind::Op(Ops::Add),
             "-" => TokenKind::Op(Ops::Sub),
-            "*" => if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) },
+            "*" => {
+                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
+                if may_be_value(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) }
+            },
             "/" => TokenKind::Op(Ops::Div),
             "%" => TokenKind::Op(Ops::Mod),
             "=" => TokenKind::Op(Ops::Assign),
@@ -224,7 +229,10 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             ">" => TokenKind::Op(Ops::Greater),
             "<=" => TokenKind::Op(Ops::LessEqual),
             ">=" => TokenKind::Op(Ops::GreaterEqual),
-            "&" => if may_be_value(tokens.last_item()) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) },
+            "&" => {
+                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
+                if may_be_value(last_token) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) }
+            },
             "^" => TokenKind::Op(Ops::BitwiseXor),
             "<<" => TokenKind::Op(Ops::BitShiftLeft),
             ">>" => TokenKind::Op(Ops::BitShiftRight),
@@ -233,7 +241,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "&&" => TokenKind::Op(Ops::LogicalAnd),
             "||" => TokenKind::Op(Ops::LogicalOr),
             "|" => TokenKind::Op(Ops::BitwiseOr),
-
+     
             string => {
                 
                 // Numbers
@@ -319,10 +327,8 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             }
         };
 
-
-        tokens.append(
-            Token::new(token, mat.line, mat.columm, unit_path, base_priority)
-        );
+        let token = Token::new(token_kind, mat.line, mat.columm, unit_path, base_priority);
+        tokens.append(token);
     }
 
     tokens

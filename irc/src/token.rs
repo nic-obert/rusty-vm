@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::path::Path;
 
+use crate::ast::Statements;
 use crate::operations::Ops;
 use crate::data_types::DataType;
 
@@ -100,7 +101,7 @@ pub enum TokenKind<'a> {
     ParOpen,
     ParClose,
 
-    ScopeOpen,
+    ScopeOpen { statements: Option<Statements<'a>> },
     ScopeClose,
 
 }
@@ -199,7 +200,7 @@ impl TokenKind<'_> {
             TokenKind::SquareClose |
             TokenKind::ParOpen |
             TokenKind::ParClose |
-            TokenKind::ScopeOpen |
+            TokenKind::ScopeOpen { .. } |
             TokenKind::ScopeClose
              => Priority::Max,
 
@@ -252,7 +253,7 @@ impl Display for Token<'_> {
             TokenKind::SquareClose => write!(f, "]"),
             TokenKind::ParOpen => write!(f, "("),
             TokenKind::ParClose => write!(f, ")"),
-            TokenKind::ScopeOpen => write!(f, "{{"),
+            TokenKind::ScopeOpen { .. } => write!(f, "{{"),
             TokenKind::ScopeClose => write!(f, "}}"),
             TokenKind::Colon => write!(f, ":"),
         }
