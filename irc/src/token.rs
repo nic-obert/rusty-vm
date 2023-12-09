@@ -70,18 +70,6 @@ impl Display for LiteralValue<'_> {
 }
 
 
-#[inline(always)]
-pub const fn is_value_holder(token: &TokenKind) -> bool {
-    matches!(
-        token,
-        TokenKind::Value(_) |
-        TokenKind::ParOpen |
-        TokenKind::SquareOpen |
-        TokenKind::Op(_)
-    )
-}
-
-
 #[derive(Debug, PartialEq)]
 pub enum TokenKind<'a> {
 
@@ -113,6 +101,8 @@ pub enum Priority {
 
     Zero = 0,
     Least,
+
+    Declaration,
 
     AddSub,
     MulDivMod,
@@ -189,7 +179,7 @@ impl TokenKind<'_> {
 
             TokenKind::Fn |
             TokenKind::Let
-             => Priority::Least,
+                => Priority::Declaration,
 
             TokenKind::Value(_) |
             TokenKind::DataType(_) |
@@ -204,7 +194,7 @@ impl TokenKind<'_> {
             TokenKind::ParOpen |
             TokenKind::ParClose |
             TokenKind::ScopeOpen { .. } |
-            TokenKind::ScopeClose
+            TokenKind::ScopeClose 
              => Priority::Max,
 
         } as usize)

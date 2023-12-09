@@ -3,7 +3,7 @@ use std::path::Path;
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
-use crate::{operations::Ops, token::{Token, TokenKind}};
+use crate::token::{Token, TokenKind};
 
 
 pub fn warn(message: &str) {

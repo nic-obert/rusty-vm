@@ -1,28 +1,4 @@
 
 
-fn main() -> void {
-
-    let x0: i32 = 1+1;
-
-    x0 = 432;
-
-    # this is a comment
-
-    let f: f32 = -40.32;
-
-    let s: str = "hello world!";
-
-    {}
-
-    {
-        let s: str = "this is a nested scope";
-        let var: i32 = 90;
-        {}
-    }
-
-}
-
-let a = 3;
-
-let b = 43;
+let x: [str] = ["hello", "world"];
 
