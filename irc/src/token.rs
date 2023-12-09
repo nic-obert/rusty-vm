@@ -1,12 +1,11 @@
 use std::fmt::Display;
 use std::path::Path;
 
-use crate::ast::Statements;
 use crate::operations::Ops;
 use crate::data_types::DataType;
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Value<'a> {
 
     Literal { value: LiteralValue<'a> },
@@ -25,7 +24,7 @@ impl Display for Value<'_> {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Number {
 
     Int(i64),
@@ -46,7 +45,7 @@ impl Display for Number {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LiteralValue<'a> {
 
     Char (char),
@@ -71,17 +70,19 @@ impl Display for LiteralValue<'_> {
 }
 
 
-#[derive(Debug)]
-pub struct Function {
-
-    id: String,
-    args: Vec<DataType>,
-    ret: DataType,
-
+#[inline(always)]
+pub const fn is_value_holder(token: &TokenKind) -> bool {
+    matches!(
+        token,
+        TokenKind::Value(_) |
+        TokenKind::ParOpen |
+        TokenKind::SquareOpen |
+        TokenKind::Op(_)
+    )
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenKind<'a> {
 
     Op (Ops),
@@ -94,6 +95,7 @@ pub enum TokenKind<'a> {
     Arrow,
     Semicolon,
     Colon,
+    Comma,
 
     SquareOpen,
     SquareClose,
@@ -101,7 +103,7 @@ pub enum TokenKind<'a> {
     ParOpen,
     ParClose,
 
-    ScopeOpen { statements: Option<Statements<'a>> },
+    ScopeOpen,
     ScopeClose,
 
 }
@@ -193,7 +195,8 @@ impl TokenKind<'_> {
             TokenKind::DataType(_) |
             TokenKind::Arrow |
             TokenKind::Semicolon |
-            TokenKind::Colon
+            TokenKind::Colon |
+            TokenKind::Comma
              => Priority::Zero,
 
             TokenKind::SquareOpen |
@@ -214,7 +217,7 @@ pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
     pub line: usize,
-    pub start: usize,
+    pub column: usize,
     pub unit_path: &'a Path,
     pub priority: usize,
 
@@ -230,7 +233,7 @@ impl Token<'_> {
         Token {
             value,
             line,
-            start,
+            column: start,
             unit_path,
             priority: base_priority + value_priority,
         }
@@ -256,6 +259,7 @@ impl Display for Token<'_> {
             TokenKind::ScopeOpen { .. } => write!(f, "{{"),
             TokenKind::ScopeClose => write!(f, "}}"),
             TokenKind::Colon => write!(f, ":"),
+            TokenKind::Comma => write!(f, ","),
         }
     }
 }

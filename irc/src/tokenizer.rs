@@ -174,7 +174,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "{" => {
                 curly_depth += 1;
                 base_priority += Priority::Max as usize;
-                TokenKind::ScopeOpen { statements: None }
+                TokenKind::ScopeOpen
             },
             "}" => {
                 curly_depth -= 1;
@@ -214,6 +214,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             ":" => TokenKind::Colon,
             ";" => TokenKind::Semicolon,
+            "," => TokenKind::Comma,
             "+" => TokenKind::Op(Ops::Add),
             "-" => TokenKind::Op(Ops::Sub),
             "*" => {

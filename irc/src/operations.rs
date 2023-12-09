@@ -1,8 +1,7 @@
 use std::fmt::Display;
 
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ops {
 
     Add,
@@ -31,6 +30,43 @@ pub enum Ops {
     BitwiseOr,
     BitwiseAnd,
     BitwiseXor,
+
+}
+
+
+impl Ops {
+
+    // pub const fn arg_types(&self) -> &'static [DataType] {
+    //     match self {
+    //         Ops::Add |
+    //         Ops::Sub |
+    //         Ops::Mul |
+    //         Ops::Div |
+    //         Ops::Mod => vec![integer_types!(), float_types!()].concat().as_slice(),
+
+    //         Ops::Equal |
+    //         Ops::NotEqual |
+    //         Ops::Greater |
+    //         Ops::Less |
+    //         Ops::GreaterEqual |
+    //         Ops::LessEqual => &[DataType::I8, DataType::I16, DataType::I32, DataType::I64, DataType::U8, DataType::U16, DataType::U32, DataType::U64, DataType::F32, DataType::F64],
+    //         Ops::Assign => todo!(),
+    //         Ops::Deref => todo!(),
+    //         Ops::Ref => todo!(),
+    //         Ops::Call => todo!(),
+    //         Ops::Return => todo!(),
+    //         Ops::Jump => todo!(),
+    //         Ops::LogicalNot => todo!(),
+    //         Ops::BitwiseNot => todo!(),
+    //         Ops::LogicalAnd => todo!(),
+    //         Ops::LogicalOr => todo!(),
+    //         Ops::BitShiftLeft => todo!(),
+    //         Ops::BitShiftRight => todo!(),
+    //         Ops::BitwiseOr => todo!(),
+    //         Ops::BitwiseAnd => todo!(),
+    //         Ops::BitwiseXor => todo!(),
+    //     }
+    // }
 
 }
 

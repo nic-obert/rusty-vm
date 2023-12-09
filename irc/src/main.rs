@@ -34,10 +34,12 @@ fn main() {
 
     println!("\n\nTokens:\n{:#?}\n\n", tokens);
 
-    let statements = ast::divide_statements(tokens);
+    let mut statements = ast::divide_statements(tokens);
 
     println!("Statements:\n{:#?}", statements);
     println!("Number of outer statements: {}", statements.len());
+
+    ast::parse_statements_hierarchy(&mut statements, &source);
 
 }
 

@@ -3,6 +3,8 @@ use std::path::Path;
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
+use crate::{operations::Ops, token::{Token, TokenKind}};
+
 
 pub fn warn(message: &str) {
     println!("{}", formatdoc!("
@@ -88,6 +90,38 @@ pub fn invalid_escape_character(unit_path: &Path, character: char, line_number: 
         {}
         ",
         unit_path.display(), character, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn expected_argument(unit_path: &Path, operator: &TokenKind, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Expected argment for operator {:?} at line {}:{}, but got none:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), operator, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn unexpected_token(unit_path: &Path, token: &Token, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Unexpected token {} at line {}:{}:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), token, line_number, start, line, format!("{:>1$}^", "", start), hint
     );
     std::process::exit(1);
 }
