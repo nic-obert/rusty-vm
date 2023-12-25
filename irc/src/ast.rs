@@ -17,6 +17,7 @@ pub enum ChildrenType<'a> {
     Statements (Statements<'a>),
 }
 
+
 pub struct TokenNode<'a> {
 
     pub left: *mut TokenNode<'a>,
@@ -98,6 +99,24 @@ impl<'a> TokenTree<'a> {
             // Drop the last node
             let _ = Box::from_raw(self.last);
             self.last = new_last;
+        }
+    }
+
+
+    pub fn drop_first(&mut self) {
+        if self.first.is_null() {
+            return;
+        }
+
+        unsafe {
+            let new_first = (*self.first).right;
+            (*self.first).right = ptr::null_mut();
+            if !new_first.is_null() {
+                (*new_first).left = ptr::null_mut();
+            }
+            // Drop the first node
+            let _ = Box::from_raw(self.first);
+            self.first = new_first;
         }
     }
 
@@ -211,42 +230,60 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn fmt(&self, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    pub fn print_tokens_only(&self, indent: usize) {
         let mut node = self.first;
 
         while !node.is_null() {
+            let node_ref = unsafe { &(*node) };
+            for _ in 0..indent {
+                print!("  ");
+            }
+            println!("{}", node_ref.item.token.string);
+            node = node_ref.right;
+        }
+    }
+
+
+    pub fn fmt_detailed(&self, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+
+        /// Helper function to write a token to the formatter in a consistent format
+        fn write_node(node: &TokenNode<'_>, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            // format: "<indent> | <token>"
+            
             let node_ref = unsafe { &(*node) };
 
             for _ in 0..indent {
                 write!(f, "  ")?;
             }
             write!(f, "| ")?;
-
             writeln!(f, "{:?}", node_ref.item.value)?;
 
             if let Some(children) = &node_ref.children {
                 match children {
                     ChildrenType::List (children) => {
                         for child in children {
-                            for _ in 0..indent {
-                                write!(f, "  ")?;
-                            }
-                            write!(f, "| ")?;
-                            writeln!(f, "{:?}", &child.item.value)?;
+                            write_node(child, indent + 1, f)?;
                         }
                     },
                     ChildrenType::Tree (children) => {
-                        children.fmt(indent + 1, f)?;
+                        children.fmt_detailed(indent + 1, f)?;
                     },
                     ChildrenType::Statements (children) => {
                         for statement in children {
-                            statement.fmt(indent + 1, f)?;
+                            statement.fmt_detailed(indent + 1, f)?;
                             writeln!(f, "EndStatement")?;
                         }
                     },
                 }
             }
+            
+            Ok(())
+        }
 
+        let mut node = self.first;
+
+        while let Some(node_ref) = unsafe { node.as_ref() } {
+            write_node(node_ref, indent, f)?;
             node = node_ref.right;
         }
 
@@ -271,26 +308,8 @@ impl Drop for TokenTree<'_> {
 
 impl Debug for TokenTree<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.fmt(0, f)
+        self.fmt_detailed(0, f)
     }
-}
-
-
-fn find_next_token<'a>(tokens: *mut TokenNode<'a>, target: &TokenKind<'_>) -> Option<*mut TokenNode<'a>> {
-    let mut token = tokens;
-
-    while !token.is_null() {
-
-        let token_ref = unsafe { &(*token).item };
-        
-        if matches!(&token_ref.value, target) {
-            return Some(token);
-        }
-
-        token = unsafe { (*token).right };
-    }
-
-    None
 }
 
 
@@ -337,7 +356,7 @@ fn find_scope_end(tokens: *mut TokenNode) -> *mut TokenNode {
 /// Recursively parse the tokens into a hierarchical tree structure based on nested scopes.
 /// 
 /// The contents of the scopes are moved into the children of the scope tokens.
-pub fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
+fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
     // This function shouldn't fail because the tokenizer has already checked that the scopes are balanced
 
     let mut node = tokens.first;
@@ -356,6 +375,8 @@ pub fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
             }
 
             let mut inner_scope = tokens.extract_slice(scope_start, scope_end);
+            // Remove the closing scope token
+            inner_scope.drop_last();
             
             // Recursively parse the inner scope hierarchy
             parse_scope_hierarchy(&mut inner_scope);
@@ -373,7 +394,7 @@ pub fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
 
 
 /// Divide the tree into a list of separate statements based on semicolons and scopes.
-pub fn divide_statements(mut tokens: TokenTree) -> Statements {
+fn divide_statements(mut tokens: TokenTree) -> Statements {
 
     let mut statements = Statements::new();
     let mut node = tokens.first;
@@ -398,7 +419,6 @@ pub fn divide_statements(mut tokens: TokenTree) -> Statements {
             },
 
             TokenKind::ScopeOpen => {
-                // End of statement
                 // Recursively parse the nested scope into separate statements
 
                 // Extract the scope statements from the scope token children if the scope isn't empty and convert them into a list of statements
@@ -424,7 +444,7 @@ pub fn divide_statements(mut tokens: TokenTree) -> Statements {
 }
 
 
-pub fn parse_statements_hierarchy(statements: &mut Statements, source: &IRCode) {
+fn parse_statements_hierarchy(statements: &mut Statements, source: &IRCode) {
     // Recursively parse the statements' hierarchy
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
@@ -439,7 +459,10 @@ fn extract_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *
     
     let mut arguments = Vec::new();
 
-    let start_delimiter_ref = unsafe { &mut *start_delimiter };
+    let start_delimiter = unsafe { &mut *start_delimiter };
+
+    // The first token after the start delimiter
+    let content_start = start_delimiter.right;
 
     // Set to false because the first token in a collection can't be a comma
     let mut expected_comma: bool = false;
@@ -447,8 +470,8 @@ fn extract_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *
     // Extract the arguments within the delimiters
     loop {
 
-        let arg = tokens.extract_node(start_delimiter).unwrap_or_else(
-            || error::expected_argument(start_delimiter_ref.item.unit_path, operator, start_delimiter_ref.item.line, start_delimiter_ref.item.column, &source[start_delimiter_ref.item.line], format!("Missing argument or closing delimiter for operator {:?}.", operator).as_str())
+        let arg = tokens.extract_node(content_start).unwrap_or_else(
+            || error::expected_argument(start_delimiter.item.unit_path, operator, start_delimiter.item.token.line_number(), start_delimiter.item.token.column, &source[start_delimiter.item.token.line_index()], format!("Missing argument or closing delimiter for operator {:?}.", operator).as_str())
         );
 
         match &arg.item.value {
@@ -459,7 +482,7 @@ fn extract_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *
                 // Set to false because you cannot have two adjacent commas
                 expected_comma = false;
             } else {
-                error::unexpected_token(arg.item.unit_path, &arg.item, arg.item.line, arg.item.column, &source[arg.item.line], "Unexpected comma in this context. Did you add an extra comma?");
+                error::unexpected_token(arg.item.unit_path, &arg.item, arg.item.token.line_number(), arg.item.token.column, &source[arg.item.token.line_index()], "Unexpected comma in this context. Did you add an extra comma?");
             },
 
             _ => {
@@ -486,6 +509,8 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
             // No more operations to parse
             break;
         }
+        // Set the priority to 0 so that the node is not visited again
+        node_ref.item.priority = 0;
 
         // Useful macros to get tokens without forgetting that the token pointers of extracted tokens are invalidated
         macro_rules! extract_left {
@@ -525,11 +550,11 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
                 operations::Ops::BitwiseXor 
                  => {
                     let left = extract_left!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], format!("Missing left argument for operator {}.", op).as_str())
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing left argument for operator {}.", op).as_str())
                     );
                 
                     let right = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], format!("Missing right argument for operator {}.", op).as_str())
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing right argument for operator {}.", op).as_str())
                     );
                 
                     node_ref.children = Some(ChildrenType::List(vec![*left, *right]));
@@ -542,7 +567,7 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
                 operations::Ops::BitwiseNot
                  => {
                     let left = extract_left!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], format!("Missing left argument for operator {}.", *op).as_str())
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing left argument for operator {}.", *op).as_str())
                     );
                     node_ref.children = Some(ChildrenType::List(vec![*left]));
                 },
@@ -552,7 +577,7 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
                 operations::Ops::Jump 
                  => {
                     let right = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], format!("Missing right argument for operator {}.", *op).as_str())
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing right argument for operator {}.", *op).as_str())
                     );
                     node_ref.children = Some(ChildrenType::List(vec![*right]));
                 },
@@ -593,16 +618,16 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
                 // Syntax: let <name>: <type> 
 
                 let name = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing variable name after let in variable declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing variable name after let in variable declaration.")
                 );
 
                 let _colon = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing colon after variable name in variable declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing colon after variable name in variable declaration.")
                 );
 
                 // The data type should be a single top-level token because of its higher priority
                 let data_type =extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing data type after colon in variable declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after colon in variable declaration.")
                 );
 
                 node_ref.children = Some(ChildrenType::List(vec![*name, *data_type]));
@@ -613,26 +638,26 @@ fn parse_statement_hierarchy(tokens: &mut TokenTree<'_>, source: &IRCode) {
                 // fn <name>(<arguments>) -> <return type> { <body> }
 
                 let name = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing function name after fn in function declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing function name after fn in function declaration.")
                 );
 
                 // The arguments is one top-level parenthesis token because it gets parsed first
                 let arguments = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing arguments after function name in function declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing arguments after function name in function declaration.")
                 );
 
                 let _arrow = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing arrow after function arguments in function declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing arrow after function arguments in function declaration.")
                 );
 
                 // The return type should be a single top-level token because of its higher priority
                 let return_type = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing return type after arrow in function declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing return type after arrow in function declaration.")
                 );
 
                 // The body is one top-level scope token because it gets parsed first
                 let body = extract_right!().unwrap_or_else(
-                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.line, node_ref.item.column, &source[node_ref.item.line], "Missing body after return type in function declaration.")
+                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing body after return type in function declaration.")
                 );
 
                 node_ref.children = Some(ChildrenType::List(vec![*name, *arguments, *return_type, *body]));
@@ -652,15 +677,33 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
     while !node.is_null() {
 
         if let Some(hp) = highest_priority {
-            unsafe {
-                if (*node).item.priority > (*hp).item.priority {
+            if unsafe { (*node).item.priority > (*hp).item.priority } {
                 highest_priority = Some(node);
-            }}
+            }
+        } else {
+            highest_priority = Some(node);
         }
 
         node = unsafe { (*node).right };
     }
 
     highest_priority
+}
+
+
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> Statements<'a> {
+
+    parse_scope_hierarchy(&mut tokens);
+
+    let mut statements = divide_statements(tokens);
+
+    println!("Statements:\n{:#?}", statements);
+    println!("Number of outer statements: {}", statements.len());
+
+    parse_statements_hierarchy(&mut statements, source);
+
+    println!("\n\nStatement hierarchy:\n{:#?}", statements);
+
+    statements
 }
 

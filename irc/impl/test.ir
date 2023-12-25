@@ -1,4 +1,4 @@
 
-
-let x: [str] = ["hello", "world"];
-
+fn main() -> void {
+    1+1
+}

@@ -28,18 +28,13 @@ fn main() {
         }
     };
 
-    let mut tokens = tokenizer::tokenize(&source, input_file);
+    let tokens = tokenizer::tokenize(&source, input_file);
 
-    ast::parse_scope_hierarchy(&mut tokens);
+    println!("Tokens: [");
+    tokens.print_tokens_only(1);
+    println!("]\n");
 
-    println!("\n\nTokens:\n{:#?}\n\n", tokens);
-
-    let mut statements = ast::divide_statements(tokens);
-
-    println!("Statements:\n{:#?}", statements);
-    println!("Number of outer statements: {}", statements.len());
-
-    ast::parse_statements_hierarchy(&mut statements, &source);
+    let statements = ast::build_ast(tokens, &source);
 
 }
 

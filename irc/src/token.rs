@@ -5,6 +5,51 @@ use crate::operations::Ops;
 use crate::data_types::DataType;
 
 
+pub struct StringToken<'a> {
+
+    pub string: &'a str,
+    line_index: usize,
+    pub column: usize,
+
+}
+
+impl Display for StringToken<'_> {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.string)
+    }
+
+}
+
+impl StringToken<'_> {
+
+    pub fn new(string: &str, line_index: usize, start: usize) -> StringToken<'_> {
+        StringToken {
+            string,
+            line_index,
+            column: start
+        }
+    }
+
+    /// Returns the line number of the token, starting from 1
+    /// 
+    /// This is used to display the line number in the error message.
+    #[inline]
+    pub fn line_number(&self) -> usize {
+        self.line_index + 1
+    }
+
+    /// Returns the line index of the token, starting from 0. 
+    /// 
+    /// This is used to index the line in the source code.
+    #[inline]
+    pub fn line_index(&self) -> usize {
+        self.line_index
+    }
+
+}
+
+
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
 
@@ -126,7 +171,7 @@ pub enum Priority {
 
 impl TokenKind<'_> {
 
-    pub fn type_priority(&self) -> usize {
+    pub fn type_priority(&self) -> i32 {
         (match self {
             TokenKind::Op(op) => match op {
 
@@ -197,7 +242,7 @@ impl TokenKind<'_> {
             TokenKind::ScopeClose 
              => Priority::Max,
 
-        } as usize)
+        } as i32)
     }
 
 }
@@ -206,24 +251,22 @@ impl TokenKind<'_> {
 pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
-    pub line: usize,
-    pub column: usize,
+    pub token: StringToken<'a>,
     pub unit_path: &'a Path,
-    pub priority: usize,
+    pub priority: i32,
 
 }
 
 
 impl Token<'_> {
 
-    pub fn new<'a>(value: TokenKind<'a>, line: usize, start: usize, unit_path: &'a Path, base_priority: usize) -> Token<'a> {
+    pub fn new<'a>(value: TokenKind<'a>, source_token: StringToken<'a>, unit_path: &'a Path, base_priority: i32) -> Token<'a> {
 
         let value_priority = value.type_priority();
 
         Token {
             value,
-            line,
-            column: start,
+            token: source_token,
             unit_path,
             priority: base_priority + value_priority,
         }
