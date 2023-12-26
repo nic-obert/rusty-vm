@@ -13,6 +13,11 @@
 - [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
 
+### IRC
+
+- [ ] Differentiate between function call and function 
+ arguments declaration in the tokenizer. if curr_tok-2 == fn => it's a function declaration. else, it's a regular function call  
+
 ### In Progress ···
 
 - [ ] create an intermediate representation and bytecode  

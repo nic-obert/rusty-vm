@@ -5,7 +5,7 @@ use crate::token::{TokenKind, LiteralValue, Number, Token, Priority, StringToken
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
-use crate::ast::TokenTree;
+use crate::token_tree::TokenTree;
 
 use regex::Regex;
 use lazy_static::lazy_static;
@@ -180,11 +180,9 @@ impl TokenizerStatus {
 }
 
 
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
-
-    // Divide the source code lines into string tokens 
-
-    let matches: Vec<StringToken> = source.iter().enumerate().flat_map(
+/// Divide the source code into meaningful string tokens
+fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
+    source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {
                 return Vec::new();
@@ -201,15 +199,19 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             }
             matches
         }
-    ).collect();
+    ).collect()
+}
 
-    // Transform the string tokens into syntax tokens
+
+pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
+
+    let raw_tokens = lex(source);
 
     let mut tokens = TokenTree::new();
 
     let mut ts = TokenizerStatus::new();
 
-    for token in matches {
+    for token in raw_tokens {
         
         let token_kind = match token.string {
 
@@ -226,9 +228,26 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             "(" => {
                 ts.enter_parenthesis();
+
                 // Get around the borrow checker not recognizing that last_token immutable reference is dropped before tokens is borrowed mutably when appending the token
-                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
-                if may_be_value(last_token) { TokenKind::Op(Ops::Call) } else { TokenKind::ParOpen }
+                let last_node = tokens.last_node();
+                
+                if may_be_value(last_node.map(|node| &node.item)) {
+
+                    // In this branch, last_node is Some because may_be_value returns false if last_node is None
+                    let last_node = last_node.unwrap();
+
+                    if matches!(last_node.item.value, TokenKind::Value(Value::Symbol { id: _ })) && last_node.left().map(|node| matches!(node.item.value, TokenKind::Fn)).unwrap_or(false) {
+                        // Syntax: fn <symbol> (
+                        TokenKind::FunctionParamsOpen
+                    } else {
+                        // Syntax: <value-like> (
+                        TokenKind::Op(Ops::Call)
+                    }
+                } else {
+                    // Syntax: <not-a-value> (
+                    TokenKind::ParOpen
+                }
             },
             ")" => {
                 ts.leave_parenthesis().unwrap_or_else(
@@ -331,6 +350,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         "return" => TokenKind::Op(Ops::Return),
                         "jmp" => TokenKind::Op(Ops::Jump),
                         "let" => TokenKind::Let,
+                        "mut" => TokenKind::Mut,
 
                         "i8" => TokenKind::DataType(DataType::I8),
                         "i16" => TokenKind::DataType(DataType::I16),

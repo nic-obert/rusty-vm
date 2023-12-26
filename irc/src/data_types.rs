@@ -24,6 +24,8 @@ pub enum DataType {
     F32,
     F64,
 
+    Function { params: Vec<DataType>, return_type: Box<DataType> },
+
     Void
 
 }
@@ -47,6 +49,16 @@ impl Display for DataType {
             DataType::F32 => write!(f, "f32"),
             DataType::F64 => write!(f, "f64"),
             DataType::Void => write!(f, "void"),
+            DataType::Function { params, return_type } => {
+                write!(f, "fn(")?;
+                for (i, param) in params.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < params.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ") -> {}", return_type)
+            }
             
         }
     }

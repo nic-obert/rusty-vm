@@ -5,7 +5,9 @@ mod tokenizer;
 mod cli_parser;
 mod files;
 mod error;
-mod ast;
+mod parser;
+mod symbol_table;
+mod token_tree;
 
 use std::path::Path;
 
@@ -34,7 +36,7 @@ fn main() {
     tokens.print_tokens_only(1);
     println!("]\n");
 
-    let statements = ast::build_ast(tokens, &source);
+    let statements = parser::build_ast(tokens, &source);
 
 }
 

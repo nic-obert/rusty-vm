@@ -129,10 +129,12 @@ pub enum TokenKind<'a> {
     Semicolon,
     Colon,
     Comma,
+    Mut,
 
     SquareOpen,
     SquareClose,
 
+    FunctionParamsOpen,
     ParOpen,
     ParClose,
 
@@ -231,7 +233,8 @@ impl TokenKind<'_> {
             TokenKind::Arrow |
             TokenKind::Semicolon |
             TokenKind::Colon |
-            TokenKind::Comma
+            TokenKind::Comma |
+            TokenKind::Mut
              => Priority::Zero,
 
             TokenKind::SquareOpen |
@@ -239,7 +242,8 @@ impl TokenKind<'_> {
             TokenKind::ParOpen |
             TokenKind::ParClose |
             TokenKind::ScopeOpen { .. } |
-            TokenKind::ScopeClose 
+            TokenKind::ScopeClose |
+            TokenKind::FunctionParamsOpen
              => Priority::Max,
 
         } as i32)
@@ -293,6 +297,8 @@ impl Display for Token<'_> {
             TokenKind::ScopeClose => write!(f, "}}"),
             TokenKind::Colon => write!(f, ":"),
             TokenKind::Comma => write!(f, ","),
+            TokenKind::Mut => write!(f, "mut"),
+            TokenKind::FunctionParamsOpen => write!(f, "FunctionParams"),
         }
     }
 }
