@@ -122,6 +122,8 @@ pub enum TokenKind<'a> {
     Value (Value<'a>),
     DataType (DataType),
 
+    RefType,
+
     Fn,
     Let,
 
@@ -131,7 +133,8 @@ pub enum TokenKind<'a> {
     Comma,
     Mut,
 
-    SquareOpen,
+    ArrayTypeOpen,
+    ArrayOpen,
     SquareClose,
 
     FunctionParamsOpen,
@@ -237,13 +240,17 @@ impl TokenKind<'_> {
             TokenKind::Mut
              => Priority::Zero,
 
-            TokenKind::SquareOpen |
+            TokenKind::RefType 
+             => Priority::Ref,
+
+            TokenKind::ArrayOpen |
             TokenKind::SquareClose |
             TokenKind::ParOpen |
             TokenKind::ParClose |
             TokenKind::ScopeOpen { .. } |
             TokenKind::ScopeClose |
-            TokenKind::FunctionParamsOpen
+            TokenKind::FunctionParamsOpen |
+            TokenKind::ArrayTypeOpen
              => Priority::Max,
 
         } as i32)
@@ -289,7 +296,7 @@ impl Display for Token<'_> {
             TokenKind::Let => write!(f, "let"),
             TokenKind::Arrow => write!(f, "->"),
             TokenKind::Semicolon => write!(f, ";"),
-            TokenKind::SquareOpen => write!(f, "["),
+            TokenKind::ArrayOpen => write!(f, "["),
             TokenKind::SquareClose => write!(f, "]"),
             TokenKind::ParOpen => write!(f, "("),
             TokenKind::ParClose => write!(f, ")"),
@@ -299,6 +306,8 @@ impl Display for Token<'_> {
             TokenKind::Comma => write!(f, ","),
             TokenKind::Mut => write!(f, "mut"),
             TokenKind::FunctionParamsOpen => write!(f, "FunctionParams"),
+            TokenKind::ArrayTypeOpen => write!(f, "ArrayType"),
+            TokenKind::RefType => write!(f, "RefType"),
         }
     }
 }

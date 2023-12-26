@@ -247,7 +247,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     node_ref.children = Some(ChildrenType::List(inner_tokens));
                 },
     
-                TokenKind::SquareOpen => {
+                TokenKind::ArrayOpen => {
                     // Extract the tokens within the square brackets
                     let inner_tokens = extract_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::SquareClose, source);
                     node_ref.children = Some(ChildrenType::List(inner_tokens));
@@ -438,6 +438,36 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
                     node_ref.children = Some(ChildrenType::FunctionParams(params));
                 },
+
+                TokenKind::ArrayTypeOpen => {
+                    // TODO: an array slice may be implemented at a later date. this array type would then require a size (or infer it from the context)
+                    // Syntax: [<type>]
+
+                    let element_type = extract_right!().map(
+                        |node| if let TokenKind::DataType(data_type) = node.item.value {
+                            data_type
+                        } else {
+                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in array declaration.", node.item.value).as_str())
+                        }
+                    ).unwrap_or_else(
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after array type open bracket in array declaration.")
+                    );
+                    
+                    // Extract the closing square bracket ]
+                    extract_right!().map(
+                        |node| if matches!(node.item.value, TokenKind::SquareClose) {
+                            node
+                        } else {
+                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid token {:?} in array declaration. Expected a closing bracket ] after the array type.", node.item.value).as_str())
+                        }
+                    ).unwrap_or_else(
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing array type close bracket after array type in array declaration.")
+                    );
+                    
+                    let array_type = DataType::Array(Box::new(element_type));
+                    // Transform this node into a data type node
+                    node_ref.item.value = TokenKind::DataType(array_type);
+                }
                 
                 _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node_ref.item.value)
             }
@@ -454,16 +484,13 @@ fn extract_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *
 
     let start_delimiter = unsafe { &mut *start_delimiter };
 
-    // The first token after the start delimiter
-    let content_start = start_delimiter.right;
-
     // Set to false because the first token in a collection can't be a comma
     let mut expected_comma: bool = false;
    
     // Extract the arguments within the delimiters
     loop {
 
-        let node = tokens.extract_node(content_start).unwrap_or_else(
+        let node = tokens.extract_node(start_delimiter.right).unwrap_or_else(
             || error::expected_argument(start_delimiter.item.unit_path, operator, start_delimiter.item.token.line_number(), start_delimiter.item.token.column, &source[start_delimiter.item.token.line_index()], format!("Missing argument or closing delimiter for operator {:?}.", operator).as_str())
         );
 
@@ -520,7 +547,7 @@ fn resolve_symbols_and_types(block: &mut ScopeBlock, source: &IRCode) {
 }
 
 
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> ScopeBlock<'a> {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<'a>, SymbolTable) {
 
     parse_scope_hierarchy(&mut tokens);
 
@@ -538,6 +565,8 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> ScopeBlock<'
 
     resolve_symbols_and_types(&mut outer_block, source);
 
-    todo!()
+    println!("\n\nStatement hierarchy after symbol resolution:\n{}", outer_block);
+
+    (outer_block, symbol_table)
 }
 

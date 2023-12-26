@@ -58,7 +58,7 @@ impl Display for DataType {
                     }
                 }
                 write!(f, ") -> {}", return_type)
-            }
+            },
             
         }
     }

@@ -1,0 +1,5 @@
+
+fn main() -> void {
+    let a: i32 = 0;
+    let mut b: [i32] = [5, 8, 9];
+}

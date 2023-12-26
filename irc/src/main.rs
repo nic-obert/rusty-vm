@@ -36,7 +36,7 @@ fn main() {
     tokens.print_tokens_only(1);
     println!("]\n");
 
-    let statements = parser::build_ast(tokens, &source);
+    let (statements, symbol_table) = parser::build_ast(tokens, &source);
 
 }
 

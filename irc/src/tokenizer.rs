@@ -101,6 +101,12 @@ fn is_symbol_name(name: &str) -> bool {
 }
 
 
+#[inline]
+fn is_data_type_precursor(token: &Token) -> bool {
+    matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType)
+}
+
+
 /// Useful struct to keep track of the status of the tokenizer
 struct TokenizerStatus {
 
@@ -229,7 +235,6 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "(" => {
                 ts.enter_parenthesis();
 
-                // Get around the borrow checker not recognizing that last_token immutable reference is dropped before tokens is borrowed mutably when appending the token
                 let last_node = tokens.last_node();
                 
                 if may_be_value(last_node.map(|node| &node.item)) {
@@ -257,7 +262,18 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             "[" => {
                 ts.enter_square();
-                TokenKind::SquareOpen
+
+                let last_token = tokens.last_node().map(|node| &node.item);
+                last_token.map(|last_token| if is_data_type_precursor(last_token) {
+                    // Syntax: <data-type-precursor> [
+                    TokenKind::ArrayTypeOpen
+                } else {
+                    // Syntax: <not-a-data-type-precursor> [
+                    TokenKind::ArrayOpen
+                }).unwrap_or(
+                    // Syntax: <nothing> [
+                    TokenKind::ArrayOpen
+                )
             },
             "]" => {
                 ts.leave_square().unwrap_or_else(
@@ -271,7 +287,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "+" => TokenKind::Op(Ops::Add),
             "-" => TokenKind::Op(Ops::Sub),
             "*" => {
-                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
+                let last_token = tokens.last_node().map(|node| &node.item);
                 if may_be_value(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) }
             },
             "/" => TokenKind::Op(Ops::Div),
@@ -284,8 +300,22 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "<=" => TokenKind::Op(Ops::LessEqual),
             ">=" => TokenKind::Op(Ops::GreaterEqual),
             "&" => {
-                let last_token = unsafe { (*(&tokens as *const TokenTree)).last_item() };
-                if may_be_value(last_token) { TokenKind::Op(Ops::BitwiseAnd) } else { TokenKind::Op(Ops::Ref) }
+                let last_token = tokens.last_node().map(|node| &node.item);
+                if may_be_value(last_token) {
+                    // Syntax: <value-like> &
+                    TokenKind::Op(Ops::BitwiseAnd)
+                } else if let Some(last_token) = last_token {
+                    if is_data_type_precursor(last_token) {
+                        // Syntax: <data-type-precursor> &
+                        TokenKind::RefType
+                    } else {
+                        // Syntax: <not-a-data-type-precursor> &
+                        TokenKind::Op(Ops::Ref)
+                    }
+                } else {
+                    // Syntax: <nothing> &
+                    TokenKind::Op(Ops::Ref)
+                }
             },
             "^" => TokenKind::Op(Ops::BitwiseXor),
             "<<" => TokenKind::Op(Ops::BitShiftLeft),
