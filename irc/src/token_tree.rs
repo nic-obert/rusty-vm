@@ -87,6 +87,34 @@ impl<'a> TokenNode<'a> {
 }
 
 
+pub struct TokenTreeIterator<'a> {
+    current: *const TokenNode<'a>,
+}
+
+impl TokenTreeIterator<'_> {
+    pub fn new<'a, 'b>(tree: &'b TokenTree<'a>) -> TokenTreeIterator<'a> {
+        TokenTreeIterator {
+            current: tree.first,
+        }
+    }
+}
+
+impl<'a> Iterator for TokenTreeIterator<'a> {
+    type Item = &'a TokenNode<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current;
+        if !current.is_null() {
+            let current_ref = unsafe { &*current };
+            self.current = current_ref.right;
+            Some(current_ref)
+        } else {
+            None
+        }
+    }
+}
+
+
 pub struct TokenTree<'a> {
 
     /// This field is public to allow the parser to access it directly
@@ -285,87 +313,9 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn print_tokens_only(&self, indent: usize) {
-        let mut node = self.first;
-
-        while !node.is_null() {
-            let node_ref = unsafe { &(*node) };
-            for _ in 0..indent {
-                print!("  ");
-            }
-            println!("{}", node_ref.item.token.string);
-            node = node_ref.right;
-        }
-    }
-
-
-    pub fn fmt_detailed(&self, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-
-        /// Helper function to write a token to the formatter in a consistent format
-        fn write_node(node: &TokenNode<'_>, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            // format: "<indent> | <token>"
-            
-            for _ in 0..indent {
-                write!(f, "  ")?;
-            }
-            write!(f, "| ")?;
-            writeln!(f, "{:?}", node.item.value)?;
-
-            if let Some(children) = &node.children {
-                match children {
-                    ChildrenType::List (children) => {
-                        for child in children {
-                            write_node(child, indent + 1, f)?;
-                        }
-                    },
-                    ChildrenType::Tree (children) => {
-                        children.fmt_detailed(indent + 1, f)?;
-                    },
-                    ChildrenType::Block (block) => {
-                        for statement in block.statements.iter() {
-                            statement.fmt_detailed(indent + 1, f)?;
-                            writeln!(f, "EndStatement")?;
-                        }
-                    },
-                    ChildrenType::FunctionParams (params) => {
-                        for (name, data_type) in params {
-                            for _ in 0..indent + 1 {
-                                write!(f, "  ")?;
-                            }
-                            writeln!(f, "{}: {}", name, data_type)?;
-                        }
-                    },
-                    ChildrenType::Function { name, params, return_type, body } => {
-                        write!(f, "fn {} (", name)?;
-                        for (i, (name, data_type)) in params.iter().enumerate() {
-                            write!(f, "{}: {}", name, data_type)?;
-                            if i < params.len() - 1 {
-                                write!(f, ", ")?;
-                            }
-                        }
-                        writeln!(f, ") -> {}", return_type)?;
-                        
-                        for statement in body.statements.iter() {
-                            statement.fmt_detailed(indent + 1, f)?;
-                            writeln!(f, "EndStatement")?;
-                        }
-                    },
-                }
-            }
-            
-            Ok(())
-        }
-
-        let mut node = self.first;
-
-        while let Some(node_ref) = unsafe { node.as_ref() } {
-            write_node(node_ref, indent, f)?;
-            node = node_ref.right;
-        }
-
-        Ok(())
-
-    }
+    pub fn iter(&self) -> TokenTreeIterator<'a> {
+        TokenTreeIterator::new(self)
+    }    
 
 }
 
@@ -383,8 +333,77 @@ impl Drop for TokenTree<'_> {
 
 
 impl std::fmt::Debug for TokenTree<'_> {
+
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.fmt_detailed(0, f)
+
+        fn fmt(tree: &TokenTree<'_>, indent: usize, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            for node in tree.iter() {
+                write_node(node, indent, f)?;
+            }
+
+            Ok(())
+        }
+
+        /// Helper function to write a token to the formatter in a consistent format
+        fn write_node(node: &TokenNode<'_>, indent: usize, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            // format: "<indent> | <token>"
+
+            fn write_indent(f: &mut std::fmt::Formatter, indent: usize) -> std::fmt::Result {
+                for _ in 0..indent {
+                    write!(f, "  ")?;
+                }
+                Ok(())
+            }
+            
+            write_indent(f, indent)?;
+            writeln!(f, "| {:?} (p: {})", node.item.value, node.item.priority)?;
+
+            if let Some(children) = &node.children {
+                match children {
+                    ChildrenType::List (children) => {
+                        for child in children {
+                            write_node(child, indent + 1, f)?;
+                        }
+                    },
+                    ChildrenType::Tree (children) => {
+                        fmt(children, indent + 1, f)?;
+                    },
+                    ChildrenType::Block (block) => {
+                        for statement in block.statements.iter() {
+                            fmt(statement, indent + 1, f)?;
+                            write_indent(f, indent + 1)?;
+                            writeln!(f, "---")?;
+                        }
+                    },
+                    ChildrenType::FunctionParams (params) => {
+                        for (name, data_type) in params {
+                            write_indent(f, indent)?;
+                            writeln!(f, "{}: {}", name, data_type)?;
+                        }
+                    },
+                    ChildrenType::Function { name, params, return_type, body } => {
+                        write!(f, "fn {} (", name)?;
+                        for (i, (name, data_type)) in params.iter().enumerate() {
+                            write!(f, "{}: {}", name, data_type)?;
+                            if i < params.len() - 1 {
+                                write!(f, ", ")?;
+                            }
+                        }
+                        writeln!(f, ") -> {}", return_type)?;
+                        
+                        for statement in body.statements.iter() {
+                            fmt(statement, indent + 1, f)?;
+                            write_indent(f, indent + 1)?;
+                            writeln!(f, "---")?;
+                        }
+                    },
+                }
+            }
+            
+            Ok(())
+        }
+        
+        fmt(self, 0, f)
     }
 }
 

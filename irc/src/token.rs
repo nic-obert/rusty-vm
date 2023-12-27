@@ -237,6 +237,9 @@ impl TokenKind<'_> {
             TokenKind::Semicolon |
             TokenKind::Colon |
             TokenKind::Comma |
+            TokenKind::ScopeClose |
+            TokenKind::SquareClose |
+            TokenKind::ParClose |
             TokenKind::Mut
              => Priority::Zero,
 
@@ -244,11 +247,8 @@ impl TokenKind<'_> {
              => Priority::Ref,
 
             TokenKind::ArrayOpen |
-            TokenKind::SquareClose |
             TokenKind::ParOpen |
-            TokenKind::ParClose |
             TokenKind::ScopeOpen { .. } |
-            TokenKind::ScopeClose |
             TokenKind::FunctionParamsOpen |
             TokenKind::ArrayTypeOpen
              => Priority::Max,
@@ -279,7 +279,9 @@ impl Token<'_> {
             value,
             token: source_token,
             unit_path,
-            priority: base_priority + value_priority,
+            // The priority of the token is the sum of the base priority and the value priority.
+            // If the value priority is zero, the token should not be evaluated.
+            priority: if value_priority == Priority::Zero as i32 { 0 } else { base_priority + value_priority },
         }
     }
 

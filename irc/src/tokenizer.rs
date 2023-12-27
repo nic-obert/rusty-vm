@@ -137,12 +137,12 @@ impl TokenizerStatus {
 
     pub fn enter_parenthesis(&mut self) {
         self.parenthesis_depth += 1;
-        self.base_priority += Priority::Max as i32;
+        self.priority_delta += Priority::Max as i32;
     }
 
     pub fn leave_parenthesis(&mut self) -> Result<(), ()> {
         self.parenthesis_depth -= 1;
-        self.base_priority -= Priority::Max as i32;
+        self.priority_delta -= Priority::Max as i32;
 
         if self.parenthesis_depth == 0 {
             Err(())
@@ -153,12 +153,12 @@ impl TokenizerStatus {
 
     pub fn enter_square(&mut self) {
         self.square_depth += 1;
-        self.base_priority += Priority::Max as i32;
+        self.priority_delta += Priority::Max as i32;
     }
 
     pub fn leave_square(&mut self) -> Result<(), ()> {
         self.square_depth -= 1;
-        self.base_priority -= Priority::Max as i32;
+        self.priority_delta -= Priority::Max as i32;
 
         if self.square_depth == 0 {
             Err(())
@@ -209,6 +209,7 @@ fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
 }
 
 
+/// Divide the source code into syntax tokens
 pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
     let raw_tokens = lex(source);

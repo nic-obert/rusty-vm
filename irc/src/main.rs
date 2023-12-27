@@ -32,10 +32,6 @@ fn main() {
 
     let tokens = tokenizer::tokenize(&source, input_file);
 
-    println!("Tokens: [");
-    tokens.print_tokens_only(1);
-    println!("]\n");
-
     let (statements, symbol_table) = parser::build_ast(tokens, &source);
 
 }

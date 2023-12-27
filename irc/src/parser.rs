@@ -235,7 +235,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         // Functin call is a list of tokens separated by commas enclosed in parentheses
                         // Statements inside the parentheses have already been parsed into single top-level tokens because of their higher priority
     
-                        let arguments = extract_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
+                        let arguments = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
                         node_ref.children = Some(ChildrenType::List(arguments));
                     },
                     
@@ -243,13 +243,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
     
                 TokenKind::ParOpen => {
                     // Extract the tokens within the parentheses
-                    let inner_tokens = extract_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
+                    let inner_tokens = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
                     node_ref.children = Some(ChildrenType::List(inner_tokens));
                 },
     
                 TokenKind::ArrayOpen => {
                     // Extract the tokens within the square brackets
-                    let inner_tokens = extract_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::SquareClose, source);
+                    let inner_tokens = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::SquareClose, source);
                     node_ref.children = Some(ChildrenType::List(inner_tokens));
                 },
     
@@ -316,26 +316,25 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let name_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing function name after fn in function declaration.")
                     );
-                    let function_name: &str = if let TokenKind::Value(Value::Symbol { id }) = &name_node.item.value {
+                    let function_name: &str = if let TokenKind::Value(Value::Symbol { id }) = name_node.item.value {
                         id
                     } else {
                         error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid function name {:?} in function declaration.", name_node.item.value).as_str())
                     };
     
                     // The parameters should be a single top-level token because of its higher priority
-                    let params = extract_right!().map(
-                        |node| if matches!(node.item.value, TokenKind::FunctionParamsOpen) {
-                            if let Some(ChildrenType::FunctionParams(params)) = node.children {
-                                params
-                            } else {
-                                unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a FunctionParamsOpen token and have FunctionParams children.", node.item.value)
-                            }
-                        } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid parameter declaration {:?} in function declaration. Function parameters must be enclosed in parentheses ().", node.item.value).as_str())
-                        }
-                    ).unwrap_or_else(
+                    let params = extract_right!().unwrap_or_else(
                         || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing arguments after function name in function declaration.")
                     );
+                    let params = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
+                        if let Some(ChildrenType::FunctionParams(params)) = params.children {
+                            params
+                        } else {
+                            unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a FunctionParamsOpen token and have FunctionParams children.", params.item.value)
+                        }
+                    } else {
+                        error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid parameter declaration {:?} in function declaration. Function parameters must be enclosed in parentheses ().", params.item.value).as_str())
+                    };
                     
                     // Extract the arrow ->
                     extract_right!().map(
@@ -393,11 +392,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
                     let mut expected_comma: bool = false;
                     loop {
-                        let node = extract_right!().unwrap_or_else(
+                        let param_node = extract_right!().unwrap_or_else(
                             || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing parameter or closing delimiter for operator {:?}.", node_ref.item.value).as_str())
                         );
 
-                        match &node.item.value {
+                        match param_node.item.value {
 
                             TokenKind::ParClose => break,
 
@@ -405,25 +404,29 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 // Set to false because you cannot have two adjacent commas
                                 expected_comma = false;
                             } else {
-                                error::unexpected_token(node.item.unit_path, &node.item, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Unexpected comma in this context. Did you add an extra comma?");
+                                error::unexpected_token(param_node.item.unit_path, &param_node.item, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], "Unexpected comma in this context. Did you add an extra comma?");
                             },
 
                             TokenKind::Value(Value::Symbol { id }) => {
 
                                 let name = id.to_string();
 
-                                let _colon = extract_left!().unwrap_or_else(
+                                // Extract the colon
+                                extract_right!().map(
+                                    |param_node| if !matches!(param_node.item.value, TokenKind::Colon) {
+                                        error::invalid_argument(param_node.item.unit_path, &node_ref.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected a colon : after the parameter name.", param_node.item.value).as_str());
+                                    }
+                                ).unwrap_or_else(
                                     || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing colon after parameter name {:?} in function declaration.", name).as_str())
                                 );
 
-                                let data_type = extract_left!().unwrap_or_else(
+                                let data_type = extract_right!().unwrap_or_else(
                                     || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after colon in function declaration.")
                                 );
-
                                 let data_type = if let TokenKind::DataType(data_type) = data_type.item.value {
                                     data_type
                                 } else {
-                                    error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in function declaration.", data_type.item.value).as_str())
+                                    error::invalid_argument(param_node.item.unit_path, &node_ref.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid data type {:?} in function declaration.", data_type.item.value).as_str())
                                 };
 
                                 params.push((name, data_type));
@@ -432,7 +435,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 expected_comma = true;
                             },
 
-                            _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node.item.value)
+                            _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", param_node.item.value)
                         }
                     }
 
@@ -467,7 +470,25 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let array_type = DataType::Array(Box::new(element_type));
                     // Transform this node into a data type node
                     node_ref.item.value = TokenKind::DataType(array_type);
-                }
+                },  
+
+                TokenKind::RefType => {
+                    // Syntax: &<type>
+
+                    let element_type = extract_right!().map(
+                        |node| if let TokenKind::DataType(data_type) = node.item.value {
+                            data_type
+                        } else {
+                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in reference declaration.", node.item.value).as_str())
+                        }
+                    ).unwrap_or_else(
+                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after reference type symbol in reference declaration.")
+                    );
+                    
+                    let ref_type = DataType::Ref(Box::new(element_type));
+                    // Transform this node into a data type node
+                    node_ref.item.value = TokenKind::DataType(ref_type);
+                },
                 
                 _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node_ref.item.value)
             }
@@ -478,7 +499,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
 
 /// Extract comma-separated tokens within a delimiter (parentheses, square brackets, etc.)
-fn extract_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *mut TokenNode<'a>, operator: &TokenKind<'_>, delimiter: &TokenKind<'_>, source: &IRCode) -> Vec<TokenNode<'a>> {
+fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *mut TokenNode<'a>, operator: &TokenKind<'_>, delimiter: &TokenKind<'_>, source: &IRCode) -> Vec<TokenNode<'a>> {
     
     let mut arguments = Vec::new();
 
@@ -555,9 +576,7 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
 
     let mut outer_block = divide_statements(tokens, &mut symbol_table, None);
 
-    println!("Statements:\n{}", outer_block);
-    println!("Number of outer statements: {}", outer_block.statements.len());
-
+    println!("Statements after division:\n{}", outer_block);
 
     parse_block_hierarchy(&mut outer_block, &mut symbol_table, source);
 
@@ -565,7 +584,7 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
 
     resolve_symbols_and_types(&mut outer_block, source);
 
-    println!("\n\nStatement hierarchy after symbol resolution:\n{}", outer_block);
+    println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
     (outer_block, symbol_table)
 }
