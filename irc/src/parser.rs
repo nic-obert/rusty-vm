@@ -12,6 +12,20 @@ use crate::token_tree::TokenNode;
 use crate::token_tree::TokenTree;
 
 
+/// Whether the token kind represents an expression.
+fn is_expression(token_kind: &TokenKind) -> bool {
+    match token_kind {
+        TokenKind::Value(_) |
+        TokenKind::ArrayOpen
+         => true,
+
+        TokenKind::Op(op) => op.returns_a_value(),
+
+        _ => false,
+    }
+}
+
+
 fn find_next_scope(tokens: *mut TokenNode) -> Option<*mut TokenNode> {
     let mut token = tokens;
 
@@ -99,10 +113,9 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
     let mut block = ScopeBlock::new(scope_id);
     let mut node = tokens.first;
 
-    while !node.is_null() {
+    while let Some(node_ref) = unsafe { node.as_mut() } {
 
-        let node_ref = unsafe { &mut *node };
-        match &mut node_ref.item.value {
+        match node_ref.item.value {
 
             TokenKind::Semicolon => {
                 // End of statement
@@ -150,30 +163,29 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
     for statement in &mut block.statements {
         
-        while let Some(node) = find_highest_priority(statement) {
+        while let Some(node) = find_highest_priority(statement).and_then(|node| unsafe { node.as_mut() }) {
 
-            let node_ref = unsafe { &mut *node };
-            if node_ref.item.priority == 0 {
+            if node.item.priority == 0 {
                 // No more operations to parse
                 break;
             }
             // Set the priority to 0 so that the node is not visited again
-            node_ref.item.priority = 0;
+            node.item.priority = 0;
     
             // Useful macros to get tokens without forgetting that the token pointers of extracted tokens are invalidated
             macro_rules! extract_left {
                 () => {
-                    statement.extract_node(node_ref.left)
+                    statement.extract_node(node.left)
                 };
             }
             macro_rules! extract_right {
                 () => {
-                    statement.extract_node(node_ref.right)
+                    statement.extract_node(node.right)
                 };
             }
     
             // Satisfy the operator requirements
-            match &node_ref.item.value {
+            match node.item.value {
                 TokenKind::Op(op) => match op {
     
                     // Binary operators:
@@ -198,14 +210,14 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     operations::Ops::BitwiseXor 
                      => {
                         let left = extract_left!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing left argument for operator {}.", op).as_str())
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing left argument for operator {}.", op).as_str())
                         );
                     
                         let right = extract_right!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing right argument for operator {}.", op).as_str())
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing right argument for operator {}.", op).as_str())
                         );
                     
-                        node_ref.children = Some(ChildrenType::List(vec![*left, *right]));
+                        node.children = Some(ChildrenType::List(vec![*left, *right]));
                     },
     
                     // Unary operators left:
@@ -215,9 +227,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     operations::Ops::BitwiseNot
                      => {
                         let left = extract_left!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing left argument for operator {}.", *op).as_str())
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing left argument for operator {}.", op).as_str())
                         );
-                        node_ref.children = Some(ChildrenType::List(vec![*left]));
+                        node.children = Some(ChildrenType::List(vec![*left]));
                     },
     
                     // Unary operators right:
@@ -225,9 +237,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     operations::Ops::Jump 
                      => {
                         let right = extract_right!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing right argument for operator {}.", *op).as_str())
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing right argument for operator {}.", op).as_str())
                         );
-                        node_ref.children = Some(ChildrenType::List(vec![*right]));
+                        node.children = Some(ChildrenType::List(vec![*right]));
                     },
     
                     // Other operators:
@@ -235,44 +247,81 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         // Functin call is a list of tokens separated by commas enclosed in parentheses
                         // Statements inside the parentheses have already been parsed into single top-level tokens because of their higher priority
     
-                        let arguments = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
-                        node_ref.children = Some(ChildrenType::List(arguments));
+                        let arguments = extract_list_like_delimiter_contents(statement, node, &node.item.value, &TokenKind::ParClose, source);
+                        node.children = Some(ChildrenType::List(arguments));
                     },
                     
                 },
     
                 TokenKind::ParOpen => {
-                    // Extract the tokens within the parentheses
-                    let inner_tokens = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::ParClose, source);
-                    node_ref.children = Some(ChildrenType::List(inner_tokens));
+                    // Syntax: (<expression>)
+
+                    // Extract the next token (either an expression or a closing parenthesis)
+                    match extract_right!() {
+
+                        Some(next_node) => match &next_node.item.value {
+
+                            // Empty parentheses are not allowed, as they would evaluate to a void value
+                            TokenKind::ParClose => error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Empty parentheses are not allowed because they would evaluate to a void value."),
+                                
+                            tk if is_expression(tk) => {
+                                // next_node is here guaranteed to be a value or an expression
+
+                                // Check if the next token is a closing parenthesis (because the parentheses contain only one top-level node)
+                                extract_right!().map(|node| if matches!(node.item.value, TokenKind::ParClose) {
+                                    node
+                                } else {
+                                    error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in parentheses after inner expression. Expected a closing parenthesis ).", node.item.value).as_str())
+                                }).unwrap(); // Unwrap because the tokenizer should guarantee that the parentheses are balanced, so there should be no missing closing parenthesis
+
+                                // Transform this parenthesis node into its inner expression
+                                node.substitute(*next_node)
+                            },
+
+                            _ => error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in parentheses. Expected an expression.", next_node.item.value).as_str())
+                        },
+
+                        None => unreachable!("Parenthesis open token has no right token. Tokenizer should have already caught this. This is a bug."),
+                    }
                 },
     
                 TokenKind::ArrayOpen => {
                     // Extract the tokens within the square brackets
-                    let inner_tokens = extract_list_like_delimiter_contents(statement, node_ref, &node_ref.item.value, &TokenKind::SquareClose, source);
-                    node_ref.children = Some(ChildrenType::List(inner_tokens));
+                    let inner_tokens = extract_list_like_delimiter_contents(statement, node, &node.item.value, &TokenKind::SquareClose, source);
+                    
+                    // Get the inner tokens value and check if they really are value-holding tokens
+                    let inner_tokens: Vec<TokenNode> = inner_tokens.into_iter().map(
+                        |node| if is_expression(&node.item.value) {
+                            node
+                        } else {
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in array declaration. Expected an expression.", node.item.value).as_str())
+                        }
+                    ).collect();
+                    
+                    node.children = Some(ChildrenType::List(inner_tokens));
                 },
     
                 TokenKind::ScopeOpen => {
                     // Parse the children statements of the scope.
                     // The children have already been extracted and divided into separate statements.
                     
-                    if let Some(ChildrenType::Block(statements)) = &mut node_ref.children {
+                    if let Some(ChildrenType::Block(statements)) = &mut node.children {
                         parse_block_hierarchy(statements, symbol_table, source);
                     }
                 },
     
                 TokenKind::Let => {
+                    // TODO: add support for symbol type inference based on the assigned value, if any
                     // Syntax: let [mut] <name>: <type> 
     
                     // This node can either be the symbol name or the mut keyword
                     let next_node = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing variable name after let in variable declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing variable name after let in variable declaration.")
                     );
     
                     let (mutable, name_token) = if matches!(next_node.item.value, TokenKind::Mut) {
                         let name = extract_right!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing variable name after let in variable declaration.")
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing variable name after let in variable declaration.")
                         );
                         (true, name)
                     } else {
@@ -282,21 +331,21 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let symbol_name: &str = if let TokenKind::Value(Value::Symbol { id }) = &name_token.item.value {
                         id
                     } else {
-                        error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid variable name {:?} in variable declaration.", name_token.item.value).as_str())
+                        error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid variable name {:?} in variable declaration.", name_token.item.value).as_str())
                     };
     
                     let _colon = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing colon after variable name in variable declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing colon after variable name in variable declaration.")
                     );
     
                     // The data type should be a single top-level token because of its higher priority
                     let data_type_node = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after colon in variable declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing data type after colon in variable declaration.")
                     );
                     let data_type = if let TokenKind::DataType(data_type) = data_type_node.item.value {
                         data_type
                     } else {
-                        error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in variable declaration.", data_type_node.item.value).as_str())
+                        error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid data type {:?} in variable declaration.", data_type_node.item.value).as_str())
                     };
 
                     // Declare the new symbol in the local scope
@@ -306,7 +355,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     );
     
                     // Transform this node into a symbol node (the declaration let is no longer needed since the symbol is already declared)
-                    node_ref.substitute(*name_token);
+                    node.substitute(*name_token);
                 },
     
                 TokenKind::Fn => {
@@ -314,17 +363,17 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     // fn <name>(<arguments>) -> <return type> { <body> }
     
                     let name_node = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing function name after fn in function declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing function name after fn in function declaration.")
                     );
                     let function_name: &str = if let TokenKind::Value(Value::Symbol { id }) = name_node.item.value {
                         id
                     } else {
-                        error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid function name {:?} in function declaration.", name_node.item.value).as_str())
+                        error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid function name {:?} in function declaration.", name_node.item.value).as_str())
                     };
     
                     // The parameters should be a single top-level token because of its higher priority
                     let params = extract_right!().unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing arguments after function name in function declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing arguments after function name in function declaration.")
                     );
                     let params = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
                         if let Some(ChildrenType::FunctionParams(params)) = params.children {
@@ -333,7 +382,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                             unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a FunctionParamsOpen token and have FunctionParams children.", params.item.value)
                         }
                     } else {
-                        error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid parameter declaration {:?} in function declaration. Function parameters must be enclosed in parentheses ().", params.item.value).as_str())
+                        error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid parameter declaration {:?} in function declaration. Function parameters must be enclosed in parentheses ().", params.item.value).as_str())
                     };
                     
                     // Extract the arrow ->
@@ -341,10 +390,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         |node| if matches!(node.item.value, TokenKind::Arrow) {
                             node
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected an arrow -> after the function arguments.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected an arrow -> after the function arguments.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing arrow after function arguments in function declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing arrow after function arguments in function declaration.")
                     );
 
                     // The return type should be a single top-level token because of its higher priority
@@ -352,10 +401,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         |node| if let TokenKind::DataType(data_type) = node.item.value {
                             data_type
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid return type {:?} in function declaration.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid return type {:?} in function declaration.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing return type after arrow in function declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing return type after arrow in function declaration.")
                     );
                     
                     // The body is one top-level scope token because it gets parsed first
@@ -367,10 +416,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a ScopeOpen token and have Block children.", node.item.value)
                             }
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid body {:?} in function declaration. Function body must be enclosed in curly braces {{}}.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid body {:?} in function declaration. Function body must be enclosed in curly braces {{}}.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing body after return type in function declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing body after return type in function declaration.")
                     );
                     
                     let function_type = DataType::Function { 
@@ -382,7 +431,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         block.scope_id
                     );
 
-                    node_ref.children = Some(ChildrenType::Function { name: function_name, params, return_type, body });
+                    node.children = Some(ChildrenType::Function { name: function_name, params, return_type, body });
                 },
 
                 TokenKind::FunctionParamsOpen => {
@@ -393,7 +442,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let mut expected_comma: bool = false;
                     loop {
                         let param_node = extract_right!().unwrap_or_else(
-                            || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing parameter or closing delimiter for operator {:?}.", node_ref.item.value).as_str())
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing parameter or closing delimiter for operator {:?}.", node.item.value).as_str())
                         );
 
                         match param_node.item.value {
@@ -414,19 +463,19 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 // Extract the colon
                                 extract_right!().map(
                                     |param_node| if !matches!(param_node.item.value, TokenKind::Colon) {
-                                        error::invalid_argument(param_node.item.unit_path, &node_ref.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected a colon : after the parameter name.", param_node.item.value).as_str());
+                                        error::invalid_argument(param_node.item.unit_path, &node.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected a colon : after the parameter name.", param_node.item.value).as_str());
                                     }
                                 ).unwrap_or_else(
-                                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Missing colon after parameter name {:?} in function declaration.", name).as_str())
+                                    || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing colon after parameter name {:?} in function declaration.", name).as_str())
                                 );
 
                                 let data_type = extract_right!().unwrap_or_else(
-                                    || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after colon in function declaration.")
+                                    || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing data type after colon in function declaration.")
                                 );
                                 let data_type = if let TokenKind::DataType(data_type) = data_type.item.value {
                                     data_type
                                 } else {
-                                    error::invalid_argument(param_node.item.unit_path, &node_ref.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid data type {:?} in function declaration.", data_type.item.value).as_str())
+                                    error::invalid_argument(param_node.item.unit_path, &node.item.value, param_node.item.token.line_number(), param_node.item.token.column, &source[param_node.item.token.line_index()], format!("Invalid data type {:?} in function declaration.", data_type.item.value).as_str())
                                 };
 
                                 params.push((name, data_type));
@@ -439,7 +488,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         }
                     }
 
-                    node_ref.children = Some(ChildrenType::FunctionParams(params));
+                    node.children = Some(ChildrenType::FunctionParams(params));
                 },
 
                 TokenKind::ArrayTypeOpen => {
@@ -450,10 +499,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         |node| if let TokenKind::DataType(data_type) = node.item.value {
                             data_type
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in array declaration.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid data type {:?} in array declaration.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after array type open bracket in array declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing data type after array type open bracket in array declaration.")
                     );
                     
                     // Extract the closing square bracket ]
@@ -461,15 +510,15 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         |node| if matches!(node.item.value, TokenKind::SquareClose) {
                             node
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid token {:?} in array declaration. Expected a closing bracket ] after the array type.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in array declaration. Expected a closing bracket ] after the array type.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing array type close bracket after array type in array declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing array type close bracket after array type in array declaration.")
                     );
                     
                     let array_type = DataType::Array(Box::new(element_type));
                     // Transform this node into a data type node
-                    node_ref.item.value = TokenKind::DataType(array_type);
+                    node.item.value = TokenKind::DataType(array_type);
                 },  
 
                 TokenKind::RefType => {
@@ -479,18 +528,18 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         |node| if let TokenKind::DataType(data_type) = node.item.value {
                             data_type
                         } else {
-                            error::invalid_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], format!("Invalid data type {:?} in reference declaration.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid data type {:?} in reference declaration.", node.item.value).as_str())
                         }
                     ).unwrap_or_else(
-                        || error::expected_argument(node_ref.item.unit_path, &node_ref.item.value, node_ref.item.token.line_number(), node_ref.item.token.column, &source[node_ref.item.token.line_index()], "Missing data type after reference type symbol in reference declaration.")
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing data type after reference type symbol in reference declaration.")
                     );
                     
                     let ref_type = DataType::Ref(Box::new(element_type));
                     // Transform this node into a data type node
-                    node_ref.item.value = TokenKind::DataType(ref_type);
+                    node.item.value = TokenKind::DataType(ref_type);
                 },
                 
-                _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node_ref.item.value)
+                _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node.item.value)
             }
         }
 
@@ -539,25 +588,23 @@ fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_de
 }
 
 
+/// Find the token node with the highest priority in the uppermost layer of the tree.
 fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a>> {
 
-    let mut highest_priority: Option<*mut TokenNode> = None;
-    let mut node = tokens.first;
+    let mut highest_priority: Option<&TokenNode> = None;
 
-    while !node.is_null() {
-
+    for node in tokens.iter() {
         if let Some(hp) = highest_priority {
-            if unsafe { (*node).item.priority > (*hp).item.priority } {
+            if node.item.priority > hp.item.priority {
                 highest_priority = Some(node);
             }
         } else {
             highest_priority = Some(node);
         }
-
-        node = unsafe { (*node).right };
     }
 
-    highest_priority
+    // Convert the immutable reference to a mutable pointer
+    highest_priority.map(|node| node as *const TokenNode as *mut TokenNode)
 }
 
 

@@ -70,6 +70,9 @@ impl<'a> TokenNode<'a> {
         }
     }
 
+    /// Replace the contents of this node with the contents of another node (without changing the position of this node in the tree)
+    /// 
+    /// The other node is automatically consumed and dropped after the substitution.
     pub fn substitute(&'a mut self, other: TokenNode<'a>) {
         self.children = other.children;
         self.item = other.item;

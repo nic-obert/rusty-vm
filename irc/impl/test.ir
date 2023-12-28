@@ -1,5 +1,1 @@
-
-fn main(argc: i32, argv: [&str]) -> void {
-    let a: i32 = 0;
-    let mut b: [[i32]] = [[4,5,6], [1,2,3], [4,5]];
-}
+let x: i32 = (5+3);
