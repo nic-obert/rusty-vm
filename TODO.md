@@ -30,4 +30,6 @@
 ### IRC
 
 - [ ] type analysis  
+- [ ] differentiate between string literals (stack) and heap-allocated strings  
+- [ ] add conditional statements  
 

@@ -6,6 +6,7 @@ use crate::token::Token;
 
 
 /// Struct containing the statements of a scope and its symbol table.
+#[derive(Debug)]
 pub struct ScopeBlock<'a> {
     pub statements: Vec<TokenTree<'a>>,
     pub scope_id: ScopeID,
@@ -29,6 +30,7 @@ impl std::fmt::Display for ScopeBlock<'_> {
 }
 
 
+#[derive(Debug)]
 pub enum ChildrenType<'a> {
     /// A list of syntax nodes
     List (Vec<TokenNode<'a>>),
@@ -39,9 +41,12 @@ pub enum ChildrenType<'a> {
     /// A list of function parameters (pairs of name and type)
     FunctionParams (Vec<(String, DataType)>), 
     Function { name: &'a str, params: Vec<(String, DataType)>, return_type: DataType, body: ScopeBlock<'a> },
+    TypeCast { data_type: DataType, expr: Box<TokenNode<'a>> },
+    Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
 }
 
 
+#[derive(Debug)]
 pub struct TokenNode<'a> {
 
     pub left: *mut TokenNode<'a>,
@@ -95,7 +100,7 @@ pub struct TokenTreeIterator<'a> {
 }
 
 impl TokenTreeIterator<'_> {
-    pub fn new<'a, 'b>(tree: &'b TokenTree<'a>) -> TokenTreeIterator<'a> {
+    pub fn new<'a>(tree: &TokenTree<'a>) -> TokenTreeIterator<'a> {
         TokenTreeIterator {
             current: tree.first,
         }
@@ -399,6 +404,19 @@ impl std::fmt::Debug for TokenTree<'_> {
                             write_indent(f, indent + 1)?;
                             writeln!(f, "---")?;
                         }
+                    },
+                    ChildrenType::TypeCast { data_type, expr: value } => {
+                        write!(f, "({:?}) as {}", value.item.value, data_type)?;
+                    },
+                    ChildrenType::Call { callable, args } => {
+                        write!(f, "{:?}(", callable.item.value)?;
+                        for (i, arg) in args.iter().enumerate() {
+                            write!(f, "{:?}", arg.item.value)?;
+                            if i < args.len() - 1 {
+                                write!(f, ", ")?;
+                            }
+                        }
+                        write!(f, ")")?;
                     },
                 }
             }

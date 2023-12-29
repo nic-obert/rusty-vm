@@ -3,7 +3,7 @@ use std::path::Path;
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
-use crate::token::{Token, TokenKind};
+use crate::{token::{Token, TokenKind}, data_types::DataType};
 
 
 pub fn warn(message: &str) {
@@ -138,6 +138,38 @@ pub fn unexpected_token(unit_path: &Path, token: &Token, line_number: usize, sta
         {}
         ",
         unit_path.display(), token, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn type_error(unit_path: &Path, expected: &[DataType], got: &DataType, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Expected type {}, but got {} at line {}:{}:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), expected.iter().map(|dt| dt.to_string()).collect::<Vec<_>>().join(" or "), got, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn symbol_undefined(unit_path: &Path, symbol: &str, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Symbol \"{}\" undefined at line {}:{}:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), symbol, line_number, start, line, format!("{:>1$}^", "", start), hint
     );
     std::process::exit(1);
 }

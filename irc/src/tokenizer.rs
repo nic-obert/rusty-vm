@@ -382,6 +382,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         "jmp" => TokenKind::Op(Ops::Jump),
                         "let" => TokenKind::Let,
                         "mut" => TokenKind::Mut,
+                        "as" => TokenKind::As,
 
                         "i8" => TokenKind::DataType(DataType::I8),
                         "i16" => TokenKind::DataType(DataType::I16),
@@ -396,6 +397,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         "char" => TokenKind::DataType(DataType::Char),
                         "str" => TokenKind::DataType(DataType::String),
                         "void" => TokenKind::DataType(DataType::Void),
+                        "bool" => TokenKind::DataType(DataType::Bool),
 
                         string => {
                         

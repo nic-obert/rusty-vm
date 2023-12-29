@@ -31,7 +31,7 @@ pub struct Scope {
 }
 
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ScopeID(usize);
 
 

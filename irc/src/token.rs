@@ -5,6 +5,7 @@ use crate::operations::Ops;
 use crate::data_types::DataType;
 
 
+#[derive(Debug)]
 pub struct StringToken<'a> {
 
     pub string: &'a str,
@@ -103,6 +104,25 @@ pub enum LiteralValue<'a> {
 }
 
 
+impl LiteralValue<'_> {
+
+    pub fn data_type(&self) -> DataType {
+        match self {
+            LiteralValue::Char(_) => DataType::Char,
+            LiteralValue::String(_) => DataType::String,
+            LiteralValue::Array { dt, .. } => DataType::Array(Box::new(dt.clone())),
+            LiteralValue::Numeric(n) => match n {
+                // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
+                Number::Int(i) => if *i > std::i32::MAX as i64 || *i < std::i32::MIN as i64 { DataType::I64 } else { DataType::I32 },
+                Number::Uint(u) => if *u > std::u32::MAX as u64 { DataType::U64 } else { DataType::U32 },
+                Number::Float(f) => if *f > std::f32::MAX as f64 || *f < std::f32::MIN as f64 { DataType::F64 } else { DataType::F32 },
+            },
+        }
+    }
+
+}
+
+
 impl Display for LiteralValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -126,6 +146,7 @@ pub enum TokenKind<'a> {
 
     Fn,
     Let,
+    As,
 
     Arrow,
     Semicolon,
@@ -243,7 +264,8 @@ impl TokenKind<'_> {
             TokenKind::Mut
              => Priority::Zero,
 
-            TokenKind::RefType 
+            TokenKind::RefType |
+            TokenKind::As
              => Priority::Ref,
 
             TokenKind::ArrayOpen |
@@ -259,6 +281,7 @@ impl TokenKind<'_> {
 }
 
 
+#[derive(Debug)]
 pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
@@ -310,6 +333,7 @@ impl Display for Token<'_> {
             TokenKind::FunctionParamsOpen => write!(f, "FunctionParams"),
             TokenKind::ArrayTypeOpen => write!(f, "ArrayType"),
             TokenKind::RefType => write!(f, "RefType"),
+            TokenKind::As => write!(f, "as"),
         }
     }
 }

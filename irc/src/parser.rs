@@ -16,7 +16,8 @@ use crate::token_tree::TokenTree;
 fn is_expression(token_kind: &TokenKind) -> bool {
     match token_kind {
         TokenKind::Value(_) |
-        TokenKind::ArrayOpen
+        TokenKind::ArrayOpen |
+        TokenKind::As
          => true,
 
         TokenKind::Op(op) => op.returns_a_value(),
@@ -163,7 +164,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
     for statement in &mut block.statements {
         
-        while let Some(node) = find_highest_priority(statement).and_then(|node| unsafe { node.as_mut() }) {
+        while let Some(node) = find_highest_priority(statement)
+            .and_then(|node| unsafe { node.as_mut() }) // Convert the raw pointer to a mutable reference
+        {
 
             if node.item.priority == 0 {
                 // No more operations to parse
@@ -233,22 +236,47 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     },
     
                     // Unary operators right:
-                    operations::Ops::Return |
-                    operations::Ops::Jump 
-                     => {
+                    operations::Ops::Jump => {
+                        // Syntax: jump <expression>
+
                         let right = extract_right!().unwrap_or_else(
                             || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing right argument for operator {}.", op).as_str())
                         );
+
                         node.children = Some(ChildrenType::List(vec![*right]));
+                    },
+                    operations::Ops::Return => {
+                        // Syntax: return <expression>
+                        // Syntax: return
+
+                        extract_right!().map(
+                            |expr| if !is_expression(&expr.item.value) {
+                                error::invalid_argument(node.item.unit_path, &node.item.value, expr.item.token.line_number(), expr.item.token.column, &source[expr.item.token.line_index()], format!("Invalid expression {:?} after return operator.", expr.item.value).as_str());
+                            } else { 
+                                node.children = Some(ChildrenType::List(vec![*expr]));
+                            }
+                        );
                     },
     
                     // Other operators:
                     operations::Ops::Call => {
                         // Functin call is a list of tokens separated by commas enclosed in parentheses
                         // Statements inside the parentheses have already been parsed into single top-level tokens because of their higher priority
-    
-                        let arguments = extract_list_like_delimiter_contents(statement, node, &node.item.value, &TokenKind::ParClose, source);
-                        node.children = Some(ChildrenType::List(arguments));
+                        
+                        let callable = extract_left!().unwrap_or_else(
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing function name before function call operator.")
+                        );
+                        // Check for expression instead of only a symbol because expressions can evaluate to function pointers
+                        if !is_expression(&callable.item.value) {
+                            error::invalid_argument(node.item.unit_path, &node.item.value, callable.item.token.line_number(), callable.item.token.column, &source[callable.item.token.line_index()], format!("Invalid function name or function-returning expression {:?} before function call operator.", callable.item.value).as_str());
+                        }
+
+                        let args = extract_list_like_delimiter_contents(statement, node, &node.item.value, &TokenKind::ParClose, source);
+                        if args.iter().any(|node| !is_expression(&node.item.value)) {
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Invalid argument in function call. Arguments must be expressions.");
+                        }
+                        
+                        node.children = Some(ChildrenType::Call { callable, args });
                     },
                     
                 },
@@ -538,6 +566,29 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     // Transform this node into a data type node
                     node.item.value = TokenKind::DataType(ref_type);
                 },
+
+                TokenKind::As => {
+                    // Syntax: <expression> as <type>
+
+                    let expr = extract_left!().unwrap_or_else(
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Missing expression before operator {:?}.", node.item.value).as_str())
+                    );
+                    if !is_expression(&expr.item.value) {
+                        error::invalid_argument(node.item.unit_path, &node.item.value, expr.item.token.line_number(), expr.item.token.column, &source[expr.item.token.line_index()], format!("Invalid expression {:?} before operator {:?}.", expr.item.value, node.item.value).as_str());
+                    }
+                    
+                    let data_type = extract_right!().map(
+                        |node| if let TokenKind::DataType(data_type) = node.item.value {
+                            data_type
+                        } else {
+                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid data type {:?} in type cast.", node.item.value).as_str())
+                        }
+                    ).unwrap_or_else(
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing data type after type cast operator in type cast.")
+                    );
+
+                    node.children = Some(ChildrenType::TypeCast { data_type, expr });
+                },
                 
                 _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", node.item.value)
             }
@@ -608,13 +659,276 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 }
 
 
-fn resolve_symbols_and_types(block: &mut ScopeBlock, source: &IRCode) {
-    
+/// Recursively resolve the type of this expression and check if its children have the correct types.
+fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<&DataType>, symbol_table: &SymbolTable, source: &IRCode) {
 
-    
+    expression.data_type = match &expression.item.value {
+
+        TokenKind::Op(op) => {
+            // Resolve and check the types of the operands first
+            // Based on the operand values, determine the type of the operator
+            
+            match op {
+
+                operations::Ops::Deref => if let Some(ChildrenType::List(operands)) = &mut expression.children {
+
+                    // Assume the operands vector has only one element
+                    let operand = &mut operands[0];
+
+                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+
+                    if let DataType::Ref(data_type) = &operand.data_type {
+                        *data_type.clone()
+                    } else {
+                        error::type_error(expression.item.unit_path, &[DataType::Ref(Box::new(DataType::Void))], &operand.data_type, operand.item.token.line_number(), operand.item.token.column, &source[operand.item.token.line_index()], format!("Invalid type {:?} for operator {:?}. Expected a reference or an expression that evaluates to a reference.", operand.data_type, op).as_str());
+                    }
+
+                } else {
+                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::List, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
+                },
+
+                operations::Ops::Ref => if let Some(ChildrenType::List(operands)) = &mut expression.children {
+
+                    // Assume the operands vector has only one element
+                    let operand = &mut operands[0];
+
+                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+
+                    DataType::Ref(Box::new(operand.data_type.clone()))
+
+                } else {
+                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::List, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
+                },
+
+                operations::Ops::Equal |
+                operations::Ops::NotEqual |
+                operations::Ops::Greater |
+                operations::Ops::Less |
+                operations::Ops::GreaterEqual |
+                operations::Ops::LessEqual |
+                operations::Ops::LogicalNot |
+                operations::Ops::LogicalAnd |
+                operations::Ops::LogicalOr 
+                 => if let Some(ChildrenType::List(operands)) = &mut expression.children {
+
+                    for (position, operand) in operands.iter_mut().enumerate() {
+
+                        resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+
+                        if !op.is_allowed_type(&operand.data_type, position as u8) {
+                            // TODO: return the allowed types
+                            error::type_error(expression.item.unit_path, &[], &operand.data_type, operand.item.token.line_number(), operand.item.token.column, &source[operand.item.token.line_index()], format!("Invalid type {:?} for operator {:?}.", operand.data_type, op).as_str());
+                        }
+                    }
+
+                    DataType::Bool
+                } else {
+                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::List, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
+                },
+
+                // List operands. The operator's return value is the same as the operand type
+                operations::Ops::Add |
+                operations::Ops::Sub |
+                operations::Ops::Mul |
+                operations::Ops::Div |
+                operations::Ops::Mod |
+                operations::Ops::BitwiseNot |
+                operations::Ops::BitShiftLeft |
+                operations::Ops::BitShiftRight |
+                operations::Ops::BitwiseOr |
+                operations::Ops::BitwiseAnd |
+                operations::Ops::BitwiseXor 
+                 => if let Some(ChildrenType::List(operands)) = &mut expression.children {
+
+                    let mut operand_type: Option<&DataType> = None;
+
+                    for (position, operand) in operands.iter_mut().enumerate() {
+
+                        resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+
+                        if !op.is_allowed_type(&operand.data_type, position as u8) {
+                            // TODO: return the allowed types
+                            error::type_error(expression.item.unit_path, &[], &operand.data_type, operand.item.token.line_number(), operand.item.token.column, &source[operand.item.token.line_index()], format!("Invalid type {:?} for operator {:?}.", operand.data_type, op).as_str());
+                        }
+
+                        // Check if the operands have the same type
+                        if let Some(ot) = operand_type {
+                            if ot != &operand.data_type {
+                                // Here ot.clone() is acceptable because the program will exit after this error
+                                error::type_error(expression.item.unit_path, &[ot.clone()], &operand.data_type, operand.item.token.line_number(), operand.item.token.column, &source[operand.item.token.line_index()], format!("Operator {:?} has operands of different types {:?} and {:?}.", op, ot, &operand.data_type).as_str());
+                            }
+                        } else {
+                            // The first operand of the operator determines the operator type
+                            operand_type = Some(&operand.data_type);
+                        }
+                    }
+
+                    // Unwrap is safe because the operands vector should not be empty
+                    operand_type.unwrap().clone()
+                } else {
+                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::List, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
+                },
+
+                operations::Ops::Call => if let Some(ChildrenType::Call { callable, args }) = &mut expression.children {
+                    
+                    // Resolve the type of the callable operand
+                    resolve_expression_types(callable, scope_id, outer_function_return, symbol_table, source);
+
+                    // Check if the callable operand is indeed callable (a function symbol or a function pointer)
+                    let (param_types, return_type): (&[DataType], &DataType) = match &callable.data_type {
+
+                        DataType::Function { params, return_type } => (params, return_type),
+                        DataType::Ref(dt) if matches!(**dt, DataType::Function { .. }) => if let DataType::Function { params, return_type } = &**dt {
+                            (params, return_type)
+                        } else {
+                            unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", dt)
+                        },
+
+                        _ => error::type_error(expression.item.unit_path, &[DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }], &callable.data_type, callable.item.token.line_number(), callable.item.token.column, &source[callable.item.token.line_index()], format!("Invalid type {:?} for operator {:?}. Expected a function.", callable.data_type, op).as_str())
+                    };
+
+                    // Check if the number of arguments matches the number of parameters
+                    // Check this before resolving the types of the arguments to avoid unnecessary work
+                    if args.len() != param_types.len() {
+                        error::type_error(expression.item.unit_path, &[DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }], &callable.data_type, callable.item.token.line_number(), callable.item.token.column, &source[callable.item.token.line_index()], format!("Invalid number of arguments for function {:?}. Expected {} arguments, but got {}.", callable.data_type, param_types.len(), args.len()).as_str());
+                    }                    
+
+                    // Resolve the types of the arguments and check if they match the function parameters
+                    for (arg, expected_type) in args.iter_mut().zip(param_types) {
+                        resolve_expression_types(arg, scope_id, outer_function_return, symbol_table, source);
+
+                        if arg.data_type != *expected_type {
+                            error::type_error(expression.item.unit_path, &[expected_type.clone()], &arg.data_type, arg.item.token.line_number(), arg.item.token.column, &source[arg.item.token.line_index()], format!("Invalid type {:?} for argument. Expected {:?}.", arg.data_type, expected_type).as_str());
+                        }
+                    }
+
+                    // The return type of the function call is the return type of the function
+                    return_type.clone()
+                } else {
+                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::Call, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
+                },
+
+                operations::Ops::Return => todo!(),
+
+                _ => {
+                    // Assert that the unmatched operator does indeed not return a value
+                    if !op.returns_a_value() {
+                        DataType::Void
+                    } else {
+                        unreachable!("Operator {:?} from expression {:?} does not return a value. This is a bug.", op, expression)
+                    }
+                }
+            }
+        },
+
+        TokenKind::As => if let Some(ChildrenType::TypeCast { data_type, expr }) = &mut expression.children {
+
+            // Resolve the type of the expression
+            resolve_expression_types(expr, scope_id, outer_function_return, symbol_table, source);
+
+            // Check if the expression type can be cast to the specified type
+            if !data_type.is_castable_to(&expr.data_type) {
+                error::type_error(expression.item.unit_path, &[data_type.clone()], &expr.data_type, expr.item.token.line_number(), expr.item.token.column, &source[expr.item.token.line_index()], format!("Invalid type {:?} for type cast. Expected {:?}.", expr.data_type, data_type).as_str());
+            }
+
+            // Evaluates to the data type of the type cast
+            data_type.clone()
+        } else {
+            unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::TypeCast, but the expression has children of type {:?} instead. This is a bug.", TokenKind::As, expression, expression.children)
+        },
+
+        TokenKind::Value(value) => match value {
+
+            Value::Literal { value } => value.data_type(),
+
+            Value::Symbol { id } => symbol_table.get(scope_id, id)
+                .unwrap_or_else(|| error::symbol_undefined(expression.item.unit_path, id, expression.item.token.line_number(), expression.item.token.column, &source[expression.item.token.line_index()], "This symbol is not defined in this scope."))
+                .data_type.clone(),
+        },
+
+        TokenKind::Fn => {
+            // Resolve the types inside the function body
+
+            if let Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children {
+                resolve_scope_types(body, Some(return_type), symbol_table, source);
+            }
+
+            // Function declaration does not have any type
+            DataType::Void
+        },
+
+        TokenKind::ArrayOpen => {
+            // Recursively resolve the types of the array elements.
+            // The array type is the type of the first element.
+            // Check if the array elements have the same type.
+            // The array type is void if the array is empty. A void array can be used as a generic array by assignment operators.
+
+            if let Some(ChildrenType::List(elements)) = &mut expression.children {
+
+                if elements.is_empty() {
+                    DataType::Void
+                } else {
+
+                    let mut element_type: Option<&DataType> = None;
+
+                    for element in elements {
+                        
+                        // Resolve the element type
+                        resolve_expression_types(element, scope_id, outer_function_return, symbol_table, source);
+                        let expr_type = &element.data_type;
+
+                        if let Some(et) = element_type {
+                            if et != expr_type {
+                                // Here et.clone() is acceptable because the program will exit after this error
+                                error::type_error(element.item.unit_path, &[et.clone()], expr_type, element.item.token.line_number(), element.item.token.column, &source[element.item.token.line_index()], format!("Array elements have different types {:?} and {:?}.", et, expr_type).as_str());
+                            }
+                        } else {
+                            // The first element of the array determines the array type
+                            element_type = Some(expr_type);
+                        }
+                    }
+
+                    element_type.unwrap().clone()
+                }
+            } else { 
+                unreachable!("ArrayOpen node should have children of type ChildrenType::List, but the expression {:?} has children of type {:?} instead. This is a bug.", expression, expression.children)
+            }
+        },
+
+        TokenKind::ScopeOpen => {
+            // Recursively resolve the types of the children statements
+            if let Some(ChildrenType::Block(statements)) = &mut expression.children {
+                resolve_scope_types(statements, outer_function_return, symbol_table, source);
+            }
+            // A scope does not have any type, unlike Rust
+            DataType::Void
+        },
+
+        _ => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
+    };
 }
 
 
+/// Resolve and check the types of symbols and expressions.
+fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&DataType>, symbol_table: &SymbolTable, source: &IRCode) {
+    // Perform a depth-first traversal of the scope tree to determine the types in a top-to-bottom order (relative to the source code).
+    // For every node in every scope, determine the node data type and check if it matches the expected type.
+
+    for statement in &mut block.statements {
+
+        let mut node_ptr = statement.first;
+        while let Some(node) = unsafe { node_ptr.as_mut() } {
+
+            resolve_expression_types(node, block.scope_id, outer_function_return, symbol_table, source);
+
+            node_ptr = node.right;
+        }
+
+    }
+}
+
+
+/// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
 pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<'a>, SymbolTable) {
 
     parse_scope_hierarchy(&mut tokens);
@@ -629,7 +943,7 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
 
     println!("\n\nStatement hierarchy:\n{}", outer_block);
 
-    resolve_symbols_and_types(&mut outer_block, source);
+    resolve_scope_types(&mut outer_block, None, &symbol_table, source);
 
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
