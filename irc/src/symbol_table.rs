@@ -10,6 +10,7 @@ pub struct Symbol {
     pub name: String,
     pub data_type: DataType,
     pub mutable: bool,
+    pub initialized: bool,
 }
 
 impl Symbol {
@@ -19,6 +20,7 @@ impl Symbol {
             name: id,
             data_type,
             mutable,
+            initialized: false,
         }
     }
 
@@ -76,6 +78,12 @@ impl SymbolTable {
             symbols: HashMap::new(),
         });
         id
+    }
+
+    /// Set the initialized flag for the symbol.
+    pub fn set_initialized(&mut self, scope_id: ScopeID, symbol_id: &str) {
+        let symbol = self.scopes[scope_id.0].symbols.get_mut(symbol_id).unwrap();
+        symbol.initialized = true;
     }
 
 }

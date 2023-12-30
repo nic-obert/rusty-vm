@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use std::fmt::{Display, Debug};
 
-use self::dt_macros::numeric;
+use self::dt_macros::numeric_pattern;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum DataType {
 
     Bool,
@@ -37,61 +37,48 @@ pub enum DataType {
 #[macro_use]
 pub mod dt_macros {
 
-    /// Combine multiple comma-separated types into a matchable pattern.
-    macro_rules! types {
-        ($($t:path),*) => {
-            $($t)|*
-        };
-    }
-    pub(crate) use types;
-
-    macro_rules! floating_point {
+    macro_rules! floating_point_pattern {
         () => {
-            types!(
-                DataType::F32, DataType::F64
-            )
+            DataType::F32 | DataType::F64
         };
     }
-    pub(crate) use floating_point;
+    pub(crate) use floating_point_pattern;
 
-    macro_rules! unsigned_integer {
+    macro_rules! unsigned_integer_pattern {
         () => {
-            types!(
-                DataType::U8, DataType::U16, DataType::U32, DataType::U64
-            )
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64
         };
     }
-    pub(crate) use unsigned_integer;
+    pub(crate) use unsigned_integer_pattern;
 
-    macro_rules! signed_integer {
+
+    macro_rules! signed_integer_pattern {
         () => {
-            types!(
-                DataType::I8, DataType::I16, DataType::I32, DataType::I64
-            )
+            DataType::I8 | DataType::I16 | DataType::I32 | DataType::I64
         };
     }
-    pub(crate) use signed_integer;
+    pub(crate) use signed_integer_pattern;
 
-    macro_rules! integer {
+    macro_rules! integer_pattern {
         () => {
-            signed_integer!() | unsigned_integer!()
+            signed_integer_pattern!() | unsigned_integer_pattern!()
         };
     }
-    pub(crate) use integer;
+    pub(crate) use integer_pattern;
 
-    macro_rules! numeric {
+    macro_rules! numeric_pattern {
         () => {
-            integer!() | floating_point!()
+            integer_pattern!() | floating_point_pattern!()
         };
     }
-    pub(crate) use numeric;
+    pub(crate) use numeric_pattern;
 
-    macro_rules! pointer {
+    macro_rules! pointer_pattern {
         () => {
             DataType::Ref(_)
         };
     }
-    pub(crate) use pointer;
+    pub(crate) use pointer_pattern;
 
 }
 
@@ -109,7 +96,7 @@ impl DataType {
             DataType::I8 | DataType::U8 => matches!(target, DataType::Char),            
             // A number is castable to any other number.
             #[allow(unreachable_patterns)] // i8 and u8 types overlap with numeric types
-            numeric!() => matches!(target, numeric!()),
+            numeric_pattern!() => matches!(target, numeric_pattern!()),
             // A char is castable to 1-byte integers.
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
             // A reference is castable to any other reference.
@@ -120,40 +107,67 @@ impl DataType {
         }
     }
 
+    pub fn is_implicitly_castable_to(&self, target: &DataType) -> bool {
+        // A data type is always castable to itself.
+        if self == target {
+            return true;
+        }
+
+        match self {
+
+            // An empty array can always be cast to another array type.
+            DataType::Array(element_type) => matches!(**element_type, DataType::Void) && matches!(target, DataType::Array(_)),
+        
+            _ => false
+        }
+    }
+
+    /// May return leaked strings, but it's ok because this function is only used before the program exits to print errors.
+    pub fn name(&self) -> &str {
+        match self {
+            DataType::Bool => "bool",
+            DataType::Char => "char",
+            DataType::String => "str",
+            DataType::Array(x) => Box::new(format!("[{}]", x)).leak(),
+            DataType::Ref(x) => Box::new(format!("&{}", x)).leak(),
+            DataType::I8 => "i8",
+            DataType::I16 => "i16",
+            DataType::I32 => "i32",
+            DataType::I64 => "i64",
+            DataType::U8 => "u8",
+            DataType::U16 => "u16",
+            DataType::U32 => "u32",
+            DataType::U64 => "u64",
+            DataType::F32 => "f32",
+            DataType::F64 => "f64",
+            DataType::Function { params, return_type } => {
+                let mut name = String::from("fn(");
+                for (i, param) in params.iter().enumerate() {
+                    name.push_str(param.name());
+                    if i < params.len() - 1 {
+                        name.push_str(", ");
+                    }
+                }
+                name.push_str(") -> ");
+                name.push_str(return_type.name());
+                Box::leak(name.into_boxed_str())
+            },
+            DataType::Void => "void"
+        }
+    }
+
 }
 
 
 impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DataType::Char => write!(f, "char"),
-            DataType::String => write!(f, "str"),
-            DataType::Array(dt) => write!(f, "[{}]", dt),
-            DataType::Ref(dt) => write!(f, "&{}", dt),
-            DataType::I8 => write!(f, "i8"),
-            DataType::I16 => write!(f, "i16"),
-            DataType::I32 => write!(f, "i32"),
-            DataType::I64 => write!(f, "i64"),
-            DataType::U8 => write!(f, "u8"),
-            DataType::U16 => write!(f, "u16"),
-            DataType::U32 => write!(f, "u32"),
-            DataType::U64 => write!(f, "u64"),
-            DataType::F32 => write!(f, "f32"),
-            DataType::F64 => write!(f, "f64"),
-            DataType::Void => write!(f, "void"),
-            DataType::Function { params, return_type } => {
-                write!(f, "fn(")?;
-                for (i, param) in params.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < params.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ") -> {}", return_type)
-            },
-            DataType::Bool => write!(f, "bool"),
-            
-        }
+        f.write_str(self.name())
+    }
+}
+
+impl Debug for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
     }
 }
 

@@ -70,36 +70,99 @@ impl Ops {
 
     pub fn is_allowed_type(&self, data_type: &DataType, position: u8) -> bool {
         match self {
-            Ops::Add => matches!(data_type, numeric!() | pointer!()),
-            Ops::Sub => matches!(data_type, numeric!() | pointer!()),
-            Ops::Mul => matches!(data_type, numeric!()),
-            Ops::Div => matches!(data_type, numeric!()),
-            Ops::Mod => matches!(data_type, numeric!()),
+
+            Ops::Add |
+            Ops::Sub
+             => matches!(data_type, numeric_pattern!() | pointer_pattern!()),
+
+            Ops::Greater |
+            Ops::Less |
+            Ops::GreaterEqual |
+            Ops::LessEqual |
+            Ops::Mul |
+            Ops::Div |
+            Ops::Mod
+             => matches!(data_type, numeric_pattern!()),
+
             Ops::Assign => match position {
                 0 => matches!(data_type, DataType::Ref(_)),
                 1 => true,
                 _ => unreachable!("Invalid position for assignment operator")
             },
-            Ops::Deref => matches!(data_type, DataType::Ref(_)),
-            Ops::Ref => true,
+
+            Ops::Deref => matches!(data_type, pointer_pattern!()),
+
+            Ops::Equal |
+            Ops::NotEqual |
+            Ops::Ref
+             => true,
+
             Ops::Call => matches!(data_type, DataType::Function { .. }),
             Ops::Return => true,
-            Ops::Jump => matches!(data_type, unsigned_integer!()),
-            Ops::Equal => true,
-            Ops::NotEqual => true,
-            Ops::Greater => matches!(data_type, numeric!()),
-            Ops::Less => matches!(data_type, numeric!()),
-            Ops::GreaterEqual => matches!(data_type, numeric!()),
-            Ops::LessEqual => matches!(data_type, numeric!()),
-            Ops::LogicalNot => matches!(data_type, DataType::Bool),
-            Ops::BitwiseNot => matches!(data_type, integer!()),
-            Ops::LogicalAnd => matches!(data_type, DataType::Bool),
-            Ops::LogicalOr => matches!(data_type, DataType::Bool),
-            Ops::BitShiftLeft => matches!(data_type, integer!()),
-            Ops::BitShiftRight => matches!(data_type, integer!()),
-            Ops::BitwiseOr => matches!(data_type, integer!()),
-            Ops::BitwiseAnd => matches!(data_type, integer!()),
-            Ops::BitwiseXor => matches!(data_type, integer!())
+            Ops::Jump => matches!(data_type, unsigned_integer_pattern!()),
+            
+            
+            Ops::LogicalNot |
+            Ops::LogicalAnd |
+            Ops::LogicalOr
+             => matches!(data_type, DataType::Bool),
+
+            Ops::BitwiseNot |
+            Ops::BitShiftLeft |
+            Ops::BitShiftRight |
+            Ops::BitwiseOr |
+            Ops::BitwiseAnd |
+            Ops::BitwiseXor
+             => matches!(data_type, integer_pattern!())
+        }
+    }
+
+    pub fn allowed_types(&self, position: u8) -> &'static [&'static str] {
+        match self {
+
+            Ops::Add |
+            Ops::Sub
+             => &["numeric", "pointer"],
+
+            Ops::Greater |
+            Ops::Less |
+            Ops::GreaterEqual |
+            Ops::LessEqual |
+            Ops::Mul |
+            Ops::Div |
+            Ops::Mod
+             => &["numeric"],
+
+            Ops::Assign => match position {
+                0 => &["symbol", "dereference"],
+                1 => &["any"],
+                _ => unreachable!("Invalid position for assignment operator")
+            },
+
+            Ops::Deref => &["pointer"],
+
+            Ops::Return |
+            Ops::Equal |
+            Ops::NotEqual |
+            Ops::Ref
+             => &["any"],
+
+            Ops::Call => &["function"],
+
+            Ops::Jump => &["unsigned integer"],
+            
+            Ops::LogicalNot |
+            Ops::LogicalAnd |
+            Ops::LogicalOr
+             => &["bool"],
+
+            Ops::BitwiseNot |
+            Ops::BitShiftLeft |
+            Ops::BitShiftRight |
+            Ops::BitwiseOr |
+            Ops::BitwiseAnd |
+            Ops::BitwiseXor
+             => &["integer"]
         }
     }
 

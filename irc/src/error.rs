@@ -143,7 +143,7 @@ pub fn unexpected_token(unit_path: &Path, token: &Token, line_number: usize, sta
 }
 
 
-pub fn type_error(unit_path: &Path, expected: &[DataType], got: &DataType, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+pub fn type_error(unit_path: &Path, expected: &[&str], got: &DataType, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
@@ -170,6 +170,22 @@ pub fn symbol_undefined(unit_path: &Path, symbol: &str, line_number: usize, star
         {}
         ",
         unit_path.display(), symbol, line_number, start, line, format!("{:>1$}^", "", start), hint
+    );
+    std::process::exit(1);
+}
+
+
+pub fn syntax_error(unit_path: &Path, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Syntax error at line {}:{}:
+        {}
+        {}
+
+        {}
+        ",
+        unit_path.display(), line_number, start, line, format!("{:>1$}^", "", start), hint
     );
     std::process::exit(1);
 }
