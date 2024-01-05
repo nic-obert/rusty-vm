@@ -219,18 +219,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
 
 [[package]]
-name = "irc"
-version = "0.1.0"
-dependencies = [
- "clap",
- "colored",
- "indoc",
- "lazy_static",
- "regex",
- "rust_vm_lib",
-]
-
-[[package]]
 name = "is-terminal"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -346,6 +334,18 @@ name = "numtoa"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8f8bdf33df195859076e54ab11ee78a1b208382d3a26ec40d142ffc1ecc49ef"
+
+[[package]]
+name = "oxide"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "colored",
+ "indoc",
+ "lazy_static",
+ "regex",
+ "rust_vm_lib",
+]
 
 [[package]]
 name = "ppv-lite86"

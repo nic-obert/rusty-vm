@@ -27,7 +27,7 @@
 
 - [ ] update the disassembler (when the vm and assembler become more stable)  
 
-### IRC
+### Oxide
 
 - [ ] differentiate between string literals (stack) and heap-allocated strings  
 - [ ] add conditional statements  
