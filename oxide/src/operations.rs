@@ -15,7 +15,7 @@ pub enum Ops {
     Assign,
     Deref,
     Ref,
-    Call,
+    FunctionCallOpen,
     Return,
     Jump,
     Equal,
@@ -64,7 +64,7 @@ impl Ops {
             Ops::BitwiseXor |
             Ops::Ref |
             Ops::Deref |
-            Ops::Call
+            Ops::FunctionCallOpen
         )
     }
 
@@ -97,7 +97,7 @@ impl Ops {
             Ops::Ref
              => true,
 
-            Ops::Call => matches!(data_type, DataType::Function { .. }),
+            Ops::FunctionCallOpen => matches!(data_type, DataType::Function { .. }),
             Ops::Return => true,
             Ops::Jump => matches!(data_type, unsigned_integer_pattern!()),
             
@@ -147,7 +147,7 @@ impl Ops {
             Ops::Ref
              => &["any"],
 
-            Ops::Call => &["function"],
+            Ops::FunctionCallOpen => &["function"],
 
             Ops::Jump => &["unsigned integer"],
             
@@ -180,7 +180,7 @@ impl Display for Ops {
             Ops::Assign => "=",
             Ops::Deref => "Deref",
             Ops::Ref => "Ref",
-            Ops::Call => "Call",
+            Ops::FunctionCallOpen => "Call",
             Ops::Return => "return",
             Ops::Jump => "jmp",
             Ops::Equal => "==",

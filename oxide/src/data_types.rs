@@ -1,5 +1,7 @@
 use std::fmt::{Display, Debug};
 
+use crate::token::{LiteralValue, Number};
+
 use self::dt_macros::numeric_pattern;
 
 
@@ -107,18 +109,98 @@ impl DataType {
         }
     }
 
-    pub fn is_implicitly_castable_to(&self, target: &DataType) -> bool {
+
+    /// Return whether `self` is implicitly castable to `target`.
+    pub fn is_implicitly_castable_to(&self, target: &DataType, self_value: Option<&LiteralValue>) -> bool {
         // A data type is always castable to itself.
         if self == target {
             return true;
         }
 
+        // Can self be implicitly cast to target?
         match self {
+            
+            DataType::Array(element_type)
+             => matches!(**element_type, DataType::Void) && matches!(target, DataType::Array(_)) // An empty array can always be cast to another array type.
+                || if let DataType::Array(target_element_type) = target {
+                    // Check if the element type is implicitly castable to the target element type.
+                    element_type.is_implicitly_castable_to(target_element_type, None)
+                    // Else, check if all the items in the array are implicitly castable to the target element type.
+                    || self_value.map(|value| match value {
+                        LiteralValue::Array { items, .. } => items.iter().all(|item| 
+                            // Is `element_type` implicitly castable to `target_element_type` if its value is `value`?
+                            element_type.is_implicitly_castable_to(target_element_type, Some(item))
+                        ),
+                        _ => false
+                    }).unwrap_or(false)
+                } else { false },
+    
+            // If target type is x, what types can be implicitly cast to x?
+            _ => match target {
 
-            // An empty array can always be cast to another array type.
-            DataType::Array(element_type) => matches!(**element_type, DataType::Void) && matches!(target, DataType::Array(_)),
-        
-            _ => false
+                DataType::I8 => self_value.map(|value| match value {
+                    LiteralValue::Numeric(Number::Int(n)) => *n >= std::i8::MIN as i64 && *n <= std::i8::MAX as i64,
+                    LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i8::MAX as u64,
+                    _ => false
+                }).unwrap_or(false),
+
+                DataType::I16 => matches!(self, DataType::I8 | DataType::U8)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Int(n)) => *n >= std::i16::MIN as i64 && *n <= std::i16::MAX as i64,
+                        LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i16::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
+
+                DataType::I32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Int(n)) => *n >= std::i32::MIN as i64 && *n <= std::i32::MAX as i64,
+                        LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i32::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
+
+                DataType::I64 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i64::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
+
+                DataType::U8 => self_value.map(|value| match value {
+                    LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u8::MAX as i64,
+                    LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u8::MAX as u64,
+                    _ => false
+                }).unwrap_or(false),
+
+                DataType::U16 => matches!(self, DataType::U8)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u16::MAX as i64,
+                        LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u16::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
+
+                DataType::U32 => matches!(self, DataType::U8 | DataType::U16)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u32::MAX as i64,
+                        LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u32::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
+
+                DataType::U64 => matches!(self, DataType::U8 | DataType::U16 | DataType::U32)
+                || self_value.map(|value| match value {
+                    LiteralValue::Numeric(Number::Int(n)) => *n >= 0,
+                    _ => false
+                }).unwrap_or(false),
+
+                DataType::F32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32 | DataType::I64 | DataType::U64)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::Float(n)) => *n >= std::f32::MIN as f64 && *n <= std::f32::MAX as f64,
+                        _ => false
+                    }).unwrap_or(false),
+                
+                // All numeric types can be cast to f64 because f64 is the largest numeric type.
+                DataType::F64 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32 | DataType::I64 | DataType::U64 | DataType::F32),
+
+                _ => false
+            }
         }
     }
 

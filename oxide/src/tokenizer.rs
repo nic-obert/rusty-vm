@@ -137,12 +137,12 @@ impl TokenizerStatus {
 
     pub fn enter_parenthesis(&mut self) {
         self.parenthesis_depth += 1;
-        self.priority_delta += Priority::Max as i32;
+        self.priority_delta += Priority::Delimiter as i32;
     }
 
     pub fn leave_parenthesis(&mut self) -> Result<(), ()> {
         self.parenthesis_depth -= 1;
-        self.priority_delta -= Priority::Max as i32;
+        self.priority_delta -= Priority::Delimiter as i32;
 
         if self.parenthesis_depth == 0 {
             Err(())
@@ -153,12 +153,12 @@ impl TokenizerStatus {
 
     pub fn enter_square(&mut self) {
         self.square_depth += 1;
-        self.priority_delta += Priority::Max as i32;
+        self.priority_delta += Priority::Delimiter as i32;
     }
 
     pub fn leave_square(&mut self) -> Result<(), ()> {
         self.square_depth -= 1;
-        self.priority_delta -= Priority::Max as i32;
+        self.priority_delta -= Priority::Delimiter as i32;
 
         if self.square_depth == 0 {
             Err(())
@@ -169,12 +169,12 @@ impl TokenizerStatus {
 
     pub fn enter_curly(&mut self) {
         self.curly_depth += 1;
-        self.priority_delta = Priority::Max as i32;
+        self.priority_delta = Priority::Delimiter as i32;
     }
 
     pub fn leave_curly(&mut self) -> Result<(), ()> {
         self.curly_depth -= 1;
-        self.priority_delta = - (Priority::Max as i32);
+        self.priority_delta = - (Priority::Delimiter as i32);
 
         if self.curly_depth == 0 {
             Err(())
@@ -248,7 +248,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         TokenKind::FunctionParamsOpen
                     } else {
                         // Syntax: <value-like> (
-                        TokenKind::Op(Ops::Call)
+                        TokenKind::Op(Ops::FunctionCallOpen)
                     }
                 } else {
                     // Syntax: <not-a-value> (
@@ -375,6 +375,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
                 } else {
                     
+                    // match keywords
                     match string {
 
                         "fn" => TokenKind::Fn,
@@ -383,6 +384,9 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         "let" => TokenKind::Let,
                         "mut" => TokenKind::Mut,
                         "as" => TokenKind::As,
+                        "if" => TokenKind::If,
+                        "else" => TokenKind::Else,
+                        "while" => TokenKind::While,
 
                         "i8" => TokenKind::DataType(DataType::I8),
                         "i16" => TokenKind::DataType(DataType::I16),

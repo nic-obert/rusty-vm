@@ -97,7 +97,7 @@ pub enum LiteralValue<'a> {
     Char (char),
     String (&'a str),
 
-    Array { dt: DataType, items: Vec<Value<'a>> },
+    Array { element_type: DataType, items: Vec<LiteralValue<'a>> },
 
     Numeric (Number),
 
@@ -110,7 +110,7 @@ impl LiteralValue<'_> {
         match self {
             LiteralValue::Char(_) => DataType::Char,
             LiteralValue::String(_) => DataType::String,
-            LiteralValue::Array { dt, .. } => DataType::Array(Box::new(dt.clone())),
+            LiteralValue::Array { element_type: dt, .. } => DataType::Array(Box::new(dt.clone())),
             LiteralValue::Numeric(n) => match n {
                 // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
                 Number::Int(i) => if *i > std::i32::MAX as i64 || *i < std::i32::MIN as i64 { DataType::I64 } else { DataType::I32 },
@@ -128,7 +128,7 @@ impl Display for LiteralValue<'_> {
         match self {
             LiteralValue::Char(c) => write!(f, "'{}'", c),
             LiteralValue::String(s) => write!(f, "\"{}\"", s),
-            LiteralValue::Array { dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
+            LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
             LiteralValue::Numeric(n) => write!(f, "{}", n),
         }
     }
@@ -147,6 +147,9 @@ pub enum TokenKind<'a> {
     Fn,
     Let,
     As,
+    If,
+    Else,
+    While,
 
     Arrow,
     Semicolon,
@@ -168,15 +171,18 @@ pub enum TokenKind<'a> {
 }
 
 
+#[allow(non_camel_case_types)]
 pub enum Priority {
 
     Zero = 0,
-    Least,
+    Least_Assignment_FlowBreak,
 
     Declaration,
 
-    AddSub,
-    MulDivMod,
+    ControlFlow,
+
+    Add_Sub,
+    Mul_Div_Mod,
 
     LogicalOr,
     LogicalAnd,
@@ -188,9 +194,9 @@ pub enum Priority {
     Bitshift,
     Not,
 
-    Ref,
+    Ref_Cast,
 
-    Max
+    Delimiter
 
 }
 
@@ -203,23 +209,23 @@ impl TokenKind<'_> {
 
                 Ops::Add |
                 Ops::Sub
-                 => Priority::AddSub,
+                 => Priority::Add_Sub,
 
                 Ops::Mul |
                 Ops::Div |
                 Ops::Mod
-                 => Priority::MulDivMod,
+                 => Priority::Mul_Div_Mod,
 
                 Ops::Return |
                 Ops::Jump |
                 Ops::Assign
-                 => Priority::Least,
+                 => Priority::Least_Assignment_FlowBreak,
 
                 Ops::Deref |
                 Ops::Ref
-                 => Priority::Ref,
+                 => Priority::Ref_Cast,
 
-                Ops::Call => Priority::Max,
+                Ops::FunctionCallOpen => Priority::Delimiter,
                 
                 Ops::Equal |
                 Ops::NotEqual
@@ -266,14 +272,19 @@ impl TokenKind<'_> {
 
             TokenKind::RefType |
             TokenKind::As
-             => Priority::Ref,
+             => Priority::Ref_Cast,
 
             TokenKind::ArrayOpen |
             TokenKind::ParOpen |
             TokenKind::ScopeOpen { .. } |
             TokenKind::FunctionParamsOpen |
             TokenKind::ArrayTypeOpen
-             => Priority::Max,
+             => Priority::Delimiter,
+            
+            TokenKind::If |
+            TokenKind::Else |
+            TokenKind::While
+             => Priority::ControlFlow,
 
         } as i32)
     }
@@ -334,6 +345,9 @@ impl Display for Token<'_> {
             TokenKind::ArrayTypeOpen => write!(f, "ArrayType"),
             TokenKind::RefType => write!(f, "RefType"),
             TokenKind::As => write!(f, "as"),
+            TokenKind::If => write!(f, "if"),
+            TokenKind::Else => write!(f, "else"),
+            TokenKind::While => write!(f, "while"),
         }
     }
 }

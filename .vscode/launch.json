@@ -7,20 +7,20 @@
     {
         "type": "lldb",
         "request": "launch",
-        "name": "Debug irc",
+        "name": "Debug Oxide",
         "cargo": {
             "args": [
                 "build",
-                "--bin=irc",
-                "--package=irc"
+                "--bin=oxide",
+                "--package=oxide"
             ],
             "filter": {
-                "name": "irc",
+                "name": "oxide",
                 "kind": "bin"
             }
         },
         "args": [
-            "irc/impl/test.ir"
+            "oxide/impl/test.o2"
         ],
         "cwd": "${workspaceFolder}"
     },

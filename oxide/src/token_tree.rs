@@ -364,7 +364,7 @@ impl std::fmt::Debug for TokenTree<'_> {
             }
             
             write_indent(f, indent)?;
-            writeln!(f, "| {:?} (p: {})", node.item.value, node.item.priority)?;
+            writeln!(f, "| {:?} (p: {}) (dt: {})", node.item.value, node.item.priority, node.data_type)?;
 
             if let Some(children) = &node.children {
                 match children {

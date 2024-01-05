@@ -3,6 +3,7 @@ use rust_vm_lib::ir::IRCode;
 use crate::data_types::DataType;
 use crate::operations;
 use crate::error;
+use crate::token::LiteralValue;
 use crate::token::Value;
 use crate::token::TokenKind;
 use crate::symbol_table::{Symbol, SymbolTable, ScopeID};
@@ -78,17 +79,20 @@ fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
     while !node.is_null() {
 
         if let Some(scope_node) = find_next_scope(node) {
-            let scope_start = unsafe { (*scope_node).right };
-            let scope_end = find_scope_end(scope_start);
+            let first_scope_element = unsafe { (*scope_node).right };
+            let scope_end = find_scope_end(first_scope_element);
 
+            // The node in the next iteration will be the node after the scope end
             node = unsafe { (*scope_end).right };
             
             // Don't parse empty scopes
-            if scope_start == scope_end {
+            if first_scope_element == scope_end {
+                // Remove the closing scope token
+                tokens.extract_node(scope_end);
                 continue;
             }
 
-            let mut inner_scope = tokens.extract_slice(scope_start, scope_end);
+            let mut inner_scope = tokens.extract_slice(first_scope_element, scope_end);
             // Remove the closing scope token
             inner_scope.drop_last();
             
@@ -107,7 +111,7 @@ fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
 }
 
 
-/// Divide the tree into a list of separate statements based on semicolons and scopes.
+/// Divide the scope token tree into a list of separate statements based on semicolons
 fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTable, parent_scope: Option<ScopeID>) -> ScopeBlock<'a> {
 
     let scope_id = symbol_table.add_scope(parent_scope);
@@ -122,9 +126,10 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
                 // End of statement
                 let mut statement = tokens.extract_slice(tokens.first, node);
 
-                // Check if the statement is empty (contains only a semicolon)
+                // Ignore empty statements (only has one semicolon token)
                 if !statement.has_one_item() {
-                    // Drop the semicolon token
+                    // Drop the semicolon token because it is not needed anymore
+                    // The last token is guaranteed to be a semicolon because of it's the current node
                     statement.drop_last();
                     block.statements.push(statement);
                 }
@@ -140,20 +145,20 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
                     node_ref.children = Some(ChildrenType::Block(divide_statements(children_tree, symbol_table, Some(scope_id))));
                 }
 
-                let statement = tokens.extract_slice(tokens.first, node);
-                block.statements.push(statement);
+                // Scopes are not their own statements: they are treated as expressions like in Rust.
 
-                node = tokens.first;
+                node = node_ref.right;
             },
 
             _ => node = node_ref.right,
         }
     }
 
+    // Add any remaining tokens as the last statement
     if !tokens.is_empty() {
         block.statements.push(tokens);
     }
-
+    
     block
 }
 
@@ -259,7 +264,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     },
     
                     // Other operators:
-                    operations::Ops::Call => {
+                    operations::Ops::FunctionCallOpen => {
                         // Functin call is a list of tokens separated by commas enclosed in parentheses
                         // Statements inside the parentheses have already been parsed into single top-level tokens because of their higher priority
                         
@@ -330,7 +335,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                 },
     
                 TokenKind::ScopeOpen => {
-                    // Parse the children statements of the scope.
+                    // Parse the children statements of the scope, if any.
                     // The children have already been extracted and divided into separate statements.
                     
                     if let Some(ChildrenType::Block(statements)) = &mut node.children {
@@ -389,6 +394,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                 TokenKind::Fn => {
                     // Function declaration syntax:
                     // fn <name>(<arguments>) -> <return type> { <body> }
+                    // fn <name>(argumenta>) { <body> }
+
+                    // Default return type is void, unless specified by the arrow ->
+                    let mut return_type = DataType::Void;
     
                     let name_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing function name after fn in function declaration.")
@@ -413,30 +422,32 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid parameter declaration {:?} in function declaration. Function parameters must be enclosed in parentheses ().", params.item.value).as_str())
                     };
                     
-                    // Extract the arrow ->
-                    extract_right!().map(
-                        |node| if matches!(node.item.value, TokenKind::Arrow) {
-                            node
-                        } else {
-                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid token {:?} in function declaration. Expected an arrow -> after the function arguments.", node.item.value).as_str())
-                        }
-                    ).unwrap_or_else(
-                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing arrow after function arguments in function declaration.")
+                    // Extract the arrow -> or the function body
+                    let node_after_params = extract_right!().unwrap_or_else(
+                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing arrow or function body after function parameters in function declaration.")
                     );
 
-                    // The return type should be a single top-level token because of its higher priority
-                    let return_type = extract_right!().map(
-                        |node| if let TokenKind::DataType(data_type) = node.item.value {
-                            data_type
+                    // Check if it's an arrow -> or a function body, return the function body
+                    let body_node = if matches!(node_after_params.item.value, TokenKind::Arrow) {
+                        // Extract the function return type
+                        let return_type_node = extract_right!().unwrap_or_else(
+                            || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing return type after arrow in function declaration.")
+                        );
+                        if let TokenKind::DataType(data_type) = return_type_node.item.value {
+                            return_type = data_type;
                         } else {
-                            error::invalid_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], format!("Invalid return type {:?} in function declaration.", node.item.value).as_str())
+                            error::invalid_argument(node.item.unit_path, &node.item.value, return_type_node.item.token.line_number(), return_type_node.item.token.column, &source[return_type_node.item.token.line_index()], format!("Invalid return type {:?} in function declaration.", return_type_node.item.value).as_str());
                         }
-                    ).unwrap_or_else(
-                        || error::expected_argument(node.item.unit_path, &node.item.value, node.item.token.line_number(), node.item.token.column, &source[node.item.token.line_index()], "Missing return type after arrow in function declaration.")
-                    );
-                    
+
+                        // The body node is the one after the return type
+                        extract_right!()
+                    } else {
+                        // If there is no arrow ->, the node_after_params is the function body
+                       Some(node_after_params)
+                    };
+
                     // The body is one top-level scope token because it gets parsed first
-                    let body: ScopeBlock = extract_right!().map(
+                    let body: ScopeBlock = body_node.map(
                         |node| if matches!(node.item.value, TokenKind::ScopeOpen) {
                             if let Some(ChildrenType::Block(body)) = node.children {
                                 body
@@ -767,7 +778,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::List, but the expression has children of type {:?} instead. This is a bug.", op, expression, expression.children)
                 },
 
-                operations::Ops::Call => if let Some(ChildrenType::Call { callable, args }) = &mut expression.children {
+                operations::Ops::FunctionCallOpen => if let Some(ChildrenType::Call { callable, args }) = &mut expression.children {
                     
                     // Resolve the type of the callable operand
                     resolve_expression_types(callable, scope_id, outer_function_return, symbol_table, source);
@@ -843,7 +854,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                         // Assume the operands vector has only two elements: the left operand and the right operand
 
-                        // Check if the left operand is a symbol or a dereference
+                        // Only allow assignment to a symbol or a dereference
                         if !matches!(operands[0].item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(operations::Ops::Deref)) {
                             error::type_error(expression.item.unit_path, op.allowed_types(0), &operands[0].data_type, operands[0].item.token.line_number(), operands[0].item.token.column, &source[operands[0].item.token.line_index()], format!("Invalid type {:?} for left operand of operator {:?}. Expected a symbol or a dereference.", operands[0].data_type, op).as_str());
                         }
@@ -854,8 +865,9 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                         // TODO: Check if the left operand is mutable. Add a "initialized" field for the Symbol struct in the symbol table
 
-                        // Check if the left operand type matches the right operand type
-                        if operands[0].data_type != operands[1].data_type && !operands[1].data_type.is_implicitly_castable_to(&operands[0].data_type) {
+                        // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
+                        let r_value = if let TokenKind::Value(Value::Literal { value }) = &operands[1].item.value { Some(value) } else { None };
+                        if !operands[1].data_type.is_implicitly_castable_to(&operands[0].data_type, r_value) {
                             error::type_error(expression.item.unit_path, &[operands[0].data_type.name()], &operands[1].data_type, operands[1].item.token.line_number(), operands[1].item.token.column, &source[operands[1].item.token.line_index()], format!("Invalid type {:?} for right operand of operator {:?}. Expected {:?}.", operands[1].data_type, op, operands[0].data_type).as_str());
                         }
 
@@ -869,11 +881,9 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                 _ => {
                     // Assert that the unmatched operator does indeed not return a value
-                    if !op.returns_a_value() {
-                        DataType::Void
-                    } else {
-                        unreachable!("Operator {:?} from expression {:?} does not return a value. This is a bug.", op, expression)
-                    }
+                    assert!(!op.returns_a_value(), "Operator {:?} from expression {:?} returns a value. This is a bug.", op, expression);
+
+                    DataType::Void
                 }
             }
         },
@@ -920,14 +930,15 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             // Check if the array elements have the same type.
             // The array element type is void if the array is empty. A void array can be used as a generic array by assignment operators.
 
-            if let Some(ChildrenType::List(elements)) = &mut expression.children {
+            let (data_type, is_literal_array, element_type) = if let Some(ChildrenType::List(elements)) = &mut expression.children {
 
                 if elements.is_empty() {
-                    DataType::Array(Box::new(DataType::Void))
+                    (DataType::Array(Box::new(DataType::Void)), true, DataType::Void)
                 } else {
 
                     let mut element_type: Option<&DataType> = None;
 
+                    let mut is_literal_array = true;
                     for element in elements {
                         
                         // Resolve the element type
@@ -942,22 +953,49 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                             // The first element of the array determines the array type
                             element_type = Some(expr_type);
                         }
+
+                        // Check if the array elements are literals
+                        if !matches!(element.item.value, TokenKind::Value(Value::Literal { .. })) {
+                            is_literal_array = false;
+                        }
                     }
 
-                    DataType::Array(Box::new(element_type.unwrap().clone()))
+                    (DataType::Array(Box::new(element_type.unwrap().clone())), is_literal_array, element_type.unwrap().clone())
                 }
             } else { 
                 unreachable!("ArrayOpen node should have children of type ChildrenType::List, but the expression {:?} has children of type {:?} instead. This is a bug.", expression, expression.children)
+            };
+
+            if is_literal_array {
+                // If all the array elements are literals, the whole array is a literal array
+                // Change this token to a literal array
+                let elements = expression.children.take().map(|children| if let ChildrenType::List(elements) = children { elements } else { unreachable!("ArrayOpen node should have children of type ChildrenType::List, but the expression {:?} has children of type {:?} instead. This is a bug.", expression, expression.children) }).unwrap();
+                let mut literal_items: Vec<LiteralValue> = Vec::with_capacity(elements.len());
+                for element in elements {
+                    literal_items.push(if let TokenKind::Value(Value::Literal { value }) = element.item.value { value } else { unreachable!("ArrayOpen node should have children of type ChildrenType::List, but the expression {:?} has children of type {:?} instead. This is a bug.", expression, expression.children) });
+                }
+                expression.item.value = TokenKind::Value(Value::Literal { value: LiteralValue::Array { element_type, items: literal_items } });
             }
+
+            data_type
         },
 
         TokenKind::ScopeOpen => {
             // Recursively resolve the types of the children statements
-            if let Some(ChildrenType::Block(statements)) = &mut expression.children {
-                resolve_scope_types(statements, outer_function_return, symbol_table, source);
+            // Determine the type of the scope based on the type of the last statement
+            // If the scope is empty (has no children), it evaluates to void
+
+            if let Some(ChildrenType::Block(inner_block)) = &mut expression.children {
+                resolve_scope_types(inner_block, outer_function_return, symbol_table, source);
+                
+                assert!(inner_block.statements.last().is_some(), "Scope blocks must have at least one statement. This is a bug.");
+                let last_statement = inner_block.statements.last().unwrap();
+
+                assert!(last_statement.last_node().is_some(), "Statements cannot be empty. This is a bug.");
+                last_statement.last_node().unwrap().data_type.clone()
+            } else {
+                DataType::Void
             }
-            // A scope does not have any type, unlike Rust
-            DataType::Void
         },
 
         _ => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
@@ -1002,6 +1040,8 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
     resolve_scope_types(&mut outer_block, None, &symbol_table, source);
 
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
+
+    // 
 
     (outer_block, symbol_table)
 }

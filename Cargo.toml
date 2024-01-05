@@ -4,5 +4,5 @@ members = [
     "assembler",
     "rust_vm_lib",
     "vm",
-    "irc",
+    "oxide",
 ]
