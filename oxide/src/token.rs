@@ -196,12 +196,17 @@ pub enum Priority {
 
     Ref_Cast,
 
+    /// Delimiters have the maximum priority.
     Delimiter
 
 }
 
 
 impl TokenKind<'_> {
+
+    pub fn literal_value(&self) -> Option<&LiteralValue> {
+        if let TokenKind::Value(Value::Literal { value }) = self { Some(value) } else { None }
+    }
 
     pub fn type_priority(&self) -> i32 {
         (match self {
@@ -225,7 +230,9 @@ impl TokenKind<'_> {
                 Ops::Ref
                  => Priority::Ref_Cast,
 
-                Ops::FunctionCallOpen => Priority::Delimiter,
+                Ops::FunctionCallOpen |
+                Ops::ArrayIndexOpen
+                 => Priority::Delimiter,
                 
                 Ops::Equal |
                 Ops::NotEqual

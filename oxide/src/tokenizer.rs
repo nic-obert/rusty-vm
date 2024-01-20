@@ -73,7 +73,7 @@ fn is_numeric(c: char) -> bool {
 
 
 #[inline]
-fn may_be_value(token: Option<&Token>) -> bool {
+fn may_be_expression(token: Option<&Token>) -> bool {
     token.map(|t| matches!(t.value,
         TokenKind::ParClose |
         TokenKind::SquareClose |
@@ -238,7 +238,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
                 let last_node = tokens.last_node();
                 
-                if may_be_value(last_node.map(|node| &node.item)) {
+                if may_be_expression(last_node.map(|node| &node.item)) {
 
                     // In this branch, last_node is Some because may_be_value returns false if last_node is None
                     let last_node = last_node.unwrap();
@@ -268,6 +268,9 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                 last_token.map(|last_token| if is_data_type_precursor(last_token) {
                     // Syntax: <data-type-precursor> [
                     TokenKind::ArrayTypeOpen
+                } else if may_be_expression(Some(last_token)) {
+                    // Syntax: <possible-array-type> [
+                    TokenKind::Op(Ops::ArrayIndexOpen)
                 } else {
                     // Syntax: <not-a-data-type-precursor> [
                     TokenKind::ArrayOpen
@@ -289,7 +292,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "-" => TokenKind::Op(Ops::Sub),
             "*" => {
                 let last_token = tokens.last_node().map(|node| &node.item);
-                if may_be_value(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) }
+                if may_be_expression(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) }
             },
             "/" => TokenKind::Op(Ops::Div),
             "%" => TokenKind::Op(Ops::Mod),
@@ -302,7 +305,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             ">=" => TokenKind::Op(Ops::GreaterEqual),
             "&" => {
                 let last_token = tokens.last_node().map(|node| &node.item);
-                if may_be_value(last_token) {
+                if may_be_expression(last_token) {
                     // Syntax: <value-like> &
                     TokenKind::Op(Ops::BitwiseAnd)
                 } else if let Some(last_token) = last_token {

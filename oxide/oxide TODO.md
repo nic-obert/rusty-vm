@@ -6,11 +6,11 @@ Project Description
 
 ### Todo
 
+- [ ] write a function like "reduce_operations()" to evaluate compile-time operations  
+- [ ] add more source context in error messages (and highlight the main line)  
 - [ ] implement module system  
 - [ ] implement enums  
 - [ ] implement structs  
-- [ ] implement array indexing  
-- [ ] make scopes into expressions  
 - [ ] implement oprimizations  
 - [ ] differentiate between string literals (stack) and heap-allocated strings  
 
@@ -20,4 +20,7 @@ Project Description
 
 ### Done ✓
 
+- [x] use dedicated ChildrenTypes for tokens that don't have strictly list children  
+- [x] implement array indexing  
+- [x] make scopes into expressions  
 

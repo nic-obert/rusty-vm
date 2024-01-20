@@ -33,6 +33,7 @@ pub enum Ops {
     BitwiseOr,
     BitwiseAnd,
     BitwiseXor,
+    ArrayIndexOpen,
 
 }
 
@@ -64,7 +65,8 @@ impl Ops {
             Ops::BitwiseXor |
             Ops::Ref |
             Ops::Deref |
-            Ops::FunctionCallOpen
+            Ops::FunctionCallOpen |
+            Ops::ArrayIndexOpen
         )
     }
 
@@ -113,7 +115,13 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor
-             => matches!(data_type, integer_pattern!())
+             => matches!(data_type, integer_pattern!()),
+            
+            Ops::ArrayIndexOpen => match position {
+                0 => matches!(data_type, DataType::Array { .. }),
+                1 => matches!(data_type, unsigned_integer_pattern!()),
+                _ => unreachable!("Invalid position for array index operator")
+            }
         }
     }
 
@@ -145,11 +153,14 @@ impl Ops {
             Ops::Equal |
             Ops::NotEqual |
             Ops::Ref
-             => &["any"],
+             => &["value"],
 
             Ops::FunctionCallOpen => &["function"],
 
-            Ops::Jump => &["unsigned integer"],
+            Ops::Jump |
+            Ops::ArrayIndexOpen
+             => &["unsigned integer"],
+
             
             Ops::LogicalNot |
             Ops::LogicalAnd |
@@ -198,6 +209,7 @@ impl Display for Ops {
             Ops::BitwiseOr => "|",
             Ops::BitwiseAnd => "&",
             Ops::BitwiseXor => "^",
+            Ops::ArrayIndexOpen => "Index"
         })
     }
 }

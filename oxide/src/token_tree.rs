@@ -43,6 +43,8 @@ pub enum ChildrenType<'a> {
     Function { name: &'a str, params: Vec<(String, DataType)>, return_type: DataType, body: ScopeBlock<'a> },
     TypeCast { data_type: DataType, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
+    Binary (Box<TokenNode<'a>>, Box<TokenNode<'a>>),
+    Unary (Box<TokenNode<'a>>)
 }
 
 
@@ -417,6 +419,13 @@ impl std::fmt::Debug for TokenTree<'_> {
                             }
                         }
                         write!(f, ")")?;
+                    },
+                    ChildrenType::Binary (op1, op2) => {
+                        write_node(op1, indent + 1, f)?;
+                        write_node(op2, indent + 1, f)?;
+                    },
+                    ChildrenType::Unary (op) => {
+                        write_node(op, indent + 1, f)?;
                     },
                 }
             }
