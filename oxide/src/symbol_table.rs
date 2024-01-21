@@ -50,6 +50,11 @@ impl SymbolTable {
         }
     }
 
+    /// Return whether the symbol is declared in the symbol table in any scope.
+    pub fn exists_symbol(&self, symbol_id: &str) -> bool {
+        self.scopes.iter().any(|scope| scope.symbols.contains_key(symbol_id))
+    }
+
     pub fn declare_symbol(&mut self, symbol: Symbol, scope_id: ScopeID) {
         // TODO: Check if the symbol is already declared
         // TODO: create a unique id for the symbol

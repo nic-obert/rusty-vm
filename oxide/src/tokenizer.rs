@@ -229,7 +229,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             "}" => {
                 ts.leave_curly().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, '}', token.line_number(), token.column, &source[token.line_index()], "Unexpected closing delimiter. Did you forget a '{'?")
+                    |_| error::unmatched_delimiter(unit_path, '}', &token, source, "Unexpected closing delimiter. Did you forget a '{'?")
                 );
                 TokenKind::ScopeClose
             },
@@ -257,7 +257,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             ")" => {
                 ts.leave_parenthesis().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, ')', token.line_number(), token.column, &source[token.line_index()], "Unexpected closing delimiter. Did you forget a '('?")
+                    |_| error::unmatched_delimiter(unit_path, ')', &token, source, "Unexpected closing delimiter. Did you forget a '('?")
                 );
                 TokenKind::ParClose
             },
@@ -281,7 +281,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             },
             "]" => {
                 ts.leave_square().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, ']', token.line_number(), token.column, &source[token.line_index()], "Unexpected closing delimiter. Did you forget a '['?")
+                    |_| error::unmatched_delimiter(unit_path, ']', &token, source, "Unexpected closing delimiter. Did you forget a '['?")
                 );
                 TokenKind::SquareClose
             },
@@ -337,15 +337,15 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
 
                     if string.contains('.') {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, token.line_number(), token.column, &source[token.line_index()], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
                         ))) })
                     } else if string.starts_with('-') {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, token.line_number(), token.column, &source[token.line_index()], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
                         ))) })
                     } else {
                         TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, token.line_number(), token.column, &source[token.line_index()], e.to_string().as_str())
+                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
                         ))) 
                     })
                     }
@@ -354,7 +354,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                 } else if string.starts_with('"') {
 
                     if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '"', token.line_number(), token.column, &source[token.line_index()], "Unexpected closing delimiter. Did you forget a '\"'?")
+                        error::unmatched_delimiter(unit_path, '"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
                     }
 
                     TokenKind::Value(Value::Literal { 
@@ -364,12 +364,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                 } else if string.starts_with('\'') {
 
                     if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '\'', token.line_number(), token.column, &source[token.line_index()], "Unexpected closing delimiter. Did you forget a \"'?\"?")
+                        error::unmatched_delimiter(unit_path, '\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
                     }
                     
                     let s = escape_string(string, unit_path, &token, source);
                     if s.len() != 1 {
-                        error::invalid_char_literal(unit_path, s, token.line_number(), token.column, &source[token.line_index()], "Character literals can only be one character long")
+                        error::invalid_char_literal(unit_path, s, &token, source, "Character literals can only be one character long")
                     }
 
                     TokenKind::Value(Value::Literal { 
@@ -409,7 +409,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                         string => {
                         
                             if !is_symbol_name(string) {
-                                error::invalid_token(unit_path, string, token.line_number(), token.column, &source[token.line_index()], "The token doesn't have meaning");
+                                error::invalid_token(unit_path, &token, source, "Invalid token")
                             }
 
                             TokenKind::Value(Value::Symbol { id: string })

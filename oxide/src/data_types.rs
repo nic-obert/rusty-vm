@@ -31,8 +31,10 @@ pub enum DataType {
 
     Function { params: Vec<DataType>, return_type: Box<DataType> },
 
-    Void
-
+    Void,
+    
+    /// This data type is only used internally and is not available in the language.
+    Any,
 }
 
 /// Useful macros for working with data types.
@@ -234,7 +236,8 @@ impl DataType {
                 name.push_str(return_type.name());
                 Box::leak(name.into_boxed_str())
             },
-            DataType::Void => "void"
+            DataType::Void => "void",
+            DataType::Any => "any"
         }
     }
 
