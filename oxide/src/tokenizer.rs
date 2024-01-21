@@ -38,7 +38,7 @@ fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, toke
                 '0' => '\0',
                 't' => '\t',
                 '\\' => '\\',
-                c => error::invalid_escape_character(unit_path, c, token.line_number(), token.column + checked_until + i + 2, &source[token.line_index()], "Invalid escape character")
+                c => error::invalid_escape_character(unit_path, c, token.column + checked_until + i + 2, token.line_index(), source, "Invalid escape character")
             })
         } else if c == '\\' {
             escape = true;

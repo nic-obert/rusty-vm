@@ -14,12 +14,22 @@ use crate::token_tree::TokenNode;
 use crate::token_tree::TokenTree;
 
 
-macro_rules! iflet_err {
-    ($pattern:pat = $expr:expr, $target:ident, $err:expr) => {
+macro_rules! match_or {
+    ($pattern:pat = $expr:expr, $target:expr, $err:expr) => {
         if let $pattern = $expr {
             $target
         } else {
             $err
+        }
+    };
+}
+
+macro_rules! match_unreachable {
+    ($pattern:pat = $expr:expr, $target:expr) => {
+        if let $pattern = $expr {
+            $target
+        } else {
+            unreachable!()
         }
     };
 }
@@ -338,11 +348,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 // next_node is here guaranteed to be a value or an expression
 
                                 // Check if the next token is a closing parenthesis (because the parentheses contain only one top-level node)
-                                if let Some(node) = extract_right!() {
-                                    if !matches!(node.item.value, TokenKind::ParClose) {
-                                        error::invalid_argument(&op_node.item.value, &node.item, source, "Expected a closing parenthesis ).")
-                                    }
-                                } else { unreachable!() }
+                                let closing_parenthesis_node =extract_right!().unwrap();
+                                if !matches!(closing_parenthesis_node.item.value, TokenKind::ParClose) {
+                                    error::invalid_argument(&op_node.item.value, &closing_parenthesis_node.item, source, "Expected a closing parenthesis ).")
+                                }
 
                                 // Transform this parenthesis node into its inner expression
                                 op_node.substitute(*next_node)
@@ -394,10 +403,10 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     } else {
                         (false, next_node)
                     };
-    
-                    let symbol_name: &str = if let TokenKind::Value(Value::Symbol { id }) = &name_token.item.value { id } else {
-                        error::invalid_argument(&op_node.item.value, &name_token.item, source, "Invalid variable name in declaration.");
-                    };
+
+                    let symbol_name: &str = match_or!(TokenKind::Value(Value::Symbol { id }) = &name_token.item.value, id, 
+                        error::invalid_argument(&op_node.item.value, &name_token.item, source, "Invalid variable name in declaration.")
+                    );
     
                     let _colon = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing colon after variable name in variable declaration.")
@@ -407,9 +416,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let data_type_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing data type after colon in variable declaration.")
                     );
-                    let data_type = if let TokenKind::DataType(data_type) = data_type_node.item.value { data_type } else {
-                        error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Token is not a valid data type.");
-                    };
+                    let data_type = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
+                        error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Token is not a valid data type.")
+                    );
 
                     // Declare the new symbol in the local scope
                     symbol_table.declare_symbol(
@@ -432,18 +441,16 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let name_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing function name after fn in function declaration.")
                     );
-                    let function_name: &str = if let TokenKind::Value(Value::Symbol { id }) = name_node.item.value { id } else {
-                        error::invalid_argument(&op_node.item.value, &name_node.item, source, "Invalid function name in function declaration.");
-                    };
+                    let function_name: &str = match_or!(TokenKind::Value(Value::Symbol { id }) = name_node.item.value, id,
+                        error::invalid_argument(&op_node.item.value, &name_node.item, source, "Invalid function name in function declaration.")
+                    );
     
                     // The parameters should be a single top-level token because of its higher priority
                     let params = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing arguments after function name in function declaration.")
                     );
-                    let params = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
-                        if let Some(ChildrenType::FunctionParams(params)) = params.children {
-                            params
-                        } else { unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a FunctionParamsOpen token and have FunctionParams children.", params.item.value) }
+                    let params: Vec<(String, DataType)> = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
+                        match_unreachable!(Some(ChildrenType::FunctionParams(params)) = params.children, params)
                     } else {
                         error::invalid_argument(&op_node.item.value, &params.item, source, "Expected a list of arguments enclosed in parentheses after function name in function declaration.");
                     };
@@ -459,11 +466,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         let return_type_node = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, "Missing return type after arrow in function declaration.")
                         );
-                        if let TokenKind::DataType(data_type) = return_type_node.item.value {
-                            return_type = data_type;
-                        } else {
-                            error::invalid_argument(&op_node.item.value, &return_type_node.item, source, "Invalid return type in function declaration.");
-                        }
+                        return_type = match_or!(TokenKind::DataType(data_type) = return_type_node.item.value, data_type,
+                            error::invalid_argument(&op_node.item.value, &return_type_node.item, source, "Invalid return type in function declaration.")
+                        );
 
                         // The body node is the one after the return type
                         extract_right!()
@@ -473,19 +478,15 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     };
 
                     // The body is one top-level scope token because it gets parsed first
-                    let body: ScopeBlock = body_node.map(
-                        |node| if matches!(node.item.value, TokenKind::ScopeOpen) {
-                            if let Some(ChildrenType::Block(body)) = node.children {
-                                body
-                            } else {
-                                unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind should be a ScopeOpen token and have Block children.", node.item.value)
-                            }
-                        } else {
-                            error::invalid_argument(&op_node.item.value, &node.item, source, "Expected a function body enclosed in curly braces.");
-                        }
-                    ).unwrap_or_else(
+                    let body_node = body_node.unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing body after return type in function declaration.")
                     );
+                    let body: ScopeBlock = if matches!(body_node.item.value, TokenKind::ScopeOpen) {
+                        match_unreachable!(Some(ChildrenType::Block(body)) = body_node.children, body)
+                    } else {
+                        error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a function body enclosed in curly braces.");
+                    };
+                    
                     
                     let function_type = DataType::Function { 
                         params: params.iter().map(|param| param.1.clone()).collect(), // Take only the data type of the parameter
@@ -526,22 +527,19 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                                 let name = id.to_string();
 
                                 // Extract the colon
-                                extract_right!().map(
-                                    |param_node| if !matches!(param_node.item.value, TokenKind::Colon) {
-                                        error::invalid_argument(&op_node.item.value, &param_node.item, source, "Expected a semicolon after parameter name")
-                                    }
-                                ).unwrap_or_else(
+                                let colon_node = extract_right!().unwrap_or_else(
                                     || error::expected_argument(&op_node.item, source, format!("Missing colon after parameter name {:?} in function declaration.", name).as_str())
                                 );
-
-                                let data_type = extract_right!().unwrap_or_else(
+                                if !matches!(colon_node.item.value, TokenKind::Colon) {
+                                    error::invalid_argument(&op_node.item.value, &colon_node.item, source, "Expected a semicolon after parameter name")
+                                }
+                                
+                                let data_type_node = extract_right!().unwrap_or_else(
                                     || error::expected_argument(&op_node.item, source, "Missing data type after colon in function declaration.")
                                 );
-                                let data_type = if let TokenKind::DataType(data_type) = data_type.item.value {
-                                    data_type
-                                } else {
-                                    error::invalid_argument(&op_node.item.value, &data_type.item, source, "Invalid data type in function declaration.");
-                                };
+                                let data_type = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
+                                    error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Invalid data type in function declaration.")
+                                );
 
                                 params.push((name, data_type));
 
@@ -560,14 +558,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     // TODO: an array slice may be implemented at a later date. this array type would then require a size (or infer it from the context)
                     // Syntax: [<type>]
 
-                    let element_type = extract_right!().map(
-                        |element_type_node| if let TokenKind::DataType(data_type) = element_type_node.item.value {
-                            data_type
-                        } else {
-                            error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Invalid data type in array declaration.")
-                        }
-                    ).unwrap_or_else(
+                    let element_type_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing data type after array type open bracket in array declaration.")
+                    );
+                    let element_type = match_or!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type,
+                        error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Invalid data type in array declaration.")
                     );
                     
                     // Extract the closing square bracket ]
@@ -589,11 +584,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let element_type_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing data type after reference symbol &.")
                     );
-                    let element_type = if let TokenKind::DataType(data_type) = element_type_node.item.value {
-                        data_type
-                    } else {
+                    let element_type = match_or!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Expected a data type after reference symbol &.")
-                    };
+                    );
                     
                     let ref_type = DataType::Ref(Box::new(element_type));
                     // Transform this node into a data type node
@@ -613,11 +606,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     let data_type_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing data type after type cast operator in type cast.")
                     );
-                    let data_type = if let TokenKind::DataType(data_type) = data_type_node.item.value {
-                        data_type
-                    } else {
+                    let data_type = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Expected a data type after type cast operator.")
-                    };
+                    );
 
                     op_node.children = Some(ChildrenType::TypeCast { data_type, expr });
                 },
@@ -704,7 +695,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             
             match operator {
 
-                Ops::Deref => if let Some(ChildrenType::Unary(operand)) = &mut expression.children {
+                Ops::Deref => {
+                    let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
@@ -713,18 +705,14 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     } else {
                         error::type_error(&operand.item, &[DataType::Ref(Box::new(DataType::Void)).name()], &operand.data_type, source, "Expected a reference")
                     }
-                } else {
-                    unreachable!()
                 },
 
-                Ops::Ref => if let Some(ChildrenType::Unary(operand)) = &mut expression.children {
+                Ops::Ref => {
+                    let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
                     DataType::Ref(Box::new(operand.data_type.clone()))
-
-                } else {
-                    unreachable!()
                 },
 
                 // Binary operators that return a boolean
@@ -736,7 +724,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::LessEqual |
                 Ops::LogicalAnd |
                 Ops::LogicalOr 
-                 => if let Some(ChildrenType::Binary(op1, op2)) = &mut expression.children {
+                 => {
+                    let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
                     resolve_expression_types(op1, scope_id, outer_function_return, symbol_table, source);
                     resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
@@ -754,12 +743,11 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
 
                     DataType::Bool
-                } else {
-                    unreachable!();
                 },
 
                 // Unary operators that return a boolean
-                Ops::LogicalNot => if let Some(ChildrenType::Unary(operand)) = &mut expression.children {
+                Ops::LogicalNot => {
+                    let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
@@ -768,12 +756,11 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
 
                     DataType::Bool
-                } else {
-                    unreachable!();
                 },
 
                 // Unary operators whose return type is the same as the operand type
-                Ops::BitwiseNot => if let Some(ChildrenType::Unary(operand)) = &mut expression.children {
+                Ops::BitwiseNot => {
+                    let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
@@ -782,8 +769,6 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
 
                     operand.data_type.clone()
-                } else {
-                    unreachable!();
                 },
 
                 // Binary operators whose return type is the same as the operand type
@@ -797,7 +782,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::BitwiseOr |
                 Ops::BitwiseAnd |
                 Ops::BitwiseXor 
-                 => if let Some(ChildrenType::Binary(op1, op2)) = &mut expression.children {
+                 => {
+                    let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
                     resolve_expression_types(op1, scope_id, outer_function_return, symbol_table, source);
                     resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
@@ -816,11 +802,10 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
                     
                     op1.data_type.clone()
-                } else {
-                    unreachable!();
                 },
 
-                Ops::FunctionCallOpen => if let Some(ChildrenType::Call { callable, args }) = &mut expression.children {
+                Ops::FunctionCallOpen => {
+                    let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut expression.children, (callable, args));
                     
                     // Resolve the type of the callable operand
                     resolve_expression_types(callable, scope_id, outer_function_return, symbol_table, source);
@@ -855,8 +840,6 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     // The return type of the function call is the return type of the function
                     return_type.clone()
-                } else {
-                    unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::Call, but the expression has children of type {:?} instead. This is a bug.", operator, expression, expression.children)
                 },
 
                 Ops::Return => {
@@ -888,29 +871,26 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                 Ops::Assign => {
                     
-                    if let Some(ChildrenType::Binary (l_node, r_node)) = &mut expression.children {
+                    let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut expression.children, (l_node, r_node));
 
-                        // Assume the operands vector has only two elements: the left operand and the right operand
+                    // Assume the operands vector has only two elements: the left operand and the right operand
 
-                        // Only allow assignment to a symbol or a dereference
-                        if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref)) {
-                            error::type_error(&l_node.item, &["symbol", "reference"], &l_node.data_type, source, "Invalid left operand for assignment operator.");
-                        }
+                    // Only allow assignment to a symbol or a dereference
+                    if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref)) {
+                        error::type_error(&l_node.item, &["symbol", "reference"], &l_node.data_type, source, "Invalid left operand for assignment operator.");
+                    }
 
-                        // Resolve the types of the operands
-                        resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
-                        resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
+                    // Resolve the types of the operands
+                    resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
 
-                        // TODO: Check if the left operand is mutable. Add a "initialized" field for the Symbol struct in the symbol table
+                    // TODO: Check if the left operand is mutable. Add a "initialized" field for the Symbol struct in the symbol table
 
-                        // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
-                        let r_value = r_node.item.value.literal_value();
-                        if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value) {
-                            error::type_error(&r_node.item, &[l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
-                        }
-                    } else {
-                        unreachable!()
-                    };
+                    // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
+                    let r_value = r_node.item.value.literal_value();
+                    if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value) {
+                        error::type_error(&r_node.item, &[l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
+                    }
                     
                     // An assignment is not an expression, so it does not have a type
                     DataType::Void
@@ -921,25 +901,22 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     let data_type: DataType;
 
-                    if let Some(ChildrenType::Binary (array_node, index_node )) = &mut expression.children {
+                    let (array_node, index_node) = match_unreachable!(Some(ChildrenType::Binary (array_node, index_node )) = &mut expression.children, (array_node, index_node));
 
-                        resolve_expression_types(array_node, scope_id, outer_function_return, symbol_table, source);
-                        resolve_expression_types(index_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(array_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(index_node, scope_id, outer_function_return, symbol_table, source);
 
-                        if let DataType::Array(element_type) = &array_node.data_type {
-                            data_type = *element_type.clone();
-                        } else {
-                            error::type_error(&array_node.item, &[DataType::Array(Box::new(DataType::Any)).name()], &array_node.data_type, source, "Can only index arrays.");
-                        }
-
-                        // Assert that the array index is an unsigned integer
-                        if !matches!(&index_node.data_type, unsigned_integer_pattern!()) {
-                            error::type_error(&index_node.item, &["unsigned integer"], &index_node.data_type, source, "Array index must strictly be an unsigned integer.");
-                        }
+                    if let DataType::Array(element_type) = &array_node.data_type {
+                        data_type = *element_type.clone();
                     } else {
-                        unreachable!()
+                        error::type_error(&array_node.item, &[DataType::Array(Box::new(DataType::Any)).name()], &array_node.data_type, source, "Can only index arrays.");
                     }
 
+                    // Assert that the array index is an unsigned integer
+                    if !matches!(&index_node.data_type, unsigned_integer_pattern!()) {
+                        error::type_error(&index_node.item, &["unsigned integer"], &index_node.data_type, source, "Array index must strictly be an unsigned integer.");
+                    }
+                    
                     data_type
                 }
 
@@ -952,7 +929,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             }
         },
 
-        TokenKind::As => if let Some(ChildrenType::TypeCast { data_type, expr }) = &mut expression.children {
+        TokenKind::As => {
+            let (data_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { data_type, expr }) = &mut expression.children, (data_type, expr));
 
             // Resolve the type of the expression to be cast
             resolve_expression_types(expr, scope_id, outer_function_return, symbol_table, source);
@@ -964,8 +942,6 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             // Evaluates to the data type of the type cast
             data_type.clone()
-        } else {
-            unreachable!("Operator {:?} from expression {:?} should have children of type ChildrenType::TypeCast, but the expression has children of type {:?} instead. This is a bug.", TokenKind::As, expression, expression.children)
         },
 
         TokenKind::Value(value) => match value {
@@ -994,40 +970,37 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             // Check if the array elements have the same type.
             // The array element type is void if the array is empty. A void array can be used as a generic array by assignment operators.
 
-            let (data_type, is_literal_array, element_type) = if let Some(ChildrenType::List(elements)) = &mut expression.children {
+            let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut expression.children, elements);
+            
+            let (data_type, is_literal_array, element_type) = if elements.is_empty() {
+                (DataType::Array(Box::new(DataType::Void)), true, DataType::Void)
+            } else {
 
-                if elements.is_empty() {
-                    (DataType::Array(Box::new(DataType::Void)), true, DataType::Void)
-                } else {
+                let mut element_type: Option<&DataType> = None;
 
-                    let mut element_type: Option<&DataType> = None;
+                let mut is_literal_array = true;
+                for element in elements {
+                    
+                    // Resolve the element type
+                    resolve_expression_types(element, scope_id, outer_function_return, symbol_table, source);
+                    let expr_type = &element.data_type;
 
-                    let mut is_literal_array = true;
-                    for element in elements {
-                        
-                        // Resolve the element type
-                        resolve_expression_types(element, scope_id, outer_function_return, symbol_table, source);
-                        let expr_type = &element.data_type;
-
-                        if let Some(expected_element_type) = element_type {
-                            if expected_element_type != expr_type {
-                                error::type_error(&element.item, &[expected_element_type.name()], expr_type, source, "Array elements have different types.");
-                            }
-                        } else {
-                            // The first element of the array determines the array type
-                            element_type = Some(expr_type);
+                    if let Some(expected_element_type) = element_type {
+                        if expected_element_type != expr_type {
+                            error::type_error(&element.item, &[expected_element_type.name()], expr_type, source, "Array elements have different types.");
                         }
-
-                        // Check if the array elements are literals
-                        if !matches!(element.item.value, TokenKind::Value(Value::Literal { .. })) {
-                            is_literal_array = false;
-                        }
+                    } else {
+                        // The first element of the array determines the array type
+                        element_type = Some(expr_type);
                     }
 
-                    (DataType::Array(Box::new(element_type.unwrap().clone())), is_literal_array, element_type.unwrap().clone())
+                    // Check if the array elements are literals
+                    if !matches!(element.item.value, TokenKind::Value(Value::Literal { .. })) {
+                        is_literal_array = false;
+                    }
                 }
-            } else { 
-                unreachable!();
+
+                (DataType::Array(Box::new(element_type.unwrap().clone())), is_literal_array, element_type.unwrap().clone())
             };
 
             if is_literal_array {

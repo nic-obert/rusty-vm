@@ -22,13 +22,6 @@ pub fn warn(message: &str) {
 }
 
 
-macro_rules! char_pointer {
-    ($start:expr) => {
-        format!("  {:>1$}^", "", $start)
-    };
-}
-
-
 /// Print the source code context around the specified line.
 fn print_source_context(source: &IRCode, line_index: usize, char_pointer: usize) {
 
@@ -44,7 +37,7 @@ fn print_source_context(source: &IRCode, line_index: usize, char_pointer: usize)
 
     // The highlighted line.
     println!("> {}", source[line_index]);
-    println!("  {:>1$}^", "", char_pointer);
+    println!(" {:>1$}^", "", char_pointer);
     index += 1;
 
     // Lines after the highlighted line.
@@ -123,18 +116,19 @@ pub fn invalid_token(unit_path: &Path, token: &StringToken, source: &IRCode, hin
 }
 
 
-pub fn invalid_escape_character(unit_path: &Path, character: char, line_number: usize, start: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_escape_character(unit_path: &Path, character: char, start: usize, line_index: usize, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
         Invalid escape character '{}' at line {}:{}:
-        {}
-        {}
 
-        {}
         ",
-        unit_path.display(), character, line_number, start, line, char_pointer!(start), hint
+        unit_path.display(), character, line_index + 1, start
     );
+
+    print_source_context(source, line_index, start);
+
+    println!("{}", hint);
     std::process::exit(1);
 }
 
@@ -163,7 +157,7 @@ pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &IRCode, hint
         Invalid argument {:?} for operator {:?} at line {}:{}:
 
         ",
-        arg.unit_path.display(), arg.value, operator, arg.token.line_number(), arg.token.column
+        arg.unit_path.display(), arg.token.string, operator, arg.token.line_number(), arg.token.column
     );
 
     print_source_context(source, arg.token.line_index(), arg.token.column);
@@ -246,7 +240,7 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
         ❌ Error in ir unit \"{}\"
 
         Syntax error at line {}:{}:
-        
+
         ",
         token.unit_path.display(), token.token.line_number(), token.token.column
     );
