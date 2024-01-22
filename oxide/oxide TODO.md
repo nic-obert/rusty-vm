@@ -15,10 +15,10 @@ Project Description
 ### In Progress
 
 - [ ] write a function like "reduce_operations()" to evaluate compile-time operations  
-- [ ] add conditional statements  
 
 ### Done ✓
 
+- [x] implement while and if  
 - [x] add more source context in error messages (and highlight the main line)  
 - [x] use dedicated ChildrenTypes for tokens that don't have strictly list children  
 - [x] implement array indexing  

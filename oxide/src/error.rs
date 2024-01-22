@@ -10,7 +10,7 @@ use crate::token::{StringToken, Token, TokenKind};
 
 
 /// Number of lines of source code to include before and after the highlighted line in error messages
-const SOURCE_CONTEXT_RADIUS: u8 = 2;
+const SOURCE_CONTEXT_RADIUS: u8 = 3;
 
 
 pub fn warn(message: &str) {
@@ -31,18 +31,18 @@ fn print_source_context(source: &IRCode, line_index: usize, char_pointer: usize)
     
     // Print the source lines before the highlighted line.
     while index < line_index {
-        println!("{}", source[line_index]);
+        println!("  {}", source[index]);
         index += 1;
     }
 
     // The highlighted line.
-    println!("> {}", source[line_index]);
-    println!(" {:>1$}^", "", char_pointer);
+    println!("{} {}", ">".bright_red().bold(), source[line_index]);
+    println!(" {:>char_pointer$}{}", "", "^".bright_red().bold());
     index += 1;
 
     // Lines after the highlighted line.
     while index < end_index {
-        println!("{}", source[index]);
+        println!("  {}", source[index]);
         index += 1;
     }
 }
@@ -60,7 +60,7 @@ pub fn invalid_number(unit_path: &Path, number: &str, token: &StringToken, sourc
 
     print_source_context(source, token.line_index(), token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -77,7 +77,7 @@ pub fn unmatched_delimiter(unit_path: &Path, delimiter: char, token: &StringToke
 
     print_source_context(source, token.line_index(), token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -94,7 +94,7 @@ pub fn invalid_char_literal(unit_path: &Path, literal: &str, token: &StringToken
 
     print_source_context(source, token.line_index(), token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -111,7 +111,7 @@ pub fn invalid_token(unit_path: &Path, token: &StringToken, source: &IRCode, hin
 
     print_source_context(source, token.line_index(), token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -128,7 +128,7 @@ pub fn invalid_escape_character(unit_path: &Path, character: char, start: usize,
 
     print_source_context(source, line_index, start);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -145,7 +145,7 @@ pub fn expected_argument(operator: &Token, source: &IRCode, hint: &str) -> ! {
 
     print_source_context(source, operator.token.line_index(), operator.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -162,7 +162,7 @@ pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &IRCode, hint
 
     print_source_context(source, arg.token.line_index(), arg.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -179,7 +179,7 @@ pub fn unexpected_token(token: &Token, source: &IRCode, hint: &str) -> ! {
 
     print_source_context(source, token.token.line_index(), token.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -196,7 +196,7 @@ pub fn type_error(token: &Token, expected: &[&str], got: &DataType, source: &IRC
 
     print_source_context(source, token.token.line_index(), token.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -213,7 +213,7 @@ pub fn mismatched_call_arguments(token: &Token, expected: usize, got: usize, sou
 
     print_source_context(source, token.token.line_index(), token.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -230,7 +230,7 @@ pub fn symbol_undefined(token: &Token, symbol: &str, source: &IRCode, hint: &str
 
     print_source_context(source, token.token.line_index(), token.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
@@ -247,7 +247,7 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
 
     print_source_context(source, token.token.line_index(), token.token.column);
 
-    println!("{}", hint);
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 

@@ -240,7 +240,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                 
                 if may_be_expression(last_node.map(|node| &node.item)) {
 
-                    // In this branch, last_node is Some because may_be_value returns false if last_node is None
+                    // Unwrap is safe because `last_node` is an expression
                     let last_node = last_node.unwrap();
 
                     if matches!(last_node.item.value, TokenKind::Value(Value::Symbol { id: _ })) && last_node.left().map(|node| matches!(node.item.value, TokenKind::Fn)).unwrap_or(false) {
@@ -329,96 +329,87 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "&&" => TokenKind::Op(Ops::LogicalAnd),
             "||" => TokenKind::Op(Ops::LogicalOr),
             "|" => TokenKind::Op(Ops::BitwiseOr),
-     
-            string => {
-                
-                // Numbers
-                if string.starts_with(is_numeric) {
 
-                    if string.contains('.') {
-                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
-                        ))) })
-                    } else if string.starts_with('-') {
-                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
-                        ))) })
-                    } else {
-                        TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
-                            |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
-                        ))) 
-                    })
-                    }
-
-                // Strings
-                } else if string.starts_with('"') {
-
-                    if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
-                    }
-
-                    TokenKind::Value(Value::Literal { 
-                        value: LiteralValue::String(escape_string(string, unit_path, &token, source))
-                    })
-                
-                } else if string.starts_with('\'') {
-
-                    if string.len() == 1 {
-                        error::unmatched_delimiter(unit_path, '\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
-                    }
-                    
-                    let s = escape_string(string, unit_path, &token, source);
-                    if s.len() != 1 {
-                        error::invalid_char_literal(unit_path, s, &token, source, "Character literals can only be one character long")
-                    }
-
-                    TokenKind::Value(Value::Literal { 
-                        value: LiteralValue::Char(s.chars().next().unwrap())
-                    })
-
+            // Numbers
+            string if string.starts_with(is_numeric) => {
+                if string.contains('.') {
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
+                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                    ))) })
+                } else if string.starts_with('-') {
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
+                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                    ))) })
                 } else {
-                    
-                    // match keywords
-                    match string {
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
+                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                    ))) }) 
+                }
+            },
 
-                        "fn" => TokenKind::Fn,
-                        "return" => TokenKind::Op(Ops::Return),
-                        "jmp" => TokenKind::Op(Ops::Jump),
-                        "let" => TokenKind::Let,
-                        "mut" => TokenKind::Mut,
-                        "as" => TokenKind::As,
-                        "if" => TokenKind::If,
-                        "else" => TokenKind::Else,
-                        "while" => TokenKind::While,
-
-                        "i8" => TokenKind::DataType(DataType::I8),
-                        "i16" => TokenKind::DataType(DataType::I16),
-                        "i32" => TokenKind::DataType(DataType::I32),
-                        "i64" => TokenKind::DataType(DataType::I64),
-                        "u8" => TokenKind::DataType(DataType::U8),
-                        "u16" => TokenKind::DataType(DataType::U16),
-                        "u32" => TokenKind::DataType(DataType::U32),
-                        "u64" => TokenKind::DataType(DataType::U64),
-                        "f32" => TokenKind::DataType(DataType::F32),
-                        "f64" => TokenKind::DataType(DataType::F64),
-                        "char" => TokenKind::DataType(DataType::Char),
-                        "str" => TokenKind::DataType(DataType::String),
-                        "void" => TokenKind::DataType(DataType::Void),
-                        "bool" => TokenKind::DataType(DataType::Bool),
-
-                        string => {
-                        
-                            if !is_symbol_name(string) {
-                                error::invalid_token(unit_path, &token, source, "Invalid token")
-                            }
-
-                            TokenKind::Value(Value::Symbol { id: string })
-                        }
-
-                    }
-
+            // Strings within ""
+            string if string.starts_with('"') => {
+                if string.len() == 1 {
+                    error::unmatched_delimiter(unit_path, '"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
                 }
 
+                TokenKind::Value(Value::Literal { 
+                    value: LiteralValue::String(escape_string(string, unit_path, &token, source))
+                })
+            },
+
+            // Characters within ''
+            string if string.starts_with('\'') => {
+                if string.len() == 1 {
+                    error::unmatched_delimiter(unit_path, '\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
+                }
+                
+                let s = escape_string(string, unit_path, &token, source);
+                if s.len() != 1 {
+                    error::invalid_char_literal(unit_path, s, &token, source, "Character literals can only be one character long")
+                }
+
+                TokenKind::Value(Value::Literal { 
+                    value: LiteralValue::Char(s.chars().next().unwrap())
+                })
+            },
+
+            // Reserved keywords
+            "fn" => TokenKind::Fn,
+            "return" => TokenKind::Op(Ops::Return),
+            "jmp" => TokenKind::Op(Ops::Jump),
+            "let" => TokenKind::Let,
+            "mut" => TokenKind::Mut,
+            "as" => TokenKind::As,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "while" => TokenKind::While,
+            "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true) }),
+            "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false) }),
+            
+            // Data types
+            "i8" => TokenKind::DataType(DataType::I8),
+            "i16" => TokenKind::DataType(DataType::I16),
+            "i32" => TokenKind::DataType(DataType::I32),
+            "i64" => TokenKind::DataType(DataType::I64),
+            "u8" => TokenKind::DataType(DataType::U8),
+            "u16" => TokenKind::DataType(DataType::U16),
+            "u32" => TokenKind::DataType(DataType::U32),
+            "u64" => TokenKind::DataType(DataType::U64),
+            "f32" => TokenKind::DataType(DataType::F32),
+            "f64" => TokenKind::DataType(DataType::F64),
+            "char" => TokenKind::DataType(DataType::Char),
+            "str" => TokenKind::DataType(DataType::String),
+            "void" => TokenKind::DataType(DataType::Void),
+            "bool" => TokenKind::DataType(DataType::Bool),
+            
+            // Variable names
+            string => {
+                if !is_symbol_name(string) {
+                    error::invalid_token(unit_path, &token, source, "Not a valid symbol name.")
+                }
+
+                TokenKind::Value(Value::Symbol { id: string })
             }
         };
 

@@ -36,6 +36,13 @@ pub struct Scope {
 #[derive(Debug, Copy, Clone)]
 pub struct ScopeID(usize);
 
+impl ScopeID {
+
+    pub const fn placeholder() -> Self {
+        Self(usize::MAX)
+    }
+}
+
 
 /// Struct containing the local symbols of a scope. 
 pub struct SymbolTable {

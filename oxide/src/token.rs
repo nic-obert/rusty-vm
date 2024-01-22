@@ -101,6 +101,8 @@ pub enum LiteralValue<'a> {
 
     Numeric (Number),
 
+    Bool (bool),
+
 }
 
 
@@ -117,6 +119,7 @@ impl LiteralValue<'_> {
                 Number::Uint(u) => if *u > std::u32::MAX as u64 { DataType::U64 } else { DataType::U32 },
                 Number::Float(f) => if *f > std::f32::MAX as f64 || *f < std::f32::MIN as f64 { DataType::F64 } else { DataType::F32 },
             },
+            LiteralValue::Bool(_) => DataType::Bool,
         }
     }
 
@@ -130,6 +133,7 @@ impl Display for LiteralValue<'_> {
             LiteralValue::String(s) => write!(f, "\"{}\"", s),
             LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
             LiteralValue::Numeric(n) => write!(f, "{}", n),
+            LiteralValue::Bool(b) => write!(f, "{}", b),
         }
     }
 }

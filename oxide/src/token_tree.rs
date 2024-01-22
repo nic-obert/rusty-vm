@@ -12,12 +12,21 @@ pub struct ScopeBlock<'a> {
     pub scope_id: ScopeID,
 }
 
-impl<'a> ScopeBlock<'a> {    
+impl ScopeBlock<'_> {    
 
     pub fn new(scope_id: ScopeID) -> Self {
         Self {
             statements: Vec::new(),
             scope_id,
+        }
+    }
+
+    pub fn return_type(&self) -> &DataType {
+        if let Some(last_statement) = self.statements.last() {
+            // Unwrap is safe because empty statements are removed
+            &last_statement.last_node().unwrap().data_type
+        } else {
+            &DataType::Void
         }
     }
 
@@ -27,6 +36,13 @@ impl std::fmt::Display for ScopeBlock<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#?}", self.statements)
     }
+}
+
+
+#[derive(Debug)]
+pub struct IfBlock<'a> {
+    pub condition: TokenNode<'a>,
+    pub body: ScopeBlock<'a>,
 }
 
 
@@ -44,7 +60,9 @@ pub enum ChildrenType<'a> {
     TypeCast { data_type: DataType, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
     Binary (Box<TokenNode<'a>>, Box<TokenNode<'a>>),
-    Unary (Box<TokenNode<'a>>)
+    Unary (Box<TokenNode<'a>>),
+    While { condition: Box<TokenNode<'a>>, body: ScopeBlock<'a> },
+    IfChain { if_chain: Vec<IfBlock<'a>>, else_block: Option<ScopeBlock<'a>> },
 }
 
 
@@ -91,6 +109,14 @@ impl<'a> TokenNode<'a> {
             None
         } else {
             Some(unsafe { &*self.left })
+        }
+    }
+
+    pub fn right(&'a self) -> Option<&'a TokenNode> {
+        if self.right.is_null() {
+            None
+        } else {
+            Some(unsafe { &*self.right })
         }
     }
 
@@ -427,6 +453,37 @@ impl std::fmt::Debug for TokenTree<'_> {
                     ChildrenType::Unary (op) => {
                         write_node(op, indent + 1, f)?;
                     },
+                    ChildrenType::While { condition, body } => {
+                        writeln!(f, "while")?;
+                        write_node(condition, indent + 1, f)?;
+                        writeln!(f, "do")?;
+                        for statement in body.statements.iter() {
+                            fmt(statement, indent + 1, f)?;
+                            write_indent(f, indent + 1)?;
+                            writeln!(f, "---")?;
+                        }
+                    },
+                    ChildrenType::IfChain { if_chain: ifs, else_block } => {
+                        for if_node in ifs.iter() {
+                            writeln!(f, "if")?;
+                            write_node(&if_node.condition, indent + 1, f)?;
+                            writeln!(f, "then")?;
+                            for statement in if_node.body.statements.iter() {
+                                fmt(statement, indent + 1, f)?;
+                                write_indent(f, indent + 1)?;
+                                writeln!(f, "---")?;
+                            }
+                        }
+
+                        if let Some(else_block) = else_block {
+                            writeln!(f, "else")?;
+                            for statement in else_block.statements.iter() {
+                                fmt(statement, indent + 1, f)?;
+                                write_indent(f, indent + 1)?;
+                                writeln!(f, "---")?;
+                            }
+                        }
+                    }
                 }
             }
             

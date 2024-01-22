@@ -1,2 +1,3 @@
-let arr: [i32] = [1,2,2];
-arr[arr[2] as u67]
+while true {
+    1+1;
+}

@@ -4,16 +4,14 @@ use crate::data_types::dt_macros::unsigned_integer_pattern;
 use crate::data_types::DataType;
 use crate::error;
 use crate::operations::Ops;
-use crate::token::LiteralValue;
-use crate::token::Value;
-use crate::token::TokenKind;
+use crate::token::{LiteralValue, TokenKind, Value};
 use crate::symbol_table::{Symbol, SymbolTable, ScopeID};
-use crate::token_tree::ChildrenType;
-use crate::token_tree::ScopeBlock;
-use crate::token_tree::TokenNode;
-use crate::token_tree::TokenTree;
+use crate::token_tree::{ChildrenType, IfBlock, ScopeBlock, TokenNode, TokenTree};
 
 
+/// Extract `target` from the given pattern if it matches, otherwise return `err`.
+/// 
+/// This macro should be used when a failing match means there's an error in the source code.
 macro_rules! match_or {
     ($pattern:pat = $expr:expr, $target:expr, $err:expr) => {
         if let $pattern = $expr {
@@ -24,12 +22,18 @@ macro_rules! match_or {
     };
 }
 
+/// Extract `target` from the given pattern if it matches, otherwise panic with a message.
+/// 
+/// This macro should be used only when the pattern is guaranteed to match. If it doesn't, it's an internal bug.
 macro_rules! match_unreachable {
     ($pattern:pat = $expr:expr, $target:expr) => {
-        if let $pattern = $expr {
-            $target
-        } else {
-            unreachable!()
+        {
+            let __tmp = $expr;
+            if let $pattern = __tmp {
+                $target
+            } else {
+                unreachable!("This pattern should always match, but expression evaluates to {:?}. This is a bug.", __tmp)
+            }
         }
     };
 }
@@ -163,9 +167,12 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
                 // Recursively parse the nested scope into separate statements
 
                 // Extract the scope statements from the scope token children if the scope isn't empty and convert them into a list of statements
-                if let Some(ChildrenType::Tree(children_tree)) = node_ref.children.take() {
-                    node_ref.children = Some(ChildrenType::Block(divide_statements(children_tree, symbol_table, Some(scope_id))));
-                }
+                node_ref.children = if let Some(ChildrenType::Tree(children_tree)) = node_ref.children.take() {
+                    Some(ChildrenType::Block(divide_statements(children_tree, symbol_table, Some(scope_id))))
+                } else {
+                    // Empty scope
+                    Some(ChildrenType::Block(ScopeBlock::new(ScopeID::placeholder())))
+                };
 
                 // Scopes are not their own statements: they are treated as expressions like in Rust.
 
@@ -335,6 +342,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
     
                 TokenKind::ParOpen => {
                     // Syntax: (<expression>)
+                    // Substitute the parenthesis node with its contents
 
                     // Extract the next token (either an expression or a closing parenthesis)
                     match extract_right!() {
@@ -378,12 +386,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                 },
     
                 TokenKind::ScopeOpen => {
-                    // Parse the children statements of the scope, if any.
+                    // Parse the children statements of the scope
                     // The children have already been extracted and divided into separate statements.
                     
-                    if let Some(ChildrenType::Block(statements)) = &mut op_node.children {
-                        parse_block_hierarchy(statements, symbol_table, source);
-                    }
+                    let statements = match_unreachable!(Some(ChildrenType::Block(statements)) = &mut op_node.children, statements);
+                    parse_block_hierarchy(statements, symbol_table, source);
                 },
     
                 TokenKind::Let => {
@@ -612,8 +619,92 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
 
                     op_node.children = Some(ChildrenType::TypeCast { data_type, expr });
                 },
+
+                TokenKind::If => {
+                    // Syntax: if <condition> { <body> } [else if <condition> { <body> }]... [else { <body> }]
+
+                    let mut if_chain: Vec<IfBlock> = Vec::new();
+                    let mut else_block: Option<ScopeBlock> = None;
+
+                    // The if operator node that is currently being parsed. Used for displaying correct error messages.
+                    let mut reference_if_operator: Option<Box<TokenNode>> = None;
+
+                    // Parse the if-else chain
+                    loop {
+
+                        let condition_node = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&reference_if_operator.as_ref().map(|node| node.as_ref()).unwrap_or(op_node).item, source, "Missing condition after if operator.")
+                        );
+                        if !is_expression(&condition_node.item.value) {
+                            error::type_error(&condition_node.item, &[DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after if.");
+                        }
+
+                        let mut if_body_node = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&reference_if_operator.as_ref().map(|node| node.as_ref()).unwrap_or(op_node).item, source, "Missing body after condition in if statement.")
+                        );
+                        if !matches!(if_body_node.item.value, TokenKind::ScopeOpen) {
+                            error::invalid_argument(&reference_if_operator.as_ref().map(|node| node.as_ref()).unwrap_or(op_node).item.value, &if_body_node.item, source, "Expected a body enclosed in curly braces after condition in if statement.");
+                        }
+
+                        if_chain.push(
+                            IfBlock {
+                                condition: *condition_node,
+                                body: match_unreachable!(Some(ChildrenType::Block(body)) = if_body_node.children.take(), body)
+                            }
+                        );
+
+                        // Check for further else-if blocks 
+                        // Use unsafe to circumvent the borrow checker not recognizing that the borrow ends right after the condition is checked
+                        if !matches!(unsafe { op_node.right.as_ref() }.map(|node| &node.item.value), Some(TokenKind::Else)) {
+                            // Next node is not an else branch, stop parsing the if-else chain
+                            break;
+                        }
+                        let else_node = extract_right!().unwrap(); // Unwrap is guaranteed to succeed because of the previous check
+
+                        let mut after_else_node = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&else_node.item, source, "Missing body after else.")
+                        );
+
+                        match after_else_node.item.value {
+                            TokenKind::If => {
+                                // Continue parsing the if-else chain
+                                // Update the reference if to this if node (for displaying correct error messages)
+                                reference_if_operator = Some(after_else_node);
+                            },
+                            TokenKind::ScopeOpen => {
+                                // if-else chain is finished
+                                else_block = Some(match_unreachable!(Some(ChildrenType::Block(body)) = after_else_node.children.take(), body));
+                                break;
+                            },
+                            _ => error::invalid_argument(&else_node.item.value, &after_else_node.item, source, "Expected an if or a body after else.")
+                        }
+                    }
+
+                    op_node.children = Some(ChildrenType::IfChain { if_chain, else_block })
+                },
+
+                TokenKind::While => {
+                    // Syntax: while <condition> { <body> }
+
+                    let condition_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing condition after while operator.")
+                    );
+                    if !is_expression(&condition_node.item.value) {
+                        error::type_error(&condition_node.item, &[DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after while.");
+                    }
+
+                    let mut body_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing body after condition in while loop.")
+                    );
+                    if !matches!(body_node.item.value, TokenKind::ScopeOpen) {
+                        error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a body enclosed in curly braces after condition in while loop.");
+                    }
+
+                    let scope_block = match_unreachable!(Some(ChildrenType::Block(scope_block)) = body_node.children.take(), scope_block);
+                    op_node.children = Some(ChildrenType::While { condition: condition_node, body: scope_block });
+                },
                 
-                _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", op_node.item.value)
+                _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}.", op_node.item.value)
             }
         }
 
@@ -1020,20 +1111,80 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
         TokenKind::ScopeOpen => {
             // Recursively resolve the types of the children statements
             // Determine the type of the scope based on the type of the last statement
-            // If the scope is empty (has no children), it evaluates to void
+            // If the scope is empty, it evaluates to void
 
-            if let Some(ChildrenType::Block(inner_block)) = &mut expression.children {
-                resolve_scope_types(inner_block, outer_function_return, symbol_table, source);
-                
-                assert!(inner_block.statements.last().is_some(), "Scope blocks must have at least one statement. This is a bug.");
-                let last_statement = inner_block.statements.last().unwrap();
+            let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut expression.children, inner_block);
 
-                assert!(last_statement.last_node().is_some(), "Statements cannot be empty. This is a bug.");
-                last_statement.last_node().unwrap().data_type.clone()
-            } else {
+            if inner_block.statements.is_empty() {
                 DataType::Void
+            } else {
+                resolve_scope_types(inner_block, outer_function_return, symbol_table, source);
+                inner_block.return_type().clone()
             }
         },
+
+        TokenKind::If => {
+            // Recursively resolve the types of the if-else chain
+            // The return type of the chain is the return type of the conditional blocks
+
+            let mut chain_return_type: Option<DataType> = None;
+
+            let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut expression.children, (if_chain, else_block));
+
+            for if_block in if_chain {
+                resolve_expression_types(&mut if_block.condition, scope_id, outer_function_return, symbol_table, source);
+                resolve_scope_types(&mut if_block.body, outer_function_return, symbol_table, source);
+
+                // Check if the return types match
+                if let Some(return_type) = &chain_return_type {
+                    if if_block.body.return_type() != return_type {
+                        // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
+                        let culprit_token = if let Some(last_statement) = if_block.body.statements.last() {
+                            &last_statement.last_node().unwrap().item
+                        } else {
+                            &expression.item
+                        };
+                        error::type_error(culprit_token, &[return_type.name()], if_block.body.return_type(), source, "Mismatched return type in if-else chain.");
+                    }
+                } else {
+                    chain_return_type = Some(if_block.body.return_type().clone());
+                }
+            }
+
+            if let Some(else_block) = else_block {
+                resolve_scope_types(else_block, outer_function_return, symbol_table, source);
+
+                // Check if the return types match
+                // Unwrap is safe because the else block is guaranteed to be preceeded by an if block, which sets the chain_return_type
+                if else_block.return_type() != chain_return_type.as_ref().unwrap() {
+                    // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
+                    let culprit_token = if let Some(last_statement) = else_block.statements.last() {
+                        &last_statement.last_node().unwrap().item
+                    } else {
+                        &expression.item
+                    };
+                    error::type_error(culprit_token, &[chain_return_type.unwrap().name()], else_block.return_type(), source, "Mismatched return type in if-else chain.");
+                }
+            }
+
+            // Unwrap is safe because the if-else chain is guaranteed to have at least one if block, which sets the chain_return_type
+            chain_return_type.unwrap()
+        },
+
+        TokenKind::While => {
+            
+            let (condition_node, body_block) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut expression.children, (condition, body));
+
+            resolve_expression_types(condition_node, scope_id, outer_function_return, symbol_table, source);
+            resolve_scope_types(body_block, outer_function_return, symbol_table, source);
+
+            // Assert that the condition is a boolean
+            if !matches!(&condition_node.data_type, DataType::Bool) {
+                error::type_error(&condition_node.item, &[DataType::Bool.name()], &condition_node.data_type, source, "While loop condition must be a boolean.");
+            }
+
+            DataType::Void
+        }
 
         _ => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
     };
@@ -1059,9 +1210,42 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&Da
 }
 
 
-/// Reduce the number of operations by evaluating constant expressions
-fn reduce_operations(block: &mut ScopeBlock, symbol_table: &SymbolTable, source: &IRCode) {
+/// Reduce the operations down the node and return whether the node can be eliminated because it has no effect
+fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut SymbolTable, source: &IRCode) -> bool {
+
+    match node.item.value {
+        TokenKind::Op(_) => todo!(),
+        TokenKind::Value(_) => todo!(),
+        TokenKind::DataType(_) => todo!(),
+        TokenKind::Fn => todo!(),
+        TokenKind::As => todo!(),
+        TokenKind::If => todo!(),
+        TokenKind::Else => todo!(),
+        TokenKind::While => todo!(),
+        TokenKind::ArrayOpen => todo!(),
+        TokenKind::ScopeOpen => todo!(),
+
+        _ => unreachable!("These tokens shoud have been removed (not operators).")
+    }
+
     todo!()
+}
+
+
+/// Reduce the number of operations by evaluating constant expressions
+fn reduce_operations_block(block: &mut ScopeBlock, symbol_table: &mut SymbolTable, source: &IRCode) {
+    // Depth-first traversal to evaluate constant expressions and remove unnecessary operations
+
+    for statement in &mut block.statements {
+
+        let mut node_ptr = statement.first;
+        while let Some(node) = unsafe { node_ptr.as_mut() } {
+
+            reduce_operations(node, block.scope_id, symbol_table, source);
+
+            node_ptr = node.right;
+        }
+    }
 }
 
 
@@ -1084,7 +1268,7 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
 
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
-    reduce_operations(&mut outer_block, &symbol_table, source);
+    reduce_operations_block(&mut outer_block, &mut symbol_table, source);
 
     (outer_block, symbol_table)
 }
