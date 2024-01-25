@@ -13,7 +13,7 @@ use crate::token::{StringToken, Token, TokenKind};
 const SOURCE_CONTEXT_RADIUS: u8 = 3;
 
 
-pub fn warn(message: &str) {
+pub fn warn(token: &Token, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
         ⚠️  Warning: {}
         ",
@@ -240,6 +240,23 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
         ❌ Error in ir unit \"{}\"
 
         Syntax error at line {}:{}:
+
+        ",
+        token.unit_path.display(), token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+
+
+pub fn compiletime_operation_error(token: &Token, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Compiletime operation error at line {}:{}:
 
         ",
         token.unit_path.display(), token.token.line_number(), token.token.column

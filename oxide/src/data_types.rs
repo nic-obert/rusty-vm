@@ -1,7 +1,5 @@
 use std::fmt::{Display, Debug};
 
-use crate::token::{LiteralValue, Number};
-
 use self::dt_macros::numeric_pattern;
 
 
@@ -34,7 +32,7 @@ pub enum DataType {
     Void,
     
     /// This data type is only used internally and is not available in the language.
-    Any,
+    Any
 }
 
 /// Useful macros for working with data types.
@@ -207,7 +205,7 @@ impl DataType {
     }
 
     /// May return leaked strings, but it's ok because this function is only used before the program exits to print errors.
-    pub fn name(&self) -> &str {
+    pub fn name_leaked(&self) -> &str {
         match self {
             DataType::Bool => "bool",
             DataType::Char => "char",
@@ -227,13 +225,13 @@ impl DataType {
             DataType::Function { params, return_type } => {
                 let mut name = String::from("fn(");
                 for (i, param) in params.iter().enumerate() {
-                    name.push_str(param.name());
+                    name.push_str(param.name_leaked());
                     if i < params.len() - 1 {
                         name.push_str(", ");
                     }
                 }
                 name.push_str(") -> ");
-                name.push_str(return_type.name());
+                name.push_str(return_type.name_leaked());
                 Box::leak(name.into_boxed_str())
             },
             DataType::Void => "void",
@@ -246,13 +244,133 @@ impl DataType {
 
 impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
+        f.write_str(self.name_leaked())
     }
 }
 
 impl Debug for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
+        f.write_str(self.name_leaked())
+    }
+}
+
+
+#[derive(Debug, PartialEq)]
+pub enum Number {
+
+    Int(i64),
+    Uint(u64),
+    Float(f64)
+
+}
+
+impl Number {
+
+    pub fn add(&self, other: &Number) -> Number {
+        match (self, other) {
+            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 + n2),
+            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 + n2),
+            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 + n2),
+            _ => unreachable!("Cannot add different numeric types {:?} and {:?}", self, other)
+        }
+    }
+
+    pub fn sub(&self, other: &Number) -> Number {
+        match (self, other) {
+            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 - n2),
+            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 - n2),
+            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 - n2),
+            _ => unreachable!("Cannot subtract different numeric types {:?} and {:?}", self, other)
+        }
+    }
+
+    pub fn mul(&self, other: &Number) -> Number {
+        match (self, other) {
+            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 * n2),
+            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 * n2),
+            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 * n2),
+            _ => unreachable!("Cannot multiply different numeric types {:?} and {:?}", self, other)
+        }
+    }
+
+    pub fn div(&self, other: &Number) -> Result<Number, ()> {
+        match (self, other) {
+            (Number::Int(n1), Number::Int(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Int(n1 / n2)) },
+            (Number::Uint(n1), Number::Uint(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Uint(n1 / n2)) },
+            (Number::Float(n1), Number::Float(n2)) => if *n2 == 0.0 { Err(()) } else { Ok(Number::Float(n1 / n2)) },
+            _ => unreachable!("Cannot divide different numeric types {:?} and {:?}", self, other)
+        }
+    }
+
+    pub fn modulo(&self, other: &Number) -> Result<Number, ()> {
+        match (self, other) {
+            (Number::Int(n1), Number::Int(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Int(n1 % n2)) },
+            (Number::Uint(n1), Number::Uint(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Uint(n1 % n2)) },
+            (Number::Float(n1), Number::Float(n2)) => if *n2 == 0.0 { Err(()) } else { Ok(Number::Float(n1 % n2)) },
+            _ => unreachable!("Cannot modulo different numeric types {:?} and {:?}", self, other)
+        }
+    }
+
+
+    
+}
+
+
+impl Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Number::Int(n) => write!(f, "{}", n),
+            Number::Uint(n) => write!(f, "{}", n),
+            Number::Float(n) => write!(f, "{}", n),
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq)]
+pub enum LiteralValue<'a> {
+
+    Char (char),
+    String (&'a str),
+
+    Array { element_type: DataType, items: Vec<LiteralValue<'a>> },
+
+    Numeric (Number),
+
+    Bool (bool),
+
+}
+
+
+impl LiteralValue<'_> {
+
+    pub fn data_type(&self) -> DataType {
+        match self {
+            LiteralValue::Char(_) => DataType::Char,
+            LiteralValue::String(_) => DataType::String,
+            LiteralValue::Array { element_type: dt, .. } => DataType::Array(Box::new(dt.clone())),
+            LiteralValue::Numeric(n) => match n {
+                // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
+                Number::Int(i) => if *i > std::i32::MAX as i64 || *i < std::i32::MIN as i64 { DataType::I64 } else { DataType::I32 },
+                Number::Uint(u) => if *u > std::u32::MAX as u64 { DataType::U64 } else { DataType::U32 },
+                Number::Float(f) => if *f > std::f32::MAX as f64 || *f < std::f32::MIN as f64 { DataType::F64 } else { DataType::F32 },
+            },
+            LiteralValue::Bool(_) => DataType::Bool,
+        }
+    }
+
+}
+
+
+impl Display for LiteralValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LiteralValue::Char(c) => write!(f, "'{}'", c),
+            LiteralValue::String(s) => write!(f, "\"{}\"", s),
+            LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
+            LiteralValue::Numeric(n) => write!(f, "{}", n),
+            LiteralValue::Bool(b) => write!(f, "{}", b),
+        }
     }
 }
 

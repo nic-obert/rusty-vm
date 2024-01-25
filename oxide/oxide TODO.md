@@ -6,14 +6,17 @@ Project Description
 
 ### Todo
 
+- [ ] add a -o flag to enable optimizations. optimizations should be disabled by default  
+- [ ] implement const functions  
+- [ ] implement type inference for variable declaration. valid only if variable is immediately initialized.  
 - [ ] implement module system  
 - [ ] implement enums  
 - [ ] implement structs  
-- [ ] implement oprimizations  
 - [ ] differentiate between string literals (stack) and heap-allocated strings  
 
 ### In Progress
 
+- [ ] implement oprimizations  
 - [ ] write a function like "reduce_operations()" to evaluate compile-time operations  
 
 ### Done ✓

@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 use crate::operations::Ops;
-use crate::data_types::DataType;
+use crate::data_types::{DataType, LiteralValue};
 
 
 #[derive(Debug)]
@@ -71,75 +71,6 @@ impl Display for Value<'_> {
 
 
 #[derive(Debug, PartialEq)]
-pub enum Number {
-
-    Int(i64),
-    Uint(u64),
-    Float(f64)
-
-}
-
-
-impl Display for Number {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Number::Int(n) => write!(f, "{}", n),
-            Number::Uint(n) => write!(f, "{}", n),
-            Number::Float(n) => write!(f, "{}", n),
-        }
-    }
-}
-
-
-#[derive(Debug, PartialEq)]
-pub enum LiteralValue<'a> {
-
-    Char (char),
-    String (&'a str),
-
-    Array { element_type: DataType, items: Vec<LiteralValue<'a>> },
-
-    Numeric (Number),
-
-    Bool (bool),
-
-}
-
-
-impl LiteralValue<'_> {
-
-    pub fn data_type(&self) -> DataType {
-        match self {
-            LiteralValue::Char(_) => DataType::Char,
-            LiteralValue::String(_) => DataType::String,
-            LiteralValue::Array { element_type: dt, .. } => DataType::Array(Box::new(dt.clone())),
-            LiteralValue::Numeric(n) => match n {
-                // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
-                Number::Int(i) => if *i > std::i32::MAX as i64 || *i < std::i32::MIN as i64 { DataType::I64 } else { DataType::I32 },
-                Number::Uint(u) => if *u > std::u32::MAX as u64 { DataType::U64 } else { DataType::U32 },
-                Number::Float(f) => if *f > std::f32::MAX as f64 || *f < std::f32::MIN as f64 { DataType::F64 } else { DataType::F32 },
-            },
-            LiteralValue::Bool(_) => DataType::Bool,
-        }
-    }
-
-}
-
-
-impl Display for LiteralValue<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LiteralValue::Char(c) => write!(f, "'{}'", c),
-            LiteralValue::String(s) => write!(f, "\"{}\"", s),
-            LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
-            LiteralValue::Numeric(n) => write!(f, "{}", n),
-            LiteralValue::Bool(b) => write!(f, "{}", b),
-        }
-    }
-}
-
-
-#[derive(Debug, PartialEq)]
 pub enum TokenKind<'a> {
 
     Op (Ops),
@@ -154,6 +85,7 @@ pub enum TokenKind<'a> {
     If,
     Else,
     While,
+    Loop,
 
     Arrow,
     Semicolon,
@@ -226,7 +158,6 @@ impl TokenKind<'_> {
                  => Priority::Mul_Div_Mod,
 
                 Ops::Return |
-                Ops::Jump |
                 Ops::Assign
                  => Priority::Least_Assignment_FlowBreak,
 
@@ -294,7 +225,8 @@ impl TokenKind<'_> {
             
             TokenKind::If |
             TokenKind::Else |
-            TokenKind::While
+            TokenKind::While |
+            TokenKind::Loop
              => Priority::ControlFlow,
 
         } as i32)
@@ -359,6 +291,7 @@ impl Display for Token<'_> {
             TokenKind::If => write!(f, "if"),
             TokenKind::Else => write!(f, "else"),
             TokenKind::While => write!(f, "while"),
+            TokenKind::Loop => write!(f, "loop"),
         }
     }
 }

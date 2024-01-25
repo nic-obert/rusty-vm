@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use crate::data_types::DataType;
-use crate::token::{TokenKind, LiteralValue, Number, Token, Priority, StringToken};
+use crate::data_types::{DataType, LiteralValue, Number};
+use crate::token::{TokenKind, Token, Priority, StringToken};
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
@@ -377,13 +377,13 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             // Reserved keywords
             "fn" => TokenKind::Fn,
             "return" => TokenKind::Op(Ops::Return),
-            "jmp" => TokenKind::Op(Ops::Jump),
             "let" => TokenKind::Let,
             "mut" => TokenKind::Mut,
             "as" => TokenKind::As,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
+            "loop" => TokenKind::Loop,
             "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true) }),
             "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false) }),
             

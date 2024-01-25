@@ -1,7 +1,27 @@
 use std::fmt::Display;
 
-use crate::data_types::DataType;
+use crate::data_types::{DataType, LiteralValue};
 use crate::data_types::dt_macros::*;
+use crate::match_unreachable;
+
+
+pub mod op_macros {
+
+    #[macro_export]
+    macro_rules! binary_operators {
+        () => {
+            Ops::Add | Ops::Sub | Ops::Mul | Ops::Div | Ops::Mod | Ops::Equal | Ops::NotEqual | Ops::Greater | Ops::Less | Ops::GreaterEqual | Ops::LessEqual | Ops::LogicalAnd | Ops::LogicalOr | Ops::BitShiftLeft | Ops::BitShiftRight | Ops::BitwiseOr | Ops::BitwiseAnd | Ops::BitwiseXor | Ops::ArrayIndexOpen | Ops::Assign
+        };
+    }
+
+    #[macro_export]
+    macro_rules! unary_operators {
+        () => {
+            Ops::Deref | Ops::Ref | Ops::LogicalNot | Ops::BitwiseNot
+        };
+    }
+
+}
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -17,7 +37,6 @@ pub enum Ops {
     Ref,
     FunctionCallOpen,
     Return,
-    Jump,
     Equal,
     NotEqual,
     Greater,
@@ -100,9 +119,7 @@ impl Ops {
              => true,
 
             Ops::FunctionCallOpen => matches!(data_type, DataType::Function { .. }),
-            Ops::Return => true,
-            Ops::Jump => matches!(data_type, unsigned_integer_pattern!()),
-            
+            Ops::Return => true,            
             
             Ops::LogicalNot |
             Ops::LogicalAnd |
@@ -157,7 +174,6 @@ impl Ops {
 
             Ops::FunctionCallOpen => &["function"],
 
-            Ops::Jump |
             Ops::ArrayIndexOpen
              => &["unsigned integer"],
 
@@ -177,6 +193,90 @@ impl Ops {
         }
     }
 
+
+    pub fn is_allowed_at_compile_time(&self) -> bool {
+        match self {
+            Ops::Add |
+            Ops::Sub |
+            Ops::Mul |
+            Ops::Div |
+            Ops::Mod |
+            Ops::Equal |
+            Ops::NotEqual |
+            Ops::Greater |
+            Ops::Less |
+            Ops::GreaterEqual |
+            Ops::LessEqual |
+            Ops::LogicalNot |
+            Ops::BitwiseNot |
+            Ops::LogicalAnd |
+            Ops::LogicalOr |
+            Ops::BitShiftLeft |
+            Ops::BitShiftRight |
+            Ops::BitwiseOr |
+            Ops::BitwiseAnd |
+            Ops::BitwiseXor |
+            Ops::ArrayIndexOpen
+             => true,
+
+            Ops::Deref |
+            Ops::Assign |
+            Ops::Ref |
+            Ops::FunctionCallOpen |
+            Ops::Return
+             => false
+        }
+    }
+
+    pub fn execute(self, args: &[&LiteralValue]) -> Result<LiteralValue<'static>, &'static str> {
+        match self {
+            Ops::Add => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.add(n2)))
+            },
+            Ops::Sub => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.sub(n2)))
+            },
+            Ops::Mul => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.mul(n2)))
+            },
+            Ops::Div => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                match n1.div(n2) {
+                    Ok(n) => Ok(LiteralValue::Numeric(n)),
+                    Err(_) => Err("Division by zero")
+                }
+            },
+            Ops::Mod => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                match n1.modulo(n2) {
+                    Ok(n) => Ok(LiteralValue::Numeric(n)),
+                    Err(_) => Err("Division by zero")
+                }
+            },
+            Ops::Equal => todo!(),
+            Ops::NotEqual => todo!(),
+            Ops::Greater => todo!(),
+            Ops::Less => todo!(),
+            Ops::GreaterEqual => todo!(),
+            Ops::LessEqual => todo!(),
+            Ops::LogicalNot => todo!(),
+            Ops::BitwiseNot => todo!(),
+            Ops::LogicalAnd => todo!(),
+            Ops::LogicalOr => todo!(),
+            Ops::BitShiftLeft => todo!(),
+            Ops::BitShiftRight => todo!(),
+            Ops::BitwiseOr => todo!(),
+            Ops::BitwiseAnd => todo!(),
+            Ops::BitwiseXor => todo!(),
+            Ops::ArrayIndexOpen => todo!(),
+
+            _ => unreachable!("Operator {:?} cannot be executed at compile-time", self)
+        }
+    }
+
 }
 
 
@@ -193,7 +293,6 @@ impl Display for Ops {
             Ops::Ref => "Ref",
             Ops::FunctionCallOpen => "Call",
             Ops::Return => "return",
-            Ops::Jump => "jmp",
             Ops::Equal => "==",
             Ops::NotEqual => "!=",
             Ops::Greater => ">",

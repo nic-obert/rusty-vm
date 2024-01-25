@@ -8,6 +8,7 @@ mod error;
 mod parser;
 mod symbol_table;
 mod token_tree;
+mod utils;
 
 use std::path::Path;
 
