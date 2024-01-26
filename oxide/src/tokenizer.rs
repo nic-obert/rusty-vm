@@ -188,7 +188,7 @@ impl TokenizerStatus {
 
 
 /// Divide the source code into meaningful string tokens
-fn lex<'a>(source: &'a IRCode) -> Vec<StringToken<'a>> {
+fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
     source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {

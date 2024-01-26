@@ -1,7 +1,7 @@
 use rust_vm_lib::ir::IRCode;
 
-use crate::data_types::dt_macros::unsigned_integer_pattern;
 use crate::data_types::{DataType, LiteralValue};
+use crate::error::WarnResult;
 use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
@@ -163,7 +163,7 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
 }
 
 
-fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTable, source: &IRCode) {
     // Recursively parse the statements' hierarchy
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
@@ -390,10 +390,14 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                     );
 
                     // Declare the new symbol in the local scope
-                    symbol_table.declare_symbol(
-                        Symbol::new(symbol_name.to_string(), data_type, mutable),
+                    let res = symbol_table.declare_symbol(
+                        symbol_name.to_string(),
+                        Symbol { data_type, mutable, initialized: false },
                         block.scope_id
                     );
+                    if let Some(warning) = res.warning() {
+                        error::warn(&name_token.item, source, warning);
+                    }
     
                     // Transform this node into a symbol node (the declatataor let is no longer needed since the symbol is already declared)
                     op_node.substitute(*name_token);
@@ -456,15 +460,20 @@ fn parse_block_hierarchy(block: &mut ScopeBlock, symbol_table: &mut SymbolTable,
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a function body enclosed in curly braces.");
                     };
                     
-                    
                     let function_type = DataType::Function { 
                         params: params.iter().map(|param| param.1.clone()).collect(), // Take only the data type of the parameter
                         return_type: Box::new(return_type.clone())
                     };
-                    symbol_table.declare_symbol(
-                        Symbol::new(function_name.to_string(), function_type, false), // mutable = false because functions are not mutable
+
+                    let res = symbol_table.declare_symbol(
+                        function_name.to_string(),
+                        // mutable is set to false because functions are not mutable
+                        Symbol { data_type: function_type, mutable: false, initialized: true },
                         block.scope_id
                     );
+                    if let Some(warning) = res.warning() {
+                        error::warn(&name_node.item, source, warning);
+                    }
 
                     op_node.children = Some(ChildrenType::Function { name: function_name, params, return_type, body });
                 },
@@ -752,7 +761,7 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 
 
 /// Recursively resolve the type of this expression and check if its children have the correct types.
-fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<&DataType>, symbol_table: &SymbolTable, source: &IRCode) {
+fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<&DataType>, symbol_table: &mut SymbolTable, source: &IRCode) {
 
     expression.data_type = match &expression.item.value {
 
@@ -951,8 +960,20 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
                     resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
 
-                    // TODO: Check if the left operand is mutable. Add a "initialized" field for the Symbol struct in the symbol table
+                    // Assert that the symbol can be assigned to (is mutable or immutable and uninitialized)
+                    if let TokenKind::Value(Value::Symbol { id: symbol_id }) = &l_node.item.value {
 
+                        // Unwrap is safe because symbols have already been checked to be valid
+                        let symbol = symbol_table.get(scope_id, symbol_id).unwrap();
+                        
+                        if !symbol.initialized {
+                            symbol_table.set_initialized(scope_id, symbol_id);
+                            
+                        } else if !symbol.mutable {
+                            error::type_error(&l_node.item, &[symbol.data_type.name_leaked()], &l_node.data_type, source, "Cannot assign to immutable symbol.");
+                        }
+                    }
+                    
                     // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
                     let r_value = r_node.item.value.literal_value();
                     if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value) {
@@ -1161,7 +1182,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 
 /// Resolve and check the types of symbols and expressions.
-fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&DataType>, symbol_table: &SymbolTable, source: &IRCode) {
+fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&DataType>, symbol_table: &mut SymbolTable, source: &IRCode) {
     // Perform a depth-first traversal of the scope tree to determine the types in a top-to-bottom order (relative to the source code).
     // For every node in every scope, determine the node data type and check if it matches the expected type.
 
@@ -1182,7 +1203,7 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&Da
 /// Reduce the operations down the node by evaluating constant expressions.
 /// 
 /// Return whether the node can be removed because it has no effect.
-fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut SymbolTable, source: &IRCode) -> bool {
+fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
 
     const SHOULD_BE_REMOVED: bool = true;
     const SHOULD_NOT_BE_REMOVED: bool = false;
@@ -1193,8 +1214,8 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
             binary_operators!() => {
                 let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
 
-                reduce_operations(op1, scope_id, symbol_table, source);
-                reduce_operations(op2, scope_id, symbol_table, source);
+                reduce_operations(op1, source);
+                reduce_operations(op2, source);
 
                 if !op.is_allowed_at_compile_time() || (op1.item.value.literal_value().is_none() && op2.item.value.literal_value().is_none()) {
                     return SHOULD_NOT_BE_REMOVED;
@@ -1210,15 +1231,12 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
                 };
 
                 node.item.value = TokenKind::Value(Value::Literal { value: res });
-                
-                // Drop the children since the operation is completed
-                node.children = None;
             },
 
             unary_operators!() => {
                 let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut node.children, operand);
 
-                reduce_operations(operand, scope_id, symbol_table, source);
+                reduce_operations(operand, source);
 
                 if !op.is_allowed_at_compile_time() || operand.item.value.literal_value().is_none() {
                     return SHOULD_NOT_BE_REMOVED;
@@ -1234,24 +1252,21 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
                 };
 
                 node.item.value = TokenKind::Value(Value::Literal { value: res });
-
-                // Drop the children since the operation is completed
-                node.children = None;
             },
 
             Ops::Return => if let Some(expr) = &mut node.children {
                 let expr = match_unreachable!(ChildrenType::Unary(expr) = expr, expr);
 
-                reduce_operations(expr, scope_id, symbol_table, source);
+                reduce_operations(expr, source);
             },
             
-            Ops::FunctionCallOpen => todo!(),
+            Ops::FunctionCallOpen => todo!(), // Maybe with const functions / if all arguments are literals
         },
 
         TokenKind::While => {
             let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut node.children, (condition, body));
 
-            reduce_operations(condition, scope_id, symbol_table, source);
+            reduce_operations(condition, source);
 
             if let Some(condition_value) = condition.item.value.literal_value() {
                 let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
@@ -1261,7 +1276,7 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
 
                     error::warn(&condition.item, source, "While loop condition is always true. This loop will be converted to an unconditional loop.");
 
-                    reduce_operations_block(body, symbol_table, source);
+                    reduce_operations_block(body, source);
 
                     node.item.value = TokenKind::Loop;
                     node.children = Some(ChildrenType::Block(
@@ -1276,11 +1291,74 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
             }
         },
 
-        TokenKind::Fn => todo!(),
-        TokenKind::As => todo!(),
-        TokenKind::If => todo!(),
-        TokenKind::ArrayOpen => todo!(),
-        TokenKind::ScopeOpen => todo!(),
+        TokenKind::As => {
+            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { expr, data_type }) = &mut node.children, (data_type, expr));
+
+            reduce_operations(expr, source);
+
+            if expr.data_type == *target_type {
+                // No need to perform the cast
+                // Return directly the expression
+
+                let expr = match_unreachable!(Some(ChildrenType::TypeCast { expr, .. }) = node.children.take(), expr);
+
+                node.substitute(*expr);
+
+                return SHOULD_NOT_BE_REMOVED;
+            }
+            // The cast is to be performed
+
+            // Cannot cast at compile-time if the expression value is unknown (not a literal)
+            if expr.item.value.literal_value().is_none() {
+                return SHOULD_NOT_BE_REMOVED;
+            }
+
+            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { data_type, expr }) = node.children.take(), (data_type, expr));
+            let value = match_unreachable!(TokenKind::Value(Value::Literal { value }) = expr.item.value, value);
+
+            let new_value = LiteralValue::from_cast(value, &expr.data_type, &target_type);
+
+            node.item.value = TokenKind::Value(Value::Literal { value: new_value });
+            node.data_type = expr.data_type;
+        },
+
+        TokenKind::Fn => {
+            let (_return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut node.children, (return_type, body));
+
+            reduce_operations_block(body, source);
+        },
+
+        TokenKind::If => {
+            let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut node.children, (if_chain, else_block));
+
+            for if_block in if_chain {
+                reduce_operations(&mut if_block.condition, source);
+                reduce_operations_block(&mut if_block.body, source);
+            }
+
+            if let Some(else_block) = else_block {
+                reduce_operations_block(else_block, source);
+            }
+        },
+
+        TokenKind::ArrayOpen => {
+            let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut node.children, elements);
+
+            for element in elements {
+                reduce_operations(element, source);
+            }
+        },
+
+        TokenKind::ScopeOpen => {
+            let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut node.children, inner_block);
+
+            reduce_operations_block(inner_block, source);
+
+            if inner_block.statements.is_empty() {
+                // Empty scopes can be removed
+                return SHOULD_BE_REMOVED;
+            }
+        },
 
         TokenKind::Value(_) => {
             // Values are already reduced to the minimum
@@ -1295,7 +1373,7 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
 
 
 /// Reduce the number of operations by evaluating constant expressions
-fn reduce_operations_block(block: &mut ScopeBlock, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode) {
     // Depth-first traversal to evaluate constant expressions and remove unnecessary operations
 
     for statement in &mut block.statements {
@@ -1303,7 +1381,7 @@ fn reduce_operations_block(block: &mut ScopeBlock, symbol_table: &mut SymbolTabl
         let mut node_ptr = statement.first;
         while let Some(node) = unsafe { node_ptr.as_mut() } {
 
-            if reduce_operations(node, block.scope_id, symbol_table, source) {
+            if reduce_operations(node, source) {
                 // Remove the useless node 
                 let next_node = node.right;
                 statement.extract_node(node_ptr).expect("Node should have been removed.");
@@ -1318,7 +1396,7 @@ fn reduce_operations_block(block: &mut ScopeBlock, symbol_table: &mut SymbolTabl
 
 
 /// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<'a>, SymbolTable) {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode) -> (ScopeBlock<'a>, SymbolTable) {
 
     parse_scope_hierarchy(&mut tokens);
 
@@ -1332,11 +1410,11 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &IRCode) -> (ScopeBlock<
 
     println!("\n\nStatement hierarchy:\n{}", outer_block);
 
-    resolve_scope_types(&mut outer_block, None, &symbol_table, source);
+    resolve_scope_types(&mut outer_block, None, &mut symbol_table, source);
 
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
-    reduce_operations_block(&mut outer_block, &mut symbol_table, source);
+    reduce_operations_block(&mut outer_block, source);
 
     (outer_block, symbol_table)
 }

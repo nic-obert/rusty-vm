@@ -219,11 +219,11 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor |
+            Ops::Assign |
             Ops::ArrayIndexOpen
              => true,
 
             Ops::Deref |
-            Ops::Assign |
             Ops::Ref |
             Ops::FunctionCallOpen |
             Ops::Return

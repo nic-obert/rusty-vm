@@ -1,5 +1,7 @@
 use std::{borrow::Cow, fmt::{Display, Debug}};
 
+use crate::match_unreachable;
+
 use self::dt_macros::numeric_pattern;
 
 
@@ -29,10 +31,7 @@ pub enum DataType {
 
     Function { params: Vec<DataType>, return_type: Box<DataType> },
 
-    Void,
-    
-    /// This data type is only used internally and is not available in the language.
-    Any
+    Void
 }
 
 /// Useful macros for working with data types.
@@ -86,6 +85,29 @@ pub mod dt_macros {
 
 impl DataType {
 
+    /// Return the size of the data type in bytes, if it is known at compile-time.
+    pub const fn static_size(&self) -> Option<usize> {
+        match self {
+            DataType::Bool => Some(1),
+            DataType::Char => Some(1),
+            DataType::String => None,
+            DataType::Array(_) => None,
+            DataType::Ref(_) => Some(8),
+            DataType::I8 => Some(1),
+            DataType::I16 => Some(2),
+            DataType::I32 => Some(4),
+            DataType::I64 => Some(8),
+            DataType::U8 => Some(1),
+            DataType::U16 => Some(2),
+            DataType::U32 => Some(4),
+            DataType::U64 => Some(8),
+            DataType::F32 => Some(4),
+            DataType::F64 => Some(8),
+            DataType::Function { .. } => None,
+            DataType::Void => None,
+        }
+    }
+
     pub fn is_castable_to(&self, target: &DataType) -> bool {
         // A data type is always castable to itself.
         if self == target {
@@ -105,6 +127,13 @@ impl DataType {
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
             // A pointer is castable to any other reference and to u64 (for pointer arithmetic).
             DataType::Ref(_) => matches!(target, DataType::Ref(_) | DataType::U64),
+            
+            DataType::Bool => matches!(target, integer_pattern!()),
+
+            DataType::Array(element_type) => if let DataType::Array(target_element_type) = target {
+                // An array is castable to another array if the element type is implicitly castable to the target element type.
+                element_type.is_implicitly_castable_to(target_element_type, None)
+            } else { false },
 
             // Other type casts are not allowed.
             _ => false
@@ -114,8 +143,8 @@ impl DataType {
 
     /// Return whether `self` is implicitly castable to `target`.
     pub fn is_implicitly_castable_to(&self, target: &DataType, self_value: Option<&LiteralValue>) -> bool {
-        // A data type is always implicitly castable to itself and to Any (internal-only).
-        if self == target || matches!(target, DataType::Any) {
+        // A data type is always implicitly castable to itself
+        if self == target {
             return true;
         }
 
@@ -237,7 +266,6 @@ impl DataType {
                 Box::leak(name.into_boxed_str())
             },
             DataType::Void => "void",
-            DataType::Any => "any"
         }
     }
 
@@ -378,6 +406,107 @@ pub enum LiteralValue<'a> {
 
 impl LiteralValue<'_> {
 
+    /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
+    /// 
+    /// Assumes that the target type is not the source type.
+    /// 
+    /// This function can perform only compile-time casts.
+    pub fn from_cast(src_value: LiteralValue<'_>, src_type: &DataType, target_type: &DataType) -> Self {
+        
+        assert!(src_type.is_castable_to(target_type));
+        assert_ne!(src_type, target_type);
+
+        match src_type {
+
+            DataType::Bool => {
+                let value = match_unreachable!(LiteralValue::Bool(value) = src_value, value);
+                match target_type {
+                    unsigned_integer_pattern!() => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    signed_integer_pattern!() => LiteralValue::Numeric(Number::Int(value as i64)),
+                    _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
+                }
+            },
+
+            DataType::Char => {
+                let ch = match_unreachable!(LiteralValue::Char(ch) = src_value, ch);
+                match target_type {
+                    DataType::I8 => LiteralValue::Numeric(Number::Int(ch as i64)),
+                    DataType::U8 => LiteralValue::Numeric(Number::Uint(ch as u64)),
+                    _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
+                }
+            },
+
+            unsigned_integer_pattern!() => {
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Uint(value)) = src_value, value);
+                match target_type {
+                    DataType::Bool => LiteralValue::Bool(value != 0),
+                    DataType::Char => LiteralValue::Char(value as u8 as char),
+                    DataType::I8 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I16 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I32 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I64 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::U8 => LiteralValue::Numeric(Number::Uint(value)),
+                    DataType::U16 => LiteralValue::Numeric(Number::Uint(value)),
+                    DataType::U32 => LiteralValue::Numeric(Number::Uint(value)),
+                    DataType::U64 => LiteralValue::Numeric(Number::Uint(value)),
+                    DataType::F32 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    DataType::F64 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
+                }
+            },
+
+            signed_integer_pattern!() => {
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Int(value)) = src_value, value);
+                match target_type {
+                    DataType::Bool => LiteralValue::Bool(value != 0),
+                    DataType::Char => LiteralValue::Char(value as u8 as char),
+                    DataType::I8 => LiteralValue::Numeric(Number::Int(value)),
+                    DataType::I16 => LiteralValue::Numeric(Number::Int(value)),
+                    DataType::I32 => LiteralValue::Numeric(Number::Int(value)),
+                    DataType::I64 => LiteralValue::Numeric(Number::Int(value)),
+                    DataType::U8 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U16 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U32 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U64 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::F32 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    DataType::F64 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
+                }
+            },
+            
+            floating_point_pattern!() => {
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Float(value)) = src_value, value);
+                match target_type {
+                    DataType::Bool => LiteralValue::Bool(value != 0.0),
+                    DataType::Char => LiteralValue::Char(value as u8 as char),
+                    DataType::I8 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I16 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I32 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::I64 => LiteralValue::Numeric(Number::Int(value as i64)),
+                    DataType::U8 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U16 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U32 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::U64 => LiteralValue::Numeric(Number::Uint(value as u64)),
+                    DataType::F32 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    DataType::F64 => LiteralValue::Numeric(Number::Float(value as f64)),
+                    _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
+                }
+            },
+            
+            DataType::Array(src_element_type) => {
+                let (target_element_type, items) = match_unreachable!(LiteralValue::Array { element_type: target_element_type, items } = src_value, (target_element_type, items));
+                
+                let res = items.into_iter().map(
+                    |item| LiteralValue::from_cast(item, src_element_type, &target_element_type)
+                ).collect();
+                
+                LiteralValue::Array { element_type: target_element_type, items: res }
+            },
+            
+            _ => unreachable!("Cannot cast from {:?} to {:?} (or at least not at compile-time)", src_type, target_type)
+        }
+    }
+
     pub fn equal(&self, other: &LiteralValue) -> bool {
         match (self, other) {
             (LiteralValue::Char(c1), LiteralValue::Char(c2)) => c1 == c2,
@@ -473,12 +602,6 @@ mod tests {
         assert_not_implicitly_castable!(DataType::U64, DataType::U32);
 
         assert_not_implicitly_castable!(DataType::F64, DataType::F32);
-
-        // Any cannot be cast to other types.
-        assert_not_implicitly_castable!(DataType::Array(Box::new(DataType::Any)), DataType::Array(Box::new(DataType::Char)));
-
-        // Other types can be cast to Any
-        assert_implicitly_castable!(DataType::Array(Box::new(DataType::Char)), DataType::Any);
 
         // Array implicit casts
         assert_implicitly_castable!(

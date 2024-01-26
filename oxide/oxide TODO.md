@@ -18,10 +18,10 @@ Project Description
 
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
-- [ ] write a function like "reduce_operations()" to evaluate compile-time operations  
 
 ### Done ✓
 
+- [x] write a function like "reduce_operations()" to evaluate compile-time operations  
 - [x] implement while and if  
 - [x] add more source context in error messages (and highlight the main line)  
 - [x] use dedicated ChildrenTypes for tokens that don't have strictly list children  

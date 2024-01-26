@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::error::WarnResult;
 use crate::data_types::DataType;
 
 
@@ -7,23 +8,9 @@ use crate::data_types::DataType;
 /// 
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol {
-    pub name: String,
     pub data_type: DataType,
     pub mutable: bool,
     pub initialized: bool,
-}
-
-impl Symbol {
-
-    pub fn new(id: String, data_type: DataType, mutable: bool) -> Symbol {
-        Symbol {
-            name: id,
-            data_type,
-            mutable,
-            initialized: false,
-        }
-    }
-
 }
 
 
@@ -57,16 +44,26 @@ impl SymbolTable {
         }
     }
 
+
     /// Return whether the symbol is declared in the symbol table in any scope.
     pub fn exists_symbol(&self, symbol_id: &str) -> bool {
         self.scopes.iter().any(|scope| scope.symbols.contains_key(symbol_id))
     }
 
-    pub fn declare_symbol(&mut self, symbol: Symbol, scope_id: ScopeID) {
-        // TODO: Check if the symbol is already declared
-        // TODO: create a unique id for the symbol
-        self.scopes[scope_id.0].symbols.insert(symbol.name.clone(), symbol);
+    
+    pub fn declare_symbol(&mut self, name: String, symbol: Symbol, scope_id: ScopeID) -> WarnResult<&'static str> {
+
+        // TODO: eventually, use an immutable borrow of the string in the source code to avoid useless copying
+
+        let shadow = self.scopes[scope_id.0].symbols.insert(name, symbol);
+
+        if shadow.is_some() {
+            WarnResult::Warning("Symbol already declared in this scope. The new symbol will shadow the previous declaration.")
+        } else {
+            WarnResult::Ok
+        }
     }
+
 
     /// Get the symbol with the given id from the symbol table.
     pub fn get(&self, scope_id: ScopeID, symbol_id: &str) -> Option<&Symbol> {
@@ -82,6 +79,21 @@ impl SymbolTable {
         }
     }
 
+
+    unsafe fn get_mut(&mut self, scope_id: ScopeID, symbol_id: &str) -> Option<*mut Symbol> {
+        let scope = &mut self.scopes[scope_id.0];
+
+        let symbol = scope.symbols.get_mut(symbol_id);
+        if symbol.is_some() {
+            symbol.map(|s| s as *mut Symbol)
+        } else if let Some(parent_id) = scope.parent {
+            self.get_mut(parent_id, symbol_id)
+        } else {
+            None
+        }
+    }
+
+
     /// Creates a new scope in the symbol table and returns its id.
     pub fn add_scope(&mut self, parent: Option<ScopeID>) -> ScopeID {
         let id = ScopeID(self.scopes.len());
@@ -92,9 +104,10 @@ impl SymbolTable {
         id
     }
 
-    /// Set the initialized flag for the symbol.
+
+    /// Assumes the symbol exists and is not already initialized
     pub fn set_initialized(&mut self, scope_id: ScopeID, symbol_id: &str) {
-        let symbol = self.scopes[scope_id.0].symbols.get_mut(symbol_id).unwrap();
+        let symbol = unsafe { self.get_mut(scope_id, symbol_id).unwrap().as_mut().unwrap() };
         symbol.initialized = true;
     }
 

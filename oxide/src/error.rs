@@ -13,6 +13,24 @@ use crate::token::{StringToken, Token, TokenKind};
 const SOURCE_CONTEXT_RADIUS: u8 = 3;
 
 
+#[must_use]
+pub enum WarnResult<T> {
+    Ok,
+    Warning(T)
+}
+
+impl<T> WarnResult<T> {
+    
+    pub fn warning(&self) -> Option<&T> {
+        match self {
+            WarnResult::Ok => None,
+            WarnResult::Warning(warning) => Some(warning)
+        }
+    }
+
+}
+
+
 pub fn warn(token: &Token, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
         ⚠️  Warning at line {}:{} in ir unit \"{}\":
