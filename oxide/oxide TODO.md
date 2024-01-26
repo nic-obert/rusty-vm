@@ -16,6 +16,7 @@ Project Description
 
 ### In Progress
 
+- [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 - [ ] write a function like "reduce_operations()" to evaluate compile-time operations  
 

@@ -1,4 +1,4 @@
-use std::fmt::{Display, Debug};
+use std::{borrow::Cow, fmt::{Display, Debug}};
 
 use self::dt_macros::numeric_pattern;
 
@@ -94,15 +94,17 @@ impl DataType {
 
         match self {
 
-            // 1-byte integers are castable to chars.
-            DataType::I8 | DataType::U8 => matches!(target, DataType::Char),            
+            // 1-byte integers are castable to chars and other numbers
+            DataType::I8 | DataType::U8 => matches!(target, DataType::Char | numeric_pattern!()),
+            // u64 is castable to pointers (and other numbers)
+            DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref(_)),    
             // A number is castable to any other number.
-            #[allow(unreachable_patterns)] // i8 and u8 types overlap with numeric types
+            #[allow(unreachable_patterns)]
             numeric_pattern!() => matches!(target, numeric_pattern!()),
             // A char is castable to 1-byte integers.
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
-            // A reference is castable to any other reference.
-            DataType::Ref(_) => matches!(target, DataType::Ref(_)),
+            // A pointer is castable to any other reference and to u64 (for pointer arithmetic).
+            DataType::Ref(_) => matches!(target, DataType::Ref(_) | DataType::U64),
 
             // Other type casts are not allowed.
             _ => false
@@ -112,14 +114,14 @@ impl DataType {
 
     /// Return whether `self` is implicitly castable to `target`.
     pub fn is_implicitly_castable_to(&self, target: &DataType, self_value: Option<&LiteralValue>) -> bool {
-        // A data type is always castable to itself.
-        if self == target {
+        // A data type is always implicitly castable to itself and to Any (internal-only).
+        if self == target || matches!(target, DataType::Any) {
             return true;
         }
 
         // Can self be implicitly cast to target?
         match self {
-            
+
             DataType::Array(element_type)
              => matches!(**element_type, DataType::Void) && matches!(target, DataType::Array(_)) // An empty array can always be cast to another array type.
                 || if let DataType::Array(target_element_type) = target {
@@ -255,7 +257,7 @@ impl Debug for DataType {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Number {
 
     Int(i64),
@@ -264,55 +266,87 @@ pub enum Number {
 
 }
 
+macro_rules! impl_binary_numeric_op {
+    ($name:ident, $op:tt) => {
+        pub fn $name(&self, other: &Number) -> Number {
+            match (self, other) {
+                (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 $op n2),
+                (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 $op n2),
+                (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 $op n2),
+                _ => unreachable!("Cannot {} different numeric types {:?} and {:?}", stringify!($name), self, other)
+            }
+        }
+    };
+}
+
+macro_rules! impl_binary_integer_op {
+    ($name:ident, $op:tt) => {
+        pub fn $name(&self, other: &Number) -> Number {
+            match (self, other) {
+                (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 $op n2),
+                (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 $op n2),
+                _ => unreachable!("Cannot {} non-integer or different numeric types {:?} and {:?}", stringify!($name), self, other)
+            }
+        }
+    };
+}
+
+macro_rules! impl_binary_numeric_non_zero_op {
+    ($name:ident, $op:tt) => {
+        pub fn $name(&self, other: &Number) -> Result<Number, ()> {
+            match (self, other) {
+                (Number::Int(n1), Number::Int(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Int(n1 $op n2)) },
+                (Number::Uint(n1), Number::Uint(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Uint(n1 $op n2)) },
+                (Number::Float(n1), Number::Float(n2)) => if *n2 == 0.0 { Err(()) } else { Ok(Number::Float(n1 $op n2)) },
+                _ => unreachable!("Cannot {} different numeric types {:?} and {:?}", stringify!($name), self, other)
+            }
+        }
+    };
+}
+
+macro_rules! impl_binary_numeric_cmp {
+    ($name:ident, $op:tt) => {
+        pub fn $name(&self, other: &Number) -> bool {
+            match (self, other) {
+                (Number::Int(n1), Number::Int(n2)) => n1 $op n2,
+                (Number::Uint(n1), Number::Uint(n2)) => n1 $op n2,
+                (Number::Float(n1), Number::Float(n2)) => n1 $op n2,
+                _ => unreachable!("Cannot {} different numeric types {:?} and {:?}", stringify!($name), self, other)
+            }
+        }
+    };
+}
+
 impl Number {
 
-    pub fn add(&self, other: &Number) -> Number {
-        match (self, other) {
-            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 + n2),
-            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 + n2),
-            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 + n2),
-            _ => unreachable!("Cannot add different numeric types {:?} and {:?}", self, other)
+    // TODO: eventually, add overflow warnings (like different kinds of results)
+
+    impl_binary_numeric_op!(add, +);
+    impl_binary_numeric_op!(sub, -);
+    impl_binary_numeric_op!(mul, *);
+    impl_binary_numeric_non_zero_op!(div, /);
+    impl_binary_numeric_non_zero_op!(modulo, %);
+
+    impl_binary_integer_op!(bitwise_and, &);
+    impl_binary_integer_op!(bitwise_or, |);
+    impl_binary_integer_op!(bitwise_xor, ^);
+    impl_binary_integer_op!(bitshift_left, <<);
+    impl_binary_integer_op!(bitshift_right, >>);
+
+    impl_binary_numeric_cmp!(greater, >);
+    impl_binary_numeric_cmp!(less, <);
+    impl_binary_numeric_cmp!(greater_equal, >=);
+    impl_binary_numeric_cmp!(less_equal, <=);
+    impl_binary_numeric_cmp!(equal, ==);
+
+    pub fn bitwise_not(&self) -> Number {
+        match self {
+            Number::Int(n) => Number::Int(!n),
+            Number::Uint(n) => Number::Uint(!n),
+            _ => unreachable!("Cannot bitwise not non-integer numeric type {:?}", self)
         }
     }
 
-    pub fn sub(&self, other: &Number) -> Number {
-        match (self, other) {
-            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 - n2),
-            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 - n2),
-            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 - n2),
-            _ => unreachable!("Cannot subtract different numeric types {:?} and {:?}", self, other)
-        }
-    }
-
-    pub fn mul(&self, other: &Number) -> Number {
-        match (self, other) {
-            (Number::Int(n1), Number::Int(n2)) => Number::Int(n1 * n2),
-            (Number::Uint(n1), Number::Uint(n2)) => Number::Uint(n1 * n2),
-            (Number::Float(n1), Number::Float(n2)) => Number::Float(n1 * n2),
-            _ => unreachable!("Cannot multiply different numeric types {:?} and {:?}", self, other)
-        }
-    }
-
-    pub fn div(&self, other: &Number) -> Result<Number, ()> {
-        match (self, other) {
-            (Number::Int(n1), Number::Int(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Int(n1 / n2)) },
-            (Number::Uint(n1), Number::Uint(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Uint(n1 / n2)) },
-            (Number::Float(n1), Number::Float(n2)) => if *n2 == 0.0 { Err(()) } else { Ok(Number::Float(n1 / n2)) },
-            _ => unreachable!("Cannot divide different numeric types {:?} and {:?}", self, other)
-        }
-    }
-
-    pub fn modulo(&self, other: &Number) -> Result<Number, ()> {
-        match (self, other) {
-            (Number::Int(n1), Number::Int(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Int(n1 % n2)) },
-            (Number::Uint(n1), Number::Uint(n2)) => if *n2 == 0 { Err(()) } else { Ok(Number::Uint(n1 % n2)) },
-            (Number::Float(n1), Number::Float(n2)) => if *n2 == 0.0 { Err(()) } else { Ok(Number::Float(n1 % n2)) },
-            _ => unreachable!("Cannot modulo different numeric types {:?} and {:?}", self, other)
-        }
-    }
-
-
-    
 }
 
 
@@ -327,11 +361,11 @@ impl Display for Number {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum LiteralValue<'a> {
 
     Char (char),
-    String (&'a str),
+    String (Cow<'a, str>),
 
     Array { element_type: DataType, items: Vec<LiteralValue<'a>> },
 
@@ -343,6 +377,17 @@ pub enum LiteralValue<'a> {
 
 
 impl LiteralValue<'_> {
+
+    pub fn equal(&self, other: &LiteralValue) -> bool {
+        match (self, other) {
+            (LiteralValue::Char(c1), LiteralValue::Char(c2)) => c1 == c2,
+            (LiteralValue::String(s1), LiteralValue::String(s2)) => s1 == s2,
+            (LiteralValue::Array { element_type: dt1, items: items1 }, LiteralValue::Array { element_type: dt2, items: items2 }) => dt1 == dt2 && items1.len() == items2.len() && items1.iter().zip(items2.iter()).all(|(item1, item2)| item1.equal(item2)),
+            (LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)) => n1.equal(n2),
+            (LiteralValue::Bool(b1), LiteralValue::Bool(b2)) => b1 == b2,
+            _ => false
+        }
+    }
 
     pub fn data_type(&self) -> DataType {
         match self {
@@ -372,5 +417,99 @@ impl Display for LiteralValue<'_> {
             LiteralValue::Bool(b) => write!(f, "{}", b),
         }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::data_types::{LiteralValue, Number};
+
+    use super::DataType;
+
+    macro_rules! assert_implicitly_castable {
+        ($a:expr, $b:expr) => {
+            assert!(DataType::is_implicitly_castable_to(&$a, &$b, None))
+        };
+    }
+
+    macro_rules! assert_not_implicitly_castable {
+        ($a:expr, $b:expr) => {
+            assert!(!DataType::is_implicitly_castable_to(&$a, &$b, None))
+        };
+    }
+
+    #[test]
+    fn implicit_casts() {
+        // Assert castable to larger types
+        assert_implicitly_castable!(DataType::I8, DataType::I16);
+        assert_implicitly_castable!(DataType::I8, DataType::I32);
+        assert_implicitly_castable!(DataType::I8, DataType::I64);
+        assert_implicitly_castable!(DataType::I16, DataType::I32);
+        assert_implicitly_castable!(DataType::I16, DataType::I64);
+        assert_implicitly_castable!(DataType::I32, DataType::I64);
+
+        assert_implicitly_castable!(DataType::U8, DataType::U16);
+        assert_implicitly_castable!(DataType::U8, DataType::U32);
+        assert_implicitly_castable!(DataType::U8, DataType::U64);
+        assert_implicitly_castable!(DataType::U16, DataType::U32);
+        assert_implicitly_castable!(DataType::U16, DataType::U64);
+        assert_implicitly_castable!(DataType::U32, DataType::U64);
+
+        assert_implicitly_castable!(DataType::F32, DataType::F64);
+
+        // Assert not castable to smaller types
+        assert_not_implicitly_castable!(DataType::I16, DataType::I8);
+        assert_not_implicitly_castable!(DataType::I32, DataType::I8);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I8);
+        assert_not_implicitly_castable!(DataType::I32, DataType::I16);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I16);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I32);
+
+        assert_not_implicitly_castable!(DataType::U16, DataType::U8);
+        assert_not_implicitly_castable!(DataType::U32, DataType::U8);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U8);
+        assert_not_implicitly_castable!(DataType::U32, DataType::U16);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U16);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U32);
+
+        assert_not_implicitly_castable!(DataType::F64, DataType::F32);
+
+        // Any cannot be cast to other types.
+        assert_not_implicitly_castable!(DataType::Array(Box::new(DataType::Any)), DataType::Array(Box::new(DataType::Char)));
+
+        // Other types can be cast to Any
+        assert_implicitly_castable!(DataType::Array(Box::new(DataType::Char)), DataType::Any);
+
+        // Array implicit casts
+        assert_implicitly_castable!(
+            DataType::Array(Box::new(DataType::I8)),
+            DataType::Array(Box::new(DataType::I16))
+        );
+
+        // Array of positive signed integers can be cast to array of unsigned integers.
+        let a = LiteralValue::Array { element_type: DataType::I32, items: vec![
+            LiteralValue::Numeric(Number::Int(1)),
+            LiteralValue::Numeric(Number::Int(2)),
+            LiteralValue::Numeric(Number::Int(3)),
+        ]};
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::I64)), Some(&a)));
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U8)), Some(&a)));
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U16)), Some(&a)));
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U32)), Some(&a)));
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U64)), Some(&a)));
+
+        // Array with negative integers can only be cast to array of signed integers, not unsigned integers.
+        let b = LiteralValue::Array { element_type: DataType::I32, items: vec![
+            LiteralValue::Numeric(Number::Int(1)),
+            LiteralValue::Numeric(Number::Int(-2)),
+            LiteralValue::Numeric(Number::Int(3)),
+        ]};
+        assert!(DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::I64)), Some(&b)));
+        assert!(!DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U8)), Some(&b)));
+        assert!(!DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U16)), Some(&b)));
+        assert!(!DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U32)), Some(&b)));
+        assert!(!DataType::Array(Box::new(DataType::I32)).is_implicitly_castable_to(&DataType::Array(Box::new(DataType::U64)), Some(&b)));
+    }
+
 }
 

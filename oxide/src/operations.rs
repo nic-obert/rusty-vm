@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::data_types::{DataType, LiteralValue};
+use crate::data_types::{DataType, LiteralValue, Number};
 use crate::data_types::dt_macros::*;
 use crate::match_unreachable;
 
@@ -60,7 +60,7 @@ pub enum Ops {
 impl Ops {
 
     /// Return whether the operator returns a value or not.
-    pub fn returns_a_value(&self) -> bool {
+    pub const fn returns_a_value(&self) -> bool {
         matches!(self, 
             Ops::Add |
             Ops::Sub |
@@ -94,7 +94,7 @@ impl Ops {
 
             Ops::Add |
             Ops::Sub
-             => matches!(data_type, numeric_pattern!() | pointer_pattern!()),
+             => matches!(data_type, numeric_pattern!()),
 
             Ops::Greater |
             Ops::Less |
@@ -107,7 +107,7 @@ impl Ops {
 
             Ops::Assign => match position {
                 0 => matches!(data_type, DataType::Ref(_)),
-                1 => true,
+                1 => !matches!(data_type, DataType::Void), // Disallow setting values to void
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
@@ -147,7 +147,7 @@ impl Ops {
 
             Ops::Add |
             Ops::Sub
-             => &["numeric", "pointer"],
+             => &["number"],
 
             Ops::Greater |
             Ops::Less |
@@ -156,11 +156,11 @@ impl Ops {
             Ops::Mul |
             Ops::Div |
             Ops::Mod
-             => &["numeric"],
+             => &["number"],
 
             Ops::Assign => match position {
                 0 => &["symbol", "dereference"],
-                1 => &["any"],
+                1 => &["value"],
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
@@ -174,8 +174,11 @@ impl Ops {
 
             Ops::FunctionCallOpen => &["function"],
 
-            Ops::ArrayIndexOpen
-             => &["unsigned integer"],
+            Ops::ArrayIndexOpen => match position {
+                0 => &["array"],
+                1 => &["unsigned integer"],
+                _ => unreachable!("Invalid position for array index operator")
+            }
 
             
             Ops::LogicalNot |
@@ -194,7 +197,7 @@ impl Ops {
     }
 
 
-    pub fn is_allowed_at_compile_time(&self) -> bool {
+    pub const fn is_allowed_at_compile_time(&self) -> bool {
         match self {
             Ops::Add |
             Ops::Sub |
@@ -228,7 +231,11 @@ impl Ops {
         }
     }
 
-    pub fn execute(self, args: &[&LiteralValue]) -> Result<LiteralValue<'static>, &'static str> {
+
+    pub fn execute<'a>(self, args: &[LiteralValue<'a>]) -> Result<LiteralValue<'a>, &'static str> {
+
+        assert!(self.is_allowed_at_compile_time(), "Operator {:?} cannot be executed at compile-time", self);
+
         match self {
             Ops::Add => {
                 let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
@@ -246,34 +253,87 @@ impl Ops {
                 let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
                 match n1.div(n2) {
                     Ok(n) => Ok(LiteralValue::Numeric(n)),
-                    Err(_) => Err("Division by zero")
+                    Err(()) => Err("Division by zero")
                 }
             },
             Ops::Mod => {
                 let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
                 match n1.modulo(n2) {
                     Ok(n) => Ok(LiteralValue::Numeric(n)),
-                    Err(_) => Err("Division by zero")
+                    Err(()) => Err("Division by zero")
                 }
             },
-            Ops::Equal => todo!(),
-            Ops::NotEqual => todo!(),
-            Ops::Greater => todo!(),
-            Ops::Less => todo!(),
-            Ops::GreaterEqual => todo!(),
-            Ops::LessEqual => todo!(),
-            Ops::LogicalNot => todo!(),
-            Ops::BitwiseNot => todo!(),
-            Ops::LogicalAnd => todo!(),
-            Ops::LogicalOr => todo!(),
-            Ops::BitShiftLeft => todo!(),
-            Ops::BitShiftRight => todo!(),
-            Ops::BitwiseOr => todo!(),
-            Ops::BitwiseAnd => todo!(),
-            Ops::BitwiseXor => todo!(),
-            Ops::ArrayIndexOpen => todo!(),
+            Ops::Equal => {
+                let (a, b) = match_unreachable!([a, b] = args, (a, b));
+                Ok(LiteralValue::Bool(a.equal(b)))
+            },
+            Ops::NotEqual => {
+                let (a, b) = match_unreachable!([a, b] = args, (a, b));
+                Ok(LiteralValue::Bool(!a.equal(b)))
+            },
+            Ops::Greater => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Bool(n1.greater(n2)))
+            },
+            Ops::Less => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Bool(n1.less(n2)))
+            },
+            Ops::GreaterEqual => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Bool(n1.greater_equal(n2)))
+            },
+            Ops::LessEqual => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Bool(n1.less_equal(n2)))
+            },
+            Ops::LogicalNot => {
+                let b = match_unreachable!([LiteralValue::Bool(b)] = args, *b);
+                Ok(LiteralValue::Bool(!b))
+            },
+            Ops::BitwiseNot => {
+                let n = match_unreachable!([LiteralValue::Numeric(n)] = args, n);
+                Ok(LiteralValue::Numeric(n.bitwise_not()))
+            },
+            Ops::LogicalAnd => {
+                let (b1, b2) = match_unreachable!([LiteralValue::Bool(b1), LiteralValue::Bool(b2)] = args, (*b1, *b2));
+                Ok(LiteralValue::Bool(b1 && b2))
+            },
+            Ops::LogicalOr => {
+                let (b1, b2) = match_unreachable!([LiteralValue::Bool(b1), LiteralValue::Bool(b2)] = args, (*b1, *b2));
+                Ok(LiteralValue::Bool(b1 || b2))
+            },
+            Ops::BitShiftLeft => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.bitshift_left(n2)))
+            },
+            Ops::BitShiftRight => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.bitshift_right(n2)))
+            },
+            Ops::BitwiseOr => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.bitwise_or(n2)))
+            },
+            Ops::BitwiseAnd => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.bitwise_and(n2)))
+            },
+            Ops::BitwiseXor => {
+                let (n1, n2) = match_unreachable!([LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)] = args, (n1, n2));
+                Ok(LiteralValue::Numeric(n1.bitwise_xor(n2)))
+            },
+            Ops::ArrayIndexOpen => {
+                let (items, index) = match_unreachable!([LiteralValue::Array { items, .. }, LiteralValue::Numeric(Number::Uint(index))] = args, (items, *index));
+                
+                if index as usize >= items.len() {
+                    return Err("Index out of bounds");
+                }
 
-            _ => unreachable!("Operator {:?} cannot be executed at compile-time", self)
+                Ok(items[index as usize].clone())
+            },
+
+            _ => unreachable!("Operator {:?} cannot be executed at compile-time. The previous assertion couldn't catch this, so this function and is_allowed_at_compile_time don't match.", self)
         }
     }
 
@@ -312,4 +372,6 @@ impl Display for Ops {
         })
     }
 }
+
+
 

@@ -15,10 +15,15 @@ const SOURCE_CONTEXT_RADIUS: u8 = 3;
 
 pub fn warn(token: &Token, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
-        ⚠️  Warning: {}
+        ⚠️  Warning at line {}:{} in ir unit \"{}\":
+            
         ",
-        message
+        token.token.line_number(), token.token.column, token.unit_path.display()
     ).bright_yellow());
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+
+    println!("\n{}\n", message);
 }
 
 
@@ -252,7 +257,7 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
 }
 
 
-pub fn compiletime_operation_error(token: &Token, source: &IRCode, hint: &str) -> ! {
+pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 

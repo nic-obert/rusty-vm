@@ -51,7 +51,7 @@ impl StringToken<'_> {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Value<'a> {
 
     Literal { value: LiteralValue<'a> },
@@ -70,7 +70,7 @@ impl Display for Value<'_> {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum TokenKind<'a> {
 
     Op (Ops),

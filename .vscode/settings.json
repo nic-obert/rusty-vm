@@ -2,7 +2,8 @@
     "cmake.configureOnOpen": false,
     "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools",
     "rust-analyzer.linkedProjects": [
-        "./vm/Cargo.toml"
+        "./vm/Cargo.toml",
+        "./oxide/Cargo.toml"
     ],
     "coddx.taskBoard.fileList": "Global TODO.md, oxide/oxide TODO.md, vm/vm TODO.md, assembler/assembler TODO.md"
 }

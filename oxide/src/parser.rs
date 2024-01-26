@@ -709,7 +709,7 @@ fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_de
 
         match &arg_node.item.value {
 
-            t if t == delimiter => break,
+            t if std::mem::discriminant(t) == std::mem::discriminant(delimiter) => break,
 
             TokenKind::Comma => if expected_comma {
                 // Set to false because you cannot have two adjacent commas
@@ -944,7 +944,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     // Only allow assignment to a symbol or a dereference
                     if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref)) {
-                        error::type_error(&l_node.item, &["symbol", "reference"], &l_node.data_type, source, "Invalid left operand for assignment operator.");
+                        error::type_error(&l_node.item, Ops::Assign.allowed_types(0), &l_node.data_type, source, "Invalid left operand for assignment operator.");
                     }
 
                     // Resolve the types of the operands
@@ -976,12 +976,12 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     if let DataType::Array(element_type) = &array_node.data_type {
                         data_type = *element_type.clone();
                     } else {
-                        error::type_error(&array_node.item, &[DataType::Array(Box::new(DataType::Any)).name_leaked()], &array_node.data_type, source, "Can only index arrays.");
+                        error::type_error(&array_node.item, Ops::ArrayIndexOpen.allowed_types(0), &array_node.data_type, source, "Can only index arrays.");
                     }
 
                     // Assert that the array index is an unsigned integer
-                    if !matches!(&index_node.data_type, unsigned_integer_pattern!()) {
-                        error::type_error(&index_node.item, &["unsigned integer"], &index_node.data_type, source, "Array index must strictly be an unsigned integer.");
+                    if !Ops::ArrayIndexOpen.is_allowed_type( &index_node.data_type, 1) {
+                        error::type_error(&index_node.item, Ops::ArrayIndexOpen.allowed_types(1), &index_node.data_type, source, "Array index must strictly be an unsigned integer.");
                     }
                     
                     data_type
@@ -1196,21 +1196,23 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
                 reduce_operations(op1, scope_id, symbol_table, source);
                 reduce_operations(op2, scope_id, symbol_table, source);
 
-                if !op.is_allowed_at_compile_time() {
+                if !op.is_allowed_at_compile_time() || (op1.item.value.literal_value().is_none() && op2.item.value.literal_value().is_none()) {
                     return SHOULD_NOT_BE_REMOVED;
                 }
                 
-                if let (Some(op1_value), Some(op2_value)) = (op1.item.value.literal_value(), op2.item.value.literal_value()) {
+                // .take() is ok because the children will be dropped after the operation
+                let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = node.children.take(), (op1, op2));
+                let (op1_value, op2_value) = match_unreachable!((TokenKind::Value(Value::Literal { value: op1_value }), TokenKind::Value(Value::Literal { value: op2_value })) = (op1.item.value, op2.item.value), (op1_value, op2_value));
                     
-                    let res = match op.execute(&[&op1_value, &op2_value]) {
-                        Ok(res) => res,
-                        Err(err) => error::compiletime_operation_error(&node.item, source, err)
-                    };
+                let res = match op.execute(&[op1_value, op2_value]) {
+                    Ok(res) => res,
+                    Err(err) => error::compile_time_operation_error(&node.item, source, err)
+                };
 
-                    node.item.value = TokenKind::Value(Value::Literal { value: res });
-                    // Drop the children since the operation is completed
-                    node.children = None;
-                }
+                node.item.value = TokenKind::Value(Value::Literal { value: res });
+                
+                // Drop the children since the operation is completed
+                node.children = None;
             },
 
             unary_operators!() => {
@@ -1218,21 +1220,23 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
 
                 reduce_operations(operand, scope_id, symbol_table, source);
 
-                if !op.is_allowed_at_compile_time() {
+                if !op.is_allowed_at_compile_time() || operand.item.value.literal_value().is_none() {
                     return SHOULD_NOT_BE_REMOVED;
                 }
 
-                if let Some(operand_value) = operand.item.value.literal_value() {
+                // .take() is ok because the child will be dropped after the operation
+                let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = node.children.take(), operand);
+                let operand_value = match_unreachable!(TokenKind::Value(Value::Literal { value: operand_value }) = operand.item.value, operand_value);
                     
-                    let res = match op.execute(&[&operand_value]) {
-                        Ok(res) => res,
-                        Err(err) => error::compiletime_operation_error(&node.item, source, err)
-                    };
+                let res = match op.execute(&[operand_value]) {
+                    Ok(res) => res,
+                    Err(err) => error::compile_time_operation_error(&node.item, source, err)
+                };
 
-                    node.item.value = TokenKind::Value(Value::Literal { value: res });
-                    // Drop the children since the operation is completed
-                    node.children = None;
-                }
+                node.item.value = TokenKind::Value(Value::Literal { value: res });
+
+                // Drop the children since the operation is completed
+                node.children = None;
             },
 
             Ops::Return => if let Some(expr) = &mut node.children {
@@ -1278,7 +1282,11 @@ fn reduce_operations(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &mut
         TokenKind::ArrayOpen => todo!(),
         TokenKind::ScopeOpen => todo!(),
 
-        _ => unreachable!("{:?} shoud have been removed or is not an operator.", node.item.value)
+        TokenKind::Value(_) => {
+            // Values are already reduced to the minimum
+        },
+
+        _ => unreachable!("{:?} shoud have been removed from the tree.", node.item.value)
     }
 
     // By default, the node should not be removed

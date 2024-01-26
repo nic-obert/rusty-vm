@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::Path;
 
 use crate::data_types::{DataType, LiteralValue, Number};
@@ -51,18 +52,18 @@ fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, toke
 }
 
 
-fn escape_string<'a>(string: &'a str, unit_path: &Path, token: &StringToken, source: &IRCode) -> &'a str {
+fn escape_string<'a>(string: &'a str, unit_path: &Path, token: &StringToken, source: &IRCode) -> Cow<'a, str> {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
     
     for (i, c) in string.chars().enumerate() {
         if c == '\\' {
             let copied_string = escape_string_copy(string, i, unit_path, token, source);
-            return Box::leak(copied_string.into_boxed_str());
+            return Cow::Owned(copied_string);
         }
     }
 
-    string
+    Cow::Borrowed(string)
 }
 
 
@@ -102,7 +103,7 @@ fn is_symbol_name(name: &str) -> bool {
 
 
 #[inline]
-fn is_data_type_precursor(token: &Token) -> bool {
+const fn is_data_type_precursor(token: &Token) -> bool {
     matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType)
 }
 
@@ -187,7 +188,7 @@ impl TokenizerStatus {
 
 
 /// Divide the source code into meaningful string tokens
-fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
+fn lex<'a>(source: &'a IRCode) -> Vec<StringToken<'a>> {
     source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {
@@ -366,7 +367,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                 
                 let s = escape_string(string, unit_path, &token, source);
                 if s.len() != 1 {
-                    error::invalid_char_literal(unit_path, s, &token, source, "Character literals can only be one character long")
+                    error::invalid_char_literal(unit_path, &s, &token, source, "Character literals can only be one character long")
                 }
 
                 TokenKind::Value(Value::Literal { 
