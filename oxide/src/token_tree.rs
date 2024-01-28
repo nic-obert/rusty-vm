@@ -112,6 +112,7 @@ impl<'a> TokenNode<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn right(&'a self) -> Option<&'a TokenNode> {
         if self.right.is_null() {
             None
@@ -213,40 +214,40 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn drop_first(&mut self) {
-        if self.first.is_null() {
-            return;
-        }
+    // pub fn drop_first(&mut self) {
+    //     if self.first.is_null() {
+    //         return;
+    //     }
 
-        unsafe {
-            let new_first = (*self.first).right;
-            (*self.first).right = ptr::null_mut();
-            if !new_first.is_null() {
-                (*new_first).left = ptr::null_mut();
-            }
-            // Drop the first node
-            let _ = Box::from_raw(self.first);
-            self.first = new_first;
-        }
-    }
-
-
-    pub fn first_item(&self) -> Option<&'a Token> {
-        if self.first.is_null() {
-            None
-        } else {
-            Some(unsafe { &(*self.first).item })
-        }
-    }
+    //     unsafe {
+    //         let new_first = (*self.first).right;
+    //         (*self.first).right = ptr::null_mut();
+    //         if !new_first.is_null() {
+    //             (*new_first).left = ptr::null_mut();
+    //         }
+    //         // Drop the first node
+    //         let _ = Box::from_raw(self.first);
+    //         self.first = new_first;
+    //     }
+    // }
 
 
-    pub fn last_item(&self) -> Option<&'a Token> {
-        if self.last.is_null() {
-            None
-        } else {
-            Some(unsafe { &(*self.last).item })
-        }
-    }
+    // pub fn first_item(&self) -> Option<&'a Token> {
+    //     if self.first.is_null() {
+    //         None
+    //     } else {
+    //         Some(unsafe { &(*self.first).item })
+    //     }
+    // }
+
+
+    // pub fn last_item(&self) -> Option<&'a Token> {
+    //     if self.last.is_null() {
+    //         None
+    //     } else {
+    //         Some(unsafe { &(*self.last).item })
+    //     }
+    // }
 
 
     pub fn last_node(&self) -> Option<&'a TokenNode<'a>> {
@@ -336,17 +337,17 @@ impl<'a> TokenTree<'a> {
     }
 
 
-    pub fn into_vec(self) -> Vec<*mut TokenNode<'a>> {
-        let mut vec = Vec::new();
-        let mut node = self.first;
+    // pub fn into_vec(self) -> Vec<*mut TokenNode<'a>> {
+    //     let mut vec = Vec::new();
+    //     let mut node = self.first;
 
-        while !node.is_null() {
-            vec.push(node);
-            node = unsafe { (*node).right };
-        }
+    //     while !node.is_null() {
+    //         vec.push(node);
+    //         node = unsafe { (*node).right };
+    //     }
 
-        vec
-    }
+    //     vec
+    // }
 
 
     pub fn iter(&self) -> TokenTreeIterator<'a> {

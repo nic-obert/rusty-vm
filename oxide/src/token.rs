@@ -54,7 +54,7 @@ impl StringToken<'_> {
 #[derive(Debug)]
 pub enum Value<'a> {
 
-    Literal { value: LiteralValue<'a> },
+    Literal { value: LiteralValue },
     Symbol { id: &'a str }
 
 }

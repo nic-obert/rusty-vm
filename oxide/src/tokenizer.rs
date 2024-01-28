@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use crate::data_types::{DataType, LiteralValue, Number};
+use crate::symbol_table::SymbolTable;
 use crate::token::{TokenKind, Token, Priority, StringToken};
 use crate::error;
 use crate::operations::Ops;
@@ -211,7 +212,7 @@ fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
 
 
 /// Divide the source code into syntax tokens
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
+pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenTree<'a> {
 
     let raw_tokens = lex(source);
 
@@ -354,8 +355,13 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
                     error::unmatched_delimiter(unit_path, '"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
                 }
 
+                let string = escape_string(string, unit_path, &token, source);
+
+                // Add the string to the static string table, store the id in the token
+                let static_id = symbol_table.add_static_string(string);
+
                 TokenKind::Value(Value::Literal { 
-                    value: LiteralValue::String(escape_string(string, unit_path, &token, source))
+                    value: LiteralValue::StaticString(static_id)
                 })
             },
 
@@ -400,9 +406,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path) -> TokenTree<'a> {
             "f32" => TokenKind::DataType(DataType::F32),
             "f64" => TokenKind::DataType(DataType::F64),
             "char" => TokenKind::DataType(DataType::Char),
-            "str" => TokenKind::DataType(DataType::String),
+            "str" => TokenKind::DataType(DataType::RawString { length: 0 }),
+            "String" => TokenKind::DataType(DataType::String),
             "void" => TokenKind::DataType(DataType::Void),
             "bool" => TokenKind::DataType(DataType::Bool),
+            "usize" => TokenKind::DataType(DataType::Usize),
+            "isize" => TokenKind::DataType(DataType::Isize),
             
             // Variable names
             string => {

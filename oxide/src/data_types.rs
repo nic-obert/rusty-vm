@@ -1,6 +1,6 @@
-use std::{borrow::Cow, fmt::{Display, Debug}};
+use std::fmt::{Display, Debug};
 
-use crate::match_unreachable;
+use crate::{match_unreachable, symbol_table::{StaticID, SymbolTable}};
 
 use self::dt_macros::numeric_pattern;
 
@@ -11,10 +11,12 @@ pub enum DataType {
     Bool,
 
     Char,
+    RawString { length: usize },
     String,
 
     Array (Box<DataType>),
     Ref (Box<DataType>),
+    StringRef { length: usize },
 
     I8,
     I16,
@@ -29,9 +31,15 @@ pub enum DataType {
     F32,
     F64,
 
+    Usize,
+    Isize,
+
     Function { params: Vec<DataType>, return_type: Box<DataType> },
 
-    Void
+    Void,
+    
+    /// Only used internally for type inference.
+    Unspecified
 }
 
 /// Useful macros for working with data types.
@@ -86,35 +94,42 @@ pub mod dt_macros {
 impl DataType {
 
     /// Return the size of the data type in bytes, if it is known at compile-time.
-    pub const fn static_size(&self) -> Option<usize> {
+    #[allow(dead_code)]
+    pub const fn static_size(&self) -> usize {
         match self {
-            DataType::Bool => Some(1),
-            DataType::Char => Some(1),
-            DataType::String => None,
-            DataType::Array(_) => None,
-            DataType::Ref(_) => Some(8),
-            DataType::I8 => Some(1),
-            DataType::I16 => Some(2),
-            DataType::I32 => Some(4),
-            DataType::I64 => Some(8),
-            DataType::U8 => Some(1),
-            DataType::U16 => Some(2),
-            DataType::U32 => Some(4),
-            DataType::U64 => Some(8),
-            DataType::F32 => Some(4),
-            DataType::F64 => Some(8),
-            DataType::Function { .. } => None,
-            DataType::Void => None,
+            DataType::Bool => 1,
+            DataType::Char => 1,
+            DataType::Ref(_) => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::I8 => 1,
+            DataType::I16 => 2,
+            DataType::I32 => 4,
+            DataType::I64 => 8,
+            DataType::U8 => 1,
+            DataType::U16 => 2,
+            DataType::U32 => 4,
+            DataType::U64 => 8,
+            DataType::F32 => 4,
+            DataType::F64 => 8,
+            DataType::Usize => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Isize => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::RawString { length } => DataType::Char.static_size() * *length, // Char size * number of chars
+            DataType::StringRef { length: _ } => rust_vm_lib::vm::ADDRESS_SIZE + DataType::Usize.static_size(), // Address size + length size
+            
+            DataType::Array(_) |
+            DataType::String  // TODO: update with a rust-like string struct size
+            => unimplemented!(),
+            
+            DataType::Function { .. } => unreachable!(),
+            DataType::Unspecified => unreachable!(),
+            DataType::Void => unreachable!(),
         }
     }
 
-    pub fn is_castable_to(&self, target: &DataType) -> bool {
-        // A data type is always castable to itself.
-        if self == target {
-            return true;
-        }
 
-        match self {
+    pub fn is_castable_to(&self, target: &DataType) -> bool {
+
+        self.is_implicitly_castable_to(target, None)
+        || match self {
 
             // 1-byte integers are castable to chars and other numbers
             DataType::I8 | DataType::U8 => matches!(target, DataType::Char | numeric_pattern!()),
@@ -150,6 +165,9 @@ impl DataType {
 
         // Can self be implicitly cast to target?
         match self {
+
+            // String references are interchangeable since they always have the same size (wide pointers).
+            DataType::StringRef { length: _ } => matches!(target, DataType::StringRef { length: _ }),
 
             DataType::Array(element_type)
              => matches!(**element_type, DataType::Void) && matches!(target, DataType::Array(_)) // An empty array can always be cast to another array type.
@@ -240,7 +258,8 @@ impl DataType {
         match self {
             DataType::Bool => "bool",
             DataType::Char => "char",
-            DataType::String => "str",
+            DataType::String => "String",
+            DataType::RawString { length } => Box::new(format!("str[{}]", length)).leak(),
             DataType::Array(x) => Box::new(format!("[{}]", x)).leak(),
             DataType::Ref(x) => Box::new(format!("&{}", x)).leak(),
             DataType::I8 => "i8",
@@ -266,6 +285,10 @@ impl DataType {
                 Box::leak(name.into_boxed_str())
             },
             DataType::Void => "void",
+            DataType::Unspecified => "Unspecified",
+            DataType::StringRef { length } => Box::new(format!("str[{}]", length)).leak(),
+            DataType::Usize => "usize",
+            DataType::Isize => "isize",
         }
     }
 
@@ -390,12 +413,12 @@ impl Display for Number {
 
 
 #[derive(Debug, Clone)]
-pub enum LiteralValue<'a> {
+pub enum LiteralValue {
 
     Char (char),
-    String (Cow<'a, str>),
+    StaticString (StaticID),
 
-    Array { element_type: DataType, items: Vec<LiteralValue<'a>> },
+    Array { element_type: DataType, items: Vec<LiteralValue> },
 
     Numeric (Number),
 
@@ -404,14 +427,14 @@ pub enum LiteralValue<'a> {
 }
 
 
-impl LiteralValue<'_> {
+impl LiteralValue {
 
     /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
     /// 
     /// Assumes that the target type is not the source type.
     /// 
     /// This function can perform only compile-time casts.
-    pub fn from_cast(src_value: LiteralValue<'_>, src_type: &DataType, target_type: &DataType) -> Self {
+    pub fn from_cast(src_value: LiteralValue, src_type: &DataType, target_type: &DataType) -> Self {
         
         assert!(src_type.is_castable_to(target_type));
         assert_ne!(src_type, target_type);
@@ -507,10 +530,11 @@ impl LiteralValue<'_> {
         }
     }
 
+
     pub fn equal(&self, other: &LiteralValue) -> bool {
         match (self, other) {
             (LiteralValue::Char(c1), LiteralValue::Char(c2)) => c1 == c2,
-            (LiteralValue::String(s1), LiteralValue::String(s2)) => s1 == s2,
+            (LiteralValue::StaticString(s1), LiteralValue::StaticString(s2)) => s1 == s2,
             (LiteralValue::Array { element_type: dt1, items: items1 }, LiteralValue::Array { element_type: dt2, items: items2 }) => dt1 == dt2 && items1.len() == items2.len() && items1.iter().zip(items2.iter()).all(|(item1, item2)| item1.equal(item2)),
             (LiteralValue::Numeric(n1), LiteralValue::Numeric(n2)) => n1.equal(n2),
             (LiteralValue::Bool(b1), LiteralValue::Bool(b2)) => b1 == b2,
@@ -518,10 +542,11 @@ impl LiteralValue<'_> {
         }
     }
 
-    pub fn data_type(&self) -> DataType {
+    
+    pub fn data_type(&self, symbol_table: &SymbolTable<'_>) -> DataType {
         match self {
             LiteralValue::Char(_) => DataType::Char,
-            LiteralValue::String(_) => DataType::String,
+            LiteralValue::StaticString(id) => DataType::StringRef { length: symbol_table.get_static_string(*id).len() },
             LiteralValue::Array { element_type: dt, .. } => DataType::Array(Box::new(dt.clone())),
             LiteralValue::Numeric(n) => match n {
                 // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
@@ -536,11 +561,11 @@ impl LiteralValue<'_> {
 }
 
 
-impl Display for LiteralValue<'_> {
+impl Display for LiteralValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LiteralValue::Char(c) => write!(f, "'{}'", c),
-            LiteralValue::String(s) => write!(f, "\"{}\"", s),
+            LiteralValue::StaticString(s) => write!(f, "\"StaticString({:?})\"", s),
             LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
             LiteralValue::Numeric(n) => write!(f, "{}", n),
             LiteralValue::Bool(b) => write!(f, "{}", b),

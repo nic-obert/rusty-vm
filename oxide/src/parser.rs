@@ -1,7 +1,6 @@
 use rust_vm_lib::ir::IRCode;
 
 use crate::data_types::{DataType, LiteralValue};
-use crate::error::WarnResult;
 use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
@@ -194,7 +193,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
             }
     
             // Satisfy the operator requirements
-            match op_node.item.value {
+            match &op_node.item.value {
                 TokenKind::Op(op) => match op {
     
                     // Binary operators:
@@ -358,6 +357,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                 TokenKind::Let => {
                     // TODO: add support for symbol type inference based on the assigned value, if any
                     // Syntax: let [mut] <name>: <type> 
+                    // Syntax: let [mut] <name>: = <typed expression>
     
                     // This node can either be the symbol name or the mut keyword
                     let next_node = extract_right!().unwrap_or_else(
@@ -376,18 +376,36 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let symbol_name: &str = match_or!(TokenKind::Value(Value::Symbol { id }) = &name_token.item.value, id, 
                         error::invalid_argument(&op_node.item.value, &name_token.item, source, "Invalid variable name in declaration.")
                     );
-    
-                    let _colon = extract_right!().unwrap_or_else(
-                        || error::expected_argument(&op_node.item, source, "Missing colon after variable name in variable declaration.")
+                    
+                    // Use unsafe to get around the borrow checker not recognizing that the immutable borrow ends before op_node is borrowed mutably at the last line
+                    let after_name = unsafe { op_node.right.as_ref() }.unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing colon or equal sign after variable name in variable declaration.")
                     );
-    
-                    // The data type should be a single top-level token because of its higher priority
-                    let data_type_node = extract_right!().unwrap_or_else(
-                        || error::expected_argument(&op_node.item, source, "Missing data type after colon in variable declaration.")
-                    );
-                    let data_type = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
-                        error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Token is not a valid data type.")
-                    );
+
+                    // The data type is either specified now after a colon or inferred later from the assigned value
+                    let data_type: DataType = match after_name.item.value {
+
+                        TokenKind::Colon => {
+
+                            extract_right!().unwrap(); // Unwrap is safe because because of the previous check
+
+                            // The data type should be a single top-level token because of its higher priority
+                            let data_type_node = extract_right!().unwrap_or_else(
+                                || error::expected_argument(&op_node.item, source, "Missing data type after colon in variable declaration.")
+                            );
+                            match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
+                                error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Token is not a valid data type.")
+                            )
+                        },
+
+                        TokenKind::Op(Ops::Assign) => {
+                            // Data type is not specified in the declaration, it will be inferred later upon assignment
+
+                            DataType::Unspecified
+                        },
+
+                        _ => error::invalid_argument(&op_node.item.value, &after_name.item, source, "Expected a colon or an equal sign after variable name in variable declaration.")
+                    };
 
                     // Declare the new symbol in the local scope
                     let res = symbol_table.declare_symbol(
@@ -565,8 +583,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let element_type = match_or!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Expected a data type after reference symbol &.")
                     );
+
+                    // Some data types should be merged together
+                    let ref_type = match element_type {
+                        DataType::RawString { length } => DataType::StringRef { length },
+                        _ => DataType::Ref(Box::new(element_type))
+                    };
                     
-                    let ref_type = DataType::Ref(Box::new(element_type));
                     // Transform this node into a data type node
                     op_node.item.value = TokenKind::DataType(ref_type);
                 },
@@ -949,8 +972,6 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     
                     let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut expression.children, (l_node, r_node));
 
-                    // Assume the operands vector has only two elements: the left operand and the right operand
-
                     // Only allow assignment to a symbol or a dereference
                     if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref)) {
                         error::type_error(&l_node.item, Ops::Assign.allowed_types(0), &l_node.data_type, source, "Invalid left operand for assignment operator.");
@@ -964,10 +985,17 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     if let TokenKind::Value(Value::Symbol { id: symbol_id }) = &l_node.item.value {
 
                         // Unwrap is safe because symbols have already been checked to be valid
-                        let symbol = symbol_table.get(scope_id, symbol_id).unwrap();
+                        let symbol = symbol_table.get_mut(scope_id, symbol_id).unwrap();
                         
                         if !symbol.initialized {
-                            symbol_table.set_initialized(scope_id, symbol_id);
+
+                            if matches!(symbol.data_type, DataType::Unspecified) {
+                                // The data type must be inferred now
+                                symbol.data_type = r_node.data_type.clone();
+                                l_node.data_type = r_node.data_type.clone();
+                            }
+
+                            symbol.initialized = true;
                             
                         } else if !symbol.mutable {
                             error::type_error(&l_node.item, &[symbol.data_type.name_leaked()], &l_node.data_type, source, "Cannot assign to immutable symbol.");
@@ -1027,7 +1055,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
         TokenKind::Value(value) => match value {
 
-            Value::Literal { value } => value.data_type(),
+            Value::Literal { value } => value.data_type(symbol_table),
 
             Value::Symbol { id } => symbol_table.get(scope_id, id)
                 .unwrap_or_else(|| error::symbol_undefined(&expression.item, id, source, if symbol_table.exists_symbol(id) { "Symbol is declared in a different scope." } else { "Symbol is not declared in any scope." } ))
@@ -1211,6 +1239,16 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
     match node.item.value {
         TokenKind::Op(op) => match op {
 
+            Ops::ArrayIndexOpen => {
+                let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
+
+                reduce_operations(op1, source);
+                reduce_operations(op2, source);
+
+                // TODO: allow literal values in the symbol table for immutable symbols
+            },
+
+            #[allow(unreachable_patterns)] // Allow to keep the code concise. Some binary operators are handled differently.
             binary_operators!() => {
                 let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
 
@@ -1260,7 +1298,18 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
                 reduce_operations(expr, source);
             },
             
-            Ops::FunctionCallOpen => todo!(), // Maybe with const functions / if all arguments are literals
+            Ops::FunctionCallOpen => {
+
+                // TODO: evaluate const functions
+
+                let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut node.children, (callable, args));
+
+                reduce_operations(callable, source);
+
+                for arg in args {
+                    reduce_operations(arg, source);
+                }
+            },
         },
 
         TokenKind::While => {
@@ -1396,26 +1445,27 @@ fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode) {
 
 
 /// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode) -> (ScopeBlock<'a>, SymbolTable) {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bool, symbol_table: &mut SymbolTable) -> ScopeBlock<'a> {
 
     parse_scope_hierarchy(&mut tokens);
 
-    let mut symbol_table = SymbolTable::new();
-
-    let mut outer_block = divide_statements(tokens, &mut symbol_table, None);
+    let mut outer_block = divide_statements(tokens, symbol_table, None);
 
     println!("Statements after division:\n{}", outer_block);
 
-    parse_block_hierarchy(&mut outer_block, &mut symbol_table, source);
+    parse_block_hierarchy(&mut outer_block, symbol_table, source);
 
     println!("\n\nStatement hierarchy:\n{}", outer_block);
 
-    resolve_scope_types(&mut outer_block, None, &mut symbol_table, source);
+    resolve_scope_types(&mut outer_block, None, symbol_table, source);
 
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
-    reduce_operations_block(&mut outer_block, source);
-
-    (outer_block, symbol_table)
+    if optimize {
+        reduce_operations_block(&mut outer_block, source);
+        println!("\n\nAfter constant expression evaluation:\n{}", outer_block);
+    }
+    
+    outer_block
 }
 

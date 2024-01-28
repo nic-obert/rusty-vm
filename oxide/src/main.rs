@@ -31,9 +31,11 @@ fn main() {
         }
     };
 
-    let tokens = tokenizer::tokenize(&source, input_file);
+    let mut symbol_table = symbol_table::SymbolTable::new();
 
-    let (statements, symbol_table) = parser::build_ast(tokens, &source);
+    let tokens = tokenizer::tokenize(&source, input_file, &mut symbol_table);
+
+    let _statements = parser::build_ast(tokens, &source, args.optimize, &mut symbol_table);
 
 }
 

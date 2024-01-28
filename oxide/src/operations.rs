@@ -219,10 +219,10 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor |
-            Ops::Assign |
             Ops::ArrayIndexOpen
-             => true,
-
+            => true,
+            
+            Ops::Assign |
             Ops::Deref |
             Ops::Ref |
             Ops::FunctionCallOpen |
@@ -232,7 +232,7 @@ impl Ops {
     }
 
 
-    pub fn execute<'a>(self, args: &[LiteralValue<'a>]) -> Result<LiteralValue<'a>, &'static str> {
+    pub fn execute(self, args: &[LiteralValue]) -> Result<LiteralValue, &'static str> {
 
         assert!(self.is_allowed_at_compile_time(), "Operator {:?} cannot be executed at compile-time", self);
 

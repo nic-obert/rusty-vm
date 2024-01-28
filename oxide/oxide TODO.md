@@ -6,13 +6,11 @@ Project Description
 
 ### Todo
 
-- [ ] add a -o flag to enable optimizations. optimizations should be disabled by default  
+- [ ] allow literal values for immutable symbols in symbol table  
 - [ ] implement const functions  
-- [ ] implement type inference for variable declaration. valid only if variable is immediately initialized.  
 - [ ] implement module system  
 - [ ] implement enums  
 - [ ] implement structs  
-- [ ] differentiate between string literals (stack) and heap-allocated strings  
 
 ### In Progress
 
@@ -21,6 +19,11 @@ Project Description
 
 ### Done ✓
 
+- [x] differentiate between string literals (stack) and heap-allocated strings  
+- [x] coherce raw string literals to &str and store their value in a static section of the symbol table  
+- [x] introduce usize and isize types  
+- [x] add a -o flag to enable optimizations. optimizations should be disabled by default  
+- [x] implement type inference for variable declaration. valid only if variable is immediately initialized.  
 - [x] write a function like "reduce_operations()" to evaluate compile-time operations  
 - [x] implement while and if  
 - [x] add more source context in error messages (and highlight the main line)  

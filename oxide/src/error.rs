@@ -34,7 +34,6 @@ impl<T> WarnResult<T> {
 pub fn warn(token: &Token, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
         ⚠️  Warning at line {}:{} in ir unit \"{}\":
-            
         ",
         token.token.line_number(), token.token.column, token.unit_path.display()
     ).bright_yellow());

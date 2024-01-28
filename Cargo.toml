@@ -1,5 +1,7 @@
 [workspace]
 
+resolver = "2"
+
 members = [
     "assembler",
     "rust_vm_lib",

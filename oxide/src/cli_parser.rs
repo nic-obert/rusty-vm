@@ -16,9 +16,13 @@ pub struct CliParser {
     #[arg(short = 'v', action)]
     pub verbose: bool,
 
-    /// Just check the ir code without writing the byte code to a file
+    /// Just check the code without writing the byte code to a file
     #[arg(short = 'c', long = "check", action)]
     pub check: bool,
+
+    /// Optimize the code
+    #[arg(short = 'O', long = "optimize", action)]
+    pub optimize: bool,
     
 }
 
