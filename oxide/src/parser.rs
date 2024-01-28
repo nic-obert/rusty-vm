@@ -4,7 +4,7 @@ use crate::data_types::{DataType, LiteralValue};
 use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
-use crate::symbol_table::{Symbol, SymbolTable, ScopeID};
+use crate::symbol_table::{ScopeID, Symbol, SymbolTable, SymbolValue};
 use crate::token_tree::{ChildrenType, IfBlock, ScopeBlock, TokenNode, TokenTree};
 use crate::{match_or, match_unreachable};
 
@@ -364,7 +364,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         || error::expected_argument(&op_node.item, source, "Missing variable name after let in variable declaration.")
                     );
     
-                    let (mutable, name_token) = if matches!(next_node.item.value, TokenKind::Mut) {
+                    let (mutable, mut name_token) = if matches!(next_node.item.value, TokenKind::Mut) {
                         let name = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, "Missing variable name after let in variable declaration.")
                         );
@@ -373,7 +373,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         (false, next_node)
                     };
 
-                    let symbol_name: &str = match_or!(TokenKind::Value(Value::Symbol { id }) = &name_token.item.value, id, 
+                    let symbol_name: &str = match_or!(TokenKind::Value(Value::Symbol { name, .. }) = &name_token.item.value, name, 
                         error::invalid_argument(&op_node.item.value, &name_token.item, source, "Invalid variable name in declaration.")
                     );
                     
@@ -408,17 +408,35 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     };
 
                     // Declare the new symbol in the local scope
-                    let res = symbol_table.declare_symbol(
+                    let (discriminant, res) = symbol_table.declare_symbol(
                         symbol_name.to_string(),
-                        Symbol { data_type, mutable, initialized: false },
+                        Symbol { 
+                            data_type, 
+                            value: if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
+                            initialized: false 
+                        },
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
                         error::warn(&name_token.item, source, warning);
                     }
+
+                    if let TokenKind::Value(Value::Symbol { name: _, scope_discriminant }) = &mut name_token.item.value {
+                        *scope_discriminant = discriminant;
+                    }
     
                     // Transform this node into a symbol node (the declatataor let is no longer needed since the symbol is already declared)
                     op_node.substitute(*name_token);
+                },
+
+                TokenKind::Value(Value::Symbol { name, scope_discriminant: _ }) => {
+
+                    if let Some(current_discriminant) = symbol_table.get_current_discriminant(name, block.scope_id) {
+                        let scope_discriminant = match_unreachable!(TokenKind::Value(Value::Symbol { name: _, scope_discriminant }) = &mut op_node.item.value, scope_discriminant);
+                        *scope_discriminant = current_discriminant;
+                    }
+                    // Undefined symbols will be catched later. Function parameters, for example, would result in an error here.
+
                 },
     
                 TokenKind::Fn => {
@@ -432,7 +450,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let name_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing function name after fn in function declaration.")
                     );
-                    let function_name: &str = match_or!(TokenKind::Value(Value::Symbol { id }) = name_node.item.value, id,
+                    let function_name: &str = match_or!(TokenKind::Value(Value::Symbol { name, .. }) = name_node.item.value, name,
                         error::invalid_argument(&op_node.item.value, &name_node.item, source, "Invalid function name in function declaration.")
                     );
     
@@ -483,10 +501,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         return_type: Box::new(return_type.clone())
                     };
 
-                    let res = symbol_table.declare_symbol(
+                    let (_discriminant, res) = symbol_table.declare_symbol(
                         function_name.to_string(),
-                        // mutable is set to false because functions are not mutable
-                        Symbol { data_type: function_type, mutable: false, initialized: true },
+                        Symbol { 
+                            data_type: function_type, 
+                            value: SymbolValue::Immutable(None), 
+                            initialized: true 
+                        },
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
@@ -518,9 +539,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                                 error::unexpected_token(&param_node.item, source, "Did you add an extra comma?")
                             },
 
-                            TokenKind::Value(Value::Symbol { id }) => {
+                            TokenKind::Value(Value::Symbol { name, .. }) => {
 
-                                let name = id.to_string();
+                                let name = name.to_string();
 
                                 // Extract the colon
                                 let colon_node = extract_right!().unwrap_or_else(
@@ -630,7 +651,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                             || error::expected_argument(&reference_if_operator.as_ref().map(|node| node.as_ref()).unwrap_or(op_node).item, source, "Missing condition after if operator.")
                         );
                         if !is_expression(&condition_node.item.value) {
-                            error::type_error(&condition_node.item, &[DataType::Bool.name_leaked()], &condition_node.data_type, source, "Expected a boolean condition after if.");
+                            error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after if.");
                         }
 
                         let mut if_body_node = extract_right!().unwrap_or_else(
@@ -698,7 +719,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         || error::expected_argument(&op_node.item, source, "Missing condition after while operator.")
                     );
                     if !is_expression(&condition_node.item.value) {
-                        error::type_error(&condition_node.item, &[DataType::Bool.name_leaked()], &condition_node.data_type, source, "Expected a boolean condition after while.");
+                        error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after while.");
                     }
 
                     let mut body_node = extract_right!().unwrap_or_else(
@@ -711,7 +732,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let scope_block = match_unreachable!(Some(ChildrenType::Block(scope_block)) = body_node.children.take(), scope_block);
                     op_node.children = Some(ChildrenType::While { condition: condition_node, body: scope_block });
                 },
-                
+
                 _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}.", op_node.item.value)
             }
         }
@@ -802,7 +823,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     if let DataType::Ref(data_type) = &operand.data_type {
                         *data_type.clone()
                     } else {
-                        error::type_error(&operand.item, &[DataType::Ref(Box::new(DataType::Void)).name_leaked()], &operand.data_type, source, "Expected a reference")
+                        error::type_error(&operand.item, &[&DataType::Ref(Box::new(DataType::Void)).name()], &operand.data_type, source, "Expected a reference")
                     }
                 },
 
@@ -838,7 +859,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     // Operands must have the same type
                     if op1.data_type != op2.data_type {
-                        error::type_error(&op2.item, &[op1.data_type.name_leaked()], &op2.data_type, source, format!("Operator {:?} has operands of different types {:?} and {:?}.", operator, op1.data_type, op2.data_type).as_str());
+                        error::type_error(&op2.item, &[&op1.data_type.name()], &op2.data_type, source, format!("Operator {:?} has operands of different types {:?} and {:?}.", operator, op1.data_type, op2.data_type).as_str());
                     }
 
                     DataType::Bool
@@ -897,7 +918,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     // Check if the operands have the same type
                     if op1.data_type != op2.data_type {
                         // Here ot.clone() is acceptable because the program will exit after this error
-                        error::type_error(&op2.item, &[op1.data_type.name_leaked()], &op2.data_type, source, format!("Operator {:?} has operands of different types {:?} and {:?}.", operator, op1.data_type, op2.data_type).as_str());
+                        error::type_error(&op2.item, &[&op1.data_type.name()], &op2.data_type, source, format!("Operator {:?} has operands of different types {:?} and {:?}.", operator, op1.data_type, op2.data_type).as_str());
                     }
 
                     op1.data_type.clone()
@@ -919,7 +940,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                             unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", dt)
                         },
 
-                        _ => error::type_error(&callable.item, &[DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }.name_leaked()], &callable.data_type, source, "Expected a function name or a function pointer.")
+                        _ => error::type_error(&callable.item, &[&DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }.name()], &callable.data_type, source, "Expected a function name or a function pointer.")
                     };
 
                     // Check if the number of arguments matches the number of parameters
@@ -933,7 +954,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         resolve_expression_types(arg, scope_id, outer_function_return, symbol_table, source);
 
                         if arg.data_type != *expected_type {
-                            error::type_error(&arg.item, &[expected_type.name_leaked()], &arg.data_type, source, "Argument type does not match function signature.");
+                            error::type_error(&arg.item, &[&expected_type.name()], &arg.data_type, source, "Argument type does not match function signature.");
                         }
                     }
 
@@ -957,11 +978,11 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         
                         // Check if the return type matches the outer function return type
                         if return_expr.data_type != *return_type {
-                            error::type_error(&return_expr.item, &[return_type.name_leaked()], &return_expr.data_type, source, "The returned expression type does not match function signature.");
+                            error::type_error(&return_expr.item, &[&return_type.name()], &return_expr.data_type, source, "The returned expression type does not match function signature.");
                         }
                     } else if !matches!(return_type, DataType::Void) {
                         // If the function doesn't return void, return statements must have a return value
-                        error::type_error(&expression.item, &[return_type.name_leaked()], &DataType::Void, source, "Missing return value for function that does not return void.");
+                        error::type_error(&expression.item, &[&return_type.name()], &DataType::Void, source, "Missing return value for function that does not return void.");
                     }
 
                     // A return statement evaluates to void
@@ -980,32 +1001,34 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     // Resolve the types of the operands
                     resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
                     resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
-
+                
                     // Assert that the symbol can be assigned to (is mutable or immutable and uninitialized)
-                    if let TokenKind::Value(Value::Symbol { id: symbol_id }) = &l_node.item.value {
+                    if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = &l_node.item.value {
 
                         // Unwrap is safe because symbols have already been checked to be valid
-                        let symbol = symbol_table.get_mut(scope_id, symbol_id).unwrap();
+                        let symbol = symbol_table.get_mut(scope_id, name, *scope_discriminant).unwrap();
                         
-                        if !symbol.initialized {
-
-                            if matches!(symbol.data_type, DataType::Unspecified) {
-                                // The data type must be inferred now
-                                symbol.data_type = r_node.data_type.clone();
-                                l_node.data_type = r_node.data_type.clone();
+                        if symbol.initialized {
+                            if matches!(symbol.value, SymbolValue::Immutable(_)) {
+                                // Symbol is immutable and already initialized, so cannot assign to it again
+                                error::immutable_change(&l_node.item, source, "Cannot assign to an immutable symbol.");
                             }
-
+                        } else {
+                            // Symbol was not initialized, so set it as initialized now
                             symbol.initialized = true;
-                            
-                        } else if !symbol.mutable {
-                            error::type_error(&l_node.item, &[symbol.data_type.name_leaked()], &l_node.data_type, source, "Cannot assign to immutable symbol.");
+                        }
+
+                        // The data type must be inferred now if it wasn't specified earlier
+                        if matches!(symbol.data_type, DataType::Unspecified) {
+                            symbol.data_type = r_node.data_type.clone();
+                            l_node.data_type = r_node.data_type.clone();
                         }
                     }
-                    
+
                     // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
                     let r_value = r_node.item.value.literal_value();
                     if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value) {
-                        error::type_error(&r_node.item, &[l_node.data_type.name_leaked()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
+                        error::type_error(&r_node.item, &[&l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
                     }
                     
                     // An assignment is not an expression, so it does not have a type
@@ -1046,7 +1069,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             // Check if the expression type can be cast to the specified type
             if !data_type.is_castable_to(&expr.data_type) {
-                error::type_error(&expr.item, &[data_type.name_leaked()], &expr.data_type, source, format!("Type {:?} cannot be cast to {:?}.", expr.data_type, data_type).as_str());
+                error::type_error(&expr.item, &[&data_type.name()], &expr.data_type, source, format!("Type {:?} cannot be cast to {:?}.", expr.data_type, data_type).as_str());
             }
 
             // Evaluates to the data type of the type cast
@@ -1057,16 +1080,22 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             Value::Literal { value } => value.data_type(symbol_table),
 
-            Value::Symbol { id } => symbol_table.get(scope_id, id)
-                .unwrap_or_else(|| error::symbol_undefined(&expression.item, id, source, if symbol_table.exists_symbol(id) { "Symbol is declared in a different scope." } else { "Symbol is not declared in any scope." } ))
+            Value::Symbol { name, scope_discriminant } => symbol_table.get(scope_id, name, *scope_discriminant)
+                .unwrap_or_else(|| error::symbol_undefined(&expression.item, name, source, if symbol_table.exists_symbol(name) { "Symbol is declared in a different scope." } else { "Symbol is not declared in any scope." } ))
                 .data_type.clone(),
         },
 
         TokenKind::Fn => {
             // Resolve the types inside the function body
+            
+            let (return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children, (return_type, body));
+            
+            resolve_scope_types(body, Some(return_type), symbol_table, source);
 
-            if let Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children {
-                resolve_scope_types(body, Some(return_type), symbol_table, source);
+            // Check return type
+            let return_value = body.return_value_literal();
+            if !body.return_type().is_implicitly_castable_to(return_type, return_value) {
+                error::type_error(&expression.item, &[&return_type.name()], body.return_type(), source, "Mismatched return type in function declaration.");
             }
 
             // Function declaration does not have any type
@@ -1096,7 +1125,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     if let Some(expected_element_type) = element_type {
                         if expected_element_type != expr_type {
-                            error::type_error(&element.item, &[expected_element_type.name_leaked()], expr_type, source, "Array elements have different types.");
+                            error::type_error(&element.item, &[&expected_element_type.name()], expr_type, source, "Array elements have different types.");
                         }
                     } else {
                         // The first element of the array determines the array type
@@ -1162,7 +1191,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         } else {
                             &expression.item
                         };
-                        error::type_error(culprit_token, &[return_type.name_leaked()], if_block.body.return_type(), source, "Mismatched return type in if-else chain.");
+                        error::type_error(culprit_token, &[&return_type.name()], if_block.body.return_type(), source, "Mismatched return type in if-else chain.");
                     }
                 } else {
                     chain_return_type = Some(if_block.body.return_type().clone());
@@ -1181,7 +1210,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     } else {
                         &expression.item
                     };
-                    error::type_error(culprit_token, &[chain_return_type.unwrap().name_leaked()], else_block.return_type(), source, "Mismatched return type in if-else chain.");
+                    error::type_error(culprit_token, &[&chain_return_type.unwrap().name()], else_block.return_type(), source, "Mismatched return type in if-else chain.");
                 }
             }
 
@@ -1198,7 +1227,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             // Assert that the condition is a boolean
             if !matches!(&condition_node.data_type, DataType::Bool) {
-                error::type_error(&condition_node.item, &[DataType::Bool.name_leaked()], &condition_node.data_type, source, "While loop condition must be a boolean.");
+                error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "While loop condition must be a boolean.");
             }
 
             DataType::Void
@@ -1231,7 +1260,7 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&Da
 /// Reduce the operations down the node by evaluating constant expressions.
 /// 
 /// Return whether the node can be removed because it has no effect.
-fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
+fn reduce_operations(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, symbol_table: &mut SymbolTable) -> bool {
 
     const SHOULD_BE_REMOVED: bool = true;
     const SHOULD_NOT_BE_REMOVED: bool = false;
@@ -1242,18 +1271,41 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
             Ops::ArrayIndexOpen => {
                 let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
 
-                reduce_operations(op1, source);
-                reduce_operations(op2, source);
+                reduce_operations(op1, source, scope_id, symbol_table);
+                reduce_operations(op2, source, scope_id, symbol_table);
 
                 // TODO: allow literal values in the symbol table for immutable symbols
+            },
+
+            Ops::Assign => {
+                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = &mut node.children, (l_node, r_node));
+
+                reduce_operations(l_node, source, scope_id, symbol_table);
+                reduce_operations(r_node, source, scope_id, symbol_table);
+
+                // If the left operand is a plain symbol and the right operand is a literal value, perform the assignment statically
+                if let (TokenKind::Value(Value::Symbol { name, scope_discriminant }), true) = (&l_node.item.value, r_node.item.value.literal_value().is_some()) {
+                    let symbol = symbol_table.get_mut(scope_id, name, *scope_discriminant).unwrap();
+
+                    // Static assignment is only available with immutable symbols
+                    if let SymbolValue::Immutable(symbol_value) = &mut symbol.value {
+                        // .take() is ok because children will be dropped anyway upon return (should be removed)
+                        let r_node = match_unreachable!(Some(ChildrenType::Binary(_l_node, r_node)) = node.children.take(), r_node);
+                        let r_value = match_unreachable!(TokenKind::Value(Value::Literal { value: r_value }) = r_node.item.value, r_value);
+                        symbol_value.replace(r_value);
+
+                        // The assignment has just been performed statically, so the assignment operation can be removed (assignment operation has no side effect and is not an expression)
+                        return SHOULD_BE_REMOVED;
+                    }
+                }
             },
 
             #[allow(unreachable_patterns)] // Allow to keep the code concise. Some binary operators are handled differently.
             binary_operators!() => {
                 let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
 
-                reduce_operations(op1, source);
-                reduce_operations(op2, source);
+                reduce_operations(op1, source, scope_id, symbol_table);
+                reduce_operations(op2, source, scope_id, symbol_table);
 
                 if !op.is_allowed_at_compile_time() || (op1.item.value.literal_value().is_none() && op2.item.value.literal_value().is_none()) {
                     return SHOULD_NOT_BE_REMOVED;
@@ -1274,7 +1326,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
             unary_operators!() => {
                 let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut node.children, operand);
 
-                reduce_operations(operand, source);
+                reduce_operations(operand, source, scope_id, symbol_table);
 
                 if !op.is_allowed_at_compile_time() || operand.item.value.literal_value().is_none() {
                     return SHOULD_NOT_BE_REMOVED;
@@ -1295,7 +1347,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
             Ops::Return => if let Some(expr) = &mut node.children {
                 let expr = match_unreachable!(ChildrenType::Unary(expr) = expr, expr);
 
-                reduce_operations(expr, source);
+                reduce_operations(expr, source, scope_id, symbol_table);
             },
             
             Ops::FunctionCallOpen => {
@@ -1304,10 +1356,10 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
 
                 let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut node.children, (callable, args));
 
-                reduce_operations(callable, source);
+                reduce_operations(callable, source, scope_id, symbol_table);
 
                 for arg in args {
-                    reduce_operations(arg, source);
+                    reduce_operations(arg, source, scope_id, symbol_table);
                 }
             },
         },
@@ -1315,7 +1367,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
         TokenKind::While => {
             let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut node.children, (condition, body));
 
-            reduce_operations(condition, source);
+            reduce_operations(condition, source, scope_id, symbol_table);
 
             if let Some(condition_value) = condition.item.value.literal_value() {
                 let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
@@ -1325,7 +1377,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
 
                     error::warn(&condition.item, source, "While loop condition is always true. This loop will be converted to an unconditional loop.");
 
-                    reduce_operations_block(body, source);
+                    reduce_operations_block(body, source, symbol_table);
 
                     node.item.value = TokenKind::Loop;
                     node.children = Some(ChildrenType::Block(
@@ -1343,7 +1395,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
         TokenKind::As => {
             let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { expr, data_type }) = &mut node.children, (data_type, expr));
 
-            reduce_operations(expr, source);
+            reduce_operations(expr, source, scope_id, symbol_table);
 
             if expr.data_type == *target_type {
                 // No need to perform the cast
@@ -1374,19 +1426,19 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
         TokenKind::Fn => {
             let (_return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut node.children, (return_type, body));
 
-            reduce_operations_block(body, source);
+            reduce_operations_block(body, source, symbol_table);
         },
 
         TokenKind::If => {
             let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut node.children, (if_chain, else_block));
 
             for if_block in if_chain {
-                reduce_operations(&mut if_block.condition, source);
-                reduce_operations_block(&mut if_block.body, source);
+                reduce_operations(&mut if_block.condition, source, scope_id, symbol_table);
+                reduce_operations_block(&mut if_block.body, source, symbol_table);
             }
 
             if let Some(else_block) = else_block {
-                reduce_operations_block(else_block, source);
+                reduce_operations_block(else_block, source, symbol_table);
             }
         },
 
@@ -1394,14 +1446,14 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
             let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut node.children, elements);
 
             for element in elements {
-                reduce_operations(element, source);
+                reduce_operations(element, source, scope_id, symbol_table);
             }
         },
 
         TokenKind::ScopeOpen => {
             let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut node.children, inner_block);
 
-            reduce_operations_block(inner_block, source);
+            reduce_operations_block(inner_block, source, symbol_table);
 
             if inner_block.statements.is_empty() {
                 // Empty scopes can be removed
@@ -1422,7 +1474,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode) -> bool {
 
 
 /// Reduce the number of operations by evaluating constant expressions
-fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode) {
+fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode, symbol_table: &mut SymbolTable) {
     // Depth-first traversal to evaluate constant expressions and remove unnecessary operations
 
     for statement in &mut block.statements {
@@ -1430,7 +1482,7 @@ fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode) {
         let mut node_ptr = statement.first;
         while let Some(node) = unsafe { node_ptr.as_mut() } {
 
-            if reduce_operations(node, source) {
+            if reduce_operations(node, source, block.scope_id, symbol_table) {
                 // Remove the useless node 
                 let next_node = node.right;
                 statement.extract_node(node_ptr).expect("Node should have been removed.");
@@ -1462,7 +1514,7 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bo
     println!("\n\nAfter symbol resolution:\n{}", outer_block);
 
     if optimize {
-        reduce_operations_block(&mut outer_block, source);
+        reduce_operations_block(&mut outer_block, source, symbol_table);
         println!("\n\nAfter constant expression evaluation:\n{}", outer_block);
     }
     

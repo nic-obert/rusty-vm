@@ -219,10 +219,10 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor |
-            Ops::ArrayIndexOpen
+            Ops::ArrayIndexOpen |
+            Ops::Assign  // Assign is allowed only when initializing an immutable symbol with a constant expression
             => true,
             
-            Ops::Assign |
             Ops::Deref |
             Ops::Ref |
             Ops::FunctionCallOpen |

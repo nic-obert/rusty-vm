@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::operations::Ops;
 use crate::data_types::{DataType, LiteralValue};
+use crate::symbol_table::ScopeDiscriminant;
 
 
 #[derive(Debug)]
@@ -55,7 +56,7 @@ impl StringToken<'_> {
 pub enum Value<'a> {
 
     Literal { value: LiteralValue },
-    Symbol { id: &'a str }
+    Symbol { name: &'a str, scope_discriminant: ScopeDiscriminant }
 
 }
 
@@ -64,7 +65,7 @@ impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Literal { value } => write!(f, "Literal({})", value),
-            Value::Symbol { id } => write!(f, "Ref({})", id),
+            Value::Symbol { name, .. } => write!(f, "Ref({})", name),
         }
     }
 }
@@ -133,7 +134,10 @@ pub enum Priority {
     Ref_Cast,
 
     /// Delimiters have the maximum priority.
-    Delimiter
+    Delimiter,
+
+    /// Special priority used to pre-process certain tokens who might have a non-complete value (symbols and their scope discriminant)
+    PreProcess
 
 }
 
@@ -200,7 +204,7 @@ impl TokenKind<'_> {
             TokenKind::Let
                 => Priority::Declaration,
 
-            TokenKind::Value(_) |
+            TokenKind::Value(Value::Literal { .. }) |
             TokenKind::DataType(_) |
             TokenKind::Arrow |
             TokenKind::Semicolon |
@@ -228,6 +232,8 @@ impl TokenKind<'_> {
             TokenKind::While |
             TokenKind::Loop
              => Priority::ControlFlow,
+
+            TokenKind::Value(Value::Symbol { .. }) => Priority::PreProcess,
 
         } as i32)
     }

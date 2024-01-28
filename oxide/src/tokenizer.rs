@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use crate::data_types::{DataType, LiteralValue, Number};
-use crate::symbol_table::SymbolTable;
+use crate::symbol_table::{ScopeDiscriminant, SymbolTable};
 use crate::token::{TokenKind, Token, Priority, StringToken};
 use crate::error;
 use crate::operations::Ops;
@@ -245,7 +245,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
                     // Unwrap is safe because `last_node` is an expression
                     let last_node = last_node.unwrap();
 
-                    if matches!(last_node.item.value, TokenKind::Value(Value::Symbol { id: _ })) && last_node.left().map(|node| matches!(node.item.value, TokenKind::Fn)).unwrap_or(false) {
+                    if matches!(last_node.item.value, TokenKind::Value(Value::Symbol { .. })) && last_node.left().map(|node| matches!(node.item.value, TokenKind::Fn)).unwrap_or(false) {
                         // Syntax: fn <symbol> (
                         TokenKind::FunctionParamsOpen
                     } else {
@@ -419,7 +419,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
                     error::invalid_token(unit_path, &token, source, "Not a valid symbol name.")
                 }
 
-                TokenKind::Value(Value::Symbol { id: string })
+                TokenKind::Value(Value::Symbol { name: string, scope_discriminant: ScopeDiscriminant::default() })
             }
         };
 

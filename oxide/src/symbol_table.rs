@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::error::WarnResult;
-use crate::data_types::DataType;
+use crate::data_types::{DataType, LiteralValue};
 
 
 /// Struct representing a symbol in the source code.
@@ -10,8 +10,14 @@ use crate::data_types::DataType;
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol {
     pub data_type: DataType,
-    pub mutable: bool,
+    pub value: SymbolValue,
     pub initialized: bool,
+}
+
+
+pub enum SymbolValue {
+    Mutable,
+    Immutable (Option<LiteralValue>),
 }
 
 
@@ -30,7 +36,7 @@ pub struct StaticValue<'a> {
 
 pub struct Scope {
     pub parent: Option<ScopeID>,
-    pub symbols: HashMap<String, Symbol>,
+    pub symbols: HashMap<String, Vec<Symbol>>,
 }
 
 
@@ -47,6 +53,19 @@ impl ScopeID {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct StaticID(usize);
+
+
+#[derive(Debug, Copy, Clone)]
+pub struct ScopeDiscriminant(u16);
+
+#[allow(clippy::derivable_impls)]
+impl Default for ScopeDiscriminant {
+
+    fn default() -> Self {
+        Self(0)
+    }
+
+}
 
 
 /// Struct containing the local symbols of a scope. 
@@ -88,43 +107,58 @@ impl<'a> SymbolTable<'a> {
     }
 
     
-    pub fn declare_symbol(&mut self, name: String, symbol: Symbol, scope_id: ScopeID) -> WarnResult<&'static str> {
+    pub fn declare_symbol(&mut self, name: String, symbol: Symbol, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
 
         // TODO: eventually, use an immutable borrow of the string in the source code to avoid useless copying
 
-        let shadow = self.scopes[scope_id.0].symbols.insert(name, symbol);
+        let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
+        let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
+        symbol_list.push(symbol);
 
-        if shadow.is_some() {
-            WarnResult::Warning("Symbol already declared in this scope. The new symbol will shadow the previous declaration.")
+        let warning = if discriminant.0 > 0 {
+            WarnResult::Warning("Symbol already declared in this scope. The new symbol will overshadow the previous declaration.")
         } else {
             WarnResult::Ok
-        }
+        };
+
+        (discriminant, warning)
     }
 
 
-    /// Get the symbol with the given id from the symbol table.
-    pub fn get(&self, scope_id: ScopeID, symbol_id: &str) -> Option<&Symbol> {
+    pub fn get_current_discriminant(&self, name: &str, scope_id: ScopeID) -> Option<ScopeDiscriminant> {
         let scope = &self.scopes[scope_id.0];
-
-        let symbol = scope.symbols.get(symbol_id);
-        if symbol.is_some() {
-            symbol
+        if let Some(discriminant) = scope.symbols.get(name).map(|s| ScopeDiscriminant(s.len() as u16 - 1)) {
+            Some(discriminant)
         } else if let Some(parent_id) = scope.parent {
-            self.get(parent_id, symbol_id)
+            self.scopes[parent_id.0].symbols.get(name).map(|s| ScopeDiscriminant(s.len() as u16 - 1))
         } else {
             None
         }
     }
 
 
-    unsafe fn _get_mut(&mut self, scope_id: ScopeID, symbol_id: &str) -> Option<*mut Symbol> {
+    /// Get the symbol with the given id from the symbol table.
+    pub fn get(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&Symbol> {
+        let scope = &self.scopes[scope_id.0];
+
+        if let Some(symbol_list) = scope.symbols.get(symbol_id) {
+            Some(&symbol_list[discriminant.0 as usize])
+        } else if let Some(parent_id) = scope.parent {
+            self.get(parent_id, symbol_id, discriminant)
+        } else {
+            None
+        }
+    }
+
+
+    unsafe fn _get_mut(&mut self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<*mut Symbol> {
         let scope = &mut self.scopes[scope_id.0];
 
         let symbol = scope.symbols.get_mut(symbol_id);
         if symbol.is_some() {
-            symbol.map(|s| s as *mut Symbol)
+            symbol.map(|s| &mut s[discriminant.0 as usize] as *mut Symbol)
         } else if let Some(parent_id) = scope.parent {
-            self._get_mut(parent_id, symbol_id)
+            self._get_mut(parent_id, symbol_id, discriminant)
         } else {
             None
         }
@@ -142,16 +176,9 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn get_mut(&mut self, scope_id: ScopeID, symbol_id: &str) -> Option<&mut Symbol> {
-        unsafe { self._get_mut(scope_id, symbol_id).map(|s| &mut *s) }
+    pub fn get_mut(&mut self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&mut Symbol> {
+        unsafe { self._get_mut(scope_id, symbol_id, discriminant).map(|s| &mut *s) }
     }
-
-
-    // /// Assumes the symbol exists and is not already initialized
-    // pub fn set_initialized(&mut self, scope_id: ScopeID, symbol_id: &str) {
-    //     let symbol = unsafe { self._get_mut(scope_id, symbol_id).unwrap().as_mut().unwrap() };
-    //     symbol.initialized = true;
-    // }
 
 }
 

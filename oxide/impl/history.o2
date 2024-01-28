@@ -32,3 +32,9 @@ let mut i = 0;
 i = 2+4;
 
 let s: &str = "hello";
+let s: &str = "hello";
+fn hi() -> i32{
+    (8*4) as i32
+}
+
+let x = hi();

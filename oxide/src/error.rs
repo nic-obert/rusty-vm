@@ -290,3 +290,20 @@ pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) 
     std::process::exit(1);
 }
 
+
+pub fn immutable_change(token: &Token, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Attempt to change immutable symbol at line {}:{}:
+
+        ",
+        token.unit_path.display(), token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+

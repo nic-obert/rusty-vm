@@ -6,7 +6,7 @@ Project Description
 
 ### Todo
 
-- [ ] allow literal values for immutable symbols in symbol table  
+- [ ] implement mutable and immutable references  
 - [ ] implement const functions  
 - [ ] implement module system  
 - [ ] implement enums  
@@ -19,6 +19,8 @@ Project Description
 
 ### Done ✓
 
+- [x] Use Cow for data types to avoid cloning  
+- [x] allow literal values for immutable symbols in symbol table  
 - [x] differentiate between string literals (stack) and heap-allocated strings  
 - [x] coherce raw string literals to &str and store their value in a static section of the symbol table  
 - [x] introduce usize and isize types  

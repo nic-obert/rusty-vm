@@ -1,6 +1,6 @@
 use std::ptr;
 
-use crate::data_types::DataType;
+use crate::data_types::{DataType, LiteralValue};
 use crate::symbol_table::ScopeID;
 use crate::token::Token;
 
@@ -27,6 +27,15 @@ impl ScopeBlock<'_> {
             &last_statement.last_node().unwrap().data_type
         } else {
             &DataType::Void
+        }
+    }
+
+    pub fn return_value_literal(&self) -> Option<&LiteralValue> {
+        if let Some(last_statement) = self.statements.last() {
+            // Unwrap is safe because empty statements are removed
+            last_statement.last_node().unwrap().item.value.literal_value()
+        } else {
+            None
         }
     }
 

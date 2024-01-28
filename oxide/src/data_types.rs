@@ -1,4 +1,4 @@
-use std::fmt::{Display, Debug};
+use std::{borrow::Cow, fmt::{Display, Debug}};
 
 use crate::{match_unreachable, symbol_table::{StaticID, SymbolTable}};
 
@@ -253,42 +253,42 @@ impl DataType {
         }
     }
 
-    /// May return leaked strings, but it's ok because this function is only used before the program exits to print errors.
-    pub fn name_leaked(&self) -> &str {
+
+    pub fn name(&self) -> Cow<'static, str> { // Uses Cow to avoid leaking owned strings 
         match self {
-            DataType::Bool => "bool",
-            DataType::Char => "char",
-            DataType::String => "String",
-            DataType::RawString { length } => Box::new(format!("str[{}]", length)).leak(),
-            DataType::Array(x) => Box::new(format!("[{}]", x)).leak(),
-            DataType::Ref(x) => Box::new(format!("&{}", x)).leak(),
-            DataType::I8 => "i8",
-            DataType::I16 => "i16",
-            DataType::I32 => "i32",
-            DataType::I64 => "i64",
-            DataType::U8 => "u8",
-            DataType::U16 => "u16",
-            DataType::U32 => "u32",
-            DataType::U64 => "u64",
-            DataType::F32 => "f32",
-            DataType::F64 => "f64",
+            DataType::Bool => Cow::Borrowed("bool"),
+            DataType::Char => Cow::Borrowed("char"),
+            DataType::String => Cow::Borrowed("String"),
+            DataType::RawString { length } => Cow::Owned(format!("str[{}]", length)),
+            DataType::Array(x) => Cow::Owned(format!("[{}]", x)),
+            DataType::Ref(x) => Cow::Owned(format!("&{}", x)),
+            DataType::I8 => Cow::Borrowed("i8"),
+            DataType::I16 => Cow::Borrowed("i16"),
+            DataType::I32 => Cow::Borrowed("i32"),
+            DataType::I64 => Cow::Borrowed("i64"),
+            DataType::U8 => Cow::Borrowed("u8"),
+            DataType::U16 => Cow::Borrowed("u16"),
+            DataType::U32 => Cow::Borrowed("u32"),
+            DataType::U64 => Cow::Borrowed("u64"),
+            DataType::F32 => Cow::Borrowed("f32"),
+            DataType::F64 => Cow::Borrowed("f64"),
             DataType::Function { params, return_type } => {
                 let mut name = String::from("fn(");
                 for (i, param) in params.iter().enumerate() {
-                    name.push_str(param.name_leaked());
+                    name.push_str(&param.name());
                     if i < params.len() - 1 {
                         name.push_str(", ");
                     }
                 }
                 name.push_str(") -> ");
-                name.push_str(return_type.name_leaked());
-                Box::leak(name.into_boxed_str())
+                name.push_str(&return_type.name());
+                Cow::Owned(name)
             },
-            DataType::Void => "void",
-            DataType::Unspecified => "Unspecified",
-            DataType::StringRef { length } => Box::new(format!("str[{}]", length)).leak(),
-            DataType::Usize => "usize",
-            DataType::Isize => "isize",
+            DataType::Void => Cow::Borrowed("void"),
+            DataType::Unspecified => Cow::Borrowed("Unspecified"),
+            DataType::StringRef { length } => Cow::Owned(format!("str[{}]", length)),
+            DataType::Usize => Cow::Borrowed("usize"),
+            DataType::Isize => Cow::Borrowed("isize"),
         }
     }
 
@@ -297,13 +297,13 @@ impl DataType {
 
 impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name_leaked())
+        f.write_str(&self.name())
     }
 }
 
 impl Debug for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name_leaked())
+        f.write_str(&self.name())
     }
 }
 
@@ -542,7 +542,7 @@ impl LiteralValue {
         }
     }
 
-    
+
     pub fn data_type(&self, symbol_table: &SymbolTable<'_>) -> DataType {
         match self {
             LiteralValue::Char(_) => DataType::Char,
