@@ -17,7 +17,7 @@ pub mod op_macros {
     #[macro_export]
     macro_rules! unary_operators {
         () => {
-            Ops::Deref | Ops::Ref | Ops::LogicalNot | Ops::BitwiseNot
+            Ops::Deref { .. } | Ops::Ref { .. } | Ops::LogicalNot | Ops::BitwiseNot
         };
     }
 
@@ -33,8 +33,8 @@ pub enum Ops {
     Div,
     Mod,
     Assign,
-    Deref,
-    Ref,
+    Deref { mutable: bool },
+    Ref { mutable: bool },
     FunctionCallOpen,
     Return,
     Equal,
@@ -82,8 +82,8 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor |
-            Ops::Ref |
-            Ops::Deref |
+            Ops::Ref { .. } |
+            Ops::Deref { .. } |
             Ops::FunctionCallOpen |
             Ops::ArrayIndexOpen
         )
@@ -106,16 +106,16 @@ impl Ops {
              => matches!(data_type, numeric_pattern!()),
 
             Ops::Assign => match position {
-                0 => matches!(data_type, DataType::Ref(_)),
+                0 => matches!(data_type, DataType::Ref { .. }),
                 1 => !matches!(data_type, DataType::Void), // Disallow setting values to void
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
-            Ops::Deref => matches!(data_type, pointer_pattern!()),
+            Ops::Deref { .. } => matches!(data_type, pointer_pattern!()),
 
             Ops::Equal |
             Ops::NotEqual |
-            Ops::Ref
+            Ops::Ref { .. }
              => true,
 
             Ops::FunctionCallOpen => matches!(data_type, DataType::Function { .. }),
@@ -164,13 +164,17 @@ impl Ops {
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
-            Ops::Deref => &["pointer"],
+            Ops::Deref { .. } => &["pointer"],
 
             Ops::Return |
             Ops::Equal |
-            Ops::NotEqual |
-            Ops::Ref
-             => &["value"],
+            Ops::NotEqual
+            => &["value"],
+            
+            Ops::Ref { mutable } => match mutable {
+                true => &["mutable value"],
+                false => &["value"]
+            },
 
             Ops::FunctionCallOpen => &["function"],
 
@@ -223,8 +227,8 @@ impl Ops {
             Ops::Assign  // Assign is allowed only when initializing an immutable symbol with a constant expression
             => true,
             
-            Ops::Deref |
-            Ops::Ref |
+            Ops::Deref { .. } |
+            Ops::Ref { .. } |
             Ops::FunctionCallOpen |
             Ops::Return
              => false
@@ -349,8 +353,8 @@ impl Display for Ops {
             Ops::Div => "/",
             Ops::Mod => "%",
             Ops::Assign => "=",
-            Ops::Deref => "Deref",
-            Ops::Ref => "Ref",
+            Ops::Deref { mutable } => if *mutable { "*mut" } else { "*" },
+            Ops::Ref { mutable } => if *mutable { "&mut" } else { "&" },
             Ops::FunctionCallOpen => "Call",
             Ops::Return => "return",
             Ops::Equal => "==",

@@ -6,7 +6,7 @@ Project Description
 
 ### Todo
 
-- [ ] implement mutable and immutable references  
+- [ ] move operation arguments into ops enum  
 - [ ] implement const functions  
 - [ ] implement module system  
 - [ ] implement enums  
@@ -19,6 +19,8 @@ Project Description
 
 ### Done ✓
 
+- [x] make symbols aware of where in the source code they were declared (line and column)  
+- [x] implement mutable and immutable references  
 - [x] Use Cow for data types to avoid cloning  
 - [x] allow literal values for immutable symbols in symbol table  
 - [x] differentiate between string literals (stack) and heap-allocated strings  

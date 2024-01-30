@@ -165,8 +165,8 @@ impl TokenKind<'_> {
                 Ops::Assign
                  => Priority::Least_Assignment_FlowBreak,
 
-                Ops::Deref |
-                Ops::Ref
+                Ops::Deref { .. } |
+                Ops::Ref { .. }
                  => Priority::Ref_Cast,
 
                 Ops::FunctionCallOpen |

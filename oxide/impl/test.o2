@@ -1,3 +1,3 @@
-fn main() -> i32 {
-    (3*3) as i32
-}
+let mut a = 0;
+let b = &mut a;
+*b = 5;

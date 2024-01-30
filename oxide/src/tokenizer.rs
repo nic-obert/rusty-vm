@@ -294,7 +294,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             "-" => TokenKind::Op(Ops::Sub),
             "*" => {
                 let last_token = tokens.last_node().map(|node| &node.item);
-                if may_be_expression(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref) }
+                if may_be_expression(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref { mutable: false }) }
             },
             "/" => TokenKind::Op(Ops::Div),
             "%" => TokenKind::Op(Ops::Mod),
@@ -316,11 +316,11 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
                         TokenKind::RefType
                     } else {
                         // Syntax: <not-a-data-type-precursor> &
-                        TokenKind::Op(Ops::Ref)
+                        TokenKind::Op(Ops::Ref { mutable: false })
                     }
                 } else {
                     // Syntax: <nothing> &
-                    TokenKind::Op(Ops::Ref)
+                    TokenKind::Op(Ops::Ref { mutable: false })
                 }
             },
             "^" => TokenKind::Op(Ops::BitwiseXor),

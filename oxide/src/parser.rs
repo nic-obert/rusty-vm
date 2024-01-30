@@ -228,19 +228,38 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         op_node.children = Some(ChildrenType::Binary(left, right));
                     },
     
-                    // Unary operators left:
-                    Ops::Deref |
-                    Ops::Ref |
+                    // Unary operators with argument to the right:
+                    Ops::Deref { .. } |
                     Ops::LogicalNot |
                     Ops::BitwiseNot
-                     => {
-                        let left = extract_left!().unwrap_or_else(
-                            || error::expected_argument(&op_node.item, source, format!("Missing left argument for operator {}.", op).as_str())
+                    => {
+                        let right = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&op_node.item, source, format!("Missing right argument for operator {}.", op).as_str())
                         );
-                        op_node.children = Some(ChildrenType::Unary(left));
+                        op_node.children = Some(ChildrenType::Unary(right));
                     },
-    
-                    // Unary operators right:
+                    
+                    Ops::Ref { .. }
+                     => {
+                        let right = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&op_node.item, source, format!("Missing right argument for operator {}.", op).as_str())
+                        );
+
+                        let (mutable, right) = if let TokenKind::Mut = right.item.value {
+                            let right = extract_right!().unwrap_or_else(
+                                || error::expected_argument(&op_node.item, source, format!("Missing right argument for operator {}.", op).as_str())
+                            );
+                            (true, right)
+                        } else {
+                            (false, right)
+                        };
+
+                        let mutable_field = match_unreachable!(TokenKind::Op(Ops::Ref { mutable }) = &mut op_node.item.value, mutable);
+                        *mutable_field = mutable;
+                        
+                        op_node.children = Some(ChildrenType::Unary(right));
+                    },
+
                     Ops::Return => {
                         // Syntax: return <expression>
                         // Syntax: return
@@ -413,7 +432,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         Symbol { 
                             data_type, 
                             value: if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
-                            initialized: false 
+                            initialized: false,
+                            line_index: op_node.item.token.line_index(),
+                            column: op_node.item.token.column
                         },
                         block.scope_id
                     );
@@ -506,7 +527,9 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         Symbol { 
                             data_type: function_type, 
                             value: SymbolValue::Immutable(None), 
-                            initialized: true 
+                            initialized: true,
+                            line_index: op_node.item.token.line_index(),
+                            column: op_node.item.token.column
                         },
                         block.scope_id
                     );
@@ -597,18 +620,39 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
 
                 TokenKind::RefType => {
                     // Syntax: &<type>
+                    // Syntax: &mut <type>
 
-                    let element_type_node = extract_right!().unwrap_or_else(
-                        || error::expected_argument(&op_node.item, source, "Missing data type after reference symbol &.")
+                    let next_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing data type or mutability after reference symbol &.")
                     );
-                    let element_type = match_or!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type,
+
+                    let (mutable, element_type_node) = if let TokenKind::Mut = next_node.item.value {
+                        // This is a mutable reference
+                        let element_type_node = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&op_node.item, source, "Missing data type after reference symbol &.")
+                        );
+                        (true, element_type_node)
+                    } else {
+                        // This is an immutable reference
+                        (false, next_node)
+                    };
+                    
+                    let element_type = match_or!(TokenKind::DataType(data_type) = &element_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Expected a data type after reference symbol &.")
                     );
 
                     // Some data types should be merged together
                     let ref_type = match element_type {
-                        DataType::RawString { length } => DataType::StringRef { length },
-                        _ => DataType::Ref(Box::new(element_type))
+                        DataType::RawString { length } => {
+                            if mutable {
+                                error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Raw strings cannot be mutable.")
+                            }
+                            DataType::StringRef { length: *length }
+                        },
+                        _ => {
+                            let element_type = match_unreachable!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type);
+                            DataType::Ref { target: Box::new(element_type), mutable }
+                        }
                     };
                     
                     // Transform this node into a data type node
@@ -815,24 +859,35 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             
             match operator {
 
-                Ops::Deref => {
+                Ops::Deref { .. } => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
-                    if let DataType::Ref(data_type) = &operand.data_type {
-                        *data_type.clone()
+                    if let DataType::Ref { target, mutable } = &operand.data_type {
+                        let res = *target.clone();
+                        let mutable_field = match_unreachable!(TokenKind::Op(Ops::Deref { mutable }) = &mut expression.item.value, mutable);
+                        *mutable_field = *mutable;
+                        res
                     } else {
-                        error::type_error(&operand.item, &[&DataType::Ref(Box::new(DataType::Void)).name()], &operand.data_type, source, "Expected a reference")
+                        error::type_error(&operand.item, &[&DataType::Ref { target: Box::new(DataType::Unspecified), mutable: false }.name()], &operand.data_type, source, "Expected a reference")
                     }
                 },
 
-                Ops::Ref => {
+                Ops::Ref { mutable } => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
-                    DataType::Ref(Box::new(operand.data_type.clone()))
+                    if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = &operand.item.value {
+                        let symbol = symbol_table.get(scope_id, name, *scope_discriminant).unwrap();
+                        // Mutable borrows of immutable symbols are not allowed
+                        if !symbol.is_mutable() && *mutable {
+                            error::illegal_mutable_borrow(&operand.item, source, format!("Cannot borrow \"{name}\" as mutable because it was declared as immutable.\nType of \"{name}\": {}.\n{name} declared at {}:{}:\n{}", symbol.data_type, symbol.line_number(), symbol.column, source[symbol.line_index]).as_str())
+                        }
+                    }
+
+                    DataType::Ref { target: Box::new(operand.data_type.clone()), mutable: *mutable }
                 },
 
                 // Binary operators that return a boolean
@@ -934,10 +989,10 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     let (param_types, return_type): (&[DataType], &DataType) = match &callable.data_type {
 
                         DataType::Function { params, return_type } => (params, return_type),
-                        DataType::Ref(dt) if matches!(**dt, DataType::Function { .. }) => if let DataType::Function { params, return_type } = &**dt {
+                        DataType::Ref { target, .. } if matches!(**target, DataType::Function { .. }) => if let DataType::Function { params, return_type } = &**target {
                             (params, return_type)
                         } else {
-                            unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", dt)
+                            unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", target)
                         },
 
                         _ => error::type_error(&callable.item, &[&DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }.name()], &callable.data_type, source, "Expected a function name or a function pointer.")
@@ -992,37 +1047,49 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::Assign => {
                     
                     let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut expression.children, (l_node, r_node));
-
+                    
                     // Only allow assignment to a symbol or a dereference
-                    if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref)) {
+                    if !matches!(l_node.item.value, TokenKind::Value(Value::Symbol { .. }) | TokenKind::Op(Ops::Deref { .. })) {
                         error::type_error(&l_node.item, Ops::Assign.allowed_types(0), &l_node.data_type, source, "Invalid left operand for assignment operator.");
                     }
 
                     // Resolve the types of the operands
                     resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
                     resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
+
                 
-                    // Assert that the symbol can be assigned to (is mutable or immutable and uninitialized)
-                    if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = &l_node.item.value {
+                    // Assert that the symbol or dereference can be assigned to (mutable or uninitialized)
+                    match &l_node.item.value {
+                        TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
 
-                        // Unwrap is safe because symbols have already been checked to be valid
-                        let symbol = symbol_table.get_mut(scope_id, name, *scope_discriminant).unwrap();
-                        
-                        if symbol.initialized {
-                            if matches!(symbol.value, SymbolValue::Immutable(_)) {
-                                // Symbol is immutable and already initialized, so cannot assign to it again
-                                error::immutable_change(&l_node.item, source, "Cannot assign to an immutable symbol.");
+                            // Unwrap is safe because symbols have already been checked to be valid
+                            let symbol = symbol_table.get_mut(scope_id, name, *scope_discriminant).unwrap();
+                            
+                            if symbol.initialized {
+                                if matches!(symbol.value, SymbolValue::Immutable(_)) {
+                                    // Symbol is immutable and already initialized, so cannot assign to it again
+                                    error::immutable_change(&l_node.item, &l_node.data_type, source, "Cannot assign to an immutable symbol.");
+                                }
+                            } else {
+                                // Symbol was not initialized, so set it as initialized now
+                                symbol.initialized = true;
                             }
-                        } else {
-                            // Symbol was not initialized, so set it as initialized now
-                            symbol.initialized = true;
-                        }
 
-                        // The data type must be inferred now if it wasn't specified earlier
-                        if matches!(symbol.data_type, DataType::Unspecified) {
-                            symbol.data_type = r_node.data_type.clone();
-                            l_node.data_type = r_node.data_type.clone();
-                        }
+                            // The data type must be inferred now if it wasn't specified earlier
+                            if matches!(symbol.data_type, DataType::Unspecified) {
+                                symbol.data_type = r_node.data_type.clone();
+                                l_node.data_type = r_node.data_type.clone();
+                            }
+                        },
+
+                        TokenKind::Op(Ops::Deref{ mutable }) => {
+                            // The dereference must be mutable
+                            if !mutable {
+                                error::immutable_change(&l_node.item, &l_node.data_type, source, "Cannot assign to an immutable dereference.");
+                            }
+                        },
+
+                        _ => unreachable!("Invalid token kind during expression type resolution: {:?}. This is a bug.", l_node.item.value)
                     }
 
                     // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
@@ -1081,7 +1148,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             Value::Literal { value } => value.data_type(symbol_table),
 
             Value::Symbol { name, scope_discriminant } => symbol_table.get(scope_id, name, *scope_discriminant)
-                .unwrap_or_else(|| error::symbol_undefined(&expression.item, name, source, if symbol_table.exists_symbol(name) { "Symbol is declared in a different scope." } else { "Symbol is not declared in any scope." } ))
+                .unwrap_or_else(|| error::symbol_undefined(&expression.item, name, source, 
+                    if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.column, source[symbol.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str()))
                 .data_type.clone(),
         },
 

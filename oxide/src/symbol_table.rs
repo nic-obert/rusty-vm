@@ -12,6 +12,23 @@ pub struct Symbol {
     pub data_type: DataType,
     pub value: SymbolValue,
     pub initialized: bool,
+    pub line_index: usize,
+    pub column: usize,
+}
+
+impl Symbol {
+
+    pub fn is_mutable(&self) -> bool {
+        match self.value {
+            SymbolValue::Mutable => true,
+            SymbolValue::Immutable(_) => false,
+        }
+    }
+
+    pub fn line_number(&self) -> usize {
+        self.line_index + 1
+    }
+
 }
 
 
@@ -101,9 +118,9 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    /// Return whether the symbol is declared in the symbol table in any scope.
-    pub fn exists_symbol(&self, symbol_id: &str) -> bool {
-        self.scopes.iter().any(|scope| scope.symbols.contains_key(symbol_id))
+    /// Return the requested symbol if it exists in the symbol table.
+    pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&Symbol> {
+        self.scopes.iter().find_map(|scope| scope.symbols.get(symbol_id)).and_then(|s| s.last())
     }
 
     

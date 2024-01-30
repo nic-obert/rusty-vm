@@ -15,7 +15,7 @@ pub enum DataType {
     String,
 
     Array (Box<DataType>),
-    Ref (Box<DataType>),
+    Ref { target: Box<DataType>, mutable: bool },
     StringRef { length: usize },
 
     I8,
@@ -84,7 +84,7 @@ pub mod dt_macros {
 
     macro_rules! pointer_pattern {
         () => {
-            DataType::Ref(_)
+            DataType::Ref { .. }
         };
     }
     pub(crate) use pointer_pattern;
@@ -99,7 +99,7 @@ impl DataType {
         match self {
             DataType::Bool => 1,
             DataType::Char => 1,
-            DataType::Ref(_) => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Ref { .. } => rust_vm_lib::vm::ADDRESS_SIZE,
             DataType::I8 => 1,
             DataType::I16 => 2,
             DataType::I32 => 4,
@@ -134,14 +134,14 @@ impl DataType {
             // 1-byte integers are castable to chars and other numbers
             DataType::I8 | DataType::U8 => matches!(target, DataType::Char | numeric_pattern!()),
             // u64 is castable to pointers (and other numbers)
-            DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref(_)),    
+            DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref { .. }),    
             // A number is castable to any other number.
             #[allow(unreachable_patterns)]
             numeric_pattern!() => matches!(target, numeric_pattern!()),
             // A char is castable to 1-byte integers.
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
             // A pointer is castable to any other reference and to u64 (for pointer arithmetic).
-            DataType::Ref(_) => matches!(target, DataType::Ref(_) | DataType::U64),
+            DataType::Ref { .. } => matches!(target, DataType::Ref { .. } | DataType::U64),
             
             DataType::Bool => matches!(target, integer_pattern!()),
 
@@ -261,7 +261,7 @@ impl DataType {
             DataType::String => Cow::Borrowed("String"),
             DataType::RawString { length } => Cow::Owned(format!("str[{}]", length)),
             DataType::Array(x) => Cow::Owned(format!("[{}]", x)),
-            DataType::Ref(x) => Cow::Owned(format!("&{}", x)),
+            DataType::Ref { target, mutable } => Cow::Owned(format!("&{}{}", if *mutable { "mut " } else { "" }, target)),
             DataType::I8 => Cow::Borrowed("i8"),
             DataType::I16 => Cow::Borrowed("i16"),
             DataType::I32 => Cow::Borrowed("i32"),

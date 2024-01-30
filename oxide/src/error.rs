@@ -291,11 +291,28 @@ pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) 
 }
 
 
-pub fn immutable_change(token: &Token, source: &IRCode, hint: &str) -> ! {
+pub fn immutable_change(token: &Token, type_of_immutable: &DataType, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
-        Attempt to change immutable symbol at line {}:{}:
+        Attempt to change immutable value of type {} at line {}:{}:
+
+        ",
+        token.unit_path.display(), type_of_immutable, token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+
+
+pub fn illegal_mutable_borrow(token: &Token, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+
+        Illegal mutable borrow at line {}:{}:
 
         ",
         token.unit_path.display(), token.token.line_number(), token.token.column
