@@ -36,7 +36,7 @@ pub enum DataType {
     Usize,
     Isize,
 
-    Function { params: Vec<DataType>, return_type: Rc<DataType> },
+    Function { params: Vec<Rc<DataType>>, return_type: Rc<DataType> },
 
     Void,
     

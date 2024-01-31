@@ -9,6 +9,7 @@ mod parser;
 mod symbol_table;
 mod token_tree;
 mod utils;
+mod icr;
 
 use std::path::Path;
 
@@ -35,7 +36,8 @@ fn main() {
 
     let tokens = tokenizer::tokenize(&source, input_file, &mut symbol_table);
 
-    let _statements = parser::build_ast(tokens, &source, args.optimize, &mut symbol_table);
+    let _ast = parser::build_ast(tokens, &source, args.optimize, &mut symbol_table);
+
 
 }
 

@@ -2,6 +2,7 @@ use std::ptr;
 use std::rc::Rc;
 
 use crate::data_types::{DataType, LiteralValue};
+use crate::match_unreachable;
 use crate::symbol_table::ScopeID;
 use crate::token::Token;
 
@@ -56,6 +57,13 @@ pub struct IfBlock<'a> {
 }
 
 
+pub struct FunctionParam {
+    pub name: String,
+    pub data_type: Rc<DataType>,
+    pub mutable: bool,
+}
+
+
 #[derive(Debug)]
 pub enum ChildrenType<'a> {
     /// A list of syntax nodes
@@ -65,8 +73,8 @@ pub enum ChildrenType<'a> {
     /// A list of statements (e.g. a function body)
     Block (ScopeBlock<'a>),
     /// A list of function parameters (pairs of name and type)
-    FunctionParams (Vec<(String, DataType)>), 
-    Function { name: &'a str, params: Vec<(String, DataType)>, return_type: Rc<DataType>, body: ScopeBlock<'a> },
+    FunctionParams (Vec<FunctionParam>), 
+    Function { name: &'a str, signature: Rc<DataType>, body: ScopeBlock<'a> },
     TypeCast { data_type: Rc<DataType>, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
     Binary (Box<TokenNode<'a>>, Box<TokenNode<'a>>),
@@ -279,6 +287,11 @@ impl<'a> TokenTree<'a> {
     }
 
 
+    pub fn extract_first(&mut self) -> Option<Box<TokenNode<'a>>> {
+        self.extract_node(self.first)
+    }
+
+
     /// Remove the node from the tree assuming it is in the tree, and return it as a boxed pointer to prevent memory leaks
     pub fn extract_node(&mut self, node: *mut TokenNode<'a>) -> Option<Box<TokenNode<'a>>> {
 
@@ -423,15 +436,16 @@ impl std::fmt::Debug for TokenTree<'_> {
                         }
                     },
                     ChildrenType::FunctionParams (params) => {
-                        for (name, data_type) in params {
+                        for param in params {
                             write_indent(f, indent)?;
-                            writeln!(f, "{}: {}", name, data_type)?;
+                            writeln!(f, "{:?}", param)?;
                         }
                     },
-                    ChildrenType::Function { name, params, return_type, body } => {
+                    ChildrenType::Function { name, signature, body } => {
                         write!(f, "fn {} (", name)?;
-                        for (i, (name, data_type)) in params.iter().enumerate() {
-                            write!(f, "{}: {}", name, data_type)?;
+                        let (params, return_type) = match_unreachable!(DataType::Function { params, return_type } = &**signature, (params, return_type));
+                        for (i, data_type) in params.iter().enumerate() {
+                            write!(f, "{data_type}")?;
                             if i < params.len() - 1 {
                                 write!(f, ", ")?;
                             }
@@ -502,6 +516,13 @@ impl std::fmt::Debug for TokenTree<'_> {
         }
         
         fmt(self, 0, f)
+    }
+}
+
+
+impl std::fmt::Debug for FunctionParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}: {}", if self.mutable { "mut " } else { "" }, self.name, self.data_type)
     }
 }
 

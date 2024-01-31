@@ -7,7 +7,7 @@ use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
 use crate::symbol_table::{ScopeID, Symbol, SymbolTable, SymbolValue};
-use crate::token_tree::{ChildrenType, IfBlock, ScopeBlock, TokenNode, TokenTree};
+use crate::token_tree::{ChildrenType, FunctionParam, IfBlock, ScopeBlock, TokenNode, TokenTree};
 use crate::{match_or, match_unreachable};
 
 
@@ -376,7 +376,6 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                 },
     
                 TokenKind::Let => {
-                    // TODO: add support for symbol type inference based on the assigned value, if any
                     // Syntax: let [mut] <name>: <type> 
                     // Syntax: let [mut] <name>: = <typed expression>
     
@@ -481,7 +480,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let params = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing arguments after function name in function declaration.")
                     );
-                    let params: Vec<(String, DataType)> = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
+                    let params: Vec<FunctionParam> = if matches!(params.item.value, TokenKind::FunctionParamsOpen) {
                         match_unreachable!(Some(ChildrenType::FunctionParams(params)) = params.children, params)
                     } else {
                         error::invalid_argument(&op_node.item.value, &params.item, source, "Expected a list of arguments enclosed in parentheses after function name in function declaration.");
@@ -519,15 +518,33 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a function body enclosed in curly braces.");
                     };
                     
-                    let function_type = DataType::Function { 
-                        params: params.iter().map(|param| param.1.clone()).collect(), // Take only the data type of the parameter
+                    let signature: Rc<DataType> = DataType::Function { 
+                        params: params.iter().map(|param| param.data_type.clone()).collect(), // Take only the data type of the parameter
                         return_type: return_type.clone() // Here we clone the Rc pointer, not the DataType value
-                    };
+                    }.into();
+
+                    // Declare the function parameter names in the function's scope
+                    for param in params {
+                        let (_discriminant, res) = symbol_table.declare_symbol(
+                            param.name, 
+                            Symbol {
+                                data_type: param.data_type,
+                                value: if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
+                                initialized: false,
+                                line_index: op_node.item.token.line_index(),
+                                column: op_node.item.token.column,
+                            }, 
+                            body.scope_id
+                        );
+                        if let Some(warning) = res.warning() {
+                            error::warn(&name_node.item, source, warning);
+                        }
+                    }
 
                     let (_discriminant, res) = symbol_table.declare_symbol(
                         function_name.to_string(),
                         Symbol { 
-                            data_type: Rc::new(function_type), 
+                            data_type: signature.clone(), 
                             value: SymbolValue::Immutable(None), 
                             initialized: true,
                             line_index: op_node.item.token.line_index(),
@@ -539,15 +556,16 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         error::warn(&name_node.item, source, warning);
                     }
 
-                    op_node.children = Some(ChildrenType::Function { name: function_name, params, return_type, body });
+                    op_node.children = Some(ChildrenType::Function { name: function_name, signature, body });
                 },
 
                 TokenKind::FunctionParamsOpen => {
                     // Syntax: (<name>: <type>, <name>: <type>, ...)
 
-                    let mut params: Vec<(String, DataType)> = Vec::new();
+                    let mut params: Vec<FunctionParam> = Vec::new();
 
                     let mut expected_comma: bool = false;
+                    let mut mutable: bool = false;
                     loop {
                         let param_node = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, format!("Missing parameter or closing delimiter for operator {:?}.", op_node.item.value).as_str())
@@ -562,6 +580,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                                 expected_comma = false;
                             } else {
                                 error::unexpected_token(&param_node.item, source, "Did you add an extra comma?")
+                            },
+
+                            TokenKind::Mut => {
+                                if mutable {
+                                    error::syntax_error(&param_node.item, source, "Cannot have two adjacent mut keywords in function declaration.");
+                                }
+                                mutable = true;
                             },
 
                             TokenKind::Value(Value::Symbol { name, .. }) => {
@@ -579,14 +604,15 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                                 let data_type_node = extract_right!().unwrap_or_else(
                                     || error::expected_argument(&op_node.item, source, "Missing data type after colon in function declaration.")
                                 );
-                                let data_type = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
+                                let data_type: Rc<DataType> = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
                                     error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Invalid data type in function declaration.")
-                                );
+                                ).into();
 
-                                params.push((name, data_type));
+                                params.push(FunctionParam { name, data_type, mutable });
 
                                 // A comma is expected after each argument except the last one
                                 expected_comma = true;
+                                mutable = false;
                             },
 
                             _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. This token kind shouldn't have children.", param_node.item.value)
@@ -987,7 +1013,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     resolve_expression_types(callable, scope_id, outer_function_return.clone(), symbol_table, source);
 
                     // Check if the callable operand is indeed callable (a function symbol or a function pointer)
-                    let (param_types, return_type): (&[DataType], Rc<DataType>) = match callable.data_type.as_ref() {
+                    let (param_types, return_type) = match callable.data_type.as_ref() {
 
                         DataType::Function { params, return_type } => (params, return_type.clone()),
                         DataType::Ref { target, .. } if matches!(**target, DataType::Function { .. }) => if let DataType::Function { params, return_type } = &**target {
@@ -1009,7 +1035,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     for (arg, expected_type) in args.iter_mut().zip(param_types) {
                         resolve_expression_types(arg, scope_id, outer_function_return.clone(), symbol_table, source);
 
-                        if *arg.data_type != *expected_type {
+                        if arg.data_type != *expected_type {
                             error::type_error(&arg.item, &[&expected_type.name()], &arg.data_type, source, "Argument type does not match function signature.");
                         }
                     }
@@ -1153,8 +1179,9 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
         TokenKind::Fn => {
             // Resolve the types inside the function body
             
-            let (return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children, (return_type.clone(), body));
-            
+            let (signature, body) = match_unreachable!(Some(ChildrenType::Function { signature, body, .. }) = &mut expression.children, (signature, body));
+            let return_type = match_unreachable!(DataType::Function { return_type, .. } = signature.as_ref(), return_type);
+
             resolve_scope_types(body, Some(return_type.clone()), symbol_table, source);
 
             // Check return type
@@ -1339,7 +1366,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, s
                 reduce_operations(op1, source, scope_id, symbol_table);
                 reduce_operations(op2, source, scope_id, symbol_table);
 
-                // TODO: allow literal values in the symbol table for immutable symbols
+                // TODO: implement compile-time array indexing for literal arrays and initialized immutable arrays
             },
 
             Ops::Assign => {
@@ -1489,7 +1516,7 @@ fn reduce_operations(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, s
         },
 
         TokenKind::Fn => {
-            let (_return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut node.children, (return_type, body));
+            let body = match_unreachable!(Some(ChildrenType::Function { body, .. }) = &mut node.children, body);
 
             reduce_operations_block(body, source, symbol_table);
         },
@@ -1561,6 +1588,69 @@ fn reduce_operations_block(block: &mut ScopeBlock, source: &IRCode, symbol_table
 }
 
 
+struct Function<'a> {
+
+    name: &'a str,
+    parent_scope_id: ScopeID,
+    code: ScopeBlock<'a>,
+    signature: Rc<DataType>
+
+}
+
+impl std::fmt::Debug for Function<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (scope: {}) {:?}", self.name, self.parent_scope_id, self.signature)
+    }
+}
+
+
+/// Convert the source code trees into a list of functions.
+/// Functions declared inside other functions are extracted and added to the list.
+/// Functions from inner scopes will not be accessible from outer scopes by default thanks to symbol table scoping, so it's ok to keep them in a linear vector.
+/// 
+/// Invalidates the `block` parameter.
+fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &IRCode) -> Vec<Function<'a>> {
+
+    let mut functions = Vec::new();
+
+    for statement in &mut block.statements {
+
+        // Consume the statement
+        while let Some(node) = statement.extract_first() {
+            // All top-level nodes should be function declarations for the code to be valid.
+            // TODO: treat const declarations and structs differently when they are implemented. maybe delete them altogether after they are evaluated?
+
+            match node.item.value {
+
+                TokenKind::Fn => {
+                    let (name, signature, mut body) = match_unreachable!(Some(ChildrenType::Function { name, signature, body }) = node.children, (name, signature, body));
+                    
+                    // Recursively extract functions from the body
+                    let mut inner_functions = extract_functions(&mut body, true, symbol_table, source);
+                    functions.append(&mut inner_functions);
+
+                    functions.push(Function {
+                        name,
+                        parent_scope_id: block.scope_id,
+                        code: body,
+                        signature
+                    });
+                },
+
+                _ => if !inside_function {
+                    error::syntax_error(&node.item, source, "Cannot be a top-level statement.")
+                }
+
+            }
+
+        }
+
+    }
+
+    functions
+}
+
+
 /// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
 pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bool, symbol_table: &mut SymbolTable) -> ScopeBlock<'a> {
 
@@ -1574,15 +1664,21 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bo
 
     println!("\n\nStatement hierarchy:\n{}", outer_block);
 
-    resolve_scope_types(&mut outer_block, None, symbol_table, source);
+    let functions = extract_functions(&mut outer_block, false, symbol_table, source);
 
-    println!("\n\nAfter symbol resolution:\n{}", outer_block);
+    println!("\n\nFunctions:\n{:#?}\n", functions);
 
-    if optimize {
-        reduce_operations_block(&mut outer_block, source, symbol_table);
-        println!("\n\nAfter constant expression evaluation:\n{}", outer_block);
-    }
+    // resolve_scope_types(&mut outer_block, None, symbol_table, source);
+
+    // println!("\n\nAfter symbol resolution:\n{}", outer_block);
+
+    // if optimize {
+    //     reduce_operations_block(&mut outer_block, source, symbol_table);
+    //     println!("\n\nAfter constant expression evaluation:\n{}", outer_block);
+    // }
     
-    outer_block
+    // outer_block
+
+    todo!()
 }
 

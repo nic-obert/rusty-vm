@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::path::Display;
 use std::rc::Rc;
 use std::collections::HashMap;
 
@@ -66,6 +67,18 @@ impl ScopeID {
     pub const fn placeholder() -> Self {
         Self(usize::MAX)
     }
+}
+
+impl std::fmt::Display for ScopeID {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 == Self::placeholder().0 {
+            write!(f, "placeholder")
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+
 }
 
 
