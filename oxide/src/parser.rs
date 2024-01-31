@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rust_vm_lib::ir::IRCode;
 
 use crate::data_types::{DataType, LiteralValue};
@@ -430,7 +432,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     let (discriminant, res) = symbol_table.declare_symbol(
                         symbol_name.to_string(),
                         Symbol { 
-                            data_type, 
+                            data_type: Rc::new(data_type), 
                             value: if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
                             initialized: false,
                             line_index: op_node.item.token.line_index(),
@@ -466,7 +468,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     // fn <name>(argumenta>) { <body> }
 
                     // Default return type is void, unless specified by the arrow ->
-                    let mut return_type = DataType::Void;
+                    let mut return_type = Rc::new(DataType::Void);
     
                     let name_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing function name after fn in function declaration.")
@@ -496,7 +498,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         let return_type_node = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, "Missing return type after arrow in function declaration.")
                         );
-                        return_type = match_or!(TokenKind::DataType(data_type) = return_type_node.item.value, data_type,
+                        return_type = match_or!(TokenKind::DataType(data_type) = return_type_node.item.value, data_type.into(),
                             error::invalid_argument(&op_node.item.value, &return_type_node.item, source, "Invalid return type in function declaration.")
                         );
 
@@ -519,13 +521,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     
                     let function_type = DataType::Function { 
                         params: params.iter().map(|param| param.1.clone()).collect(), // Take only the data type of the parameter
-                        return_type: Box::new(return_type.clone())
+                        return_type: return_type.clone() // Here we clone the Rc pointer, not the DataType value
                     };
 
                     let (_discriminant, res) = symbol_table.declare_symbol(
                         function_name.to_string(),
                         Symbol { 
-                            data_type: function_type, 
+                            data_type: Rc::new(function_type), 
                             value: SymbolValue::Immutable(None), 
                             initialized: true,
                             line_index: op_node.item.token.line_index(),
@@ -613,7 +615,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         error::invalid_argument(&op_node.item.value, &closing_bracket.item, source, "Expected closing square bracket ].");
                     }
                     
-                    let array_type = DataType::Array(Box::new(element_type));
+                    let array_type = DataType::Array(Rc::new(element_type));
                     // Transform this node into a data type node
                     op_node.item.value = TokenKind::DataType(array_type);
                 },  
@@ -651,7 +653,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         },
                         _ => {
                             let element_type = match_unreachable!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type);
-                            DataType::Ref { target: Box::new(element_type), mutable }
+                            DataType::Ref { target: element_type.into(), mutable }
                         }
                     };
                     
@@ -676,7 +678,7 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Expected a data type after type cast operator.")
                     );
 
-                    op_node.children = Some(ChildrenType::TypeCast { data_type, expr });
+                    op_node.children = Some(ChildrenType::TypeCast { data_type: data_type.into(), expr });
                 },
 
                 TokenKind::If => {
@@ -849,7 +851,7 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 
 
 /// Recursively resolve the type of this expression and check if its children have the correct types.
-fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<&DataType>, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &IRCode) {
 
     expression.data_type = match &expression.item.value {
 
@@ -864,13 +866,12 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
 
-                    if let DataType::Ref { target, mutable } = &operand.data_type {
-                        let res = *target.clone();
+                    if let DataType::Ref { mutable, target } = operand.data_type.as_ref() {
                         let mutable_field = match_unreachable!(TokenKind::Op(Ops::Deref { mutable }) = &mut expression.item.value, mutable);
                         *mutable_field = *mutable;
-                        res
+                        target.clone()
                     } else {
-                        error::type_error(&operand.item, &[&DataType::Ref { target: Box::new(DataType::Unspecified), mutable: false }.name()], &operand.data_type, source, "Expected a reference")
+                        error::type_error(&operand.item, &[&DataType::Ref { target: DataType::Unspecified.into(), mutable: false }.name()], &operand.data_type, source, "Can only dereference a reference")
                     }
                 },
 
@@ -887,7 +888,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         }
                     }
 
-                    DataType::Ref { target: Box::new(operand.data_type.clone()), mutable: *mutable }
+                    DataType::Ref { target: operand.data_type.clone(), mutable: *mutable }.into()
                 },
 
                 // Binary operators that return a boolean
@@ -902,7 +903,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                  => {
                     let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
-                    resolve_expression_types(op1, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), symbol_table, source);
                     resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
 
                     if !operator.is_allowed_type(&op1.data_type, 0) {
@@ -917,7 +918,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         error::type_error(&op2.item, &[&op1.data_type.name()], &op2.data_type, source, format!("Operator {:?} has operands of different types {:?} and {:?}.", operator, op1.data_type, op2.data_type).as_str());
                     }
 
-                    DataType::Bool
+                    DataType::Bool.into()
                 },
 
                 // Unary operators that return a boolean
@@ -930,7 +931,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         error::type_error(&operand.item, operator.allowed_types(0), &operand.data_type, source, format!("Data type is not allowed for operator {}.", operator).as_str())
                     }
 
-                    DataType::Bool
+                    DataType::Bool.into()
                 },
 
                 // Unary operators whose return type is the same as the operand type
@@ -960,7 +961,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                  => {
                     let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
-                    resolve_expression_types(op1, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), symbol_table, source);
                     resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
 
                     if !operator.is_allowed_type(&op1.data_type, 0) {
@@ -983,19 +984,19 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut expression.children, (callable, args));
                     
                     // Resolve the type of the callable operand
-                    resolve_expression_types(callable, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(callable, scope_id, outer_function_return.clone(), symbol_table, source);
 
                     // Check if the callable operand is indeed callable (a function symbol or a function pointer)
-                    let (param_types, return_type): (&[DataType], &DataType) = match &callable.data_type {
+                    let (param_types, return_type): (&[DataType], Rc<DataType>) = match callable.data_type.as_ref() {
 
-                        DataType::Function { params, return_type } => (params, return_type),
+                        DataType::Function { params, return_type } => (params, return_type.clone()),
                         DataType::Ref { target, .. } if matches!(**target, DataType::Function { .. }) => if let DataType::Function { params, return_type } = &**target {
-                            (params, return_type)
+                            (params, return_type.clone())
                         } else {
                             unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", target)
                         },
 
-                        _ => error::type_error(&callable.item, &[&DataType::Function { params: Vec::new(), return_type: Box::new(DataType::Void) }.name()], &callable.data_type, source, "Expected a function name or a function pointer.")
+                        _ => error::type_error(&callable.item, &[&DataType::Function { params: Vec::new(), return_type: DataType::Void.into() }.name()], &callable.data_type, source, "Expected a function name or a function pointer.")
                     };
 
                     // Check if the number of arguments matches the number of parameters
@@ -1006,23 +1007,23 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     // Resolve the types of the arguments and check if they match the function parameters
                     for (arg, expected_type) in args.iter_mut().zip(param_types) {
-                        resolve_expression_types(arg, scope_id, outer_function_return, symbol_table, source);
+                        resolve_expression_types(arg, scope_id, outer_function_return.clone(), symbol_table, source);
 
-                        if arg.data_type != *expected_type {
+                        if *arg.data_type != *expected_type {
                             error::type_error(&arg.item, &[&expected_type.name()], &arg.data_type, source, "Argument type does not match function signature.");
                         }
                     }
 
                     // The return type of the function call is the return type of the function
-                    return_type.clone()
+                    return_type
                 },
 
                 Ops::Return => {
 
                     // A return statement is only allowed inside a function
-                    let return_type = outer_function_return.unwrap_or_else(
+                    let return_type = outer_function_return.as_ref().unwrap_or_else(
                         || error::syntax_error(&expression.item, source, "Return statement is not allowed outside a function.")
-                    );
+                    ).clone();
 
                     // Resolve the type of the return value, if any
                     if let Some(children) = &mut expression.children {
@@ -1032,16 +1033,16 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         resolve_expression_types(return_expr, scope_id, outer_function_return, symbol_table, source);
                         
                         // Check if the return type matches the outer function return type
-                        if return_expr.data_type != *return_type {
+                        if return_expr.data_type != return_type {
                             error::type_error(&return_expr.item, &[&return_type.name()], &return_expr.data_type, source, "The returned expression type does not match function signature.");
                         }
-                    } else if !matches!(return_type, DataType::Void) {
+                    } else if !matches!(*return_type, DataType::Void) {
                         // If the function doesn't return void, return statements must have a return value
                         error::type_error(&expression.item, &[&return_type.name()], &DataType::Void, source, "Missing return value for function that does not return void.");
                     }
 
                     // A return statement evaluates to void
-                    DataType::Void
+                    DataType::Void.into()
                 },
 
                 Ops::Assign => {
@@ -1054,7 +1055,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
 
                     // Resolve the types of the operands
-                    resolve_expression_types(l_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(l_node, scope_id, outer_function_return.clone(), symbol_table, source);
                     resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
 
                 
@@ -1076,7 +1077,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                             }
 
                             // The data type must be inferred now if it wasn't specified earlier
-                            if matches!(symbol.data_type, DataType::Unspecified) {
+                            if matches!(*symbol.data_type, DataType::Unspecified) {
                                 symbol.data_type = r_node.data_type.clone();
                                 l_node.data_type = r_node.data_type.clone();
                             }
@@ -1099,24 +1100,20 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
                     
                     // An assignment is not an expression, so it does not have a type
-                    DataType::Void
+                    DataType::Void.into()
                 },
 
                 Ops::ArrayIndexOpen => {
                     // The data type of an array subscription operation is the type of the array elements
 
-                    let data_type: DataType;
-
                     let (array_node, index_node) = match_unreachable!(Some(ChildrenType::Binary (array_node, index_node )) = &mut expression.children, (array_node, index_node));
 
-                    resolve_expression_types(array_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(array_node, scope_id, outer_function_return.clone(), symbol_table, source);
                     resolve_expression_types(index_node, scope_id, outer_function_return, symbol_table, source);
 
-                    if let DataType::Array(element_type) = &array_node.data_type {
-                        data_type = *element_type.clone();
-                    } else {
-                        error::type_error(&array_node.item, Ops::ArrayIndexOpen.allowed_types(0), &array_node.data_type, source, "Can only index arrays.");
-                    }
+                    let data_type = match_or!(DataType::Array(element_type) = array_node.data_type.as_ref(), element_type.clone(),
+                        error::type_error(&array_node.item, Ops::ArrayIndexOpen.allowed_types(0), &array_node.data_type, source, "Can only index arrays.")
+                    );
 
                     // Assert that the array index is an unsigned integer
                     if !Ops::ArrayIndexOpen.is_allowed_type( &index_node.data_type, 1) {
@@ -1145,29 +1142,29 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
         TokenKind::Value(value) => match value {
 
-            Value::Literal { value } => value.data_type(symbol_table),
+            Value::Literal { value } => value.data_type(symbol_table).into(),
 
             Value::Symbol { name, scope_discriminant } => symbol_table.get(scope_id, name, *scope_discriminant)
                 .unwrap_or_else(|| error::symbol_undefined(&expression.item, name, source, 
                     if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.column, source[symbol.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str()))
-                .data_type.clone(),
+                .data_type.clone()
         },
 
         TokenKind::Fn => {
             // Resolve the types inside the function body
             
-            let (return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children, (return_type, body));
+            let (return_type, body) = match_unreachable!(Some(ChildrenType::Function { return_type, body, .. }) = &mut expression.children, (return_type.clone(), body));
             
-            resolve_scope_types(body, Some(return_type), symbol_table, source);
+            resolve_scope_types(body, Some(return_type.clone()), symbol_table, source);
 
             // Check return type
             let return_value = body.return_value_literal();
-            if !body.return_type().is_implicitly_castable_to(return_type, return_value) {
-                error::type_error(&expression.item, &[&return_type.name()], body.return_type(), source, "Mismatched return type in function declaration.");
+            if !body.return_type().is_implicitly_castable_to(return_type.as_ref(), return_value) {
+                error::type_error(&expression.item, &[&return_type.name()], &body.return_type(), source, "Mismatched return type in function declaration.");
             }
 
             // Function declaration does not have any type
-            DataType::Void
+            DataType::Void.into()
         },
 
         TokenKind::ArrayOpen => {
@@ -1179,21 +1176,21 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut expression.children, elements);
             
             let (data_type, is_literal_array, element_type) = if elements.is_empty() {
-                (DataType::Array(Box::new(DataType::Void)), true, DataType::Void)
+                (DataType::Array(DataType::Void.into()), true, DataType::Void.into())
             } else {
 
-                let mut element_type: Option<&DataType> = None;
+                let mut element_type: Option<Rc<DataType>> = None;
 
                 let mut is_literal_array = true;
                 for element in elements {
                     
                     // Resolve the element type
-                    resolve_expression_types(element, scope_id, outer_function_return, symbol_table, source);
-                    let expr_type = &element.data_type;
+                    resolve_expression_types(element, scope_id, outer_function_return.clone(), symbol_table, source);
+                    let expr_type = element.data_type.clone();
 
-                    if let Some(expected_element_type) = element_type {
-                        if expected_element_type != expr_type {
-                            error::type_error(&element.item, &[&expected_element_type.name()], expr_type, source, "Array elements have different types.");
+                    if let Some(expected_element_type) = &element_type {
+                        if *expected_element_type != expr_type {
+                            error::type_error(&element.item, &[&expected_element_type.name()], &expr_type, source, "Array elements have different types.");
                         }
                     } else {
                         // The first element of the array determines the array type
@@ -1206,7 +1203,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
                 }
 
-                (DataType::Array(Box::new(element_type.unwrap().clone())), is_literal_array, element_type.unwrap().clone())
+                (DataType::Array(element_type.as_ref().unwrap().clone()), is_literal_array, element_type.unwrap())
             };
 
             if is_literal_array {
@@ -1220,7 +1217,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 expression.item.value = TokenKind::Value(Value::Literal { value: LiteralValue::Array { element_type, items: literal_items } });
             }
 
-            data_type
+            data_type.into()
         },
 
         TokenKind::ScopeOpen => {
@@ -1231,10 +1228,10 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut expression.children, inner_block);
 
             if inner_block.statements.is_empty() {
-                DataType::Void
+                DataType::Void.into()
             } else {
                 resolve_scope_types(inner_block, outer_function_return, symbol_table, source);
-                inner_block.return_type().clone()
+                inner_block.return_type()
             }
         },
 
@@ -1242,24 +1239,24 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             // Recursively resolve the types of the if-else chain
             // The return type of the chain is the return type of the conditional blocks
 
-            let mut chain_return_type: Option<DataType> = None;
+            let mut chain_return_type: Option<Rc<DataType>> = None;
 
             let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut expression.children, (if_chain, else_block));
 
             for if_block in if_chain {
-                resolve_expression_types(&mut if_block.condition, scope_id, outer_function_return, symbol_table, source);
-                resolve_scope_types(&mut if_block.body, outer_function_return, symbol_table, source);
+                resolve_expression_types(&mut if_block.condition, scope_id, outer_function_return.clone(), symbol_table, source);
+                resolve_scope_types(&mut if_block.body, outer_function_return.clone(), symbol_table, source);
 
                 // Check if the return types match
                 if let Some(return_type) = &chain_return_type {
-                    if if_block.body.return_type() != return_type {
+                    if if_block.body.return_type() != *return_type {
                         // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
                         let culprit_token = if let Some(last_statement) = if_block.body.statements.last() {
                             &last_statement.last_node().unwrap().item
                         } else {
                             &expression.item
                         };
-                        error::type_error(culprit_token, &[&return_type.name()], if_block.body.return_type(), source, "Mismatched return type in if-else chain.");
+                        error::type_error(culprit_token, &[&return_type.name()], &if_block.body.return_type(), source, "Mismatched return type in if-else chain.");
                     }
                 } else {
                     chain_return_type = Some(if_block.body.return_type().clone());
@@ -1271,14 +1268,14 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                 // Check if the return types match
                 // Unwrap is safe because the else block is guaranteed to be preceeded by an if block, which sets the chain_return_type
-                if else_block.return_type() != chain_return_type.as_ref().unwrap() {
+                if else_block.return_type() != *chain_return_type.as_ref().unwrap() {
                     // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
                     let culprit_token = if let Some(last_statement) = else_block.statements.last() {
                         &last_statement.last_node().unwrap().item
                     } else {
                         &expression.item
                     };
-                    error::type_error(culprit_token, &[&chain_return_type.unwrap().name()], else_block.return_type(), source, "Mismatched return type in if-else chain.");
+                    error::type_error(culprit_token, &[&chain_return_type.unwrap().name()], &else_block.return_type(), source, "Mismatched return type in if-else chain.");
                 }
             }
 
@@ -1290,15 +1287,15 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             
             let (condition_node, body_block) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut expression.children, (condition, body));
 
-            resolve_expression_types(condition_node, scope_id, outer_function_return, symbol_table, source);
+            resolve_expression_types(condition_node, scope_id, outer_function_return.clone(), symbol_table, source);
             resolve_scope_types(body_block, outer_function_return, symbol_table, source);
 
             // Assert that the condition is a boolean
-            if !matches!(&condition_node.data_type, DataType::Bool) {
+            if !matches!(*condition_node.data_type, DataType::Bool) {
                 error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "While loop condition must be a boolean.");
             }
 
-            DataType::Void
+            DataType::Void.into()
         }
 
         _ => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
@@ -1307,7 +1304,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 
 /// Resolve and check the types of symbols and expressions.
-fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&DataType>, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &IRCode) {
     // Perform a depth-first traversal of the scope tree to determine the types in a top-to-bottom order (relative to the source code).
     // For every node in every scope, determine the node data type and check if it matches the expected type.
 
@@ -1316,7 +1313,7 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<&Da
         let mut node_ptr = statement.first;
         while let Some(node) = unsafe { node_ptr.as_mut() } {
 
-            resolve_expression_types(node, block.scope_id, outer_function_return, symbol_table, source);
+            resolve_expression_types(node, block.scope_id, outer_function_return.clone(), symbol_table, source);
 
             node_ptr = node.right;
         }

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::error::WarnResult;
@@ -9,7 +10,7 @@ use crate::data_types::{DataType, LiteralValue};
 /// 
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol {
-    pub data_type: DataType,
+    pub data_type: Rc<DataType>,
     pub value: SymbolValue,
     pub initialized: bool,
     pub line_index: usize,

@@ -38,3 +38,7 @@ fn hi() -> i32{
 }
 
 let x = hi();
+
+let mut a = 0;
+let b = &mut a;
+*b = 5;

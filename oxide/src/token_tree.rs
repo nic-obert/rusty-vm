@@ -1,4 +1,5 @@
 use std::ptr;
+use std::rc::Rc;
 
 use crate::data_types::{DataType, LiteralValue};
 use crate::symbol_table::ScopeID;
@@ -21,12 +22,12 @@ impl ScopeBlock<'_> {
         }
     }
 
-    pub fn return_type(&self) -> &DataType {
+    pub fn return_type(&self) -> Rc<DataType> {
         if let Some(last_statement) = self.statements.last() {
             // Unwrap is safe because empty statements are removed
-            &last_statement.last_node().unwrap().data_type
+            last_statement.last_node().unwrap().data_type.clone()
         } else {
-            &DataType::Void
+            DataType::Void.into()
         }
     }
 
@@ -65,8 +66,8 @@ pub enum ChildrenType<'a> {
     Block (ScopeBlock<'a>),
     /// A list of function parameters (pairs of name and type)
     FunctionParams (Vec<(String, DataType)>), 
-    Function { name: &'a str, params: Vec<(String, DataType)>, return_type: DataType, body: ScopeBlock<'a> },
-    TypeCast { data_type: DataType, expr: Box<TokenNode<'a>> },
+    Function { name: &'a str, params: Vec<(String, DataType)>, return_type: Rc<DataType>, body: ScopeBlock<'a> },
+    TypeCast { data_type: Rc<DataType>, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
     Binary (Box<TokenNode<'a>>, Box<TokenNode<'a>>),
     Unary (Box<TokenNode<'a>>),
@@ -88,7 +89,7 @@ pub struct TokenNode<'a> {
     pub item: Token<'a>,
 
     /// The data type this node evaluates to
-    pub data_type: DataType,
+    pub data_type: Rc<DataType>,
 
 }
 
@@ -100,7 +101,7 @@ impl<'a> TokenNode<'a> {
             right: ptr::null_mut(),
             children: None,
             item,
-            data_type: DataType::Void,
+            data_type: Rc::new(DataType::Void),
         }
     }
 
