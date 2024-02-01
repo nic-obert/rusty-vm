@@ -47,4 +47,7 @@ fn big_foo() {
     fn hi() -> i32 {
 
     }
+
+    const a: i32 = 8+4;
+    const b: i32 = a + 5 as i32;
 }

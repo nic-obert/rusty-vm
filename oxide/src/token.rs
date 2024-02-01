@@ -80,6 +80,7 @@ pub enum TokenKind<'a> {
 
     RefType,
 
+    Const,
     Fn,
     Let,
     As,
@@ -147,6 +148,7 @@ impl TokenKind<'_> {
     pub fn literal_value(&self) -> Option<&LiteralValue> {
         if let TokenKind::Value(Value::Literal { value }) = self { Some(value) } else { None }
     }
+    
 
     pub fn type_priority(&self) -> i32 {
         (match self {
@@ -162,7 +164,7 @@ impl TokenKind<'_> {
                  => Priority::Mul_Div_Mod,
 
                 Ops::Return |
-                Ops::Assign
+                Ops::Assign 
                  => Priority::Least_Assignment_FlowBreak,
 
                 Ops::Deref { .. } |
@@ -200,8 +202,13 @@ impl TokenKind<'_> {
 
             },
 
+            // Const has to be the top-level node in constant declaration
+            // const a: B = 1 + 2; --> const a: B = +(1, 2) --> const(a, B, +(1, 2))
+            TokenKind::Const
+             => Priority::Least_Assignment_FlowBreak,
+
             TokenKind::Fn |
-            TokenKind::Let
+            TokenKind::Let 
                 => Priority::Declaration,
 
             TokenKind::Value(Value::Literal { .. }) |
@@ -298,6 +305,7 @@ impl Display for Token<'_> {
             TokenKind::Else => write!(f, "else"),
             TokenKind::While => write!(f, "while"),
             TokenKind::Loop => write!(f, "loop"),
+            TokenKind::Const => write!(f, "const"),
         }
     }
 }

@@ -324,3 +324,37 @@ pub fn illegal_mutable_borrow(token: &Token, source: &IRCode, hint: &str) -> ! {
     std::process::exit(1);
 }
 
+
+pub fn not_a_constant(token: &Token, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+        
+        Expected constant, but got non-constant expression at line {}:{}:
+
+        ",
+        token.unit_path.display(), token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+    
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+
+
+pub fn use_of_uninitialized_value(token: &Token, data_type: &DataType, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in ir unit \"{}\"
+        
+        Use of uninitialized value of type {} at line {}:{}:
+
+        ",
+        token.unit_path.display(), data_type, token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+    
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+

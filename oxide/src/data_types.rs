@@ -434,13 +434,14 @@ impl LiteralValue {
 
     /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
     /// 
-    /// Assumes that the target type is not the source type.
-    /// 
     /// This function can perform only compile-time casts.
     pub fn from_cast(src_value: LiteralValue, src_type: &DataType, target_type: &DataType) -> Self {
         
         assert!(src_type.is_castable_to(target_type));
-        assert_ne!(src_type, target_type);
+
+        if src_type == target_type {
+            return src_value;
+        }
 
         match src_type {
 

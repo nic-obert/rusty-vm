@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::path::Display;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
 
@@ -20,12 +20,38 @@ pub struct Symbol {
 
 impl Symbol {
 
+    pub fn initialize_immutable(&mut self, value: LiteralValue) {
+
+        assert!(matches!(self.value, SymbolValue::Immutable(None)));
+        assert!(!self.initialized);
+        
+        self.value = SymbolValue::Immutable(Some(value));
+        self.initialized = true;
+    }
+
+    pub fn get_value(&self) -> Option<&LiteralValue> {
+        match &self.value {
+            SymbolValue::Mutable => None,
+            SymbolValue::Immutable(v) => v.into(),
+            SymbolValue::Constant(v) => Some(v),
+
+            SymbolValue::UninitializedConstant => unreachable!(),
+        }
+    } 
+
+
     pub fn is_mutable(&self) -> bool {
         match self.value {
             SymbolValue::Mutable => true,
-            SymbolValue::Immutable(_) => false,
+
+            SymbolValue::Immutable(_) |
+            SymbolValue::Constant(_) 
+             => false,
+
+            SymbolValue::UninitializedConstant => unreachable!(),
         }
     }
+
 
     pub fn line_number(&self) -> usize {
         self.line_index + 1
@@ -37,6 +63,9 @@ impl Symbol {
 pub enum SymbolValue {
     Mutable,
     Immutable (Option<LiteralValue>),
+    Constant (LiteralValue),
+
+    UninitializedConstant,
 }
 
 
@@ -55,7 +84,7 @@ pub struct StaticValue<'a> {
 
 pub struct Scope {
     pub parent: Option<ScopeID>,
-    pub symbols: HashMap<String, Vec<Symbol>>,
+    pub symbols: HashMap<String, Vec<RefCell<Symbol>>>,
 }
 
 
@@ -132,9 +161,25 @@ impl<'a> SymbolTable<'a> {
     }
 
 
+    pub fn define_constant(&self, name: &str, discriminant: ScopeDiscriminant, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
+        
+        let mut symbol = self.get_symbol(scope_id, name, discriminant)
+            .ok_or(())?
+            .borrow_mut();
+
+        assert!(matches!(symbol.value, SymbolValue::UninitializedConstant));
+
+        symbol.value = SymbolValue::Constant(value);
+        symbol.initialized = true;
+        Ok(())
+    }
+
+
     /// Return the requested symbol if it exists in the symbol table.
-    pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&Symbol> {
-        self.scopes.iter().find_map(|scope| scope.symbols.get(symbol_id)).and_then(|s| s.last())
+    pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&RefCell<Symbol>> {
+        self.scopes.iter()
+            .find_map(|scope| scope.symbols.get(symbol_id))
+            .and_then(|s| s.last())
     }
 
     
@@ -144,7 +189,10 @@ impl<'a> SymbolTable<'a> {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
-        symbol_list.push(symbol);
+        
+        symbol_list.push(
+            RefCell::new(symbol)
+        );
 
         let warning = if discriminant.0 > 0 {
             WarnResult::Warning("Symbol already declared in this scope. The new symbol will overshadow the previous declaration.")
@@ -169,27 +217,13 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Get the symbol with the given id from the symbol table.
-    pub fn get(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&Symbol> {
+    pub fn get_symbol(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol>> {
         let scope = &self.scopes[scope_id.0];
 
         if let Some(symbol_list) = scope.symbols.get(symbol_id) {
             Some(&symbol_list[discriminant.0 as usize])
         } else if let Some(parent_id) = scope.parent {
-            self.get(parent_id, symbol_id, discriminant)
-        } else {
-            None
-        }
-    }
-
-
-    unsafe fn _get_mut(&mut self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<*mut Symbol> {
-        let scope = &mut self.scopes[scope_id.0];
-
-        let symbol = scope.symbols.get_mut(symbol_id);
-        if symbol.is_some() {
-            symbol.map(|s| &mut s[discriminant.0 as usize] as *mut Symbol)
-        } else if let Some(parent_id) = scope.parent {
-            self._get_mut(parent_id, symbol_id, discriminant)
+            self.get_symbol(parent_id, symbol_id, discriminant)
         } else {
             None
         }
@@ -204,11 +238,6 @@ impl<'a> SymbolTable<'a> {
             symbols: HashMap::new(),
         });
         id
-    }
-
-
-    pub fn get_mut(&mut self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&mut Symbol> {
-        unsafe { self._get_mut(scope_id, symbol_id, discriminant).map(|s| &mut *s) }
     }
 
 }

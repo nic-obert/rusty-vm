@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::data_types::{DataType, LiteralValue};
 use crate::match_unreachable;
-use crate::symbol_table::ScopeID;
+use crate::symbol_table::{ScopeDiscriminant, ScopeID};
 use crate::token::Token;
 
 
@@ -81,6 +81,7 @@ pub enum ChildrenType<'a> {
     Unary (Box<TokenNode<'a>>),
     While { condition: Box<TokenNode<'a>>, body: ScopeBlock<'a> },
     IfChain { if_chain: Vec<IfBlock<'a>>, else_block: Option<ScopeBlock<'a>> },
+    Const { name: &'a str, discriminant: ScopeDiscriminant, data_type: Rc<DataType>, definition: Box<TokenNode<'a>> },
 }
 
 
@@ -508,7 +509,11 @@ impl std::fmt::Debug for TokenTree<'_> {
                                 writeln!(f, "---")?;
                             }
                         }
-                    }
+                    },
+                    ChildrenType::Const { name, discriminant: _, data_type, definition } => {
+                        write!(f, "const {name}: {data_type} = ")?;
+                        write_node(definition, indent + 1, f)?;
+                    },
                 }
             }
             
