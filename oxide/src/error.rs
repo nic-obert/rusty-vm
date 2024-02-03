@@ -70,14 +70,14 @@ fn print_source_context(source: &IRCode, line_index: usize, char_pointer: usize)
 }
 
 
-pub fn invalid_number(unit_path: &Path, number: &str, token: &StringToken, source: &IRCode, hint: &str) -> ! {
+pub fn invalid_number(token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
-        Invalid number {} at line {}:{}:
+        Invalid number \"{}\" at line {}:{}:
 
         ",
-        unit_path.display(), number, token.line_number(), token.column
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index(), token.column);
@@ -87,14 +87,14 @@ pub fn invalid_number(unit_path: &Path, number: &str, token: &StringToken, sourc
 }
 
 
-pub fn unmatched_delimiter(unit_path: &Path, delimiter: char, token: &StringToken, source: &IRCode, hint: &str) -> ! {
+pub fn unmatched_delimiter(delimiter: char, token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
         Unmatched delimiter '{}' at line {}:{}:
 
         ",
-        unit_path.display(), delimiter, token.line_number(), token.column 
+        token.unit_path.display(), delimiter, token.line_number(), token.column 
     );
 
     print_source_context(source, token.line_index(), token.column);
@@ -104,14 +104,14 @@ pub fn unmatched_delimiter(unit_path: &Path, delimiter: char, token: &StringToke
 }
 
 
-pub fn invalid_char_literal(unit_path: &Path, literal: &str, token: &StringToken, source: &IRCode, hint: &str) -> ! {
+pub fn invalid_char_literal(literal: &str, token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
         Invalid character literal '{}' at line {}:{}:
 
         ",
-        unit_path.display(), literal, token.line_number(), token.column
+        token.unit_path.display(), literal, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index(), token.column);
@@ -121,14 +121,14 @@ pub fn invalid_char_literal(unit_path: &Path, literal: &str, token: &StringToken
 }
 
 
-pub fn invalid_token(unit_path: &Path, token: &StringToken, source: &IRCode, hint: &str) -> ! {
+pub fn invalid_token(token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in ir unit \"{}\"
 
         Invalid token \"{}\" at line {}:{}:
 
         ",
-        unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index(), token.column);
@@ -162,7 +162,7 @@ pub fn expected_argument(operator: &Token, source: &IRCode, hint: &str) -> ! {
         Expected argment for operator {:?} at line {}:{}, but got none:
         
         ",
-        operator.unit_path.display(), operator.value, operator.token.line_number(), operator.token.column
+        operator.token.unit_path.display(), operator.value, operator.token.line_number(), operator.token.column
     );
 
     print_source_context(source, operator.token.line_index(), operator.token.column);
@@ -179,7 +179,7 @@ pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &IRCode, hint
         Invalid argument {:?} for operator {:?} at line {}:{}:
 
         ",
-        arg.unit_path.display(), arg.token.string, operator, arg.token.line_number(), arg.token.column
+        arg.token.unit_path.display(), arg.token.string, operator, arg.token.line_number(), arg.token.column
     );
 
     print_source_context(source, arg.token.line_index(), arg.token.column);
@@ -196,7 +196,7 @@ pub fn unexpected_token(token: &Token, source: &IRCode, hint: &str) -> ! {
         Unexpected token {:?} at line {}:{}:
 
         ",
-        token.unit_path.display(), token.value, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), token.value, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -213,7 +213,7 @@ pub fn type_error(token: &Token, expected: &[&str], got: &DataType, source: &IRC
         Expected type {}, but got {} at line {}:{}:
 
         ",
-        token.unit_path.display(), expected.iter().map(|dt| dt.to_string()).collect::<Vec<_>>().join(" or "), got, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), expected.iter().map(|dt| dt.to_string()).collect::<Vec<_>>().join(" or "), got, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -230,7 +230,7 @@ pub fn mismatched_call_arguments(token: &Token, expected: usize, got: usize, sou
         Expected {} arguments, but got {} at line {}:{}:
 
         ",
-        token.unit_path.display(), expected, got, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), expected, got, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -247,7 +247,7 @@ pub fn symbol_undefined(token: &Token, symbol: &str, source: &IRCode, hint: &str
         Undefined symbol \"{}\" at line {}:{}:
 
         ",
-        token.unit_path.display(), symbol, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), symbol, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -264,7 +264,7 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
         Syntax error at line {}:{}:
 
         ",
-        token.unit_path.display(), token.token.line_number(), token.token.column
+        token.token.unit_path.display(), token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -281,7 +281,7 @@ pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) 
         Compiletime operation error at line {}:{}:
 
         ",
-        token.unit_path.display(), token.token.line_number(), token.token.column
+        token.token.unit_path.display(), token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -298,7 +298,7 @@ pub fn immutable_change(token: &Token, type_of_immutable: &DataType, source: &IR
         Attempt to change immutable value of type {} at line {}:{}:
 
         ",
-        token.unit_path.display(), type_of_immutable, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), type_of_immutable, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -315,7 +315,7 @@ pub fn illegal_mutable_borrow(token: &Token, source: &IRCode, hint: &str) -> ! {
         Illegal mutable borrow at line {}:{}:
 
         ",
-        token.unit_path.display(), token.token.line_number(), token.token.column
+        token.token.unit_path.display(), token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -332,7 +332,7 @@ pub fn not_a_constant(token: &Token, source: &IRCode, hint: &str) -> ! {
         Expected constant, but got non-constant expression at line {}:{}:
 
         ",
-        token.unit_path.display(), token.token.line_number(), token.token.column
+        token.token.unit_path.display(), token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);
@@ -349,7 +349,7 @@ pub fn use_of_uninitialized_value(token: &Token, data_type: &DataType, source: &
         Use of uninitialized value of type {} at line {}:{}:
 
         ",
-        token.unit_path.display(), data_type, token.token.line_number(), token.token.column
+        token.token.unit_path.display(), data_type, token.token.line_number(), token.token.column
     );
 
     print_source_context(source, token.token.line_index(), token.token.column);

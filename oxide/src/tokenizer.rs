@@ -22,7 +22,7 @@ lazy_static! {
 }
 
 
-fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, token: &StringToken, source: &IRCode) -> String {
+fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, source: &IRCode) -> String {
     // use -1 because the escape character won't be copied
     let mut s = String::with_capacity(string.len() - 1);
 
@@ -40,7 +40,7 @@ fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, toke
                 '0' => '\0',
                 't' => '\t',
                 '\\' => '\\',
-                c => error::invalid_escape_character(unit_path, c, token.column + checked_until + i + 2, token.line_index(), source, "Invalid escape character")
+                c => error::invalid_escape_character(token.unit_path, c, token.column + checked_until + i + 2, token.line_index(), source, "Invalid escape character")
             })
         } else if c == '\\' {
             escape = true;
@@ -53,13 +53,13 @@ fn escape_string_copy(string: &str, checked_until: usize, unit_path: &Path, toke
 }
 
 
-fn escape_string<'a>(string: &'a str, unit_path: &Path, token: &StringToken, source: &IRCode) -> Cow<'a, str> {
+fn escape_string<'a>(string: &'a str, token: &StringToken, source: &IRCode) -> Cow<'a, str> {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
     
     for (i, c) in string.chars().enumerate() {
         if c == '\\' {
-            let copied_string = escape_string_copy(string, i, unit_path, token, source);
+            let copied_string = escape_string_copy(string, i, token, source);
             return Cow::Owned(copied_string);
         }
     }
@@ -236,7 +236,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             },
             "}" => {
                 ts.leave_curly().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, '}', &token, source, "Unexpected closing delimiter. Did you forget a '{'?")
+                    |_| error::unmatched_delimiter('}', &token, source, "Unexpected closing delimiter. Did you forget a '{'?")
                 );
                 TokenKind::ScopeClose
             },
@@ -264,7 +264,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             },
             ")" => {
                 ts.leave_parenthesis().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, ')', &token, source, "Unexpected closing delimiter. Did you forget a '('?")
+                    |_| error::unmatched_delimiter(')', &token, source, "Unexpected closing delimiter. Did you forget a '('?")
                 );
                 TokenKind::ParClose
             },
@@ -288,7 +288,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             },
             "]" => {
                 ts.leave_square().unwrap_or_else(
-                    |_| error::unmatched_delimiter(unit_path, ']', &token, source, "Unexpected closing delimiter. Did you forget a '['?")
+                    |_| error::unmatched_delimiter(']', &token, source, "Unexpected closing delimiter. Did you forget a '['?")
                 );
                 TokenKind::SquareClose
             },
@@ -341,15 +341,15 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             string if string.starts_with(is_numeric) => {
                 if string.contains('.') {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
-                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                        |e| error::invalid_number(&token, source, e.to_string().as_str())
                     ))) })
                 } else if string.starts_with('-') {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
-                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                        |e| error::invalid_number(&token, source, e.to_string().as_str())
                     ))) })
                 } else {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
-                        |e| error::invalid_number(unit_path, string, &token, source, e.to_string().as_str())
+                        |e| error::invalid_number(&token, source, e.to_string().as_str())
                     ))) }) 
                 }
             },
@@ -357,10 +357,10 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             // Strings within ""
             string if string.starts_with('"') => {
                 if string.len() == 1 {
-                    error::unmatched_delimiter(unit_path, '"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
+                    error::unmatched_delimiter('"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
                 }
 
-                let string = escape_string(string, unit_path, &token, source);
+                let string = escape_string(string, &token, source);
 
                 // Add the string to the static string table, store the id in the token
                 let static_id = symbol_table.add_static_string(string);
@@ -373,12 +373,12 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             // Characters within ''
             string if string.starts_with('\'') => {
                 if string.len() == 1 {
-                    error::unmatched_delimiter(unit_path, '\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
+                    error::unmatched_delimiter('\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
                 }
                 
-                let s = escape_string(string, unit_path, &token, source);
+                let s = escape_string(string, &token, source);
                 if s.len() != 1 {
-                    error::invalid_char_literal(unit_path, &s, &token, source, "Character literals can only be one character long")
+                    error::invalid_char_literal(&s, &token, source, "Character literals can only be one character long")
                 }
 
                 TokenKind::Value(Value::Literal { 
@@ -424,7 +424,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             // Variable names
             string => {
                 if !is_symbol_name(string) {
-                    error::invalid_token(unit_path, &token, source, "Not a valid symbol name.")
+                    error::invalid_token(&token, source, "Not a valid symbol name.")
                 }
 
                 TokenKind::Value(Value::Symbol { name: string, scope_discriminant: ScopeDiscriminant::default() })
@@ -432,7 +432,7 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
         };
 
         tokens.append(
-            Token::new(token_kind, token, unit_path, ts.base_priority)
+            Token::new(token_kind, token, ts.base_priority)
         );
 
         ts.update();

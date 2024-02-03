@@ -249,7 +249,6 @@ pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
     pub token: Rc<StringToken<'a>>,
-    pub unit_path: &'a Path,
     pub priority: i32,
 
 }
@@ -257,14 +256,13 @@ pub struct Token<'a> {
 
 impl Token<'_> {
 
-    pub fn new<'a>(value: TokenKind<'a>, source_token: StringToken<'a>, unit_path: &'a Path, base_priority: i32) -> Token<'a> {
+    pub fn new<'a>(value: TokenKind<'a>, source_token: StringToken<'a>, base_priority: i32) -> Token<'a> {
 
         let value_priority = value.type_priority();
 
         Token {
             value,
             token: Rc::new(source_token),
-            unit_path,
             // The priority of the token is the sum of the base priority and the value priority.
             // If the value priority is zero, the token should not be evaluated.
             priority: if value_priority == Priority::Zero as i32 { 0 } else { base_priority + value_priority },
