@@ -189,7 +189,7 @@ impl TokenizerStatus {
 
 
 /// Divide the source code into meaningful string tokens
-fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
+fn lex<'a>(source: &'a IRCode, unit_path: &'a Path) -> impl Iterator<Item = StringToken<'a>> {
     source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {
@@ -202,19 +202,24 @@ fn lex(source: &IRCode) -> Vec<StringToken<'_>> {
                     break;
                 }
                 matches.push(
-                    StringToken::new(mat.as_str(), line_index, mat.start() + 1)
+                    StringToken {
+                        string: mat.as_str(),
+                        unit_path,
+                        line_index,
+                        column: mat.start() + 1
+                    }
                 );
             }
             matches
         }
-    ).collect()
+    )
 }
 
 
 /// Divide the source code into syntax tokens
 pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenTree<'a> {
 
-    let raw_tokens = lex(source);
+    let raw_tokens = lex(source, unit_path);
 
     let mut tokens = TokenTree::new();
 

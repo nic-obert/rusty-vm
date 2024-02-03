@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::operations::Ops;
 use crate::data_types::{DataType, LiteralValue};
@@ -10,7 +11,8 @@ use crate::symbol_table::ScopeDiscriminant;
 pub struct StringToken<'a> {
 
     pub string: &'a str,
-    line_index: usize,
+    pub unit_path: &'a Path,
+    pub line_index: usize,
     pub column: usize,
 
 }
@@ -25,19 +27,11 @@ impl Display for StringToken<'_> {
 
 impl StringToken<'_> {
 
-    pub fn new(string: &str, line_index: usize, start: usize) -> StringToken<'_> {
-        StringToken {
-            string,
-            line_index,
-            column: start
-        }
-    }
-
     /// Returns the line number of the token, starting from 1
     /// 
     /// This is used to display the line number in the error message.
     #[inline]
-    pub fn line_number(&self) -> usize {
+    pub const fn line_number(&self) -> usize {
         self.line_index + 1
     }
 
@@ -45,7 +39,7 @@ impl StringToken<'_> {
     /// 
     /// This is used to index the line in the source code.
     #[inline]
-    pub fn line_index(&self) -> usize {
+    pub const fn line_index(&self) -> usize {
         self.line_index
     }
 
@@ -148,7 +142,7 @@ impl TokenKind<'_> {
     pub fn literal_value(&self) -> Option<&LiteralValue> {
         if let TokenKind::Value(Value::Literal { value }) = self { Some(value) } else { None }
     }
-    
+
 
     pub fn type_priority(&self) -> i32 {
         (match self {
@@ -164,7 +158,9 @@ impl TokenKind<'_> {
                  => Priority::Mul_Div_Mod,
 
                 Ops::Return |
-                Ops::Assign 
+                Ops::Assign |
+                Ops::Break | 
+                Ops::Continue
                  => Priority::Least_Assignment_FlowBreak,
 
                 Ops::Deref { .. } |
@@ -252,7 +248,7 @@ impl TokenKind<'_> {
 pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
-    pub token: StringToken<'a>,
+    pub token: Rc<StringToken<'a>>,
     pub unit_path: &'a Path,
     pub priority: i32,
 
@@ -267,7 +263,7 @@ impl Token<'_> {
 
         Token {
             value,
-            token: source_token,
+            token: Rc::new(source_token),
             unit_path,
             // The priority of the token is the sum of the base priority and the value priority.
             // If the value priority is zero, the token should not be evaluated.

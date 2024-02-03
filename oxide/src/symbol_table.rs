@@ -12,10 +12,11 @@ use crate::data_types::{DataType, LiteralValue};
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol {
     pub data_type: Rc<DataType>,
-    pub value: SymbolValue,
-    pub initialized: bool,
     pub line_index: usize,
     pub column: usize,
+    pub value: SymbolValue,
+    pub initialized: bool,
+    pub read_from: bool,
 }
 
 impl Symbol {
@@ -53,7 +54,7 @@ impl Symbol {
     }
 
 
-    pub fn line_number(&self) -> usize {
+    pub const fn line_number(&self) -> usize {
         self.line_index + 1
     }
 

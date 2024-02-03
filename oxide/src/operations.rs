@@ -53,6 +53,8 @@ pub enum Ops {
     BitwiseAnd,
     BitwiseXor,
     ArrayIndexOpen,
+    Break,
+    Continue,
 
 }
 
@@ -138,7 +140,11 @@ impl Ops {
                 0 => matches!(data_type, DataType::Array { .. }),
                 1 => matches!(data_type, unsigned_integer_pattern!()),
                 _ => unreachable!("Invalid position for array index operator")
-            }
+            },
+
+            Ops::Break |
+            Ops::Continue
+             => unreachable!("Break and continue should not have operands")
         }
     }
 
@@ -196,7 +202,11 @@ impl Ops {
             Ops::BitwiseOr |
             Ops::BitwiseAnd |
             Ops::BitwiseXor
-             => &["integer"]
+             => &["integer"],
+
+            Ops::Break |
+            Ops::Continue
+             => &[] // This is probably unreachable
         }
     }
 
@@ -230,7 +240,9 @@ impl Ops {
             Ops::Deref { .. } |
             Ops::Ref { .. } |
             Ops::FunctionCallOpen |
-            Ops::Return
+            Ops::Return |
+            Ops::Break |
+            Ops::Continue
              => false
         }
     }
@@ -372,7 +384,9 @@ impl Display for Ops {
             Ops::BitwiseOr => "|",
             Ops::BitwiseAnd => "&",
             Ops::BitwiseXor => "^",
-            Ops::ArrayIndexOpen => "Index"
+            Ops::ArrayIndexOpen => "Index",
+            Ops::Break => "break",
+            Ops::Continue => "continue",
         })
     }
 }

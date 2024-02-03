@@ -275,6 +275,18 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                         );
                     },
     
+                    // No operands
+                    Ops::Break |
+                    Ops::Continue => {
+                        // Syntax: break
+                        // Syntax: continue
+
+                        // Check that this token isn't followed by any other token
+                        if let Some(next_node) = extract_right!() {
+                            error::invalid_argument(&op_node.item.value, &next_node.item, source, format!("Unexpected token {:?} after operator {}.", next_node.item.value, op).as_str());
+                        }
+                    }
+    
                     // Other operators:
                     Ops::FunctionCallOpen => {
                         // Functin call is a list of tokens separated by commas enclosed in parentheses
@@ -422,11 +434,12 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                             initialized: false,
                             line_index: op_node.item.token.line_index(),
                             column: op_node.item.token.column,
+                            read_from: false
                         },
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
-                        error::warn(&name_node.item, source, warning);
+                        error::warn(&name_node.item.token, source, warning);
                     }
 
                     op_node.children = Some(ChildrenType::Const { 
@@ -497,12 +510,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                             value: if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
                             initialized: false,
                             line_index: op_node.item.token.line_index(),
-                            column: op_node.item.token.column
+                            column: op_node.item.token.column,
+                            read_from: false
                         },
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
-                        error::warn(&name_token.item, source, warning);
+                        error::warn(&name_token.item.token, source, warning);
                     }
 
                     if let TokenKind::Value(Value::Symbol { name: _, scope_discriminant }) = &mut name_token.item.value {
@@ -595,11 +609,12 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                                 initialized: false,
                                 line_index: op_node.item.token.line_index(),
                                 column: op_node.item.token.column,
+                                read_from: false
                             }, 
                             body.scope_id
                         );
                         if let Some(warning) = res.warning() {
-                            error::warn(&name_node.item, source, warning);
+                            error::warn(&name_node.item.token, source, warning);
                         }
                     }
 
@@ -610,12 +625,13 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                             value: SymbolValue::Immutable(None), 
                             initialized: true,
                             line_index: op_node.item.token.line_index(),
-                            column: op_node.item.token.column
+                            column: op_node.item.token.column,
+                            read_from: false
                         },
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
-                        error::warn(&name_node.item, source, warning);
+                        error::warn(&name_node.item.token, source, warning);
                     }
 
                     op_node.children = Some(ChildrenType::Function { name: function_name, signature, body });
@@ -962,6 +978,10 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             
             match operator {
 
+                Ops::Break |
+                Ops::Continue
+                 => DataType::Void.into(),
+
                 Ops::Deref { .. } => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
@@ -1254,7 +1274,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             if expr.data_type == *target_type {
                 
-                error::warn(&expression.item, source, "Redundant type cast. Expression is already of the specified type.")
+                error::warn(&expression.item.token, source, "Redundant type cast. Expression is already of the specified type.")
 
             } else {
                     // Check if the expression type can be cast to the specified type
@@ -1272,10 +1292,18 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             Value::Literal { value } => value.data_type(symbol_table).into(),
 
-            Value::Symbol { name, scope_discriminant }
-             => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap_or_else(
-                    || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name).map(|s| s.borrow()) { format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.column, source[symbol.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
-                ).borrow().data_type.clone()
+            Value::Symbol { name, scope_discriminant } => {
+                let mut symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap_or_else(
+                    || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.column, source[symbol.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
+                ).borrow_mut();
+
+                // The symbol has beed used in an expression, so it has been read from.
+                // If the symbol is being assigned to instead, the Ops::Assign branch will set this flag to false later.
+                // This is not an ideal design choice, but it works.
+                symbol.read_from = true;
+
+                symbol.data_type.clone()
+            }
         },
 
         TokenKind::Fn => {
@@ -1497,6 +1525,11 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
     match node.item.value {
         TokenKind::Op(op) => match op {
 
+            // These operators are only allowed in runtime for obvious reasons
+            Ops::Break |
+            Ops::Continue
+             => return SHOULD_NOT_BE_REMOVED,
+
             Ops::ArrayIndexOpen => {
                 let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut node.children, (op1, op2));
 
@@ -1616,7 +1649,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
                     // The condition is always true, so the body will always be executed
                     // Downgrade the while loop to a unconditional loop
 
-                    error::warn(&condition.item, source, "While loop condition is always true. This loop will be converted to an unconditional loop.");
+                    error::warn(&condition.item.token, source, "While loop condition is always true. This loop will be converted to an unconditional loop.");
 
                     evaluate_constants_block(body, source, symbol_table);
 
@@ -1706,7 +1739,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
             // Values are already reduced to the minimum
         },
 
-        _ => unreachable!("{:?} shoud have been removed from the tree.", node.item.value)
+        _ => unreachable!("{:?} should have been removed from the tree.", node.item.value)
     }
 
     // By default, the node should not be removed

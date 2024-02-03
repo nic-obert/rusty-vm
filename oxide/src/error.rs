@@ -31,14 +31,14 @@ impl<T> WarnResult<T> {
 }
 
 
-pub fn warn(token: &Token, source: &IRCode, message: &str) {
+pub fn warn(token: &StringToken, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
         ⚠️  Warning at line {}:{} in ir unit \"{}\":
         ",
-        token.token.line_number(), token.token.column, token.unit_path.display()
+        token.line_number(), token.column, token.unit_path.display()
     ).bright_yellow());
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", message);
 }
