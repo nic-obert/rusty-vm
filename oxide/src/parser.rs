@@ -3,6 +3,7 @@ use std::rc::Rc;
 use rust_vm_lib::ir::IRCode;
 
 use crate::data_types::{DataType, LiteralValue};
+use crate::error::warn;
 use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
@@ -164,7 +165,7 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
 }
 
 
-fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut SymbolTable<'a>, source: &IRCode) {
     // Recursively parse the statements' hierarchy
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
@@ -428,14 +429,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
 
                     let (discriminant, res) = symbol_table.declare_symbol(
                         symbol_name.to_string(),
-                        Symbol {
-                            data_type: data_type.clone(),
-                            value: SymbolValue::UninitializedConstant,
-                            initialized: false,
-                            line_index: op_node.item.token.line_index(),
-                            column: op_node.item.token.column,
-                            read_from: false
-                        },
+                        Symbol::new_uninitialized(
+                            data_type.clone(),
+                            op_node.item.token.clone(),
+                            SymbolValue::UninitializedConstant,
+                        ),
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
@@ -505,14 +503,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     // Declare the new symbol in the local scope
                     let (discriminant, res) = symbol_table.declare_symbol(
                         symbol_name.to_string(),
-                        Symbol { 
-                            data_type: Rc::new(data_type), 
-                            value: if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
-                            initialized: false,
-                            line_index: op_node.item.token.line_index(),
-                            column: op_node.item.token.column,
-                            read_from: false
-                        },
+                        Symbol::new_uninitialized(
+                            Rc::new(data_type), 
+                            op_node.item.token.clone(),
+                            if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
+                        ),
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
@@ -603,14 +598,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
                     for param in params {
                         let (_discriminant, res) = symbol_table.declare_symbol(
                             param.name, 
-                            Symbol {
-                                data_type: param.data_type,
-                                value: if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
-                                initialized: false,
-                                line_index: op_node.item.token.line_index(),
-                                column: op_node.item.token.column,
-                                read_from: false
-                            }, 
+                            Symbol::new_uninitialized(
+                                param.data_type,
+                                op_node.item.token.clone(),
+                                if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
+                            ), 
                             body.scope_id
                         );
                         if let Some(warning) = res.warning() {
@@ -620,14 +612,11 @@ fn parse_block_hierarchy(block: &mut ScopeBlock<'_>, symbol_table: &mut SymbolTa
 
                     let (_discriminant, res) = symbol_table.declare_symbol(
                         function_name.to_string(),
-                        Symbol { 
-                            data_type: signature.clone(), 
-                            value: SymbolValue::Immutable(None), 
-                            initialized: true,
-                            line_index: op_node.item.token.line_index(),
-                            column: op_node.item.token.column,
-                            read_from: false
-                        },
+                        Symbol::new_uninitialized(
+                            signature.clone(), 
+                            op_node.item.token.clone(),
+                            SymbolValue::Immutable(None), 
+                        ),
                         block.scope_id
                     );
                     if let Some(warning) = res.warning() {
@@ -964,7 +953,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = $x.item.value {
                 let symbol = symbol_table.get_symbol(scope_id, name, scope_discriminant).unwrap().borrow();
                 if !symbol.initialized {
-                    error::use_of_uninitialized_value(&$x.item, &$x.data_type, source, format!("Cannot use uninitialized value \"{name}\".\nType of \"{name}\": {}.\n{name} declared at {}:{}:\n{}", symbol.data_type, symbol.line_number(), symbol.column, source[symbol.line_index]).as_str());
+                    error::use_of_uninitialized_value(&$x.item, &$x.data_type, source, format!("Cannot use uninitialized value \"{name}\".\nType of \"{name}\": {}.\n{name} declared at {}:{}:\n{}", symbol.data_type, symbol.line_number(), symbol.token.column, source[symbol.token.line_index]).as_str());
                 }
             }
         };
@@ -1005,7 +994,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                         let symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
                         // Mutable borrows of immutable symbols are not allowed
                         if !symbol.is_mutable() && *mutable {
-                            error::illegal_mutable_borrow(&operand.item, source, format!("Cannot borrow \"{name}\" as mutable because it was declared as immutable.\nType of \"{name}\": {}.\n{name} declared at {}:{}:\n{}", symbol.data_type, symbol.line_number(), symbol.column, source[symbol.line_index]).as_str())
+                            error::illegal_mutable_borrow(&operand.item, source, format!("Cannot borrow \"{name}\" as mutable because it was declared as immutable.\nType of \"{name}\": {}.\n{name} declared at {}:{}:\n{}", symbol.data_type, symbol.line_number(), symbol.token.column, source[symbol.token.line_index]).as_str())
                         }
                     }
 
@@ -1294,7 +1283,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
             Value::Symbol { name, scope_discriminant } => {
                 let mut symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap_or_else(
-                    || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.column, source[symbol.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
+                    || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.token.column, source[symbol.token.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
                 ).borrow_mut();
 
                 // The symbol has beed used in an expression, so it has been read from.
@@ -1482,6 +1471,12 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
             node_ptr = node.right;
         }
 
+    }
+
+    // Check if any symbols haven't been used
+    for (name, symbol) in symbol_table.get_unread_symbols(block.scope_id) {
+        let token = &symbol.borrow().token;
+        warn(token, source, format!("Symbol \"{name}\" is declared but never used.\nDeclaration occurs at {}:{}:\n\n{}\n", token.line_number(), token.column, &source[token.line_index()]).as_str());
     }
 }
 
@@ -1870,7 +1865,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
 
 
 /// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bool, symbol_table: &mut SymbolTable) -> ScopeBlock<'a> {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bool, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
 
     parse_scope_hierarchy(&mut tokens);
 

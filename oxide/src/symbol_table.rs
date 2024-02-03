@@ -5,21 +5,31 @@ use std::collections::HashMap;
 
 use crate::error::WarnResult;
 use crate::data_types::{DataType, LiteralValue};
+use crate::token::StringToken;
 
 
 /// Struct representing a symbol in the source code.
 /// 
 /// A symbol is a variable, function, any identifier that can be referenced by name.
-pub struct Symbol {
+pub struct Symbol<'a> {
     pub data_type: Rc<DataType>,
-    pub line_index: usize,
-    pub column: usize,
+    pub token: Rc<StringToken<'a>>,
     pub value: SymbolValue,
     pub initialized: bool,
     pub read_from: bool,
 }
 
-impl Symbol {
+impl Symbol<'_> {
+
+    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<StringToken<'_>>, value: SymbolValue) -> Symbol<'_> {
+        Symbol {
+            data_type,
+            token,
+            value,
+            initialized: false,
+            read_from: false,
+        }
+    }
 
     pub fn initialize_immutable(&mut self, value: LiteralValue) {
 
@@ -54,8 +64,8 @@ impl Symbol {
     }
 
 
-    pub const fn line_number(&self) -> usize {
-        self.line_index + 1
+    pub fn line_number(&self) -> usize {
+        self.token.line_index + 1
     }
 
 }
@@ -83,9 +93,25 @@ pub struct StaticValue<'a> {
 }
 
 
-pub struct Scope {
+pub struct Scope<'a> {
     pub parent: Option<ScopeID>,
-    pub symbols: HashMap<String, Vec<RefCell<Symbol>>>,
+    pub symbols: HashMap<String, Vec<RefCell<Symbol<'a>>>>,
+}
+
+impl<'a> Scope<'a> {
+
+    pub fn get_symbol(&self, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol<'a>>> {
+        self.symbols.get(symbol_id).map(move |s| &s[discriminant.0 as usize])
+    }
+
+    /// Get the symbol name-value pairs that have not been read from.
+    pub fn get_unread_symbols(&self) -> Vec<(&String, &RefCell<Symbol<'a>>)> {
+        self.symbols.iter()
+            .flat_map(|(name, symbols)| symbols.iter().map(move |s| (name, s)))
+            .filter(|(_, symbol)| !symbol.borrow().read_from)
+            .collect()
+    }
+
 }
 
 
@@ -131,7 +157,7 @@ impl Default for ScopeDiscriminant {
 
 /// Struct containing the local symbols of a scope. 
 pub struct SymbolTable<'a> {
-    scopes: Vec<Scope>,
+    scopes: Vec<Scope<'a>>,
     statics: Vec<StaticValue<'a>>,
 }
 
@@ -177,14 +203,16 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Return the requested symbol if it exists in the symbol table.
-    pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&RefCell<Symbol>> {
+    pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&RefCell<Symbol<'a>>> {
         self.scopes.iter()
-            .find_map(|scope| scope.symbols.get(symbol_id))
-            .and_then(|s| s.last())
+            .find_map(|scope| 
+                scope.get_symbol(symbol_id, ScopeDiscriminant(0)
+            )
+        )
     }
 
     
-    pub fn declare_symbol(&mut self, name: String, symbol: Symbol, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
+    pub fn declare_symbol(&mut self, name: String, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
 
         // TODO: eventually, use an immutable borrow of the string in the source code to avoid useless copying
 
@@ -218,16 +246,16 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Get the symbol with the given id from the symbol table.
-    pub fn get_symbol(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol>> {
+    pub fn get_symbol(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol<'a>>> {
         let scope = &self.scopes[scope_id.0];
 
-        if let Some(symbol_list) = scope.symbols.get(symbol_id) {
-            Some(&symbol_list[discriminant.0 as usize])
-        } else if let Some(parent_id) = scope.parent {
-            self.get_symbol(parent_id, symbol_id, discriminant)
-        } else {
-            None
-        }
+        scope.get_symbol(symbol_id, discriminant).or_else(
+            || if let Some(parent_id) = scope.parent {
+                self.get_symbol(parent_id, symbol_id, discriminant)
+            } else {
+                None
+            }
+        )
     }
 
 
@@ -239,6 +267,11 @@ impl<'a> SymbolTable<'a> {
             symbols: HashMap::new(),
         });
         id
+    }
+
+
+    pub fn get_unread_symbols(&self, scope_id: ScopeID) -> Vec<(&String, &RefCell<Symbol<'a>>)>{
+        self.scopes[scope_id.0].get_unread_symbols()
     }
 
 }
