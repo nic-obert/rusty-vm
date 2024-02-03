@@ -399,6 +399,8 @@ pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut 
             "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true) }),
             "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false) }),
             "const" => TokenKind::Const,
+            "break" => TokenKind::Op(Ops::Break),
+            "continue" => TokenKind::Op(Ops::Continue),
             
             // Data types
             "i8" => TokenKind::DataType(DataType::I8),
