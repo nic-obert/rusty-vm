@@ -1,7 +1,7 @@
-fn hi() -> i32{
-    8
-}
+
+typedef Age = u8;
 
 fn main() {
-    let x = hi();
+
+    let x: Age = 20;
 }

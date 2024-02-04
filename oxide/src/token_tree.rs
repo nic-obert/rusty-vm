@@ -100,6 +100,7 @@ pub enum ChildrenType<'a> {
     While { condition: Box<TokenNode<'a>>, body: ScopeBlock<'a> },
     IfChain { if_chain: Vec<IfBlock<'a>>, else_block: Option<ScopeBlock<'a>> },
     Const { name: &'a str, discriminant: ScopeDiscriminant, data_type: Rc<DataType>, definition: Box<TokenNode<'a>> },
+    TypeDef { name: &'a str, definition: Rc<DataType>, }
 }
 
 
@@ -174,6 +175,9 @@ impl<'a> TokenNode<'a> {
 
         if let Some(children) = &self.children {
             match children {
+                ChildrenType::TypeDef { name, definition } => {
+                    write!(f, "typedef {name} = {}", definition.name())?;
+                }
                 ChildrenType::List (children) => {
                     for child in children {
                         child.fmt_indented(indent + 1, f)?;

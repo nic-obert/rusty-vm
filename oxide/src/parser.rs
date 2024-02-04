@@ -7,7 +7,7 @@ use crate::error::warn;
 use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
-use crate::symbol_table::{ScopeID, Symbol, SymbolTable, SymbolValue};
+use crate::symbol_table::{NameType, ScopeID, Symbol, SymbolTable, SymbolValue};
 use crate::token_tree::{ChildrenType, FunctionParam, IfBlock, ScopeBlock, TokenNode, TokenTree, UnparsedScopeBlock};
 use crate::{match_or, match_unreachable};
 
@@ -288,7 +288,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         if let Some(next_node) = extract_right!() {
                             error::invalid_argument(&op_node.item.value, &next_node.item, source, format!("Unexpected token {:?} after operator {}.", next_node.item.value, op).as_str());
                         }
-                    }
+                    },
     
                     // Other operators:
                     Ops::FunctionCallOpen => {
@@ -396,6 +396,40 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     op_node.children = Some(ChildrenType::ParsedBlock(parsed_block));
                 },
 
+                TokenKind::TypeDef => {
+                    // Syntax: typedef <name> = <definition>
+
+                    let name_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing name in type definition.")
+                    );
+                    let type_name = match_or!(TokenKind::Value(Value::Symbol { name, .. }) = name_node.item.value, name,
+                        error::invalid_argument(&op_node.item.value, &name_node.item, source, "Invalid type name in type definition.")
+                    );
+
+                    let assign_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing assignment operator after type name in type declaration.")
+                    );
+                    if !matches!(assign_node.item.value, TokenKind::Op(Ops::Assign)) {
+                        error::invalid_argument(&op_node.item.value, &assign_node.item, source, "Expected an assignment operator after type name in type definition.")
+                    }
+
+                    let definition_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing data type after assignment operator in type definition.")
+                    );
+                    let data_type: Rc<DataType> = match_or!(TokenKind::DataType(data_type) = definition_node.item.value, data_type,
+                        error::invalid_argument(&op_node.item.value, &definition_node.item, source, "Expected a data type after assignment operator in type definition.")
+                    );
+
+                    let res = symbol_table.define_type(type_name.to_string(), block.scope_id, data_type.clone(), op_node.item.token.clone());
+                    if let Some(shadow) = res.err() {
+                        error::already_defined(&op_node.item.token, &shadow.token, source, format!("{type_name} is defined multiple times in the same scope.").as_str())
+                    }
+
+                    // These children aren't really useful, but here they are to keep the code more uniform
+                    // Maybe in the future they will be used to evaluate constant expressions in type definitions (e.g. array size)
+                    op_node.children = Some(ChildrenType::TypeDef { name: type_name, definition: data_type })
+                },
+
                 TokenKind::Const => {
                     // Syntax: const <name>: <type> = <expression>
                     // Explicit data type is required and cannot be mutable (of course)
@@ -419,7 +453,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     );
                     let data_type: Rc<DataType> = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Invalid data type in constant declaration.")
-                    ).into();
+                    );
 
                     let assign_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing assignment operator after constant data type in constant declaration.")
@@ -454,7 +488,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         data_type,
                         definition: definition_node,
                     });
-                }
+                },
     
                 TokenKind::Let => {
                     // Syntax: let [mut] <name>: <type> 
@@ -484,7 +518,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     );
 
                     // The data type is either specified now after a colon or inferred later from the assigned value
-                    let data_type: DataType = match after_name.item.value {
+                    let data_type = match after_name.item.value {
 
                         TokenKind::Colon => {
 
@@ -502,7 +536,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         TokenKind::Op(Ops::Assign) => {
                             // Data type is not specified in the declaration, it will be inferred later upon assignment
 
-                            DataType::Unspecified
+                            DataType::Unspecified.into()
                         },
 
                         _ => error::invalid_argument(&op_node.item.value, &after_name.item, source, "Expected a colon or an equal sign after variable name in variable declaration.")
@@ -512,7 +546,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     let (discriminant, res) = symbol_table.declare_symbol(
                         symbol_name.to_string(),
                         Symbol::new_uninitialized(
-                            Rc::new(data_type), 
+                            data_type, 
                             op_node.item.token.clone(),
                             if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) }, 
                         ),
@@ -532,12 +566,25 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
                 TokenKind::Value(Value::Symbol { name, scope_discriminant: _ }) => {
 
-                    if let Some(current_discriminant) = symbol_table.get_current_discriminant(name, block.scope_id) {
-                        let scope_discriminant = match_unreachable!(TokenKind::Value(Value::Symbol { name: _, scope_discriminant }) = &mut op_node.item.value, scope_discriminant);
-                        *scope_discriminant = current_discriminant;
-                    }
-                    // Undefined symbols will be catched later. Function parameters, for example, would result in an error here.
+                    // At this stage, Symbol tokens can either be custom types or actual symbols
+                    match symbol_table.get_name_type(name, block.scope_id) {
 
+                        Some(NameType::Symbol(current_discriminant)) => {
+                            // The name is a symbol
+                            let scope_discriminant = match_unreachable!(TokenKind::Value(Value::Symbol { name: _, scope_discriminant }) = &mut op_node.item.value, scope_discriminant);
+                            *scope_discriminant = current_discriminant;
+                        },
+
+                        Some(NameType::Type(data_type)) => {
+                            // The name is a custom type
+                            op_node.item.value = TokenKind::DataType(data_type);
+
+                        },
+
+                        _ => {
+                            // Undefined symbols will be catched later. Function parameters, for example, would result in an error here.
+                        }
+                    }
                 },
     
                 TokenKind::Fn => {
@@ -576,7 +623,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         let return_type_node = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, "Missing return type after arrow in function declaration.")
                         );
-                        return_type = match_or!(TokenKind::DataType(data_type) = return_type_node.item.value, data_type.into(),
+                        return_type = match_or!(TokenKind::DataType(data_type) = return_type_node.item.value, data_type,
                             error::invalid_argument(&op_node.item.value, &return_type_node.item, source, "Invalid return type in function declaration.")
                         );
 
@@ -680,7 +727,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 );
                                 let data_type: Rc<DataType> = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
                                     error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Invalid data type in function declaration.")
-                                ).into();
+                                );
 
                                 params.push(FunctionParam { name, data_type, mutable });
 
@@ -715,7 +762,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::invalid_argument(&op_node.item.value, &closing_bracket.item, source, "Expected closing square bracket ].");
                     }
                     
-                    let array_type = DataType::Array(Rc::new(element_type));
+                    let array_type = DataType::Array(element_type).into();
                     // Transform this node into a data type node
                     op_node.item.value = TokenKind::DataType(array_type);
                 },  
@@ -744,16 +791,16 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     );
 
                     // Some data types should be merged together
-                    let ref_type = match element_type {
+                    let ref_type = match element_type.as_ref() {
                         DataType::RawString { length } => {
                             if mutable {
                                 error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Raw strings cannot be mutable.")
                             }
-                            DataType::StringRef { length: *length }
+                            DataType::StringRef { length: *length }.into()
                         },
                         _ => {
                             let element_type = match_unreachable!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type);
-                            DataType::Ref { target: element_type.into(), mutable }
+                            DataType::Ref { target: element_type, mutable }.into()
                         }
                     };
                     
@@ -778,7 +825,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Expected a data type after type cast operator.")
                     );
 
-                    op_node.children = Some(ChildrenType::TypeCast { data_type: data_type.into(), expr });
+                    op_node.children = Some(ChildrenType::TypeCast { data_type, expr });
                 },
 
                 TokenKind::If => {
@@ -1873,6 +1920,11 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                     error::compile_time_operation_error(&statement.item, source, format!("Could not define constant \"{name}\".").as_str());
                 }
 
+                DO_EXTRACT
+            },
+
+            TokenKind::TypeDef => {
+                // Type was already defined
                 DO_EXTRACT
             },
 

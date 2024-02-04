@@ -6,8 +6,7 @@ Project Description
 
 ### Todo
 
-- [ ] data type list in symbol table? use a u32 as a data type id. each time a new data type is constructed, a new id is created. primitive data types are already in the list. useful for defining custom data types  
-- [ ] allow custom type definition within scopes with something like "type A = B;"  
+- [ ] data type list in symbol table? use a u32 as a data type id. each time a new data type is constructed, a new id is created. primitive data types are already in the list. useful for defining custom data types??? maybe not  
 - [ ] generate simplified intermediate code on which flow analysis is easier  
 - [ ] main function  
 - [ ] lifetimes?  
@@ -24,6 +23,7 @@ Project Description
 
 ### Done ✓
 
+- [x] allow custom type definition within scopes with something like "type A = B;"  
 - [x] make tokens and symbols aware of the source file they were declared in. make a struct that holds the unit path (&'a str), the line and column, and the source code (&'a IRCode).?????? would it be useful ???  
 - [x] add warnings for unused symbols (new used falag)  
 - [x] add break and continue  

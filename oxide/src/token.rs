@@ -70,11 +70,12 @@ pub enum TokenKind<'a> {
 
     Op (Ops),
     Value (Value<'a>),
-    DataType (DataType),
+    DataType (Rc<DataType>),
 
     RefType,
 
     Const,
+    TypeDef,
     Fn,
     Let,
     As,
@@ -200,7 +201,9 @@ impl TokenKind<'_> {
 
             // Const has to be the top-level node in constant declaration
             // const a: B = 1 + 2; --> const a: B = +(1, 2) --> const(a, B, +(1, 2))
-            TokenKind::Const
+            TokenKind::Const |
+            // Same story with typedef
+            TokenKind::TypeDef
              => Priority::Least_Assignment_FlowBreak,
 
             TokenKind::Fn |
@@ -300,6 +303,7 @@ impl Display for Token<'_> {
             TokenKind::While => write!(f, "while"),
             TokenKind::Loop => write!(f, "loop"),
             TokenKind::Const => write!(f, "const"),
+            TokenKind::TypeDef => write!(f, "typedef"),
         }
     }
 }

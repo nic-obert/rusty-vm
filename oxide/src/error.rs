@@ -33,7 +33,7 @@ impl<T> WarnResult<T> {
 
 pub fn warn(token: &StringToken, source: &IRCode, message: &str) {
     println!("{}", formatdoc!("
-        ⚠️  Warning at line {}:{} in ir unit \"{}\":
+        ⚠️  Warning at line {}:{} in unit \"{}\":
         ",
         token.line_number(), token.column, token.unit_path.display()
     ).bright_yellow());
@@ -72,7 +72,7 @@ fn print_source_context(source: &IRCode, line_index: usize, char_pointer: usize)
 
 pub fn invalid_number(token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Invalid number \"{}\" at line {}:{}:
 
@@ -89,7 +89,7 @@ pub fn invalid_number(token: &StringToken, source: &IRCode, hint: &str) -> ! {
 
 pub fn unmatched_delimiter(delimiter: char, token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Unmatched delimiter '{}' at line {}:{}:
 
@@ -106,7 +106,7 @@ pub fn unmatched_delimiter(delimiter: char, token: &StringToken, source: &IRCode
 
 pub fn invalid_char_literal(literal: &str, token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Invalid character literal '{}' at line {}:{}:
 
@@ -123,7 +123,7 @@ pub fn invalid_char_literal(literal: &str, token: &StringToken, source: &IRCode,
 
 pub fn invalid_token(token: &StringToken, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Invalid token \"{}\" at line {}:{}:
 
@@ -140,7 +140,7 @@ pub fn invalid_token(token: &StringToken, source: &IRCode, hint: &str) -> ! {
 
 pub fn invalid_escape_character(unit_path: &Path, character: char, start: usize, line_index: usize, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Invalid escape character '{}' at line {}:{}:
 
@@ -157,7 +157,7 @@ pub fn invalid_escape_character(unit_path: &Path, character: char, start: usize,
 
 pub fn expected_argument(operator: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Expected argment for operator {:?} at line {}:{}, but got none:
         
@@ -174,7 +174,7 @@ pub fn expected_argument(operator: &Token, source: &IRCode, hint: &str) -> ! {
 
 pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Invalid argument {:?} for operator {:?} at line {}:{}:
 
@@ -191,7 +191,7 @@ pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &IRCode, hint
 
 pub fn unexpected_token(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Unexpected token {:?} at line {}:{}:
 
@@ -208,7 +208,7 @@ pub fn unexpected_token(token: &Token, source: &IRCode, hint: &str) -> ! {
 
 pub fn type_error(token: &Token, expected: &[&str], got: &DataType, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Expected type {}, but got {} at line {}:{}:
 
@@ -225,7 +225,7 @@ pub fn type_error(token: &Token, expected: &[&str], got: &DataType, source: &IRC
 
 pub fn mismatched_call_arguments(token: &Token, expected: usize, got: usize, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Expected {} arguments, but got {} at line {}:{}:
 
@@ -242,7 +242,7 @@ pub fn mismatched_call_arguments(token: &Token, expected: usize, got: usize, sou
 
 pub fn symbol_undefined(token: &Token, symbol: &str, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Undefined symbol \"{}\" at line {}:{}:
 
@@ -259,7 +259,7 @@ pub fn symbol_undefined(token: &Token, symbol: &str, source: &IRCode, hint: &str
 
 pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Syntax error at line {}:{}:
 
@@ -276,7 +276,7 @@ pub fn syntax_error(token: &Token, source: &IRCode, hint: &str) -> ! {
 
 pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Compiletime operation error at line {}:{}:
 
@@ -293,7 +293,7 @@ pub fn compile_time_operation_error(token: &Token, source: &IRCode, hint: &str) 
 
 pub fn immutable_change(token: &Token, type_of_immutable: &DataType, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Attempt to change immutable value of type {} at line {}:{}:
 
@@ -310,7 +310,7 @@ pub fn immutable_change(token: &Token, type_of_immutable: &DataType, source: &IR
 
 pub fn illegal_mutable_borrow(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
 
         Illegal mutable borrow at line {}:{}:
 
@@ -327,7 +327,7 @@ pub fn illegal_mutable_borrow(token: &Token, source: &IRCode, hint: &str) -> ! {
 
 pub fn not_a_constant(token: &Token, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
         
         Expected constant, but got non-constant expression at line {}:{}:
 
@@ -344,7 +344,7 @@ pub fn not_a_constant(token: &Token, source: &IRCode, hint: &str) -> ! {
 
 pub fn use_of_uninitialized_value(token: &Token, data_type: &DataType, source: &IRCode, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in ir unit \"{}\"
+        ❌ Error in unit \"{}\"
         
         Use of uninitialized value of type {} at line {}:{}:
 
@@ -355,6 +355,25 @@ pub fn use_of_uninitialized_value(token: &Token, data_type: &DataType, source: &
     print_source_context(source, token.token.line_index(), token.token.column);
     
     println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+
+
+pub fn already_defined(new_def: &StringToken, old_def: &StringToken, source: &IRCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in unit \"{}\"
+        
+        Illegal redefinition at line {}:{}:
+
+        ",
+        new_def.unit_path.display(), new_def.line_number(), new_def.column
+    );
+
+    print_source_context(source, new_def.line_index(), new_def.column);
+    
+    println!("\n{}\n\n", hint);
+
+    println!("Outshadows previous definition in unit \"{}\" at line {}:{}:\n\n{}\n", old_def.unit_path.display(), old_def.line_number(), old_def.column, source[old_def.line_index()]);
     std::process::exit(1);
 }
 

@@ -105,16 +105,33 @@ pub struct StaticValue<'a> {
 }
 
 
+pub struct TypeDef<'a> {
+    pub definition: Rc<DataType>,
+    pub token: Rc<StringToken<'a>>
+}
+
+
 pub struct Scope<'a> {
     pub parent: Option<ScopeID>,
     pub symbols: HashMap<String, Vec<RefCell<Symbol<'a>>>>,
+    pub types: HashMap<String, TypeDef<'a>>
 }
 
 impl<'a> Scope<'a> {
 
+    pub fn new(parent_id: Option<ScopeID>) -> Scope<'a> {
+        Scope {
+            parent: parent_id,
+            symbols: Default::default(),
+            types: Default::default()
+        }
+    }
+
+
     pub fn get_symbol(&self, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol<'a>>> {
         self.symbols.get(symbol_id).map(move |s| &s[discriminant.0 as usize])
     }
+
 
     /// Get the symbol name-value pairs that have not been read from.
     pub fn get_unread_symbols(&self) -> Vec<(&String, &RefCell<Symbol<'a>>)> {
@@ -274,10 +291,9 @@ impl<'a> SymbolTable<'a> {
     /// Creates a new scope in the symbol table and returns its id.
     pub fn add_scope(&mut self, parent: Option<ScopeID>) -> ScopeID {
         let id = ScopeID(self.scopes.len());
-        self.scopes.push(Scope {
-            parent,
-            symbols: HashMap::new(),
-        });
+        self.scopes.push(
+            Scope::new(parent)
+        );
         id
     }
 
@@ -286,5 +302,47 @@ impl<'a> SymbolTable<'a> {
         self.scopes[scope_id.0].get_unread_symbols()
     }
 
+
+    fn get_type_def(&self, name: &str, scope_id: ScopeID) -> Option<&TypeDef> {
+        let scope = &self.scopes[scope_id.0];
+
+        if let Some(type_def) = scope.types.get(name) {
+            Some(type_def)
+        } else if let Some(parent_id) = scope.parent {
+            self.get_type_def(name, parent_id)
+        } else {
+            None
+        }
+    }
+
+
+    pub fn get_name_type(&self, name: &str, scope_id: ScopeID) -> Option<NameType> {
+        self.get_current_discriminant(name, scope_id).map(NameType::Symbol)
+            .or_else(|| self.get_type_def(name, scope_id).map(|type_def| NameType::Type(type_def.definition.clone())))
+    }
+
+
+    /// Try to define a new type in the scope.
+    /// If a type with the same name is already defined in the same scope, return an error.
+    pub fn define_type(&mut self, name: String, scope_id: ScopeID, definition: Rc<DataType>, token: Rc<StringToken<'a>>) -> Result<(), TypeDef> {
+
+        let type_def = TypeDef {
+            definition,
+            token
+        };
+
+        let shadow = self.scopes[scope_id.0].types.insert(name, type_def);
+        match shadow {
+            Some(shadow) => Err(shadow),
+            None => Ok(())
+        }
+    }
+
+}
+
+
+pub enum NameType {
+    Symbol(ScopeDiscriminant),
+    Type(Rc<DataType>)
 }
 
