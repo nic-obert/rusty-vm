@@ -1480,8 +1480,10 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
         resolve_expression_types(statement, block.scope_id, outer_function_return.clone(), symbol_table, source);
 
     }
+}
 
-    // Check if any symbols haven't been used
+
+fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &IRCode) {
     for (name, symbol) in symbol_table.get_unread_symbols(block.scope_id) {
         let token = &symbol.borrow().token;
         warn(token, source, format!("Symbol \"{name}\" is declared but never used.\nDeclaration occurs at {}:{}:\n\n{}\n", token.line_number(), token.column, &source[token.line_index()]).as_str());
@@ -1788,11 +1790,21 @@ impl std::fmt::Debug for Function<'_> {
 /// Functions from inner scopes will not be accessible from outer scopes by default thanks to symbol table scoping, so it's ok to keep them in a linear vector.
 fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &IRCode) -> Vec<Function<'a>> {
 
+    const DO_EXTRACT: bool = false;
+    const DO_NOT_EXTRACT: bool = true;
+
     let mut functions = Vec::new();
 
-    for statement in &mut block.statements {
+    // Pre-allocate the maximum capacity that can possibly be needed
+    let mut old_statements: Vec<TokenNode> = Vec::with_capacity(block.statements.len());
+    // Swap the two vectors so that block.statements is the vector statements will get appended to
+    // Perform the swap now because rust doesn't like moving out values without replacing them immediately
+    // Move would occur in the iterations below
+    std::mem::swap(&mut old_statements, &mut block.statements);
 
-        match statement.item.value {
+    for mut statement in old_statements {
+
+        let keep: bool = match statement.item.value {
 
             TokenKind::Fn => {
                 let (name, signature, mut body) = match_unreachable!(Some(ChildrenType::Function { name, signature, body }) = statement.children.take(), (name, signature, body));
@@ -1806,6 +1818,8 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                     code: body,
                     signature
                 });
+
+                DO_EXTRACT
             },
 
             TokenKind::Const => {
@@ -1843,14 +1857,23 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                 if res.is_err() {
                     error::compile_time_operation_error(&statement.item, source, format!("Could not define constant \"{name}\".").as_str());
                 }
+
+                DO_EXTRACT
             },
 
-            _ => if !inside_function {
-                error::syntax_error(&statement.item, source, "Cannot be a top-level statement.");
+            _ => {
+                if !inside_function {
+                    error::syntax_error(&statement.item, source, "Cannot be a top-level statement.");
+                }
+
+                DO_NOT_EXTRACT
             }
 
-        }
+        };
 
+        if keep {
+            block.statements.push(statement)
+        }
     }
 
     functions
@@ -1877,6 +1900,8 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bo
     // resolve_scope_types(&mut outer_block, None, symbol_table, source);
 
     // println!("\n\nAfter symbol resolution:\n{}", outer_block);
+    
+    // warn_unused_symbols(&parsed_outer, symbol_table, source);
 
     // if optimize {
     //     reduce_operations_block(&mut outer_block, source, symbol_table);
