@@ -8,7 +8,7 @@ use crate::{binary_operators, error, unary_operators};
 use crate::operations::Ops;
 use crate::token::{TokenKind, Value};
 use crate::symbol_table::{ScopeID, Symbol, SymbolTable, SymbolValue};
-use crate::token_tree::{ChildrenType, FunctionParam, IfBlock, ScopeBlock, TokenNode, TokenTree};
+use crate::token_tree::{ChildrenType, FunctionParam, IfBlock, ScopeBlock, TokenNode, TokenTree, UnparsedScopeBlock};
 use crate::{match_or, match_unreachable};
 
 
@@ -111,10 +111,10 @@ fn parse_scope_hierarchy(tokens: &mut TokenTree<'_>) {
 
 
 /// Divide the scope token tree into a list of separate statements based on semicolons
-fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTable, parent_scope: Option<ScopeID>) -> ScopeBlock<'a> {
+fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTable, parent_scope: Option<ScopeID>) -> UnparsedScopeBlock<'a> {
 
     let scope_id = symbol_table.add_scope(parent_scope);
-    let mut block = ScopeBlock::new(scope_id);
+    let mut block = UnparsedScopeBlock::new(scope_id);
     let mut node = tokens.first;
 
     while let Some(node_ref) = unsafe { node.as_mut() } {
@@ -141,10 +141,10 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
 
                 // Extract the scope statements from the scope token children if the scope isn't empty and convert them into a list of statements
                 node_ref.children = if let Some(ChildrenType::Tree(children_tree)) = node_ref.children.take() {
-                    Some(ChildrenType::Block(divide_statements(children_tree, symbol_table, Some(scope_id))))
+                    Some(ChildrenType::UnparsedBlock(divide_statements(children_tree, symbol_table, Some(scope_id))))
                 } else {
                     // Empty scope
-                    Some(ChildrenType::Block(ScopeBlock::new(ScopeID::placeholder())))
+                    Some(ChildrenType::ParsedBlock(ScopeBlock::new(ScopeID::placeholder())))
                 };
 
                 // Scopes are not their own statements: they are treated as expressions like in Rust.
@@ -165,14 +165,16 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
 }
 
 
-fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut SymbolTable<'a>, source: &IRCode) {
+fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut SymbolTable<'a>, source: &IRCode) -> ScopeBlock<'a> {
     // Recursively parse the statements' hierarchy
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
-    for statement in &mut block.statements {
+    let mut parsed_scope_block = ScopeBlock::new(block.scope_id);
+
+    for mut statement in block.statements {
         
         #[allow(unused_unsafe)] // A bug in the linter causes the below unsafe block to be marked as unnecessary, but removing it causes a compiler error
-        while let Some(op_node) = find_highest_priority(statement)
+        while let Some(op_node) = find_highest_priority(&statement)
             .and_then(|node_ptr| unsafe { node_ptr.as_mut() }) // Convert the raw pointer to a mutable reference
         {
 
@@ -301,7 +303,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                             error::invalid_argument(&op_node.item.value, &callable.item, source, "Invalid function name or function-returning expression before function call operator.");
                         }
 
-                        let args = extract_list_like_delimiter_contents(statement, op_node, &op_node.item.value, &TokenKind::ParClose, source);
+                        let args = extract_list_like_delimiter_contents(&mut statement, op_node, &op_node.item.value, &TokenKind::ParClose, source);
                         // Check if every call argument is a valid expression
                         for arg_node in &args {
                             if !is_expression(&arg_node.item.value) {
@@ -369,7 +371,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
     
                 TokenKind::ArrayOpen => {
                     // Extract the nodes within the square brackets and check if they are valid expressions
-                    let inner_nodes = extract_list_like_delimiter_contents(statement, op_node, &op_node.item.value, &TokenKind::SquareClose, source).into_iter().map(
+                    let inner_nodes = extract_list_like_delimiter_contents(&mut statement, op_node, &op_node.item.value, &TokenKind::SquareClose, source).into_iter().map(
                         |inner_node| if is_expression(&inner_node.item.value) {
                             inner_node
                         } else {
@@ -384,8 +386,14 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                     // Parse the children statements of the scope
                     // The children have already been extracted and divided into separate statements.
                     
-                    let statements = match_unreachable!(Some(ChildrenType::Block(statements)) = &mut op_node.children, statements);
-                    parse_block_hierarchy(statements, symbol_table, source);
+                    let parsed_block = match op_node.children.take().unwrap() { // Assume children are present (if not, this is a bug)
+                        ChildrenType::UnparsedBlock(statements) => parse_block_hierarchy(statements, symbol_table, source),
+                        // If it's alreaady ParsedBlock, then it's empty. In this case, don't bother parsing it.
+                        ChildrenType::ParsedBlock(statements) => statements,
+                        _ => unreachable!()
+                    };
+                    
+                    op_node.children = Some(ChildrenType::ParsedBlock(parsed_block));
                 },
 
                 TokenKind::Const => {
@@ -584,7 +592,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                         || error::expected_argument(&op_node.item, source, "Missing body after return type in function declaration.")
                     );
                     let body: ScopeBlock = if matches!(body_node.item.value, TokenKind::ScopeOpen) {
-                        match_unreachable!(Some(ChildrenType::Block(body)) = body_node.children, body)
+                        match_unreachable!(Some(ChildrenType::ParsedBlock(body)) = body_node.children, body) // Require the body to be already parsed
                     } else {
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a function body enclosed in curly braces.");
                     };
@@ -803,7 +811,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                         if_chain.push(
                             IfBlock {
                                 condition: *condition_node,
-                                body: match_unreachable!(Some(ChildrenType::Block(body)) = if_body_node.children.take(), body)
+                                body: match_unreachable!(Some(ChildrenType::ParsedBlock(body)) = if_body_node.children.take(), body)
                             }
                         );
 
@@ -827,7 +835,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                             },
                             TokenKind::ScopeOpen => {
                                 // if-else chain is finished
-                                else_block = Some(match_unreachable!(Some(ChildrenType::Block(body)) = after_else_node.children.take(), body));
+                                else_block = Some(match_unreachable!(Some(ChildrenType::ParsedBlock(body)) = after_else_node.children.take(), body));
                                 break;
                             },
                             _ => error::invalid_argument(&else_node.item.value, &after_else_node.item, source, "Expected an if or a body after else.")
@@ -847,8 +855,8 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a body enclosed in curly braces after loop.");
                     }
 
-                    let scope_block = match_unreachable!(Some(ChildrenType::Block(scope_block)) = body_node.children.take(), scope_block);
-                    op_node.children = Some(ChildrenType::Block(scope_block));
+                    let scope_block = match_unreachable!(Some(ChildrenType::ParsedBlock(scope_block)) = body_node.children.take(), scope_block);
+                    op_node.children = Some(ChildrenType::ParsedBlock(scope_block));
                 },
 
                 TokenKind::While => {
@@ -868,7 +876,7 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a body enclosed in curly braces after condition in while loop.");
                     }
 
-                    let scope_block = match_unreachable!(Some(ChildrenType::Block(scope_block)) = body_node.children.take(), scope_block);
+                    let scope_block = match_unreachable!(Some(ChildrenType::ParsedBlock(scope_block)) = body_node.children.take(), scope_block);
                     op_node.children = Some(ChildrenType::While { condition: condition_node, body: scope_block });
                 },
 
@@ -876,7 +884,13 @@ fn parse_block_hierarchy<'a>(block: &mut ScopeBlock<'a>, symbol_table: &mut Symb
             }
         }
 
+        while let Some(top_node) = statement.extract_first() {
+            parsed_scope_block.statements.push(*top_node);
+        }
+
     }
+
+    parsed_scope_block
 }
 
 
@@ -1374,7 +1388,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             // Determine the type of the scope based on the type of the last statement
             // If the scope is empty, it evaluates to void
 
-            let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut expression.children, inner_block);
+            let inner_block = match_unreachable!(Some(ChildrenType::ParsedBlock(inner_block)) = &mut expression.children, inner_block);
 
             if inner_block.statements.is_empty() {
                 DataType::Void.into()
@@ -1403,7 +1417,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     if if_block.body.return_type() != *return_type {
                         // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
                         let culprit_token = if let Some(last_statement) = if_block.body.statements.last() {
-                            &last_statement.last_node().unwrap().item
+                            &last_statement.item
                         } else {
                             &expression.item
                         };
@@ -1422,7 +1436,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 if else_block.return_type() != *chain_return_type.as_ref().unwrap() {
                     // If the body is not empty, use its last statement as the culprit of the type mismatch. Otherwise, use the if condition.
                     let culprit_token = if let Some(last_statement) = else_block.statements.last() {
-                        &last_statement.last_node().unwrap().item
+                        &last_statement.item
                     } else {
                         &expression.item
                     };
@@ -1463,13 +1477,7 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
 
     for statement in &mut block.statements {
 
-        let mut node_ptr = statement.first;
-        while let Some(node) = unsafe { node_ptr.as_mut() } {
-
-            resolve_expression_types(node, block.scope_id, outer_function_return.clone(), symbol_table, source);
-
-            node_ptr = node.right;
-        }
+        resolve_expression_types(statement, block.scope_id, outer_function_return.clone(), symbol_table, source);
 
     }
 
@@ -1649,7 +1657,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
                     evaluate_constants_block(body, source, symbol_table);
 
                     node.item.value = TokenKind::Loop;
-                    node.children = Some(ChildrenType::Block(
+                    node.children = Some(ChildrenType::ParsedBlock(
                         match_unreachable!(Some(ChildrenType::While { body, .. }) = node.children.take(), body)
                     ));
                 } else {
@@ -1720,7 +1728,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
         },
 
         TokenKind::ScopeOpen => {
-            let inner_block = match_unreachable!(Some(ChildrenType::Block(inner_block)) = &mut node.children, inner_block);
+            let inner_block = match_unreachable!(Some(ChildrenType::ParsedBlock(inner_block)) = &mut node.children, inner_block);
 
             evaluate_constants_block(inner_block, source, symbol_table);
 
@@ -1746,21 +1754,16 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
 fn evaluate_constants_block(block: &mut ScopeBlock, source: &IRCode, symbol_table: &mut SymbolTable) {
     // Depth-first traversal to evaluate constant expressions and remove unnecessary operations
 
-    for statement in &mut block.statements {
+    let mut i: usize = 0;
+    while let Some(statement) = block.statements.get_mut(i) {
 
-        let mut node_ptr = statement.first;
-        while let Some(node) = unsafe { node_ptr.as_mut() } {
-
-            if evaluate_constants(node, source, block.scope_id, symbol_table) {
-                // Remove the useless node 
-                let next_node = node.right;
-                statement.extract_node(node_ptr).expect("Node should have been removed.");
-                node_ptr = next_node;
-            } else {
-                node_ptr = node.right;
-            }
-
+        if evaluate_constants(statement, source, block.scope_id, symbol_table) {
+            // Remove the useless node 
+            block.statements.remove(i);
+        } else {
+            i += 1;
         }
+
     }
 }
 
@@ -1768,7 +1771,6 @@ fn evaluate_constants_block(block: &mut ScopeBlock, source: &IRCode, symbol_tabl
 struct Function<'a> {
 
     name: &'a str,
-    parent_scope_id: ScopeID,
     code: ScopeBlock<'a>,
     signature: Rc<DataType>
 
@@ -1776,7 +1778,7 @@ struct Function<'a> {
 
 impl std::fmt::Debug for Function<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (scope: {}) {:?}", self.name, self.parent_scope_id, self.signature)
+        write!(f, "{} {:?}", self.name, self.signature)
     }
 }
 
@@ -1784,76 +1786,67 @@ impl std::fmt::Debug for Function<'_> {
 /// Convert the source code trees into a list of functions.
 /// Functions declared inside other functions are extracted and added to the list.
 /// Functions from inner scopes will not be accessible from outer scopes by default thanks to symbol table scoping, so it's ok to keep them in a linear vector.
-/// 
-/// Invalidates the `block` parameter.
 fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &IRCode) -> Vec<Function<'a>> {
 
     let mut functions = Vec::new();
 
     for statement in &mut block.statements {
 
-        // Consume the statement
-        while let Some(node) = statement.extract_first() {
-            // All top-level nodes should be function declarations for the code to be valid.
+        match statement.item.value {
 
-            match node.item.value {
+            TokenKind::Fn => {
+                let (name, signature, mut body) = match_unreachable!(Some(ChildrenType::Function { name, signature, body }) = statement.children.take(), (name, signature, body));
+                
+                // Recursively extract functions from the body
+                let inner_functions = extract_functions(&mut body, true, symbol_table, source);
+                functions.extend(inner_functions);
 
-                TokenKind::Fn => {
-                    let (name, signature, mut body) = match_unreachable!(Some(ChildrenType::Function { name, signature, body }) = node.children, (name, signature, body));
+                functions.push(Function {
+                    name,
+                    code: body,
+                    signature
+                });
+            },
+
+            TokenKind::Const => {
+                // Evaluate the constant expression and add it to the symbol table
+
+                let (name, discriminant, const_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Const { name, discriminant, data_type, definition }) = statement.children.take(), (name, discriminant, data_type, definition));
+                
+                resolve_expression_types(&mut definition, block.scope_id, None, symbol_table, source);
+                evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
+
+                let literal_value = match &definition.item.value {
+
+                    // Allow initializing constants with literal values
+                    TokenKind::Value(Value::Literal { value }) => value.clone(), // TODO: find a way to avoid cloning literal types (maybe use a Rc?)
+
+                    // Allow initializing constants with other initialized constatns
+                    TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
+                        let symbol = symbol_table.get_symbol(block.scope_id, name, *scope_discriminant).unwrap().borrow();
+                        match &symbol.value {
+                            SymbolValue::Constant(value) => value.clone(),
+                            _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
+                        }
+                    },
                     
-                    // Recursively extract functions from the body
-                    let mut inner_functions = extract_functions(&mut body, true, symbol_table, source);
-                    functions.append(&mut inner_functions);
+                    _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
+                };
 
-                    functions.push(Function {
-                        name,
-                        parent_scope_id: block.scope_id,
-                        code: body,
-                        signature
-                    });
-                },
-
-                TokenKind::Const => {
-                    // Evaluate the constant expression and add it to the symbol table
-
-                    let (name, discriminant, const_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Const { name, discriminant, data_type, definition }) = node.children, (name, discriminant, data_type, definition));
-                    
-                    resolve_expression_types(&mut definition, block.scope_id, None, symbol_table, source);
-                    evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
-
-                    let literal_value = match &definition.item.value {
-
-                        // Allow initializing constants with literal values
-                        TokenKind::Value(Value::Literal { value }) => value.clone(), // TODO: find a way to avoid cloning literal types (maybe use a Rc?)
-
-                        // Allow initializing constants with other initialized constatns
-                        TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
-                            let symbol = symbol_table.get_symbol(block.scope_id, name, *scope_discriminant).unwrap().borrow();
-                            match &symbol.value {
-                                SymbolValue::Constant(value) => value.clone(),
-                                _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
-                            }
-                        },
-                        
-                        _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
-                    };
-
-                    let value_type = literal_value.data_type(symbol_table);
-                    if !value_type.is_implicitly_castable_to(&const_data_type, Some(&literal_value)) {
-                        error::type_error(&definition.item, &[&const_data_type.name()], &value_type, source, "Mismatched constant type.");
-                    }
-                    let final_value = LiteralValue::from_cast(literal_value, &value_type, &const_data_type);
-                    
-                    let res = symbol_table.define_constant(name, discriminant, block.scope_id, final_value);
-                    if res.is_err() {
-                        error::compile_time_operation_error(&node.item, source, format!("Could not define constant \"{name}\".").as_str());
-                    }
-                },
-
-                _ => if !inside_function {
-                    error::syntax_error(&node.item, source, "Cannot be a top-level statement.");
+                let value_type = literal_value.data_type(symbol_table);
+                if !value_type.is_implicitly_castable_to(&const_data_type, Some(&literal_value)) {
+                    error::type_error(&definition.item, &[&const_data_type.name()], &value_type, source, "Mismatched constant type.");
                 }
+                let final_value = LiteralValue::from_cast(literal_value, &value_type, &const_data_type);
+                
+                let res = symbol_table.define_constant(name, discriminant, block.scope_id, final_value);
+                if res.is_err() {
+                    error::compile_time_operation_error(&statement.item, source, format!("Could not define constant \"{name}\".").as_str());
+                }
+            },
 
+            _ => if !inside_function {
+                error::syntax_error(&statement.item, source, "Cannot be a top-level statement.");
             }
 
         }
@@ -1869,15 +1862,15 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bo
 
     parse_scope_hierarchy(&mut tokens);
 
-    let mut outer_block = divide_statements(tokens, symbol_table, None);
+    let unparsed_outer = divide_statements(tokens, symbol_table, None);
 
-    println!("Statements after division:\n{}", outer_block);
+    println!("Statements after division:\n\n{:?}", unparsed_outer);
 
-    parse_block_hierarchy(&mut outer_block, symbol_table, source);
+    let mut parsed_outer = parse_block_hierarchy(unparsed_outer, symbol_table, source);
 
-    println!("\n\nStatement hierarchy:\n{}", outer_block);
+    println!("\n\nStatement hierarchy:\n{:?}", parsed_outer);
 
-    let functions = extract_functions(&mut outer_block, false, symbol_table, source);
+    let functions = extract_functions(&mut parsed_outer, false, symbol_table, source);
 
     println!("\n\nFunctions:\n{:#?}\n", functions);
 
