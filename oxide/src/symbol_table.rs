@@ -31,6 +31,18 @@ impl Symbol<'_> {
         }
     }
 
+
+    pub fn new_function(signature: Rc<DataType>, token: Rc<StringToken<'_>>) -> Symbol<'_> {
+        Symbol {
+            data_type: signature,
+            token,
+            value: SymbolValue::Immutable(None),
+            initialized: true,
+            read_from: false,
+        }
+    }
+
+
     pub fn initialize_immutable(&mut self, value: LiteralValue) {
 
         assert!(matches!(self.value, SymbolValue::Immutable(None)));

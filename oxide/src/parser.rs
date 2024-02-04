@@ -620,10 +620,9 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
                     let (_discriminant, res) = symbol_table.declare_symbol(
                         function_name.to_string(),
-                        Symbol::new_uninitialized(
+                        Symbol::new_function(
                             signature.clone(), 
                             op_node.item.token.clone(),
-                            SymbolValue::Immutable(None), 
                         ),
                         block.scope_id
                     );
@@ -1485,7 +1484,15 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
 
 fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &IRCode) {
     for (name, symbol) in symbol_table.get_unread_symbols(block.scope_id) {
-        let token = &symbol.borrow().token;
+        let symbol = symbol.borrow();
+
+        // Some symbols are used internally like the main() function and thus may not be used in the source code
+        match (name, symbol.data_type.as_ref()) {
+            (name, DataType::Function { .. }) if name == "main" => continue,
+            _ => ()
+        }
+
+        let token = &symbol.token;
         warn(token, source, format!("Symbol \"{name}\" is declared but never used.\nDeclaration occurs at {}:{}:\n\n{}\n", token.line_number(), token.column, &source[token.line_index()]).as_str());
     }
 }
@@ -1778,9 +1785,17 @@ struct Function<'a> {
 
 }
 
+impl Function<'_> {
+
+    fn return_type(&self) -> Rc<DataType> {
+        match_unreachable!(DataType::Function { return_type, .. } = self.signature.as_ref(), return_type).clone()
+    }
+
+}
+
 impl std::fmt::Debug for Function<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.name, self.signature)
+        write!(f, "{} {:?}:\n{:?}", self.name, self.signature, self.code)
     }
 }
 
@@ -1880,6 +1895,14 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
 }
 
 
+fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &IRCode) {
+    for function in functions {
+        let return_type = function.return_type();
+        resolve_scope_types(&mut function.code, Some(return_type), symbol_table, source);
+    }
+}
+
+
 /// Build an abstract syntax tree from a flat list of tokens and create a symbol table.
 pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bool, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
 
@@ -1893,15 +1916,15 @@ pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, optimize: bo
 
     println!("\n\nStatement hierarchy:\n{:?}", parsed_outer);
 
-    let functions = extract_functions(&mut parsed_outer, false, symbol_table, source);
+    let mut functions = extract_functions(&mut parsed_outer, false, symbol_table, source);
 
     println!("\n\nFunctions:\n{:#?}\n", functions);
 
-    // resolve_scope_types(&mut outer_block, None, symbol_table, source);
+    resolve_functions_types(&mut functions, symbol_table, source);
 
-    // println!("\n\nAfter symbol resolution:\n{}", outer_block);
+    println!("\n\nAfter symbol resolution:\n{:?}", functions);
     
-    // warn_unused_symbols(&parsed_outer, symbol_table, source);
+    warn_unused_symbols(&parsed_outer, symbol_table, source);
 
     // if optimize {
     //     reduce_operations_block(&mut outer_block, source, symbol_table);

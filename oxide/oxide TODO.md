@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] make tokens and symbols aware of the source file they were declared in. make a struct that holds the unit path (&'a str), the line and column, and the source code (&'a IRCode).?????? would it be useful ???  
 - [ ] data type list in symbol table? use a u32 as a data type id. each time a new data type is constructed, a new id is created. primitive data types are already in the list. useful for defining custom data types  
 - [ ] allow custom type definition within scopes with something like "type A = B;"  
 - [ ] generate simplified intermediate code on which flow analysis is easier  
@@ -20,12 +19,13 @@ Project Description
 
 ### In Progress
 
-- [ ] add warnings for unused symbols (new used falag)  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] make tokens and symbols aware of the source file they were declared in. make a struct that holds the unit path (&'a str), the line and column, and the source code (&'a IRCode).?????? would it be useful ???  
+- [x] add warnings for unused symbols (new used falag)  
 - [x] add break and continue  
 - [x] implement const declaration  
 - [x] since all active code must be found inside a function, divide the code into separate functions at the end of parse_block_hierarchy(). There will be a vector of functions for the active code and the symbol table will contain all the defined symbols and types  
