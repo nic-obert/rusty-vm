@@ -1,6 +1,6 @@
-use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
-use rust_vm_lib::byte_code::ByteCodes;
-use rust_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rusty_vm_lib::assembly::{AssemblyCode, ByteCode};
+use rusty_vm_lib::byte_code::ByteCodes;
+use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 
 use crate::data_types::DataType;
 use crate::error;

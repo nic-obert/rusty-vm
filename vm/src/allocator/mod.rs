@@ -5,7 +5,7 @@ pub mod fixed_size_block_allocator;
 pub mod buddy_allocator;
 
 
-use rust_vm_lib::vm::{Address, ErrorCodes};
+use rusty_vm_lib::vm::{Address, ErrorCodes};
 
 
 pub trait Allocator {

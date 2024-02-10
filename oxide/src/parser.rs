@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use rust_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::IRCode;
 
 use crate::data_types::{DataType, LiteralValue};
 use crate::error::warn;

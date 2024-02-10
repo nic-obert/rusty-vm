@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use rust_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::assembly::ByteCode;
 
 use crate::error;
 

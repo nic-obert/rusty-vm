@@ -1,4 +1,4 @@
-use rust_vm_lib::vm::{Address, ErrorCodes};
+use rusty_vm_lib::vm::{Address, ErrorCodes};
 
 use crate::allocator::{Allocator, BlankAllocator};
 use crate::allocator::buddy_allocator::BuddyAllocator;

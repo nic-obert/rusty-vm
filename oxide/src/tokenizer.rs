@@ -12,7 +12,7 @@ use crate::token_tree::TokenTree;
 use regex::Regex;
 use lazy_static::lazy_static;
 
-use rust_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::IRCode;
 
 
 lazy_static! {

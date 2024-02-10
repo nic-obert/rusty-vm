@@ -5,7 +5,7 @@ use colored::Colorize;
 use num::{FromPrimitive, Num};
 use num::traits::ToBytes;
 
-use rust_vm_lib::token::Token;
+use rusty_vm_lib::token::Token;
 
 use crate::assembler::{LabelMap, MacroMap};
 

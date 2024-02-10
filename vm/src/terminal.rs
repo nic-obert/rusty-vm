@@ -3,8 +3,8 @@ use std::io;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use rust_vm_lib::vm::{ErrorCodes, Address};
-use rust_vm_lib::registers::Registers;
+use rusty_vm_lib::vm::{ErrorCodes, Address};
+use rusty_vm_lib::registers::Registers;
 
 use termion::cursor;
 use termion::input::TermRead;

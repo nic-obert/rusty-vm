@@ -7,11 +7,11 @@ use std::path::Path;
 
 use assert_exists::assert_exists;
 
-use rust_vm_lib::assembly::ByteCode;
-use rust_vm_lib::registers::REGISTER_ID_SIZE;
-use rust_vm_lib::token::{Token, TokenValue};
-use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
-use rust_vm_lib::vm::{ADDRESS_SIZE, Address};
+use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::registers::REGISTER_ID_SIZE;
+use rusty_vm_lib::token::{Token, TokenValue};
+use rusty_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
+use rusty_vm_lib::vm::{ADDRESS_SIZE, Address};
 
 use crate::assembler::{LabelReferenceRegistry, AddLabelReference};
 use crate::error;

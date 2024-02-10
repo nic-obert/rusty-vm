@@ -1,9 +1,9 @@
 use std::path::Path;
 
-use rust_vm_lib::byte_code::ByteCodes;
-use rust_vm_lib::registers::{REGISTER_ID_SIZE, REGISTER_SIZE};
-use rust_vm_lib::token::{TokenTypes, Token};
-use rust_vm_lib::vm::ADDRESS_SIZE;
+use rusty_vm_lib::byte_code::ByteCodes;
+use rusty_vm_lib::registers::{REGISTER_ID_SIZE, REGISTER_SIZE};
+use rusty_vm_lib::token::{TokenTypes, Token};
+use rusty_vm_lib::vm::ADDRESS_SIZE;
 
 use crate::error;
 

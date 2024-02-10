@@ -1,6 +1,6 @@
 use crate::allocator::Allocator;
 
-use rust_vm_lib::vm::{Address, ErrorCodes};
+use rusty_vm_lib::vm::{Address, ErrorCodes};
 
 
 pub struct FixedSizeBlockAllocator {

@@ -1,5 +1,5 @@
-use rust_vm_lib::registers::{REGISTER_COUNT, RegisterContentType, Registers};
-use rust_vm_lib::vm::{ErrorCodes, Address};
+use rusty_vm_lib::registers::{REGISTER_COUNT, RegisterContentType, Registers};
+use rusty_vm_lib::vm::{ErrorCodes, Address};
 
 
 pub struct CPURegisters([RegisterContentType; REGISTER_COUNT]);

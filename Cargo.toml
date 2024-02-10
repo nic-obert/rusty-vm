@@ -4,7 +4,7 @@ resolver = "2"
 
 members = [
     "assembler",
-    "rust_vm_lib",
+    "rusty_vm_lib",
     "vm",
     "oxide",
 ]

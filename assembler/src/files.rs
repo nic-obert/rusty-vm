@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::io;
-use rust_vm_lib::assembly::{AssemblyCode, ByteCode};
+use rusty_vm_lib::assembly::{AssemblyCode, ByteCode};
 
 
 pub fn load_assembly(file_path: &Path) -> io::Result<AssemblyCode> {

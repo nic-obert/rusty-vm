@@ -3,7 +3,7 @@ use std::path::Path;
 
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
-use rust_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::IRCode;
 
 use crate::data_types::DataType;
 use crate::token::{StringToken, Token, TokenKind};

@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use rust_vm_lib::registers::Registers;
-use rust_vm_lib::vm::{ErrorCodes, Address};
+use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::vm::{ErrorCodes, Address};
 
 use crate::memory::Memory;
 use crate::register::CPURegisters;

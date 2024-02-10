@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::io;
 
-// use rust_vm_lib::assembly::ByteCode;
-use rust_vm_lib::ir::IRCode;
+// use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::ir::IRCode;
 
 
 pub fn load_ir_code(file_path: &Path) -> io::Result<IRCode> {

@@ -9,9 +9,9 @@ use rand::Rng;
 
 use assert_exists::assert_exists;
 
-use rust_vm_lib::registers::{self, Registers};
-use rust_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
-use rust_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
+use rusty_vm_lib::registers::{self, Registers};
+use rusty_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
+use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
 use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};

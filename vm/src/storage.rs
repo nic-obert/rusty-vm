@@ -3,7 +3,7 @@ use std::os::unix::prelude::FileExt;
 use std::path::{PathBuf, Path};
 use std::io;
 
-use rust_vm_lib::vm::ErrorCodes;
+use rusty_vm_lib::vm::ErrorCodes;
 
 use crate::error;
 

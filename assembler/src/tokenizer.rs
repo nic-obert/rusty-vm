@@ -1,9 +1,9 @@
 use std::mem;
 use std::path::Path;
 
-use rust_vm_lib::registers::{Registers, REGISTER_SIZE};
-use rust_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
-use rust_vm_lib::vm::Address;
+use rusty_vm_lib::registers::{Registers, REGISTER_SIZE};
+use rusty_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
+use rusty_vm_lib::vm::Address;
 
 use crate::error;
 use crate::argmuments_table;

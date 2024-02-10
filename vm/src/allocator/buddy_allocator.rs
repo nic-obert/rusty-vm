@@ -1,7 +1,7 @@
 use crate::allocator::Allocator;
 use crate::error;
 
-use rust_vm_lib::vm::{Address, ErrorCodes};
+use rusty_vm_lib::vm::{Address, ErrorCodes};
 
 
 /// Minimum allocation block size in bytes

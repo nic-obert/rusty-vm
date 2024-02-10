@@ -102,7 +102,7 @@ impl DataType {
         match self {
             DataType::Bool => 1,
             DataType::Char => 1,
-            DataType::Ref { .. } => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Ref { .. } => rusty_vm_lib::vm::ADDRESS_SIZE,
             DataType::I8 => 1,
             DataType::I16 => 2,
             DataType::I32 => 4,
@@ -113,10 +113,10 @@ impl DataType {
             DataType::U64 => 8,
             DataType::F32 => 4,
             DataType::F64 => 8,
-            DataType::Usize => rust_vm_lib::vm::ADDRESS_SIZE,
-            DataType::Isize => rust_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Usize => rusty_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Isize => rusty_vm_lib::vm::ADDRESS_SIZE,
             DataType::RawString { length } => DataType::Char.static_size() * *length, // Char size * number of chars
-            DataType::StringRef { length: _ } => rust_vm_lib::vm::ADDRESS_SIZE + DataType::Usize.static_size(), // Address size + length size
+            DataType::StringRef { length: _ } => rusty_vm_lib::vm::ADDRESS_SIZE + DataType::Usize.static_size(), // Address size + length size
             
             DataType::Array(_) |
             DataType::String  // TODO: update with a rust-like string struct size
