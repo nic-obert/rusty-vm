@@ -41,7 +41,7 @@ fn main() {
 
     let functions = function_parser::parse_functions(ast, args.optimize, &mut symbol_table, &source);
 
-    let _ir_code = icr::generate(functions, &mut symbol_table, &source);
+    let _ir_code = icr::generate(functions, &mut symbol_table);
 
 }
 
