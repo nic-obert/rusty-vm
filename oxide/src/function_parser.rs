@@ -8,21 +8,21 @@ use crate::symbol_table::{ScopeID, SymbolTable, SymbolValue};
 use crate::data_types::{DataType, LiteralValue};
 use crate::error;
 
-use rusty_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::SourceCode;
 
 
 
 pub struct Function<'a> {
 
-    name: &'a str,
-    code: ScopeBlock<'a>,
-    signature: Rc<DataType>
+    pub name: &'a str,
+    pub code: ScopeBlock<'a>,
+    pub signature: Rc<DataType>
 
 }
 
 impl Function<'_> {
 
-    fn return_type(&self) -> Rc<DataType> {
+    pub fn return_type(&self) -> Rc<DataType> {
         match_unreachable!(DataType::Function { return_type, .. } = self.signature.as_ref(), return_type).clone()
     }
 
@@ -38,7 +38,7 @@ impl std::fmt::Debug for Function<'_> {
 /// Convert the source code trees into a list of functions.
 /// Functions declared inside other functions are extracted and added to the list.
 /// Functions from inner scopes will not be accessible from outer scopes by default thanks to symbol table scoping, so it's ok to keep them in a linear vector.
-fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &IRCode) -> Vec<Function<'a>> {
+fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     const DO_EXTRACT: bool = false;
     const DO_NOT_EXTRACT: bool = true;
@@ -80,14 +80,14 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                 resolve_expression_types(&mut definition, block.scope_id, None, symbol_table, source);
                 evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
 
-                let literal_value = match &definition.item.value {
+                let literal_value = match std::mem::replace(&mut definition.item.value, TokenKind::Comma) { // Replace with a small random TokenKind to avoid cloning the LiteralValue
 
                     // Allow initializing constants with literal values
-                    TokenKind::Value(Value::Literal { value }) => value.clone(), // TODO: find a way to avoid cloning literal types (maybe use a Rc?)
+                    TokenKind::Value(Value::Literal { value }) => value,
 
                     // Allow initializing constants with other initialized constatns
                     TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
-                        let symbol = symbol_table.get_symbol(block.scope_id, name, *scope_discriminant).unwrap().borrow();
+                        let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
                         match &symbol.value {
                             SymbolValue::Constant(value) => value.clone(),
                             _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
@@ -135,7 +135,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
 }
 
 
-fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &IRCode) {
+fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &SourceCode) {
     for function in functions {
         let return_type = function.return_type();
         resolve_scope_types(&mut function.code, Some(return_type), symbol_table, source);
@@ -143,7 +143,7 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
 }
 
 
-fn evaluate_constants_functions(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &IRCode) {
+fn evaluate_constants_functions(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &SourceCode) {
     for function in functions {
         evaluate_constants_block(&mut function.code, source, symbol_table);
     }
@@ -152,7 +152,7 @@ fn evaluate_constants_functions(functions: &mut [Function], symbol_table: &mut S
 
 
 /// Resolve and check the types of symbols and expressions.
-fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &SourceCode) {
     // Perform a depth-first traversal of the scope tree to determine the types in a top-to-bottom order (relative to the source code).
     // For every node in every scope, determine the node data type and check if it matches the expected type.
 
@@ -164,7 +164,7 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
 }
 
 
-fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &IRCode) {
+fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &SourceCode) {
     for (name, symbol) in symbol_table.get_unread_symbols(block.scope_id) {
         let symbol = symbol.borrow();
 
@@ -183,7 +183,7 @@ fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &
 /// Reduce the operations down the node by evaluating constant expressions.
 /// 
 /// Return whether the node can be removed because it has no effect.
-fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, symbol_table: &mut SymbolTable) -> bool {
+fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: ScopeID, symbol_table: &mut SymbolTable) -> bool {
 
     macro_rules! extract_constant_value {
         ($node:expr) => {
@@ -442,7 +442,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &IRCode, scope_id: ScopeID, 
 
 
 /// Reduce the number of operations by evaluating constant expressions
-fn evaluate_constants_block(block: &mut ScopeBlock, source: &IRCode, symbol_table: &mut SymbolTable) {
+fn evaluate_constants_block(block: &mut ScopeBlock, source: &SourceCode, symbol_table: &mut SymbolTable) {
     // Depth-first traversal to evaluate constant expressions and remove unnecessary operations
 
     let mut i: usize = 0;
@@ -460,7 +460,7 @@ fn evaluate_constants_block(block: &mut ScopeBlock, source: &IRCode, symbol_tabl
 
 
 /// Recursively resolve the type of this expression and check if its children have the correct types.
-fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &IRCode) {
+fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &SourceCode) {
 
     /// Assert that, if the node is a symbol, it is initialized.
     /// Not all operators require their operands to be initialized (l_value of assignment, ref)
@@ -973,7 +973,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 
 
-pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimize: bool, symbol_table: &mut SymbolTable, source: &IRCode) -> Vec<Function<'a>> {
+pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimize: bool, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     let mut functions = extract_functions(&mut block, false, symbol_table, source);
 

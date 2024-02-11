@@ -12,7 +12,7 @@ use crate::token_tree::TokenTree;
 use regex::Regex;
 use lazy_static::lazy_static;
 
-use rusty_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::SourceCode;
 
 
 lazy_static! {
@@ -22,7 +22,7 @@ lazy_static! {
 }
 
 
-fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, source: &IRCode) -> String {
+fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, source: &SourceCode) -> String {
     // use -1 because the escape character won't be copied
     let mut s = String::with_capacity(string.len() - 1);
 
@@ -53,7 +53,7 @@ fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, s
 }
 
 
-fn escape_string<'a>(string: &'a str, token: &StringToken, source: &IRCode) -> Cow<'a, str> {
+fn escape_string<'a>(string: &'a str, token: &StringToken, source: &SourceCode) -> Cow<'a, str> {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
     
@@ -189,7 +189,7 @@ impl TokenizerStatus {
 
 
 /// Divide the source code into meaningful string tokens
-fn lex<'a>(source: &'a IRCode, unit_path: &'a Path) -> impl Iterator<Item = StringToken<'a>> {
+fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = StringToken<'a>> {
     source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {
@@ -217,7 +217,7 @@ fn lex<'a>(source: &'a IRCode, unit_path: &'a Path) -> impl Iterator<Item = Stri
 
 
 /// Divide the source code into syntax tokens
-pub fn tokenize<'a>(source: &'a IRCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenTree<'a> {
+pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenTree<'a> {
 
     let raw_tokens = lex(source, unit_path);
 

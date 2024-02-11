@@ -6,8 +6,10 @@ Project Description
 
 ### Todo
 
-- [ ] data type list in symbol table? use a u32 as a data type id. each time a new data type is constructed, a new id is created. primitive data types are already in the list. useful for defining custom data types??? maybe not  
-- [ ] generate simplified intermediate code on which flow analysis is easier  
+- [ ] disallow capturing outer scope symbols in functions declared inside other functions  
+- [ ] add warnings for unreachable code after return statements  
+- [ ] eventually, add option to parallelize ir code generation since every function is independent  
+- [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
 - [ ] move operation arguments into ops enum???  
@@ -18,6 +20,7 @@ Project Description
 
 ### In Progress
 
+- [ ] generate simplified intermediate code on which flow analysis is easier  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 

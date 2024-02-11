@@ -39,7 +39,9 @@ fn main() {
 
     let ast = ast::build_ast(tokens, &source, &mut symbol_table);
 
-    let _functions = function_parser::parse_functions(ast, args.optimize, &mut symbol_table, &source);
+    let functions = function_parser::parse_functions(ast, args.optimize, &mut symbol_table, &source);
+
+    let _ir_code = icr::generate(functions, &mut symbol_table, &source);
 
 }
 

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use rusty_vm_lib::ir::IRCode;
+use rusty_vm_lib::ir::SourceCode;
 
 use crate::data_types::DataType;
 use crate::error;
@@ -164,7 +164,7 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
 }
 
 
-fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut SymbolTable<'a>, source: &IRCode) -> ScopeBlock<'a> {
+fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut SymbolTable<'a>, source: &SourceCode) -> ScopeBlock<'a> {
     // Recursively parse the statements' hierarchy
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
@@ -942,7 +942,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 /// Extract comma-separated tokens within a delimiter (parentheses, square brackets, etc.).
 /// 
 /// Removes the closing delimiter from the token list without including it in the returned arguments.
-fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *mut TokenNode<'a>, operator: &TokenKind<'_>, delimiter: &TokenKind<'_>, source: &IRCode) -> Vec<TokenNode<'a>> {
+fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenTree<'a>, start_delimiter: *mut TokenNode<'a>, operator: &TokenKind<'_>, delimiter: &TokenKind<'_>, source: &SourceCode) -> Vec<TokenNode<'a>> {
     
     let mut arguments = Vec::new();
 
@@ -1003,7 +1003,7 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 
 
 /// Build an abstract syntax tree from a flat list of tokens
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a IRCode, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a SourceCode, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
 
     parse_scope_hierarchy(&mut tokens);
 

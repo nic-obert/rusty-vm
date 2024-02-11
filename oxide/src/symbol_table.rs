@@ -128,6 +128,12 @@ impl<'a> Scope<'a> {
     }
 
 
+    /// Get the size of the scope in bytes.
+    pub fn get_size(&self) -> usize {
+        todo!()
+    }
+
+
     pub fn get_symbol(&self, symbol_id: &str, discriminant: ScopeDiscriminant) -> Option<&RefCell<Symbol<'a>>> {
         self.symbols.get(symbol_id).map(move |s| &s[discriminant.0 as usize])
     }
@@ -172,7 +178,7 @@ pub struct StaticID(usize);
 
 
 #[derive(Debug, Copy, Clone)]
-pub struct ScopeDiscriminant(u16);
+pub struct ScopeDiscriminant(pub u16);
 
 #[allow(clippy::derivable_impls)]
 impl Default for ScopeDiscriminant {
@@ -197,6 +203,12 @@ impl<'a> SymbolTable<'a> {
             scopes: Vec::new(),
             statics: Vec::new(),
         }
+    }
+
+
+    /// Get the size of a scope in bytes
+    pub fn scope_size(&self, scope_id: ScopeID) -> usize {
+        self.scopes[scope_id.0].get_size()
     }
 
 
