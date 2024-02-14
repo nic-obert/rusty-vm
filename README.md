@@ -1,4 +1,4 @@
-# **Easy Virtual Machine**
+# **Rusty Virtual Machine**
 
 A simple virtual machine and related tools.  
 The toolchain includes:
@@ -14,7 +14,7 @@ There are a few known vulnerabilities, plus it's not very efficient.
 
 ## Table of contents
 
-- [**Easy Virtual Machine**](#easy-virtual-machine)
+- [**Rusty Virtual Machine**](#rusty-virtual-machine)
   - [Table of contents](#table-of-contents)
   - [Basic usage](#basic-usage)
     - [Assembler](#assembler)

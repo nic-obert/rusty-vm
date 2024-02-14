@@ -657,23 +657,21 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 op_node.item.token.clone(),
                                 if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
                             ), 
-                            body.scope_id
+                            body.scope_id // Note that the parameters are declared in the function's body scope
                         );
                         if let Some(warning) = res.warning() {
                             error::warn(&name_node.item.token, source, warning);
                         }
                     }
 
-                    let (_discriminant, res) = symbol_table.declare_symbol(
+                    let old_def = symbol_table.declare_function(
                         function_name.to_string(),
-                        Symbol::new_function(
-                            signature.clone(), 
-                            op_node.item.token.clone(),
-                        ),
+                        signature.clone(), 
+                        op_node.item.token.clone(),
                         block.scope_id
                     );
-                    if let Some(warning) = res.warning() {
-                        error::warn(&name_node.item.token, source, warning);
+                    if let Err(old_def) = old_def {
+                        error::already_defined(&op_node.item.token, &old_def, source, "Cannot define a function multiple times in the same scope")
                     }
 
                     op_node.children = Some(ChildrenType::Function { name: function_name, signature, body });

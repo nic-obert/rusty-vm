@@ -1,10 +1,12 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::error::WarnResult;
 use crate::data_types::{DataType, LiteralValue};
+use crate::icr::Label;
 use crate::token::StringToken;
 
 
@@ -112,9 +114,16 @@ pub struct TypeDef<'a> {
 
 
 pub struct Scope<'a> {
+    /// The parent scope of the current scope.
+    /// This is used to loop for symbols that are not defined in the current scope, but may be defined in outer scopes.
     pub parent: Option<ScopeID>,
+    /// The symbols defined in the current scope.
     pub symbols: HashMap<String, Vec<RefCell<Symbol<'a>>>>,
-    pub types: HashMap<String, TypeDef<'a>>
+    /// The types defined in the current scope.
+    pub types: HashMap<String, TypeDef<'a>>,
+    /// The child scopes of the current scope.
+    /// This is used to calculate the total size of the scope when pushing it to the stack.
+    pub children: Vec<ScopeID>,
 }
 
 impl<'a> Scope<'a> {
@@ -123,13 +132,14 @@ impl<'a> Scope<'a> {
         Scope {
             parent: parent_id,
             symbols: Default::default(),
-            types: Default::default()
+            types: Default::default(),
+            children: Default::default(),
         }
     }
 
 
-    /// Get the size of the scope in bytes.
-    pub fn get_size(&self) -> usize {
+    /// Get the size of the scope in bytes, including its children.
+    pub fn get_total_size(&self) -> usize {
         todo!()
     }
 
@@ -150,7 +160,7 @@ impl<'a> Scope<'a> {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ScopeID(usize);
 
 impl ScopeID {
@@ -177,7 +187,7 @@ impl std::fmt::Display for ScopeID {
 pub struct StaticID(usize);
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ScopeDiscriminant(pub u16);
 
 #[allow(clippy::derivable_impls)]
@@ -189,11 +199,27 @@ impl Default for ScopeDiscriminant {
 
 }
 
+impl Display for ScopeDiscriminant {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+
+}
+
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct FunctionUUID {
+    pub name: String,
+    pub scope: ScopeID,
+}
+
 
 /// Struct containing the local symbols of a scope. 
 pub struct SymbolTable<'a> {
     scopes: Vec<Scope<'a>>,
     statics: Vec<StaticValue<'a>>,
+    function_labels: HashMap<FunctionUUID, Label>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -202,13 +228,27 @@ impl<'a> SymbolTable<'a> {
         Self {
             scopes: Vec::new(),
             statics: Vec::new(),
+            function_labels: HashMap::new(),
         }
     }
 
 
-    /// Get the size of a scope in bytes
-    pub fn scope_size(&self, scope_id: ScopeID) -> usize {
-        self.scopes[scope_id.0].get_size()
+    /// Return the stack size of all the scopes of a function
+    /// Assumes that the given scopes are reachable
+    pub fn function_stack_size(&self, inner_scope: ScopeID, start_scope: ScopeID) -> usize {
+        todo!()
+    }
+
+
+    /// Maps a function id to a IR label, which will than be used to call the function.
+    pub fn map_function_label(&mut self, function: FunctionUUID, label: Label) {
+        self.function_labels.insert(function, label);
+    }
+
+
+    /// Get the size of a scope in bytes, including its children.
+    pub fn total_scope_size(&self, scope_id: ScopeID) -> usize {
+        self.scopes[scope_id.0].get_total_size()
     }
 
 
@@ -250,6 +290,24 @@ impl<'a> SymbolTable<'a> {
                 scope.get_symbol(symbol_id, ScopeDiscriminant(0)
             )
         )
+    }
+
+
+    pub fn declare_function(&mut self, name: String, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+        
+        let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
+        let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
+        
+        symbol_list.push(
+            RefCell::new(Symbol::new_function(signature, token))
+        );
+
+        // Cannot re-declare a function in the same scope
+        if discriminant.0 > 0 {
+            Err(symbol_list[(discriminant.0 - 1) as usize].borrow().token.clone())
+        } else {
+            Ok(())
+        }
     }
 
     
@@ -302,11 +360,17 @@ impl<'a> SymbolTable<'a> {
 
     /// Creates a new scope in the symbol table and returns its id.
     pub fn add_scope(&mut self, parent: Option<ScopeID>) -> ScopeID {
-        let id = ScopeID(self.scopes.len());
+
+        let new_scope_id = ScopeID(self.scopes.len());
         self.scopes.push(
             Scope::new(parent)
         );
-        id
+
+        if let Some(parent_id) = parent {
+            let parent = &mut self.scopes[parent_id.0];
+        }
+
+        new_scope_id
     }
 
 

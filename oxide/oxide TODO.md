@@ -6,13 +6,14 @@ Project Description
 
 ### Todo
 
+- [ ] differentiate between dereference used to assign and dereference used to get a value  
+- [ ] add the do-while loop  
 - [ ] disallow capturing outer scope symbols in functions declared inside other functions  
 - [ ] add warnings for unreachable code after return statements  
-- [ ] eventually, add option to parallelize ir code generation since every function is independent  
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
-- [ ] move operation arguments into ops enum???  
+- [ ] move operation arguments into ops/tokenkind enum???  
 - [ ] implement const functions  
 - [ ] implement module system  
 - [ ] implement enums  

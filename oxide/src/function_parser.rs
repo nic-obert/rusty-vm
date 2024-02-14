@@ -16,7 +16,8 @@ pub struct Function<'a> {
 
     pub name: &'a str,
     pub code: ScopeBlock<'a>,
-    pub signature: Rc<DataType>
+    pub signature: Rc<DataType>,
+    pub parent_scope: ScopeID,
 
 }
 
@@ -66,7 +67,8 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                 functions.push(Function {
                     name,
                     code: body,
-                    signature
+                    signature,
+                    parent_scope: block.scope_id
                 });
 
                 DO_EXTRACT
