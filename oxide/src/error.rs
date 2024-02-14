@@ -363,7 +363,7 @@ pub fn already_defined(new_def: &StringToken, old_def: &StringToken, source: &So
     printdoc!("
         ❌ Error in unit \"{}\"
         
-        Illegal redefinition at line {}:{}:
+        Cannot redefine symbol at line {}:{}:
 
         ",
         new_def.unit_path.display(), new_def.line_number(), new_def.column
@@ -374,6 +374,23 @@ pub fn already_defined(new_def: &StringToken, old_def: &StringToken, source: &So
     println!("\n{}\n\n", hint);
 
     println!("Outshadows previous definition in unit \"{}\" at line {}:{}:\n\n{}\n", old_def.unit_path.display(), old_def.line_number(), old_def.column, source[old_def.line_index()]);
+    std::process::exit(1);
+}
+
+
+pub fn illegal_symbol_capture(token: &Token, source: &SourceCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in unit \"{}\"
+        
+        Illegal capture of symbol at line {}:{}:
+
+        ",
+        token.token.unit_path.display(), token.token.line_number(), token.token.column
+    );
+
+    print_source_context(source, token.token.line_index(), token.token.column);
+    
+    println!("\n{}\n", hint);
     std::process::exit(1);
 }
 

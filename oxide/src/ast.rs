@@ -912,16 +912,44 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after while.");
                     }
 
-                    let mut body_node = extract_right!().unwrap_or_else(
+                    let body_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing body after condition in while loop.")
                     );
                     if !matches!(body_node.item.value, TokenKind::ScopeOpen) {
                         error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a body enclosed in curly braces after condition in while loop.");
                     }
 
-                    let scope_block = match_unreachable!(Some(ChildrenType::ParsedBlock(scope_block)) = body_node.children.take(), scope_block);
+                    let scope_block = match_unreachable!(Some(ChildrenType::ParsedBlock(scope_block)) = body_node.children, scope_block);
                     op_node.children = Some(ChildrenType::While { condition: condition_node, body: scope_block });
                 },
+
+                TokenKind::DoWhile => {
+                    // Syntax: do { <body> } while <condition>
+
+                    let body_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing body after do operator.")
+                    );
+                    if !matches!(body_node.item.value, TokenKind::ScopeOpen) {
+                        error::invalid_argument(&op_node.item.value, &body_node.item, source, "Expected a body enclosed in curly braces after do operator.");
+                    }
+                    let body = match_unreachable!(Some(ChildrenType::ParsedBlock(body)) = body_node.children, body);
+
+                    let while_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing while operator after body in do-while loop.")
+                    );
+                    if !matches!(while_node.item.value, TokenKind::While) {
+                        error::invalid_argument(&op_node.item.value, &while_node.item, source, "Expected a while operator after body in do-while loop.");
+                    }
+
+                    let condition_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing condition after while operator in do-while loop.")
+                    );
+                    if !is_expression(&condition_node.item.value) {
+                        error::type_error(&condition_node.item, &[&DataType::Bool.name()], &condition_node.data_type, source, "Expected a boolean condition after while in do-while loop.");
+                    }
+
+                    op_node.children = Some(ChildrenType::While { condition: condition_node, body })
+                }
 
                 _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}.", op_node.item.value)
             }

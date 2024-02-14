@@ -475,11 +475,8 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
                     _ => unreachable!("Return node has more than one child")
                 }
 
-                // Pop the scopes (all that have been pushed since the function was called, and including the function's outermost scope)
-                let pop_size = symbol_table.function_stack_size(st_scope, ir_function.st_first_scope);
-                ir_function.push(IROperator::PopScope { bytes: pop_size });
-
-                ir_function.push(IROperator::Return);
+                // Jump to the function's exit label, which will take care of popping the stack and returning to the caller
+                ir_function.push(IROperator::Jump { target: ir_function.function_labels.exit });
 
                 None
             },
@@ -923,6 +920,46 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
 
             None
         },
+        TokenKind::DoWhile => {
+            /*
+                Lstart:
+                    <body>
+                Lcheck:
+                    Tcondition = <condition>
+                    jumpif Tcondition Lstart
+                Lafter:
+            */
+            let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = node.children, (condition, body));
+
+            let loop_labels = LoopLabels {
+                start: irid_gen.next_label(),
+                check: Some(irid_gen.next_label()),
+                after: irid_gen.next_label(),
+            };
+
+            ir_function.push(
+                IROperator::Label { label: loop_labels.start }
+            );
+
+            let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
+            generate_block(body, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table);
+
+            ir_function.push(
+                IROperator::Label { label: loop_labels.check.unwrap() }
+            );
+
+            let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a condition");
+
+            ir_function.code.push(
+                IROperator::JumpIf { condition: condition_tn, target: loop_labels.start }
+            );
+
+            ir_function.push(
+                IROperator::Label { label: loop_labels.after }
+            );
+
+            None
+        }
         TokenKind::ArrayOpen => todo!(), // Should return a pointer to the array
         TokenKind::ScopeOpen => {
 

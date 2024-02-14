@@ -83,6 +83,7 @@ pub enum TokenKind<'a> {
     Else,
     While,
     Loop,
+    DoWhile,
 
     Arrow,
     Semicolon,
@@ -236,7 +237,8 @@ impl TokenKind<'_> {
             TokenKind::If |
             TokenKind::Else |
             TokenKind::While |
-            TokenKind::Loop
+            TokenKind::Loop |
+            TokenKind::DoWhile
              => Priority::ControlFlow,
 
             TokenKind::Value(Value::Symbol { .. }) => Priority::PreProcess,
@@ -304,6 +306,7 @@ impl Display for Token<'_> {
             TokenKind::Loop => write!(f, "loop"),
             TokenKind::Const => write!(f, "const"),
             TokenKind::TypeDef => write!(f, "typedef"),
+            TokenKind::DoWhile => write!(f, "do-while"),
         }
     }
 }

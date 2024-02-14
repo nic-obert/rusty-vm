@@ -402,6 +402,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "break" => TokenKind::Op(Ops::Break),
             "continue" => TokenKind::Op(Ops::Continue),
             "typedef" => TokenKind::TypeDef,
+            "do" => TokenKind::DoWhile,
             
             // Data types
             "i8" => TokenKind::DataType(DataType::I8.into()),

@@ -39,7 +39,7 @@ impl std::fmt::Debug for Function<'_> {
 /// Convert the source code trees into a list of functions.
 /// Functions declared inside other functions are extracted and added to the list.
 /// Functions from inner scopes will not be accessible from outer scopes by default thanks to symbol table scoping, so it's ok to keep them in a linear vector.
-fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
+fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, function_parent_scope: ScopeID, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     const DO_EXTRACT: bool = false;
     const DO_NOT_EXTRACT: bool = true;
@@ -61,7 +61,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
                 let (name, signature, mut body) = match_unreachable!(Some(ChildrenType::Function { name, signature, body }) = statement.children.take(), (name, signature, body));
                 
                 // Recursively extract functions from the body
-                let inner_functions = extract_functions(&mut body, true, symbol_table, source);
+                let inner_functions = extract_functions(&mut body, true, block.scope_id, symbol_table, source);
                 functions.extend(inner_functions);
 
                 functions.push(Function {
@@ -79,7 +79,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
 
                 let (name, discriminant, const_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Const { name, discriminant, data_type, definition }) = statement.children.take(), (name, discriminant, data_type, definition));
                 
-                resolve_expression_types(&mut definition, block.scope_id, None, symbol_table, source);
+                resolve_expression_types(&mut definition, block.scope_id, None, function_parent_scope, symbol_table, source);
                 evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
 
                 let literal_value = match std::mem::replace(&mut definition.item.value, TokenKind::Comma) { // Replace with a small random TokenKind to avoid cloning the LiteralValue
@@ -140,7 +140,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, symb
 fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &SourceCode) {
     for function in functions {
         let return_type = function.return_type();
-        resolve_scope_types(&mut function.code, Some(return_type), symbol_table, source);
+        resolve_scope_types(&mut function.code, Some(return_type), function.parent_scope, symbol_table, source);
     }
 }
 
@@ -154,13 +154,13 @@ fn evaluate_constants_functions(functions: &mut [Function], symbol_table: &mut S
 
 
 /// Resolve and check the types of symbols and expressions.
-fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &SourceCode) {
+fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<DataType>>, function_parent_scope: ScopeID, symbol_table: &mut SymbolTable, source: &SourceCode) {
     // Perform a depth-first traversal of the scope tree to determine the types in a top-to-bottom order (relative to the source code).
     // For every node in every scope, determine the node data type and check if it matches the expected type.
 
     for statement in &mut block.statements {
 
-        resolve_expression_types(statement, block.scope_id, outer_function_return.clone(), symbol_table, source);
+        resolve_expression_types(statement, block.scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
     }
 }
@@ -334,6 +334,38 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
             },
         },
 
+        TokenKind::DoWhile => {
+            let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut node.children, (condition, body));
+
+            evaluate_constants_block(body, source, symbol_table);
+            evaluate_constants(condition, source, scope_id, symbol_table);
+
+            if let Some(condition_value) = condition.item.value.literal_value() {
+                let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
+                if *bool_value {
+                    // The condition is always true, so the body will always be executed
+                    // Downgrade the do-while loop to a unconditional loop
+
+                    error::warn(&condition.item.token, source, "Do-while loop condition is always true. This loop will be converted to a unconditional loop.");
+
+                    node.item.value = TokenKind::Loop;
+                    node.children = Some(ChildrenType::ParsedBlock(
+                        match_unreachable!(Some(ChildrenType::While { body, .. }) = node.children.take(), body)
+                    ));
+                } else {
+                    // The condition is always false, so the body will only be executed once
+                    // Downgrate the do-while loop to a simple block
+
+                    error::warn(&condition.item.token, source, "Do-while loop condition is always false. This loop will be converted to a simple block.");
+
+                    node.item.value = TokenKind::ScopeOpen;
+                    node.children = Some(ChildrenType::ParsedBlock(
+                        match_unreachable!(Some(ChildrenType::While { body, .. }) = node.children.take(), body)
+                    ));
+                }
+            }
+        },
+
         TokenKind::While => {
             let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut node.children, (condition, body));
 
@@ -462,7 +494,7 @@ fn evaluate_constants_block(block: &mut ScopeBlock, source: &SourceCode, symbol_
 
 
 /// Recursively resolve the type of this expression and check if its children have the correct types.
-fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<Rc<DataType>>, symbol_table: &mut SymbolTable, source: &SourceCode) {
+fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer_function_return: Option<Rc<DataType>>, function_parent_scope: ScopeID, symbol_table: &mut SymbolTable, source: &SourceCode) {
 
     /// Assert that, if the node is a symbol, it is initialized.
     /// Not all operators require their operands to be initialized (l_value of assignment, ref)
@@ -492,7 +524,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::Deref { .. } => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
-                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(operand, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     if let DataType::Ref { mutable, target } = operand.data_type.as_ref() {
                         let mutable_field = match_unreachable!(TokenKind::Op(Ops::Deref { mutable }) = &mut expression.item.value, mutable);
@@ -506,7 +538,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::Ref { mutable } => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
-                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(operand, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = &operand.item.value {
                         let symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
@@ -531,8 +563,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                  => {
                     let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
-                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), symbol_table, source);
-                    resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+                    resolve_expression_types(op2, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(op1);
                     require_initialized!(op2);
@@ -556,7 +588,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::LogicalNot => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
-                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(operand, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(operand);
 
@@ -571,7 +603,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 Ops::BitwiseNot => {
                     let operand = match_unreachable!(Some(ChildrenType::Unary(operand)) = &mut expression.children, operand);
 
-                    resolve_expression_types(operand, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(operand, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(operand);
 
@@ -596,8 +628,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                  => {
                     let (op1, op2) = match_unreachable!(Some(ChildrenType::Binary(op1, op2)) = &mut expression.children, (op1, op2));
 
-                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), symbol_table, source);
-                    resolve_expression_types(op2, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(op1, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+                    resolve_expression_types(op2, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(op1);
                     require_initialized!(op2);
@@ -622,7 +654,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut expression.children, (callable, args));
                     
                     // Resolve the type of the callable operand
-                    resolve_expression_types(callable, scope_id, outer_function_return.clone(), symbol_table, source);
+                    resolve_expression_types(callable, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
                     require_initialized!(callable);
 
@@ -647,7 +679,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     // Resolve the types of the arguments and check if they match the function parameters
                     for (arg, expected_type) in args.iter_mut().zip(param_types) {
-                        resolve_expression_types(arg, scope_id, outer_function_return.clone(), symbol_table, source);
+                        resolve_expression_types(arg, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
                         if arg.data_type != *expected_type {
                             error::type_error(&arg.item, &[&expected_type.name()], &arg.data_type, source, "Argument type does not match function signature.");
@@ -670,7 +702,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                         let return_expr = if let ChildrenType::Unary (children) = children { children } else { unreachable!(); };
 
-                        resolve_expression_types(return_expr, scope_id, outer_function_return, symbol_table, source);
+                        resolve_expression_types(return_expr, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                         require_initialized!(return_expr);
                         
@@ -697,8 +729,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
 
                     // Resolve the types of the operands
-                    resolve_expression_types(l_node, scope_id, outer_function_return.clone(), symbol_table, source);
-                    resolve_expression_types(r_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(l_node, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+                    resolve_expression_types(r_node, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(r_node);
                 
@@ -751,8 +783,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
                     let (array_node, index_node) = match_unreachable!(Some(ChildrenType::Binary (array_node, index_node )) = &mut expression.children, (array_node, index_node));
 
-                    resolve_expression_types(array_node, scope_id, outer_function_return.clone(), symbol_table, source);
-                    resolve_expression_types(index_node, scope_id, outer_function_return, symbol_table, source);
+                    resolve_expression_types(array_node, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+                    resolve_expression_types(index_node, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(array_node);
                     require_initialized!(index_node);
@@ -775,7 +807,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { data_type, expr }) = &mut expression.children, (data_type, expr));
 
             // Resolve the type of the expression to be cast
-            resolve_expression_types(expr, scope_id, outer_function_return, symbol_table, source);
+            resolve_expression_types(expr, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
             require_initialized!(expr);
 
@@ -800,9 +832,16 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             Value::Literal { value } => value.data_type(symbol_table).into(),
 
             Value::Symbol { name, scope_discriminant } => {
-                let mut symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap_or_else(
+                let (symbol, outside_function_boundary) = symbol_table.get_symbol_warn_if_outside_function(scope_id, name, *scope_discriminant, function_parent_scope);
+                
+                let mut symbol = symbol.unwrap_or_else(
                     || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.token.column, source[symbol.token.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
                 ).borrow_mut();
+
+                // Disallow caputuring symbols from outsize the function boundary, unless they are constants or functions
+                if outside_function_boundary && !matches!(symbol.value, SymbolValue::Constant(_) | SymbolValue::Function) {
+                    error::illegal_symbol_capture(&expression.item, source, format!("Cannot capture dynamic environment (symbol \"{}\") inside a function.\n Symbol declared at line {}:{}:\n\n{}", symbol.token.string, symbol.token.line_number(), symbol.token.column, &source[symbol.token.line_index()]).as_str());
+                }
 
                 // The symbol has beed used in an expression, so it has been read from.
                 // If the symbol is being assigned to instead, the Ops::Assign branch will set this flag to false later.
@@ -819,7 +858,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let (signature, body) = match_unreachable!(Some(ChildrenType::Function { signature, body, .. }) = &mut expression.children, (signature, body));
             let return_type = match_unreachable!(DataType::Function { return_type, .. } = signature.as_ref(), return_type);
 
-            resolve_scope_types(body, Some(return_type.clone()), symbol_table, source);
+            resolve_scope_types(body, Some(return_type.clone()), function_parent_scope, symbol_table, source);
 
             // Check return type
             let return_value = body.return_value_literal();
@@ -849,7 +888,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 for element in elements {
                     
                     // Resolve the element type
-                    resolve_expression_types(element, scope_id, outer_function_return.clone(), symbol_table, source);
+                    resolve_expression_types(element, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
                     require_initialized!(element);
 
@@ -897,7 +936,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             if inner_block.statements.is_empty() {
                 DataType::Void.into()
             } else {
-                resolve_scope_types(inner_block, outer_function_return, symbol_table, source);
+                resolve_scope_types(inner_block, outer_function_return, function_parent_scope, symbol_table, source);
                 inner_block.return_type()
             }
         },
@@ -911,8 +950,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut expression.children, (if_chain, else_block));
 
             for if_block in if_chain {
-                resolve_expression_types(&mut if_block.condition, scope_id, outer_function_return.clone(), symbol_table, source);
-                resolve_scope_types(&mut if_block.body, outer_function_return.clone(), symbol_table, source);
+                resolve_expression_types(&mut if_block.condition, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+                resolve_scope_types(&mut if_block.body, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
                 require_initialized!(if_block.condition);
 
@@ -933,7 +972,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             }
 
             if let Some(else_block) = else_block {
-                resolve_scope_types(else_block, outer_function_return, symbol_table, source);
+                resolve_scope_types(else_block, outer_function_return, function_parent_scope, symbol_table, source);
 
                 // Check if the return types match
                 // Unwrap is safe because the else block is guaranteed to be preceeded by an if block, which sets the chain_return_type
@@ -956,8 +995,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             
             let (condition_node, body_block) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut expression.children, (condition, body));
 
-            resolve_expression_types(condition_node, scope_id, outer_function_return.clone(), symbol_table, source);
-            resolve_scope_types(body_block, outer_function_return, symbol_table, source);
+            resolve_expression_types(condition_node, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
+            resolve_scope_types(body_block, outer_function_return, function_parent_scope, symbol_table, source);
 
             require_initialized!(condition_node);
 
@@ -977,7 +1016,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimize: bool, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
-    let mut functions = extract_functions(&mut block, false, symbol_table, source);
+    let scope_id = block.scope_id;
+    let mut functions = extract_functions(&mut block, false, scope_id, symbol_table, source);
 
     println!("\n\nFunctions:\n{:#?}\n", functions);
 

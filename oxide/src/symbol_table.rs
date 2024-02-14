@@ -38,7 +38,7 @@ impl Symbol<'_> {
         Symbol {
             data_type: signature,
             token,
-            value: SymbolValue::Immutable(None),
+            value: SymbolValue::Function,
             initialized: true,
             read_from: false,
         }
@@ -57,6 +57,7 @@ impl Symbol<'_> {
     pub fn get_value(&self) -> Option<&LiteralValue> {
         match &self.value {
             SymbolValue::Mutable => None,
+            SymbolValue::Function => None,
             SymbolValue::Immutable(v) => v.into(),
             SymbolValue::Constant(v) => Some(v),
 
@@ -70,7 +71,8 @@ impl Symbol<'_> {
             SymbolValue::Mutable => true,
 
             SymbolValue::Immutable(_) |
-            SymbolValue::Constant(_) 
+            SymbolValue::Constant(_) |
+            SymbolValue::Function
              => false,
 
             SymbolValue::UninitializedConstant => unreachable!(),
@@ -89,6 +91,7 @@ pub enum SymbolValue {
     Mutable,
     Immutable (Option<LiteralValue>),
     Constant (LiteralValue),
+    Function,
 
     UninitializedConstant,
 }
@@ -233,13 +236,6 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    /// Return the stack size of all the scopes of a function
-    /// Assumes that the given scopes are reachable
-    pub fn function_stack_size(&self, inner_scope: ScopeID, start_scope: ScopeID) -> usize {
-        todo!()
-    }
-
-
     /// Maps a function id to a IR label, which will than be used to call the function.
     pub fn map_function_label(&mut self, function: FunctionUUID, label: Label) {
         self.function_labels.insert(function, label);
@@ -358,6 +354,27 @@ impl<'a> SymbolTable<'a> {
     }
 
 
+    /// Get the symbol with the given id from the symbol table.
+    /// If the symbol is found outside the function boundary, including the boundary scope, return a true flag, else return a false flag.
+    pub fn get_symbol_warn_if_outside_function(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant, function_boundary: ScopeID) -> (Option<&RefCell<Symbol<'a>>>, bool) {
+        let scope = &self.scopes[scope_id.0];
+
+        assert_ne!(scope_id, function_boundary);
+
+        if let Some(symbol) = scope.get_symbol(symbol_id, discriminant) {
+            (Some(symbol), false)
+        } else if let Some(parent_id) = scope.parent {
+            if parent_id == function_boundary {
+                (self.get_symbol(scope_id, symbol_id, discriminant), true)
+            } else {
+                self.get_symbol_warn_if_outside_function(parent_id, symbol_id, discriminant, function_boundary)
+            }
+        } else {
+            (None, true)
+        }
+    }
+
+
     /// Creates a new scope in the symbol table and returns its id.
     pub fn add_scope(&mut self, parent: Option<ScopeID>) -> ScopeID {
 
@@ -368,6 +385,7 @@ impl<'a> SymbolTable<'a> {
 
         if let Some(parent_id) = parent {
             let parent = &mut self.scopes[parent_id.0];
+            parent.children.push(new_scope_id);
         }
 
         new_scope_id

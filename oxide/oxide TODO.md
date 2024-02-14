@@ -7,8 +7,6 @@ Project Description
 ### Todo
 
 - [ ] differentiate between dereference used to assign and dereference used to get a value  
-- [ ] add the do-while loop  
-- [ ] disallow capturing outer scope symbols in functions declared inside other functions  
 - [ ] add warnings for unreachable code after return statements  
 - [ ] implement tuples  
 - [ ] main function  
@@ -21,12 +19,14 @@ Project Description
 
 ### In Progress
 
+- [ ] disallow capturing outer scope symbols in functions declared inside other functions --> tests now need to be done to ensure it's working correctly  
 - [ ] generate simplified intermediate code on which flow analysis is easier  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] add the do-while loop  
 - [x] allow custom type definition within scopes with something like "type A = B;"  
 - [x] make tokens and symbols aware of the source file they were declared in. make a struct that holds the unit path (&'a str), the line and column, and the source code (&'a IRCode).?????? would it be useful ???  
 - [x] add warnings for unused symbols (new used falag)  
