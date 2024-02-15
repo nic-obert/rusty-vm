@@ -416,7 +416,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "f32" => TokenKind::DataType(DataType::F32.into()),
             "f64" => TokenKind::DataType(DataType::F64.into()),
             "char" => TokenKind::DataType(DataType::Char.into()),
-            "str" => TokenKind::DataType(DataType::RawString { length: 0 }.into()),
+            "str" => TokenKind::DataType(DataType::RawString { length: 0 }.into()), // Set the length temporarily to 0
             "String" => TokenKind::DataType(DataType::String.into()),
             "void" => TokenKind::DataType(DataType::Void.into()),
             "bool" => TokenKind::DataType(DataType::Bool.into()),

@@ -3,5 +3,16 @@ typedef Age = u8;
 
 fn main() {
 
+    const i: i32 = 9;
+
+    fn bar() {
+
+    }
+
+    fn foo() {
+        i;
+        bar();
+    }
+
     let x: Age = 20;
 }

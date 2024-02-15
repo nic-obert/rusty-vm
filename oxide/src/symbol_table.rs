@@ -141,9 +141,20 @@ impl<'a> Scope<'a> {
     }
 
 
-    /// Get the size of the scope in bytes, including its children.
-    pub fn get_total_size(&self) -> usize {
-        todo!()
+    /// Recursively get the size of the scope in bytes, including its children.
+    pub fn get_total_size(&self, symbol_table: &SymbolTable) -> usize {
+        let mut size = 0;
+
+        for symbol in self.symbols.values().flat_map(|s| s.iter()) {
+            size += symbol.borrow().data_type.static_size();
+        }
+
+        for child_id in &self.children {
+            let scope = &symbol_table.scopes[child_id.0];
+            size += scope.get_total_size(symbol_table);
+        }
+
+        size
     }
 
 
@@ -244,7 +255,7 @@ impl<'a> SymbolTable<'a> {
 
     /// Get the size of a scope in bytes, including its children.
     pub fn total_scope_size(&self, scope_id: ScopeID) -> usize {
-        self.scopes[scope_id.0].get_total_size()
+        self.scopes[scope_id.0].get_total_size(self)
     }
 
 

@@ -97,7 +97,6 @@ pub mod dt_macros {
 impl DataType {
 
     /// Return the size of the data type in bytes, if it is known at compile-time.
-    #[allow(dead_code)]
     pub const fn static_size(&self) -> usize {
         match self {
             DataType::Bool => 1,
@@ -122,9 +121,11 @@ impl DataType {
             DataType::String  // TODO: update with a rust-like string struct size
             => unimplemented!(),
             
-            DataType::Function { .. } => unreachable!(),
+            DataType::Void |
+            DataType::Function { .. }
+             => 0,
+
             DataType::Unspecified => unreachable!(),
-            DataType::Void => unreachable!(),
         }
     }
 

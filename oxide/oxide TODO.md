@@ -19,13 +19,13 @@ Project Description
 
 ### In Progress
 
-- [ ] disallow capturing outer scope symbols in functions declared inside other functions --> tests now need to be done to ensure it's working correctly  
 - [ ] generate simplified intermediate code on which flow analysis is easier  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] disallow capturing outer scope symbols in functions declared inside other functions --> tests now need to be done to ensure it's working correctly  
 - [x] add the do-while loop  
 - [x] allow custom type definition within scopes with something like "type A = B;"  
 - [x] make tokens and symbols aware of the source file they were declared in. make a struct that holds the unit path (&'a str), the line and column, and the source code (&'a IRCode).?????? would it be useful ???  
