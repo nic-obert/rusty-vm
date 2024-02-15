@@ -6,6 +6,8 @@ Project Description
 
 ### Todo
 
+- [ ] add compile-time array bounds check for known index operations  
+- [ ] add warnings for casting references to different-sized types  
 - [ ] differentiate between dereference used to assign and dereference used to get a value  
 - [ ] add warnings for unreachable code after return statements  
 - [ ] implement tuples  

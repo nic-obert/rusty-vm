@@ -179,7 +179,7 @@ pub enum IROperator {
     
     Assign { target: Tn, source: IRValue },
     Deref { target: Tn, ref_: IRValue },
-    Ref { target: Tn, ref_: IRValue },
+    Ref { target: Tn, ref_: Tn },
     
     Greater { target: Tn, left: IRValue, right: IRValue },
     Less { target: Tn, left: IRValue, right: IRValue },
@@ -202,6 +202,9 @@ pub enum IROperator {
     /// Copies the raw bits from `source` into `target`.
     /// Assumes that `target` is either the same size or larget than `source`.
     Copy { target: Tn, source: IRValue },
+    /// Copies the raw bits from `source` into the address pointed to by `target`.
+    /// Assumes that `target` is either the same size or larget than `source`.
+    DerefCopy { target: Tn, source: IRValue },
     
     Jump { target: Label },
     JumpIf { condition: Tn, target: Label },
@@ -254,6 +257,7 @@ impl Display for IROperator {
             IROperator::PopScope { bytes } => write!(f, "popscope {}", bytes),
             IROperator::Nop => write!(f, "nop"),
             IROperator::Copy { target, source } => write!(f, "copy {} -> {}", source, target),
+            IROperator::DerefCopy { target, source } => write!(f, "copy {} -> [{}]", source, target),
         }
     }
 }
@@ -435,7 +439,7 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
 
                 ir_function.push(IROperator::Ref {
                     target: target.clone(),
-                    ref_: IRValue::Tn(ref_),
+                    ref_,
                 });
 
                 Some(target)
@@ -733,7 +737,7 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
             Ops::ArrayIndexOpen => {
                 let (array_node, index_node) = match_unreachable!(Some(ChildrenType::Binary(array, index)) = node.children, (array, index));
 
-                let element_type = match_unreachable!(DataType::Array(element_type) = array_node.data_type.as_ref(), element_type.clone());
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array_node.data_type.as_ref(), element_type.clone());
                 let element_size = element_type.static_size();
 
                 let array_addr_tn = generate_node(*array_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an array");
@@ -791,17 +795,31 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
             },
             Value::Symbol { name, scope_discriminant } => {
                 
-                let target = if let Some(tn) = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope) {
-                    tn
-                } else {
-                    let tn = Tn { id: irid_gen.next_tn(), data_type: node.data_type };
-                    ir_function.scope_table.map_symbol(name, tn.clone(), ir_scope);
-                    tn
-                };
-                
-                // Symbols don't add any operation to the ir code, they are just mapped to a Tn
+                if let Some(target) = target {
+                    // The symbol should be loaded into `target`
+                    // Assume the symbol has already been mapped to a Tn
 
-                Some(target)
+                    let symbol_tn =  ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope).expect("Symbol not found in scope table, but it's being read");
+                       
+                    ir_function.code.push(IROperator::Assign { 
+                        target: target.clone(),
+                        source: IRValue::Tn(symbol_tn)
+                    });
+
+                    Some(target)
+
+                } else {
+
+                    let target = if let Some(tn) = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope) {
+                        tn
+                    } else {
+                        let tn = Tn { id: irid_gen.next_tn(), data_type: node.data_type };
+                        ir_function.scope_table.map_symbol(name, tn.clone(), ir_scope);
+                        tn
+                    };
+
+                    Some(target)
+                }
             },
         },
         TokenKind::As => {
@@ -1016,7 +1034,45 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
 
             None
         }
-        TokenKind::ArrayOpen => todo!(), // Should return a pointer to the array
+        TokenKind::ArrayOpen => {
+            // Set each array item to the corresponding value
+
+            let element_nodes = match_unreachable!(Some(ChildrenType::List (elements)) = node.children, elements);
+
+            let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = node.data_type.as_ref(), element_type.clone());
+            let element_size = element_type.static_size();
+
+            let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
+
+            // Reference to the first element of the array, for now. This will be incremented for each element
+            let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
+
+            // Get the address of the array (and store it into the `element_ptr` Tn)
+            ir_function.code.push(IROperator::Ref { 
+                target: arr_element_ptr.clone(), 
+                ref_: target.clone() 
+            });
+            
+            for element_node in element_nodes {
+                
+                // Generate the code for the element and store the result in the array
+                let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+
+                ir_function.code.push(IROperator::DerefCopy {
+                    target: arr_element_ptr.clone(),
+                    source: IRValue::Tn(element_tn),
+                });
+
+                // Increment the pointer to the next element
+                ir_function.code.push(IROperator::Add { 
+                    target: arr_element_ptr.clone(), 
+                    left: IRValue::Tn(arr_element_ptr.clone()), 
+                    right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)))
+                });
+            }
+
+            Some(target)
+        }, 
         TokenKind::ScopeOpen => {
 
             let block = match_unreachable!(Some(ChildrenType::ParsedBlock(block)) = node.children, block);

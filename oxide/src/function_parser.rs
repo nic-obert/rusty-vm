@@ -789,7 +789,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     require_initialized!(array_node);
                     require_initialized!(index_node);
 
-                    let data_type = match_or!(DataType::Array(element_type) = array_node.data_type.as_ref(), element_type.clone(),
+                    let data_type = match_or!(DataType::Array { element_type, size: _ } = array_node.data_type.as_ref(), element_type.clone(),
                         error::type_error(&array_node.item, Ops::ArrayIndexOpen.allowed_types(0), &array_node.data_type, source, "Can only index arrays.")
                     );
 
@@ -877,9 +877,11 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             // The array element type is void if the array is empty. A void array can be used as a generic array by assignment operators.
 
             let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut expression.children, elements);
+
+            let array_size = elements.len();
             
             let (data_type, is_literal_array, element_type) = if elements.is_empty() {
-                (DataType::Array(DataType::Void.into()), true, DataType::Void.into())
+                (DataType::Array { element_type: DataType::Void.into(), size: 0 }, true, DataType::Void.into())
             } else {
 
                 let mut element_type: Option<Rc<DataType>> = None;
@@ -909,7 +911,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
                 }
 
-                (DataType::Array(element_type.as_ref().unwrap().clone()), is_literal_array, element_type.unwrap())
+                (DataType::Array { element_type: element_type.as_ref().unwrap().clone(), size: array_size }, is_literal_array, element_type.unwrap())
             };
 
             if is_literal_array {

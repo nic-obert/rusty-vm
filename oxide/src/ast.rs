@@ -741,8 +741,8 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                 },
 
                 TokenKind::ArrayTypeOpen => {
-                    // TODO: an array slice may be implemented at a later date. this array type would then require a size (or infer it from the context)
                     // Syntax: [<type>]
+                    // Syntax: [<type>, <size>]
 
                     let element_type_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing data type after array type open bracket in array declaration.")
@@ -750,16 +750,26 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     let element_type = match_or!(TokenKind::DataType(data_type) = element_type_node.item.value, data_type,
                         error::invalid_argument(&op_node.item.value, &element_type_node.item, source, "Invalid data type in array declaration.")
                     );
-                    
-                    // Extract the closing square bracket ]
-                    let closing_bracket = extract_right!().unwrap_or_else(
+
+                    // May be either a comma or a closing ]
+                    let next_node = extract_right!().unwrap_or_else(
                         || error::expected_argument(&op_node.item, source, "Missing array type close bracket after array type in array declaration.")
                     );
-                    if !matches!(closing_bracket.item.value, TokenKind::SquareClose) {
-                        error::invalid_argument(&op_node.item.value, &closing_bracket.item, source, "Expected closing square bracket ].");
+                    match next_node.item.value {
+                        TokenKind::Comma => {
+                            // Extract the closing square bracket ]
+                            let closing_bracket = extract_right!().unwrap_or_else(
+                                || error::expected_argument(&op_node.item, source, "Missing array type close bracket after array type in array declaration.")
+                            );
+                            if !matches!(closing_bracket.item.value, TokenKind::SquareClose) {
+                                error::invalid_argument(&op_node.item.value, &closing_bracket.item, source, "Expected closing square bracket ].");
+                            }
+                        },
+                        TokenKind::SquareClose => {},
+                        _ => error::invalid_argument(&op_node.item.value, &next_node.item, source, "Invalid token after array type in array declaration.")
                     }
                     
-                    let array_type = DataType::Array(element_type).into();
+                    let array_type = DataType::Array { element_type, size: 0 }.into();
                     // Transform this node into a data type node
                     op_node.item.value = TokenKind::DataType(array_type);
                 },  
@@ -1029,7 +1039,7 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 
 
 /// Build an abstract syntax tree from a flat list of tokens
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &'a SourceCode, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &SourceCode, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
 
     parse_scope_hierarchy(&mut tokens);
 

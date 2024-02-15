@@ -1,6 +1,7 @@
 
 fn main() {
 
-    let u: u8 = 200;
-    let i: i16 = u as i16 - 9 as i16;
+    let x = 7;
+    let arr = [x,2,3];
+
 }
