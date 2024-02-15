@@ -11,7 +11,7 @@ Project Description
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
-- [ ] move operation arguments into ops/tokenkind enum???  
+- [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
 - [ ] implement const functions  
 - [ ] implement module system  
 - [ ] implement enums  

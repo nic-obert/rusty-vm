@@ -93,7 +93,7 @@ pub enum ChildrenType<'a> {
     /// A list of function parameters (pairs of name and type)
     FunctionParams (Vec<FunctionParam>), 
     Function { name: &'a str, signature: Rc<DataType>, body: ScopeBlock<'a> },
-    TypeCast { data_type: Rc<DataType>, expr: Box<TokenNode<'a>> },
+    TypeCast { target_type: Rc<DataType>, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
     Binary (Box<TokenNode<'a>>, Box<TokenNode<'a>>),
     Unary (Box<TokenNode<'a>>),
@@ -223,7 +223,7 @@ impl<'a> TokenNode<'a> {
                         writeln!(f, "---")?;
                     }
                 },
-                ChildrenType::TypeCast { data_type, expr: value } => {
+                ChildrenType::TypeCast { target_type: data_type, expr: value } => {
                     write!(f, "({:?}) as {}", value.item.value, data_type)?;
                 },
                 ChildrenType::Call { callable, args } => {

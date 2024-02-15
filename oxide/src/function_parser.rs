@@ -395,7 +395,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
         },
 
         TokenKind::As => {
-            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { expr, data_type }) = &mut node.children, (data_type, expr));
+            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { expr, target_type }) = &mut node.children, (target_type, expr));
 
             evaluate_constants(expr, source, scope_id, symbol_table);
 
@@ -416,7 +416,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
                 return SHOULD_NOT_BE_REMOVED;
             }
 
-            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { data_type, expr }) = node.children.take(), (data_type, expr));
+            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = node.children.take(), (target_type, expr));
             let value = match_unreachable!(TokenKind::Value(Value::Literal { value }) = expr.item.value, value);
 
             let new_value = LiteralValue::from_cast(value, &expr.data_type, &target_type);
@@ -804,7 +804,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
         },
 
         TokenKind::As => {
-            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { data_type, expr }) = &mut expression.children, (data_type, expr));
+            let (target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = &mut expression.children, (target_type, expr));
 
             // Resolve the type of the expression to be cast
             resolve_expression_types(expr, scope_id, outer_function_return, function_parent_scope, symbol_table, source);

@@ -198,6 +198,10 @@ pub enum IROperator {
     BitAnd { target: Tn, left: IRValue, right: IRValue },
     BitOr { target: Tn, left: IRValue, right: IRValue },
     BitXor { target: Tn, left: IRValue, right: IRValue },
+
+    /// Copies the raw bits from `source` into `target`.
+    /// Assumes that `target` is either the same size or larget than `source`.
+    Copy { target: Tn, source: IRValue },
     
     Jump { target: Label },
     JumpIf { condition: Tn, target: Label },
@@ -249,6 +253,7 @@ impl Display for IROperator {
             IROperator::PushScope { bytes } => write!(f, "pushscope {}", bytes),
             IROperator::PopScope { bytes } => write!(f, "popscope {}", bytes),
             IROperator::Nop => write!(f, "nop"),
+            IROperator::Copy { target, source } => write!(f, "copy {} -> {}", source, target),
         }
     }
 }
@@ -263,7 +268,6 @@ pub struct FunctionIR<'a> {
     pub st_first_scope: ScopeID,
     pub function_labels: FunctionLabels,
 }
-
 
 impl FunctionIR<'_> {
 
@@ -282,6 +286,17 @@ impl FunctionIR<'_> {
 
     pub fn push(&mut self, node: IROperator) {
         self.code.push(node);
+    }
+
+}
+
+impl Display for FunctionIR<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "fn {} {{", self.name)?;
+        for op in &self.code {
+            writeln!(f, "    {}", op)?;
+        }
+        writeln!(f, "}}")
     }
 
 }
@@ -391,8 +406,7 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
                 let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
                 
                 let target = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an assignable");
-                let src = generate_node(*r_node, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
-                assert!(src.is_none(), "generate_node should return None since a target is passed");
+                generate_node(*r_node, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
 
                 // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
 
@@ -790,7 +804,49 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
                 Some(target)
             },
         },
-        TokenKind::As => todo!(),
+        TokenKind::As => {
+            // Just reinterpret the bits (drop excess bits or add padding if necessary)
+            // Assume the conversion is possible, since the parser should have already checked that
+
+            let mut target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
+
+            let (expr_node, target_type) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = node.children, (expr, target_type));
+            
+            let src_size = expr_node.data_type.static_size();
+            let target_size = target_type.static_size();
+
+            match src_size.cmp(&target_size) {
+                std::cmp::Ordering::Less => {
+                    // The source has less bits, so create a copy with padding
+                    // Reading directly from the source would read garbage and writing would overwrite surrounding memory.
+                    // Copying is cheap since type casting is only allowed on primitives, which are usually small.
+
+                    let expr_tn = generate_node(*expr_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+
+                    target.data_type = target_type;
+
+                    ir_function.code.push(IROperator::Copy {
+                        target: target.clone(),
+                        source: IRValue::Tn(expr_tn),
+                    });
+
+                    Some(target)
+                },
+                std::cmp::Ordering::Equal |
+                std::cmp::Ordering::Greater
+                 => {
+                    // No need to do anything, just reinterpret the bits as the new type.
+                    // If the source and target have the same size, the bits are already in the correct format.
+                    // If the source has more bits than the target, the excess bits are simply ignored.
+                    
+                    generate_node(*expr_node, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                    
+                    // Just change the type of the Tn
+                    target.data_type = target_type;
+                    Some(target)
+                },
+            }
+        },
         TokenKind::If => {
             /*
                 Tcondition = <condition>
@@ -1045,6 +1101,8 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
 
     ir_function.push(IROperator::PopScope { bytes: function_size });
 
+    ir_function.push(IROperator::Return);
+
     ir_function
 }
 
@@ -1055,11 +1113,15 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
     let mut ir_functions = Vec::new();
     let mut irid_gen = IRIDGenerator::new();
 
+    println!("\n\nGenerating IR code for the following functions:");
+
     for function in functions {
 
         ir_functions.push(
             generate_function(function, &mut irid_gen, symbol_table)
         );
+
+        println!("\n{}\n", ir_functions.last().unwrap());
 
     }
 

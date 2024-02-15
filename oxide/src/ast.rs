@@ -822,7 +822,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Expected a data type after type cast operator.")
                     );
 
-                    op_node.children = Some(ChildrenType::TypeCast { data_type, expr });
+                    op_node.children = Some(ChildrenType::TypeCast { target_type: data_type, expr });
                 },
 
                 TokenKind::If => {
