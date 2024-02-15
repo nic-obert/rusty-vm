@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] show line numbers in error messages and warnings  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
 - [ ] add warnings for casting references to different-sized types  
@@ -28,6 +27,7 @@ Project Description
 
 ### Done ✓
 
+- [x] show line numbers in error messages and warnings  
 - [x] add warnings for unreachable code after return statements  
 - [x] disallow capturing outer scope symbols in functions declared inside other functions --> tests now need to be done to ensure it's working correctly  
 - [x] add the do-while loop  
