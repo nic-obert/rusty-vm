@@ -735,7 +735,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     require_initialized!(r_node);
                 
                     // Assert that the symbol or dereference can be assigned to (mutable or uninitialized)
-                    match &l_node.item.value {
+                    match &mut l_node.item.value {
                         TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
 
                             // Unwrap is safe because symbols have already been checked to be valid
@@ -755,12 +755,17 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                             if matches!(*symbol.data_type, DataType::Unspecified) {
                                 symbol.data_type = r_node.data_type.clone();
                                 l_node.data_type = r_node.data_type.clone();
+
+                            } else if let DataType::Array { element_type: _, size: None } = l_node.data_type.as_ref() {
+                                // The array size was not specified, so it is inferred from the right operand
+                                symbol.data_type = r_node.data_type.clone();
+                                l_node.data_type = r_node.data_type.clone();
                             }
                         },
 
                         TokenKind::Op(Ops::Deref{ mutable }) => {
                             // The dereference must be mutable
-                            if !mutable {
+                            if !*mutable {
                                 error::immutable_change(&l_node.item, &l_node.data_type, source, "Cannot assign to an immutable dereference.");
                             }
                         },
@@ -881,7 +886,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
             let array_size = elements.len();
             
             let (data_type, is_literal_array, element_type) = if elements.is_empty() {
-                (DataType::Array { element_type: DataType::Void.into(), size: 0 }, true, DataType::Void.into())
+                (DataType::Array { element_type: DataType::Void.into(), size: Some(0) }, true, DataType::Void.into())
             } else {
 
                 let mut element_type: Option<Rc<DataType>> = None;
@@ -911,7 +916,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     }
                 }
 
-                (DataType::Array { element_type: element_type.as_ref().unwrap().clone(), size: array_size }, is_literal_array, element_type.unwrap())
+                (DataType::Array { element_type: element_type.as_ref().unwrap().clone(), size: Some(array_size) }, is_literal_array, element_type.unwrap())
             };
 
             if is_literal_array {

@@ -1053,6 +1053,7 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
                 ref_: target.clone() 
             });
             
+            // Initialize each element
             for element_node in element_nodes {
                 
                 // Generate the code for the element and store the result in the array

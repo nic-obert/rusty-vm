@@ -16,7 +16,7 @@ pub enum DataType {
     RawString { length: usize },
     String,
 
-    Array { element_type: Rc<DataType>, size: usize },
+    Array { element_type: Rc<DataType>, size: Option<usize> },
     Ref { target: Rc<DataType>, mutable: bool },
     StringRef { length: usize },
 
@@ -115,7 +115,7 @@ impl DataType {
             DataType::Isize => rusty_vm_lib::vm::ADDRESS_SIZE,
             
             DataType::RawString { length } => DataType::Char.static_size() * *length, // Char size * number of chars
-            DataType::Array { element_type, size} => element_type.static_size() * *size,
+            DataType::Array { element_type, size} => element_type.static_size() * size.expect("Array size is not known at compile-time"),
 
             DataType::StringRef { length: _ } => rusty_vm_lib::vm::ADDRESS_SIZE + DataType::Usize.static_size(), // Address size + length size
             DataType::Ref { .. } => rusty_vm_lib::vm::ADDRESS_SIZE,
@@ -274,7 +274,7 @@ impl DataType {
             DataType::Char => Cow::Borrowed("char"),
             DataType::String => Cow::Borrowed("String"),
             DataType::RawString { length } => Cow::Owned(format!("str[{}]", length)),
-            DataType::Array { element_type, size } => Cow::Owned(format!("[{}, {}]", element_type.name(), size)),
+            DataType::Array { element_type, size } => Cow::Owned(if let Some(size) = size { format!("[{}, {}]", element_type.name(), size) } else { format!("[{}]", element_type.name()) }),
             DataType::Ref { target, mutable } => Cow::Owned(format!("&{}{}", if *mutable { "mut " } else { "" }, target)),
             DataType::I8 => Cow::Borrowed("i8"),
             DataType::I16 => Cow::Borrowed("i16"),
@@ -534,7 +534,7 @@ impl LiteralValue {
             DataType::Array { element_type: src_element_type, size } => {
                 let (target_element_type, items) = match_unreachable!(LiteralValue::Array { element_type: target_element_type, items } = src_value, (target_element_type, items));
                 
-                assert_eq!(items.len(), *size);
+                assert_eq!(items.len(), size.expect("Array size is not known at compile-time"));
 
                 let res = items.into_iter().map(
                     |item| LiteralValue::from_cast(item, src_element_type, &target_element_type)
@@ -564,7 +564,7 @@ impl LiteralValue {
         match self {
             LiteralValue::Char(_) => DataType::Char,
             LiteralValue::StaticString(id) => DataType::StringRef { length: symbol_table.get_static_string(*id).len() },
-            LiteralValue::Array { element_type: dt, items } => DataType::Array { element_type: dt.clone(), size: items.len() },
+            LiteralValue::Array { element_type: dt, items } => DataType::Array { element_type: dt.clone(), size: Some(items.len()) },
             LiteralValue::Numeric(n) => match n {
                 // Use a default 32-bit type for numbers. If the number is too big, use a 64-bit type.
                 Number::Int(i) => if *i > std::i32::MAX as i64 || *i < std::i32::MIN as i64 { DataType::I64 } else { DataType::I32 },
@@ -648,8 +648,8 @@ mod tests {
 
         // Array implicit casts
         assert_implicitly_castable!(
-            DataType::Array { element_type: Rc::new(DataType::I8), size: 3 },
-            DataType::Array { element_type: Rc::new(DataType::I16), size: 3 }
+            DataType::Array { element_type: Rc::new(DataType::I8), size: Some(3) },
+            DataType::Array { element_type: Rc::new(DataType::I16), size: Some(3) }
         );
 
         // Array of positive signed integers can be cast to array of unsigned integers.
@@ -658,23 +658,23 @@ mod tests {
             LiteralValue::Numeric(Number::Int(2)),
             LiteralValue::Numeric(Number::Int(3)),
         ]};
-        assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: 3 }, Some(&a)));
-        assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: 3 }, Some(&a)));
-        assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U32), size: 3 }, Some(&a)));
-        assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U64), size: 3 }, Some(&a)));
+            assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&a)));
+            assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: Some(3) }, Some(&a)));
+            assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U32), size: Some(3) }, Some(&a)));
+            assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U64), size: Some(3) }, Some(&a)));
 
-        // Array with negative integers can only be cast to array of signed integers, not unsigned integers.
-        let b = LiteralValue::Array { element_type: Rc::new(DataType::I32), items: vec![
-            LiteralValue::Numeric(Number::Int(1)),
-            LiteralValue::Numeric(Number::Int(-2)),
-            LiteralValue::Numeric(Number::Int(3)),
-        ]};
-        assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::I64), size: 3 }, Some(&b)));
-        assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: 3 }, Some(&b)));
-        assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: 3 }, Some(&b)));
-        assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U32), size: 3 }, Some(&b)));
-        assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: 3 }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U64), size: 3 }, Some(&b)));
-    }
+            // Array with negative integers can only be cast to array of signed integers, not unsigned integers.
+            let b = LiteralValue::Array { element_type: Rc::new(DataType::I32), items: vec![
+                LiteralValue::Numeric(Number::Int(1)),
+                LiteralValue::Numeric(Number::Int(-2)),
+                LiteralValue::Numeric(Number::Int(3)),
+            ]};
+            assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::I64), size: Some(3) }, Some(&b)));
+            assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&b)));
+            assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: Some(3) }, Some(&b)));
+            assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U32), size: Some(3) }, Some(&b)));
+            assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U64), size: Some(3) }, Some(&b)));
+        }
 
 }
 

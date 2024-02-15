@@ -170,7 +170,16 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
     let mut parsed_scope_block = ScopeBlock::new(block.scope_id);
 
+    let mut unreachable_code = false;
+
     for mut statement in block.statements {
+
+        if unreachable_code {
+            // If the code is unreachable, don't bother parsing it
+            let prev_statement = parsed_scope_block.statements.last().unwrap().item.token.as_ref();
+            error::warn(&statement.iter().next().unwrap().item.token, source, format!("This statement is unreachable and will be ignored.\nThe previous statement at line {}:{} passed control to another branch:\n{}\n", prev_statement.line_number(), prev_statement.column, &source[prev_statement.line_index()]).as_str());
+            break;
+        }
         
         #[allow(unused_unsafe)] // A bug in the linter causes the below unsafe block to be marked as unnecessary, but removing it causes a compiler error
         while let Some(op_node) = find_highest_priority(&statement)
@@ -275,6 +284,9 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 op_node.children = Some(ChildrenType::Unary(expr));
                             }
                         );
+
+                        // Statements after a return statement are unreachable
+                        unreachable_code = true;
                     },
     
                     // No operands
@@ -287,6 +299,9 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         if let Some(next_node) = extract_right!() {
                             error::invalid_argument(&op_node.item.value, &next_node.item, source, format!("Unexpected token {:?} after operator {}.", next_node.item.value, op).as_str());
                         }
+
+                        // Statements after a break or continue statement are unreachable
+                        unreachable_code = true;
                     },
     
                     // Other operators:
@@ -769,7 +784,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         _ => error::invalid_argument(&op_node.item.value, &next_node.item, source, "Invalid token after array type in array declaration.")
                     }
                     
-                    let array_type = DataType::Array { element_type, size: 0 }.into();
+                    let array_type = DataType::Array { element_type, size: None }.into();
                     // Transform this node into a data type node
                     op_node.item.value = TokenKind::DataType(array_type);
                 },  
