@@ -172,9 +172,8 @@ fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &
         let symbol = symbol.borrow();
 
         // Some symbols are used internally like the main() function and thus may not be used in the source code
-        match (name, symbol.data_type.as_ref()) {
-            (name, DataType::Function { .. }) if name == "main" => continue,
-            _ => ()
+        if let ("main", DataType::Function { .. }) = (name, symbol.data_type.as_ref()) {
+            continue;
         }
 
         let token = &symbol.token;
