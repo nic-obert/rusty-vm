@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::cli_parser::OptimizationFlags;
 use crate::operations::Ops;
 use crate::{binary_operators, match_or, match_unreachable, unary_operators};
 use crate::token_tree::{ChildrenType, ScopeBlock, TokenNode};
@@ -1021,7 +1022,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 
 
-pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimize: bool, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
+pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     let scope_id = block.scope_id;
     let mut functions = extract_functions(&mut block, false, scope_id, symbol_table, source);
@@ -1034,7 +1035,7 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimize: bool, symbol_tab
     
     warn_unused_symbols(&block, symbol_table, source);
 
-    if optimize {
+    if optimization_flags.evaluate_constants {
         evaluate_constants_functions(&mut functions, symbol_table, source);
         println!("\n\nAfter constant expression evaluation:\n{:?}", functions);
     }

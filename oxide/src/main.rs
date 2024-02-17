@@ -12,9 +12,8 @@ mod utils;
 mod icr;
 mod function_parser;
 
-use std::path::Path;
-
 use clap::Parser;
+use cli_parser::{OptimizationFlags, TopLevelCommand};
 
 use crate::cli_parser::CliParser;
 
@@ -23,7 +22,25 @@ fn main() {
     
     let args = CliParser::parse();
 
-    let input_file = Path::new(&args.input_file);
+    match args.top_level_command {
+        Some(TopLevelCommand::ListOptimizations) => {
+            OptimizationFlags::list_optimizations();
+            std::process::exit(0);
+        },
+        None => {
+            // No command, so we are compiling by default
+        }
+    }
+
+    let input_file = match &args.input_file {
+        Some(file) => file,
+        None => {
+            println!("No input file specified");
+            std::process::exit(1);
+        }
+    };
+
+    let optimization_flags = args.optimization();
 
     let source = match files::load_ir_code(input_file) {
         Ok(source) => source,
@@ -39,7 +56,7 @@ fn main() {
 
     let ast = ast::build_ast(tokens, &source, &mut symbol_table);
 
-    let functions = function_parser::parse_functions(ast, args.optimize, &mut symbol_table, &source);
+    let functions = function_parser::parse_functions(ast, optimization_flags, &mut symbol_table, &source);
 
     let _ir_code = icr::generate(functions, &mut symbol_table);
 
