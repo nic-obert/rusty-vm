@@ -74,8 +74,8 @@ pub struct IfBlock<'a> {
 }
 
 
-pub struct FunctionParam {
-    pub name: String,
+pub struct FunctionParam<'a> {
+    pub name: &'a str,
     pub data_type: Rc<DataType>,
     pub mutable: bool,
 }
@@ -91,7 +91,7 @@ pub enum ChildrenType<'a> {
     ParsedBlock (ScopeBlock<'a>),
     UnparsedBlock (UnparsedScopeBlock<'a>),
     /// A list of function parameters (pairs of name and type)
-    FunctionParams (Vec<FunctionParam>), 
+    FunctionParams (Vec<FunctionParam<'a>>), 
     Function { name: &'a str, signature: Rc<DataType>, body: ScopeBlock<'a> },
     TypeCast { target_type: Rc<DataType>, expr: Box<TokenNode<'a>> },
     Call { callable: Box<TokenNode<'a>>, args: Vec<TokenNode<'a>> },
@@ -503,7 +503,7 @@ impl std::fmt::Debug for TokenTree<'_> {
 }
 
 
-impl std::fmt::Debug for FunctionParam {
+impl std::fmt::Debug for FunctionParam<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}: {}", if self.mutable { "mut " } else { "" }, self.name, self.data_type)
     }

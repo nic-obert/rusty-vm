@@ -102,17 +102,17 @@ pub struct LabelID(usize);
 
 
 /// Stores information about a scope
-pub struct IRScope {
+pub struct IRScope<'a> {
 
     /// Maps symbol names to Tns
-    symbols: HashMap<String, Vec<Tn>>, // TODO: eventually, use a &str or Cow<str> to avoid copying
+    symbols: HashMap<&'a str, Vec<Tn>>, // TODO: eventually, use a &str or Cow<str> to avoid copying
     /// Keeps track of the return type and in which Tn to store it
     return_tn: Option<Tn>,
     parent: Option<IRScopeID>,
 
 }
 
-impl IRScope {
+impl IRScope<'_> {
 
     pub fn new(parent: Option<IRScopeID>) -> Self {
         Self {
@@ -129,11 +129,11 @@ impl IRScope {
 pub struct IRScopeID(usize);
 
 /// Stores information about function scopes in the IR
-pub struct ScopeTable {
-    pub scopes: Vec<IRScope>,
+pub struct ScopeTable<'a> {
+    pub scopes: Vec<IRScope<'a>>,
 }
 
-impl ScopeTable {
+impl<'a> ScopeTable<'a> {
 
     pub fn new() -> Self {
         Self {
@@ -161,8 +161,8 @@ impl ScopeTable {
                 .and_then(|parent| self.get_tn(name, discriminant, parent)))
     }
 
-    pub fn map_symbol(&mut self, name: &str, tn: Tn, ir_scope: IRScopeID) {
-        self.scopes[ir_scope.0].symbols.entry(name.to_string()).or_default().push(tn);
+    pub fn map_symbol(&mut self, name: &'a str, tn: Tn, ir_scope: IRScopeID) {
+        self.scopes[ir_scope.0].symbols.entry(name).or_default().push(tn);
     }
 
 }
@@ -266,7 +266,7 @@ impl Display for IROperator {
 pub struct FunctionIR<'a> {
     pub name: &'a str,
     pub code: Vec<IROperator>,
-    pub scope_table: ScopeTable,
+    pub scope_table: ScopeTable<'a>,
     /// The first scope of the function in the symbol table.
     // This is used to calculate how many bytes to pop upon returning from the function.
     pub st_first_scope: ScopeID,
@@ -321,7 +321,7 @@ struct LoopLabels {
 
 /// Recursively generate IR code for the given node and return where its value is stored, if it's an expression 
 #[allow(clippy::too_many_arguments)]
-fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR, ir_scope: IRScopeID, st_scope: ScopeID, symbol_table: &mut SymbolTable) -> Option<Tn> {
+fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, st_scope: ScopeID, symbol_table: &mut SymbolTable) -> Option<Tn> {
     
     match node.item.value {
 
@@ -1093,7 +1093,7 @@ fn generate_node(node: TokenNode, target: Option<Tn>, outer_loop: Option<&LoopLa
 /// Recursively generate the IR code for the given ScopeBlock.
 /// This function does not take care of pushing and popping the block's scope, so manual stack managenent is required.
 /// Manual scope management is required to produce more efficient code based on the context.
-fn generate_block(mut block: ScopeBlock, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR, ir_scope: IRScopeID, symbol_table: &mut SymbolTable) {
+fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, symbol_table: &mut SymbolTable) {
 
     for statement in block.statements.drain(0..block.statements.len() - 1) {
 

@@ -121,9 +121,9 @@ pub struct Scope<'a> {
     /// This is used to loop for symbols that are not defined in the current scope, but may be defined in outer scopes.
     pub parent: Option<ScopeID>,
     /// The symbols defined in the current scope.
-    pub symbols: HashMap<String, Vec<RefCell<Symbol<'a>>>>,
+    pub symbols: HashMap<&'a str, Vec<RefCell<Symbol<'a>>>>,
     /// The types defined in the current scope.
-    pub types: HashMap<String, TypeDef<'a>>,
+    pub types: HashMap<&'a str, TypeDef<'a>>,
     /// The child scopes of the current scope.
     /// This is used to calculate the total size of the scope when pushing it to the stack.
     pub children: Vec<ScopeID>,
@@ -164,9 +164,9 @@ impl<'a> Scope<'a> {
 
 
     /// Get the symbol name-value pairs that have not been read from.
-    pub fn get_unread_symbols(&self) -> Vec<(&String, &RefCell<Symbol<'a>>)> {
+    pub fn get_unread_symbols(&self) -> Vec<(&str, &RefCell<Symbol<'a>>)> {
         self.symbols.iter()
-            .flat_map(|(name, symbols)| symbols.iter().map(move |s| (name, s)))
+            .flat_map(|(name, symbols)| symbols.iter().map(move |s| (*name, s)))
             .filter(|(_, symbol)| !symbol.borrow().read_from)
             .collect()
     }
@@ -300,7 +300,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_function(&mut self, name: String, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+    pub fn declare_function(&mut self, name: &'a str, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
         
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
@@ -318,9 +318,7 @@ impl<'a> SymbolTable<'a> {
     }
 
     
-    pub fn declare_symbol(&mut self, name: String, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
-
-        // TODO: eventually, use an immutable borrow of the string in the source code to avoid useless copying
+    pub fn declare_symbol(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
@@ -403,7 +401,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn get_unread_symbols(&self, scope_id: ScopeID) -> Vec<(&String, &RefCell<Symbol<'a>>)>{
+    pub fn get_unread_symbols(&self, scope_id: ScopeID) -> Vec<(&str, &RefCell<Symbol<'a>>)>{
         self.scopes[scope_id.0].get_unread_symbols()
     }
 
@@ -429,7 +427,7 @@ impl<'a> SymbolTable<'a> {
 
     /// Try to define a new type in the scope.
     /// If a type with the same name is already defined in the same scope, return an error.
-    pub fn define_type(&mut self, name: String, scope_id: ScopeID, definition: Rc<DataType>, token: Rc<StringToken<'a>>) -> Result<(), TypeDef> {
+    pub fn define_type(&mut self, name: &'a str, scope_id: ScopeID, definition: Rc<DataType>, token: Rc<StringToken<'a>>) -> Result<(), TypeDef> {
 
         let type_def = TypeDef {
             definition,

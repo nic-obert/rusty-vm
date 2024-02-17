@@ -434,7 +434,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::invalid_argument(&op_node.item.value, &definition_node.item, source, "Expected a data type after assignment operator in type definition.")
                     );
 
-                    let res = symbol_table.define_type(type_name.to_string(), block.scope_id, data_type.clone(), op_node.item.token.clone());
+                    let res = symbol_table.define_type(type_name, block.scope_id, data_type.clone(), op_node.item.token.clone());
                     if let Some(shadow) = res.err() {
                         error::already_defined(&op_node.item.token, &shadow.token, source, format!("{type_name} is defined multiple times in the same scope.").as_str())
                     }
@@ -484,7 +484,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     }
 
                     let (discriminant, res) = symbol_table.declare_symbol(
-                        symbol_name.to_string(),
+                        symbol_name,
                         Symbol::new_uninitialized(
                             data_type.clone(),
                             op_node.item.token.clone(),
@@ -558,7 +558,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
                     // Declare the new symbol in the local scope
                     let (discriminant, res) = symbol_table.declare_symbol(
-                        symbol_name.to_string(),
+                        symbol_name,
                         Symbol::new_uninitialized(
                             data_type, 
                             op_node.item.token.clone(),
@@ -680,7 +680,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     }
 
                     let old_def = symbol_table.declare_function(
-                        function_name.to_string(),
+                        function_name,
                         signature.clone(), 
                         op_node.item.token.clone(),
                         block.scope_id
@@ -723,8 +723,6 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                             },
 
                             TokenKind::Value(Value::Symbol { name, .. }) => {
-
-                                let name = name.to_string();
 
                                 // Extract the colon
                                 let colon_node = extract_right!().unwrap_or_else(
