@@ -215,7 +215,6 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     Ops::Mul |
                     Ops::Div |
                     Ops::Mod |
-                    Ops::Assign |
                     Ops::Equal |
                     Ops::NotEqual |
                     Ops::Greater |
@@ -228,6 +227,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     Ops::BitShiftRight |
                     Ops::BitwiseOr |
                     Ops::BitwiseAnd |
+                    Ops::Assign |
                     Ops::BitwiseXor 
                      => {
                         let left = extract_left!().unwrap_or_else(
@@ -237,10 +237,10 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         let right = extract_right!().unwrap_or_else(
                             || error::expected_argument(&op_node.item, source, format!("Missing right argument for operator {}.", op).as_str())
                         );
-                    
+                        
                         op_node.children = Some(ChildrenType::Binary(left, right));
                     },
-    
+
                     // Unary operators with argument to the right:
                     Ops::Deref { .. } |
                     Ops::LogicalNot |

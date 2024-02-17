@@ -210,7 +210,7 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
                 TokenKind::Value(Value::Symbol { name, scope_discriminant })
                  => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
                     
-                _ => unreachable!()
+                _ => false
             }
         };
     }

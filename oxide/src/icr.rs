@@ -179,6 +179,8 @@ pub enum IROperator {
     
     Assign { target: Tn, source: IRValue },
     Deref { target: Tn, ref_: IRValue },
+    /// Copy the value of the source into the address pointed to by the target
+    DerefAssign { target: Tn, source: IRValue },
     Ref { target: Tn, ref_: Tn },
     
     Greater { target: Tn, left: IRValue, right: IRValue },
@@ -199,11 +201,11 @@ pub enum IROperator {
     BitOr { target: Tn, left: IRValue, right: IRValue },
     BitXor { target: Tn, left: IRValue, right: IRValue },
 
-    /// Copies the raw bits from `source` into `target`.
-    /// Assumes that `target` is either the same size or larget than `source`.
+    /// Copy the raw bits from `source` into `target`.
+    /// Assume that `target` is either the same size or larget than `source`.
     Copy { target: Tn, source: IRValue },
-    /// Copies the raw bits from `source` into the address pointed to by `target`.
-    /// Assumes that `target` is either the same size or larget than `source`.
+    /// Copy the raw bits from `source` into the address pointed to by `target`.
+    /// Assume that `target` is either the same size or larget than `source`.
     DerefCopy { target: Tn, source: IRValue },
     
     Jump { target: Label },
@@ -230,7 +232,8 @@ impl Display for IROperator {
             IROperator::Div { target, left, right } => write!(f, "{} = {} / {}", target, left, right),
             IROperator::Mod { target, left, right } => write!(f, "{} = {} % {}", target, left, right),
             IROperator::Assign { target, source } => write!(f, "{} = {}", target, source),
-            IROperator::Deref { target, ref_ } => write!(f, "{} = *{}", target, ref_),
+            IROperator::DerefAssign { target, source } => write!(f, "[{}] = {}", target, source),
+            IROperator::Deref { target, ref_ } => write!(f, "{} = [{}]", target, ref_),
             IROperator::Ref { target, ref_ } => write!(f, "{} = &{}", target, ref_),
             IROperator::Greater { target, left, right } => write!(f, "{} = {} > {}", target, left, right),
             IROperator::Less { target, left, right } => write!(f, "{} = {} < {}", target, left, right),
@@ -295,6 +298,7 @@ impl FunctionIR<'_> {
 }
 
 impl Display for FunctionIR<'_> {
+
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "fn {} {{", self.name)?;
         for op in &self.code {
@@ -409,10 +413,29 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             Ops::Assign => {
                 let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
                 
-                let target = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an assignable");
-                generate_node(*r_node, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
+                let deref_assign = matches!(l_node.item.value, TokenKind::Op(Ops::Deref { mutable: _ }));
 
-                // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
+                let target = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an assignable");
+
+
+                if deref_assign {
+                    // Assigning to a dereference, this is a different operation than regular assignment
+
+                    let source = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+
+                    ir_function.push(IROperator::DerefAssign {
+                        target,
+                        source: IRValue::Tn(source),
+                    });
+
+                } else {
+                    // Regular assignment, no further processing is needed
+
+                    generate_node(*r_node, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
+    
+                    // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
+    
+                }
 
                 None
             },
@@ -772,7 +795,6 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     IROperator::Jump { target: loop_labels.after }
                 );
                 None
-            
             },
             Ops::Continue => {
                 let loop_labels = outer_loop.expect("Continue statement outside of a loop");

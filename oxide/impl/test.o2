@@ -1,15 +1,12 @@
 
 fn main() {
 
+    let mut i = 0;
 
+    let ref = &mut i;
 
+    let deref = *ref;
 
-
-
-
-    return;
-
-    let x = 7;
-    let arr: [u32] = [3,2,3];
+    *ref = 5;
 
 }

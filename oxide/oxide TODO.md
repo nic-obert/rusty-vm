@@ -6,10 +6,11 @@ Project Description
 
 ### Todo
 
+- [ ] eventually, implement compiler directives  
+- [ ] flow analysis  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
 - [ ] add warnings for casting references to different-sized types  
-- [ ] differentiate between dereference used to assign and dereference used to get a value  
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
@@ -21,12 +22,13 @@ Project Description
 
 ### In Progress
 
-- [ ] generate simplified intermediate code on which flow analysis is easier  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] differentiate between dereference used to assign and dereference used to get a value  
+- [x] generate simplified intermediate code on which flow analysis is easier  
 - [x] show line numbers in error messages and warnings  
 - [x] add warnings for unreachable code after return statements  
 - [x] disallow capturing outer scope symbols in functions declared inside other functions --> tests now need to be done to ensure it's working correctly  

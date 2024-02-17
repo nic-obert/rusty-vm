@@ -113,7 +113,8 @@ impl Ops {
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
-            Ops::Deref { .. } => matches!(data_type, pointer_pattern!()),
+            Ops::Deref { .. } 
+             => matches!(data_type, pointer_pattern!()),
 
             Ops::Equal |
             Ops::NotEqual |
@@ -170,7 +171,8 @@ impl Ops {
                 _ => unreachable!("Invalid position for assignment operator")
             },
 
-            Ops::Deref { .. } => &["pointer"],
+            Ops::Deref { .. } 
+             => &["pointer"],
 
             Ops::Return |
             Ops::Equal |
