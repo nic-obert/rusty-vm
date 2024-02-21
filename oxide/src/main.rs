@@ -11,6 +11,8 @@ mod token_tree;
 mod utils;
 mod icr;
 mod function_parser;
+mod flow_analyzer;
+mod open_linked_list;
 
 use clap::Parser;
 use cli_parser::{OptimizationFlags, TopLevelCommand};
@@ -56,9 +58,9 @@ fn main() {
 
     let ast = ast::build_ast(tokens, &source, &mut symbol_table);
 
-    let functions = function_parser::parse_functions(ast, optimization_flags, &mut symbol_table, &source);
+    let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source);
 
-    let _ir_code = icr::generate(functions, &mut symbol_table);
+    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags);
 
 }
 

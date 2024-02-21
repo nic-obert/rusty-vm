@@ -2,7 +2,9 @@ use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::collections::HashMap;
 
+use crate::cli_parser::OptimizationFlags;
 use crate::match_unreachable;
+use crate::open_linked_list::OpenLinkedList;
 use crate::symbol_table::{FunctionUUID, ScopeDiscriminant, ScopeID, SymbolTable};
 use crate::function_parser::Function;
 use crate::data_types::{DataType, LiteralValue, Number};
@@ -94,7 +96,7 @@ impl Display for IRValue {
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TnID(usize);
 
 #[derive(Clone, Copy)]
@@ -137,9 +139,10 @@ impl<'a> ScopeTable<'a> {
 
     pub fn new() -> Self {
         Self {
-            scopes: vec![IRScope::new(None)]
+            scopes: vec![IRScope::new(None)],
         }
     }
+
 
     /// Recursively get the function's return Tn, if it exists in a reachable scope
     pub fn return_tn(&self, ir_scope: IRScopeID) -> Option<Tn> {
@@ -268,7 +271,7 @@ impl Display for IROperator {
 
 pub struct FunctionIR<'a> {
     pub name: &'a str,
-    pub code: Vec<IROperator>,
+    pub code: OpenLinkedList<IROperator>,
     pub scope_table: ScopeTable<'a>,
     /// The first scope of the function in the symbol table.
     // This is used to calculate how many bytes to pop upon returning from the function.
@@ -281,7 +284,7 @@ impl FunctionIR<'_> {
     pub fn new<'a>(name: &'a str, first_scope: ScopeID, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
         FunctionIR {
             name,
-            code: Vec::new(),
+            code: OpenLinkedList::new(),
             scope_table: ScopeTable::new(),
             st_first_scope: first_scope,
             function_labels: FunctionLabels {
@@ -292,7 +295,7 @@ impl FunctionIR<'_> {
     }
 
     pub fn push(&mut self, node: IROperator) {
-        self.code.push(node);
+        self.code.push_back(node);
     }
 
 }
@@ -301,7 +304,7 @@ impl Display for FunctionIR<'_> {
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "fn {} {{", self.name)?;
-        for op in &self.code {
+        for op in self.code.iter() {
             writeln!(f, "    {}", op)?;
         }
         writeln!(f, "}}")
@@ -767,14 +770,14 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                 let index_tn = generate_node(*index_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an index");
 
                 let offset_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Usize.into() };
-                ir_function.code.push(IROperator::Mul {
+                ir_function.code.push_back(IROperator::Mul {
                     target: offset_tn.clone(),
                     left: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64))),
                     right: IRValue::Tn(index_tn),
                 });
 
                 let element_addr_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
-                ir_function.code.push(IROperator::Add {
+                ir_function.code.push_back(IROperator::Add {
                     target: element_addr_tn.clone(),
                     left: IRValue::Tn(array_addr_tn),
                     right: IRValue::Tn(offset_tn),
@@ -782,7 +785,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: element_type });
 
-                ir_function.code.push(IROperator::Deref { 
+                ir_function.code.push_back(IROperator::Deref { 
                     target: target.clone(),
                     ref_: IRValue::Tn(element_addr_tn),
                 });
@@ -823,7 +826,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                     let symbol_tn =  ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope).expect("Symbol not found in scope table, but it's being read");
                        
-                    ir_function.code.push(IROperator::Assign { 
+                    ir_function.code.push_back(IROperator::Assign { 
                         target: target.clone(),
                         source: IRValue::Tn(symbol_tn)
                     });
@@ -865,7 +868,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                     target.data_type = target_type;
 
-                    ir_function.code.push(IROperator::Copy {
+                    ir_function.code.push_back(IROperator::Copy {
                         target: target.clone(),
                         source: IRValue::Tn(expr_tn),
                     });
@@ -973,7 +976,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             
             let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a condition");
        
-            ir_function.code.push(
+            ir_function.code.push_back(
                 IROperator::JumpIf { condition: condition_tn, target: loop_labels.start }
             );     
        
@@ -1046,7 +1049,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
             let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a condition");
 
-            ir_function.code.push(
+            ir_function.code.push_back(
                 IROperator::JumpIf { condition: condition_tn, target: loop_labels.start }
             );
 
@@ -1070,7 +1073,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
 
             // Get the address of the array (and store it into the `element_ptr` Tn)
-            ir_function.code.push(IROperator::Ref { 
+            ir_function.code.push_back(IROperator::Ref { 
                 target: arr_element_ptr.clone(), 
                 ref_: target.clone() 
             });
@@ -1081,13 +1084,13 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                 // Generate the code for the element and store the result in the array
                 let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
-                ir_function.code.push(IROperator::DerefCopy {
+                ir_function.code.push_back(IROperator::DerefCopy {
                     target: arr_element_ptr.clone(),
                     source: IRValue::Tn(element_tn),
                 });
 
                 // Increment the pointer to the next element
-                ir_function.code.push(IROperator::Add { 
+                ir_function.code.push_back(IROperator::Add { 
                     target: arr_element_ptr.clone(), 
                     left: IRValue::Tn(arr_element_ptr.clone()), 
                     right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)))
@@ -1116,6 +1119,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 /// This function does not take care of pushing and popping the block's scope, so manual stack managenent is required.
 /// Manual scope management is required to produce more efficient code based on the context.
 fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, symbol_table: &mut SymbolTable) {
+
+    // Don't generate IR code for empty blocks
+    // An empty block may exist due to internal optimizations (e.g. useless code removal)
+    if block.statements.is_empty() {
+        return;
+    }
 
     for statement in block.statements.drain(0..block.statements.len() - 1) {
 
@@ -1186,8 +1195,132 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
 }
 
 
+/// Reverse iteration over the IR code to remove operations whose result is never used
+/// Starting from the back, when a Tn is assigned to but never read, the assignment is removed.
+fn remove_unread_operations(ir_function: &mut FunctionIR) {
+
+    let mut node_ptr = unsafe { ir_function.code.tail() };
+
+    // Allocate at least as much hashmap slots as the maximum number of Tns that will ever be inserted.
+    // This isn't a bad estimate since almost every operation assigns to a Tn.
+    // Also, the memory will be freed upon returning from this function.
+    let mut read_tns: HashMap<TnID, ()> = HashMap::with_capacity(ir_function.code.length());
+
+    while let Some(node) = unsafe { node_ptr.as_ref() } {
+
+        match &node.data {
+            IROperator::Add { target, left, right } |
+            IROperator::Sub { target, left, right } |
+            IROperator::Mul { target, left, right } |
+            IROperator::Div { target, left, right } |
+            IROperator::Mod { target, left, right } |
+            IROperator::GreaterEqual { target, left, right } |
+            IROperator::LessEqual { target, left, right } |
+            IROperator::Equal { target, left, right } |
+            IROperator::NotEqual { target, left, right } |
+            IROperator::LogicalAnd { target, left, right } |
+            IROperator::BitAnd { target, left, right } |
+            IROperator::BitOr { target, left, right } |
+            IROperator::BitXor { target, left, right } |
+            IROperator::Greater { target, left, right } |
+            IROperator::Less { target, left, right } |
+            IROperator::LogicalOr { target, left, right } |
+            IROperator::BitShiftLeft { target, left, right } |
+            IROperator::BitShiftRight { target, left, right } 
+            => {
+                // If the target is never read, the operation result is useless
+                if !read_tns.contains_key(&target.id) {
+                    // The target is never read, so remove the operation
+                    // Save the previous node in a temporary variable because removing the node from the list invalidates it.
+                    let prev = unsafe { node.prev() };
+                    unsafe { ir_function.code.remove(node_ptr) };
+                    node_ptr = prev;
+                    continue;
+                }
+
+                // The target is read, so add the Tn operands to the list of read Tns
+                if let IRValue::Tn(tn) = left {
+                    read_tns.insert(tn.id, ());
+                }
+
+                if let IRValue::Tn(tn) = right {
+                    read_tns.insert(tn.id, ());
+                }
+            },
+            
+            IROperator::LogicalNot { target, operand } |
+            IROperator::Assign { target, source: operand } |
+            IROperator::Deref { target, ref_: operand } |
+            IROperator::DerefAssign { target, source: operand } |
+            IROperator::BitNot { target, operand } |
+            IROperator::Copy { target, source: operand } |
+            IROperator::DerefCopy { target, source: operand }
+             => {
+                // If the target is never read, the operation result is useless
+                if !read_tns.contains_key(&target.id) {
+                    // The target is never read, so remove the operation
+                    // Save the previous node in a temporary variable because removing the node from the list invalidates it.
+                    let prev = unsafe { node.prev() };
+                    unsafe { ir_function.code.remove(node_ptr) };
+                    node_ptr = prev;
+                    continue;
+                }
+
+                // The target is read, so add the Tn operands to the list of read Tns
+                if let IRValue::Tn(tn) = operand {
+                    read_tns.insert(tn.id, ());
+                }
+            },
+
+            IROperator::Ref { target, ref_ } => {
+                // If the target is never read, the operation result is useless
+                if !read_tns.contains_key(&target.id) {
+                    // The target is never read, so remove the operation
+                    // Save the previous node in a temporary variable because removing the node from the list invalidates it.
+                    let prev = unsafe { node.prev() };
+                    unsafe { ir_function.code.remove(node_ptr) };
+                    node_ptr = prev;
+                    continue;
+                }
+
+                read_tns.insert(ref_.id, ());
+            },
+
+            IROperator::JumpIf { condition, target: _ } |
+            IROperator::JumpIfNot { condition, target: _ } => {
+                read_tns.insert(condition.id, ());
+            },
+
+            IROperator::Call { return_target: _, return_label: _, callable: _, args } => {
+                // The function will be called anyway. 
+                // TODO: if there are no side effects to the functions, the call can be removed
+
+                for arg in args {
+                    if let IRValue::Tn(tn) = arg {
+                        read_tns.insert(tn.id, ());
+                    }
+                }
+            },
+
+            IROperator::Jump { target: _ } |
+            IROperator::Label { label: _ } |
+            IROperator::Return |
+            IROperator::PushScope { bytes: _ } |
+            IROperator::PopScope { bytes: _ } |
+            IROperator::Nop
+             => {}
+        }
+
+        node_ptr = unsafe { node.prev() };
+    }
+    
+    
+
+}
+
+
 /// Generate ir code from the given functions
-pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable) -> Vec<FunctionIR<'a>> {
+pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable, optimization_flags: &OptimizationFlags) -> Vec<FunctionIR<'a>> {
 
     let mut ir_functions = Vec::new();
     let mut irid_gen = IRIDGenerator::new();
@@ -1196,8 +1329,14 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
 
     for function in functions {
 
+        let mut ir_function = generate_function(function, &mut irid_gen, symbol_table);
+
+        if optimization_flags.remove_useless_code {
+            remove_unread_operations(&mut ir_function);
+        }
+
         ir_functions.push(
-            generate_function(function, &mut irid_gen, symbol_table)
+            ir_function
         );
 
         println!("\n{}\n", ir_functions.last().unwrap());

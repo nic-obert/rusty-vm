@@ -6,8 +6,10 @@ Project Description
 
 ### Todo
 
-- [ ] eventually, implement compiler directives  
 - [ ] flow analysis  
+- [ ] take into account side effects of expressions when removing code in optimizations  
+- [ ] parallelize function IR code optimization since functions are independent from each other  
+- [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
 - [ ] add warnings for casting references to different-sized types  
@@ -27,6 +29,8 @@ Project Description
 
 ### Done ✓
 
+- [x] remove effectless operations in ir code as an optimization  
+- [x] declare optimizations/string representation/cli argument using a single macro  
 - [x] differentiate between dereference used to assign and dereference used to get a value  
 - [x] generate simplified intermediate code on which flow analysis is easier  
 - [x] show line numbers in error messages and warnings  

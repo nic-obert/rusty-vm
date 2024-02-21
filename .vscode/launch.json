@@ -66,16 +66,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'rust_vm_lib'",
+            "name": "Debug unit tests in library 'rusty_vm_lib'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=rust_vm_lib"
+                    "--package=rusty_vm_lib"
                 ],
                 "filter": {
-                    "name": "rust_vm_lib",
+                    "name": "rusty_vm_lib",
                     "kind": "lib"
                 }
             },

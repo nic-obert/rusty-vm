@@ -1,12 +1,6 @@
 
 fn main() {
 
-    let mut i = 0;
-
-    let ref = &mut i;
-
-    let deref = *ref;
-
-    *ref = 5;
+    let a = 1+3;
 
 }

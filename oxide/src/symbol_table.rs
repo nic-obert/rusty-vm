@@ -48,7 +48,6 @@ impl Symbol<'_> {
     pub fn initialize_immutable(&mut self, value: LiteralValue) {
 
         assert!(matches!(self.value, SymbolValue::Immutable(None)));
-        assert!(!self.initialized);
         
         self.value = SymbolValue::Immutable(Some(value));
         self.initialized = true;

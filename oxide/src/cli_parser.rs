@@ -28,11 +28,11 @@ pub struct CliParser {
 
     /// Turn on these optimizations.
     /// Use -Oall to turn on all optimizations
-    #[arg(short = 'O', requires("input_file"), group = "optimizations", conflicts_with("check"))]
+    #[arg(short = 'O', requires("input_file"), conflicts_with("check"))]
     optimizations_on: Vec<String>,
     /// Turn off these optimizations.
     /// Use -Xall to turn off all optimizations
-    #[arg(short = 'X', requires("input_file"), group = "optimizations", conflicts_with("check"))]
+    #[arg(short = 'X', requires("input_file"), conflicts_with("check"))]
     optimizations_off: Vec<String>,
     
 }
@@ -48,41 +48,38 @@ pub enum TopLevelCommand {
 
 
 impl CliParser {
+
+    fn parse_optimizations(string_flags: &[String], on: bool, flags: &mut OptimizationFlags) {
+
+        for opt in string_flags {
+            match opt.as_str() {
+                "all" => {
+                    if string_flags.len() > 1 {
+                        if on {
+                            println!("Turning on single optimizations is redundant because -Oall turns on all optimizations.");
+                            *flags = OptimizationFlags::all();
+                        } else {
+                            println!("Turning off single optimizations is redundant because -Xall turns off all optimizations.");
+                            *flags = OptimizationFlags::none();
+                        }
+                    }
+                },
+                "evaluate_constants" => flags.evaluate_constants = on,
+                "remove_useless_code" => flags.remove_useless_code = on,
+                _ => {
+                    println!("Unknown optimization flag: {}", opt);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+    }
     
     pub fn optimization(&self) -> OptimizationFlags {
         let mut flags = OptimizationFlags::default();
 
-        for opt in &self.optimizations_on {
-            match opt.as_str() {
-                "all" => {
-                    if self.optimizations_on.len() > 1 {
-                        println!("Turning on single optimizations is redundant because -Oall turns on all optimizations.")
-                    }
-                    flags = OptimizationFlags::all()
-                },
-                "evaluate_constants" => flags.evaluate_constants = true,
-                _ => {
-                    println!("Unknown optimization flag: {}", opt);
-                    std::process::exit(1);
-                }
-            }
-        }
-
-        for opt in &self.optimizations_off {
-            match opt.as_str() {
-                "all" => {
-                    if self.optimizations_off.len() > 1 {
-                        println!("Turning off single optimizations is redundant because -Xall turns off all optimizations.")
-                    }
-                    flags = OptimizationFlags::none()
-                },
-                "evaluate_constants" => flags.evaluate_constants = false,
-                _ => {
-                    println!("Unknown optimization flag: {}", opt);
-                    std::process::exit(1);
-                }
-            }
-        }
+        Self::parse_optimizations(&self.optimizations_on, true, &mut flags);
+        Self::parse_optimizations(&self.optimizations_off, false, &mut flags);
 
         flags
     }
@@ -90,39 +87,59 @@ impl CliParser {
 }
 
 
-#[derive(Clone)]
-pub struct OptimizationFlags {
-    pub evaluate_constants: bool,
+macro_rules! declare_optimizations {
+    (
+        $(
+            $opt_name:ident = $default:literal
+        ),*
+    ) => {
+
+        #[derive(Clone)]
+        pub struct OptimizationFlags {
+            $(pub $opt_name: bool),*
+        }
+
+        impl OptimizationFlags {
+
+            pub fn all() -> Self {
+                OptimizationFlags {
+                    $($opt_name: true),*
+                }
+            }
+
+            pub fn none() -> Self {
+                OptimizationFlags {
+                    $($opt_name: false),*
+                }
+            }
+
+            pub fn list_optimizations() {
+                printdoc!("
+                    Available optimizations:
+                    {}
+                    ",
+                    concat!(
+                        $("- ", stringify!($opt_name), " = ", $default, "\n"),*
+                    )
+                );
+            }
+
+        }
+
+        impl Default for OptimizationFlags {
+            fn default() -> Self {
+                OptimizationFlags {
+                    $($opt_name: $default),*
+                }
+            }
+        }
+
+    };
 }
 
-impl OptimizationFlags {
 
-    pub fn all() -> Self {
-        OptimizationFlags {
-            evaluate_constants: true,
-        }
-    }
-
-    pub fn none() -> Self {
-        OptimizationFlags {
-            evaluate_constants: false,
-        }
-    }
-
-    pub fn list_optimizations() {
-        printdoc! {"
-            Available optimizations    Default
-            - evaluate_constants       true
-        "}
-    }
-
-}
-
-impl Default for OptimizationFlags {
-    fn default() -> Self {
-        OptimizationFlags {
-            evaluate_constants: true,
-        }
-    }
-}
+declare_optimizations!(
+    evaluate_constants = true,
+    remove_useless_code = false
+);
 

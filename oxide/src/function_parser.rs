@@ -1020,8 +1020,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 }
 
 
-
-pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
+pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     let scope_id = block.scope_id;
     let mut functions = extract_functions(&mut block, false, scope_id, symbol_table, source);
