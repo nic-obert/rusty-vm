@@ -146,7 +146,7 @@ impl TokenKind<'_> {
     }
 
 
-    pub fn type_priority(&self) -> i32 {
+    pub fn type_priority(&self) -> TokenPriority {
         (match self {
             TokenKind::Op(op) => match op {
 
@@ -243,10 +243,13 @@ impl TokenKind<'_> {
 
             TokenKind::Value(Value::Symbol { .. }) => Priority::PreProcess,
 
-        } as i32)
+        } as TokenPriority)
     }
 
 }
+
+
+pub type TokenPriority = i16;
 
 
 #[derive(Debug)]
@@ -254,14 +257,14 @@ pub struct Token<'a> {
 
     pub value: TokenKind<'a>,
     pub token: Rc<StringToken<'a>>,
-    pub priority: i32,
+    pub priority: TokenPriority,
 
 }
 
 
 impl Token<'_> {
 
-    pub fn new<'a>(value: TokenKind<'a>, source_token: StringToken<'a>, base_priority: i32) -> Token<'a> {
+    pub fn new<'a>(value: TokenKind<'a>, source_token: StringToken<'a>, base_priority: TokenPriority) -> Token<'a> {
 
         let value_priority = value.type_priority();
 
@@ -270,7 +273,7 @@ impl Token<'_> {
             token: Rc::new(source_token),
             // The priority of the token is the sum of the base priority and the value priority.
             // If the value priority is zero, the token should not be evaluated.
-            priority: if value_priority == Priority::Zero as i32 { 0 } else { base_priority + value_priority },
+            priority: if value_priority == Priority::Zero as TokenPriority { 0 } else { base_priority + value_priority },
         }
     }
 

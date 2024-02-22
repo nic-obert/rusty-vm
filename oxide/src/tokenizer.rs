@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::data_types::{DataType, LiteralValue, Number};
 use crate::symbol_table::{ScopeDiscriminant, SymbolTable};
-use crate::token::{TokenKind, Token, Priority, StringToken};
+use crate::token::{Priority, StringToken, Token, TokenKind, TokenPriority};
 use crate::error;
 use crate::operations::Ops;
 use crate::token::Value;
@@ -115,8 +115,8 @@ struct TokenizerStatus {
     pub parenthesis_depth: usize,
     pub square_depth: usize,
     pub curly_depth: usize,
-    pub base_priority: i32,
-    priority_delta: i32,
+    pub base_priority: TokenPriority,
+    priority_delta: TokenPriority,
 
 }
 
@@ -139,12 +139,12 @@ impl TokenizerStatus {
 
     pub fn enter_parenthesis(&mut self) {
         self.parenthesis_depth += 1;
-        self.priority_delta += Priority::Delimiter as i32;
+        self.priority_delta += Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_parenthesis(&mut self) -> Result<(), ()> {
         self.parenthesis_depth -= 1;
-        self.priority_delta -= Priority::Delimiter as i32;
+        self.priority_delta -= Priority::Delimiter as TokenPriority;
 
         if self.parenthesis_depth == 0 {
             Err(())
@@ -155,12 +155,12 @@ impl TokenizerStatus {
 
     pub fn enter_square(&mut self) {
         self.square_depth += 1;
-        self.priority_delta += Priority::Delimiter as i32;
+        self.priority_delta += Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_square(&mut self) -> Result<(), ()> {
         self.square_depth -= 1;
-        self.priority_delta -= Priority::Delimiter as i32;
+        self.priority_delta -= Priority::Delimiter as TokenPriority;
 
         if self.square_depth == 0 {
             Err(())
@@ -171,12 +171,12 @@ impl TokenizerStatus {
 
     pub fn enter_curly(&mut self) {
         self.curly_depth += 1;
-        self.priority_delta = Priority::Delimiter as i32;
+        self.priority_delta = Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_curly(&mut self) -> Result<(), ()> {
         self.curly_depth -= 1;
-        self.priority_delta = - (Priority::Delimiter as i32);
+        self.priority_delta = - (Priority::Delimiter as TokenPriority);
 
         if self.curly_depth == 0 {
             Err(())
