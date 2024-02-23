@@ -1313,8 +1313,6 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
 
         node_ptr = unsafe { node.prev() };
     }
-    
-    
 
 }
 

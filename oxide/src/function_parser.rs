@@ -19,10 +19,22 @@ pub struct Function<'a> {
     pub code: ScopeBlock<'a>,
     pub signature: Rc<DataType>,
     pub parent_scope: ScopeID,
+    /// Whether the function has non-local side effects (e.g. modifying a global variable, I/O, etc.)
+    pub has_side_effects: bool
 
 }
 
 impl Function<'_> {
+
+    pub fn new<'a>(name: &'a str, body: ScopeBlock<'a>, signature: Rc<DataType>, parent_scope: ScopeID) -> Function<'a> {
+        Function {
+            name,
+            code: body,
+            signature,
+            parent_scope,
+            has_side_effects: false
+        }
+    }
 
     pub fn return_type(&self) -> Rc<DataType> {
         match_unreachable!(DataType::Function { return_type, .. } = self.signature.as_ref(), return_type).clone()
@@ -65,12 +77,12 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                 let inner_functions = extract_functions(&mut body, true, block.scope_id, symbol_table, source);
                 functions.extend(inner_functions);
 
-                functions.push(Function {
+                functions.push(Function::new(
                     name,
-                    code: body,
+                    body,
                     signature,
-                    parent_scope: block.scope_id
-                });
+                    block.scope_id
+                ));
 
                 DO_EXTRACT
             },
@@ -415,6 +427,12 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
 
             evaluate_constants(condition, source, scope_id, symbol_table);
 
+            // Cannot remove the while loop if the condition has side effects
+            if condition.has_side_effects {
+                evaluate_constants_block(body, source, symbol_table);
+                return SHOULD_NOT_BE_REMOVED;
+            }
+
             if let Some(condition_value) = condition.item.value.literal_value() {
                 let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
                 if *bool_value {
@@ -429,12 +447,13 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
                     node.children = Some(ChildrenType::ParsedBlock(
                         match_unreachable!(Some(ChildrenType::While { body, .. }) = node.children.take(), body)
                     ));
-                } else {
-                    // Condition is always false, so the body will never be executed
-                    // Remove the while loop entirely
-                    // Don't worry about side effects in the condition, since expressions with side effects are not evaluated at compile-time
-                    return SHOULD_BE_REMOVED;
-                }
+
+                    return SHOULD_NOT_BE_REMOVED;
+                } 
+
+                // Condition is always false, so the body will never be executed
+                // Remove the while loop entirely
+                return SHOULD_BE_REMOVED;
             }
         },
 
@@ -503,6 +522,12 @@ fn evaluate_constants(node: &mut TokenNode, source: &SourceCode, scope_id: Scope
 
             if inner_block.statements.is_empty() {
                 // Empty scopes can be removed
+                assert!(matches!(inner_block.return_type().as_ref(), DataType::Void));
+                return SHOULD_BE_REMOVED;
+            }
+
+            // If the scope doesn't return anything and has no side effects, it can be removed
+            if matches!(inner_block.return_type().as_ref(), DataType::Void) && !inner_block.has_side_effects {
                 return SHOULD_BE_REMOVED;
             }
         },
@@ -1065,7 +1090,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 
 
 /// Recursively calculate the side effects of the nodes and return whether the operation has global side effects (outside of the function)
-fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> bool {
+fn calculate_side_effects(node: &mut TokenNode, scope_id: ScopeID, symbol_table: &SymbolTable) -> bool {
     /*
         A statement has side effects if:
         - performs I/O operations
@@ -1076,10 +1101,10 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
 
         A function has side effects if:
         - performs I/O operations
-        - performs an assignment to a global variable
+        - performs an assignment to a static variable
         - has at least one mutable reference in its parameters (conservative approach, may be improved later)
         - calls a function with global side effects
-        - takes a mutable reference to a global variable (conservative)
+        - takes a mutable reference to a static variable (conservative)
 
 
         In a statement, side effects propagate from the children to the parent.
@@ -1097,7 +1122,7 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
     let mut function_side_effects: bool;
 
     const HAS_LOCAL_SIDE_EFFECTS: bool = true;
-    const NO_SIDE_EFFECTS: bool = false;
+    const NO_LOCAL_SIDE_EFFECTS: bool = false;
 
     node.has_side_effects = match &node.item.value {
 
@@ -1124,8 +1149,8 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
              => {
                 let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut node.children, (l_node, r_node));
 
-                function_side_effects = calculate_side_effects(l_node, symbol_table);
-                function_side_effects |= calculate_side_effects(r_node, symbol_table);
+                function_side_effects = calculate_side_effects(l_node, scope_id, symbol_table);
+                function_side_effects |= calculate_side_effects(r_node, scope_id, symbol_table);
 
                 // Propagate the side effects of the children to the parent
                 l_node.has_side_effects | r_node.has_side_effects
@@ -1136,7 +1161,7 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
              => {
                 let operand = match_unreachable!(Some(ChildrenType::Unary (operand)) = &mut node.children, operand);
 
-                function_side_effects = calculate_side_effects(operand, symbol_table);
+                function_side_effects = calculate_side_effects(operand, scope_id, symbol_table);
 
                 // Propagate the side effects of the children to the parent
                 operand.has_side_effects
@@ -1145,24 +1170,74 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
             Ops::Assign => {
                 let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut node.children, (l_node, r_node));
 
-                function_side_effects = calculate_side_effects(l_node, symbol_table);
-                function_side_effects |= calculate_side_effects(r_node, symbol_table);
+                function_side_effects = calculate_side_effects(l_node, scope_id, symbol_table);
+                function_side_effects |= calculate_side_effects(r_node, scope_id, symbol_table);
 
-                // TODO: Check if the left operand is a global variable
+                // Check if the left operand is a static variable or a dereference of a static variable
+
+                let l_value_node = if let TokenKind::Op(Ops::Deref { mutable: _ }) = &l_node.item.value {
+                    match_unreachable!(Some(ChildrenType::Unary (operand)) = &mut l_node.children, operand)
+                } else {
+                    l_node
+                };
+
+                if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = l_value_node.item.value {
+                    let symbol = symbol_table.get_symbol(scope_id, name, scope_discriminant).unwrap().borrow();
+                    if matches!(symbol.value, SymbolValue::Static { .. }) {
+                        // An assignment to a static variable always has non-local side effects
+                        function_side_effects = true;
+                    }
+                }
 
                 // An assignment operation always has local side effects
                 HAS_LOCAL_SIDE_EFFECTS
             },
 
-            Ops::Ref { mutable: _ } => todo!(), 
-            Ops::Deref { mutable } => todo!(),
-            Ops::FunctionCallOpen => todo!(),
+            Ops::Ref { mutable } => {
+                let operand = match_unreachable!(Some(ChildrenType::Unary (operand)) = &mut node.children, operand);
+
+                function_side_effects = calculate_side_effects(operand, scope_id, symbol_table);
+
+                // If the operand is a static symbol and the reference is mutable, the reference operation has global side effects (conservative approach, the ref may not be used to mutate the static symbol)
+                if let TokenKind::Value(Value::Symbol { name, scope_discriminant }) = &operand.item.value {
+                    let symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
+                    if matches!(symbol.value, SymbolValue::Static { .. }) && *mutable {
+                        function_side_effects = true;
+                    }
+                }
+
+                operand.has_side_effects
+            }, 
+
+            Ops::Deref { mutable: _ } => {
+                let operand = match_unreachable!(Some(ChildrenType::Unary (operand)) = &mut node.children, operand);
+
+                function_side_effects = calculate_side_effects(operand, scope_id, symbol_table);
+
+                operand.has_side_effects
+            },
+
+            Ops::FunctionCallOpen => {
+                let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = &mut node.children, (callable, args));
+
+                let mut has_local_side_effects = false;
+
+                function_side_effects = calculate_side_effects(callable, scope_id, symbol_table);
+                has_local_side_effects |= callable.has_side_effects;
+
+                for arg in args {
+                    function_side_effects |= calculate_side_effects(arg, scope_id, symbol_table);
+                    has_local_side_effects |= arg.has_side_effects;
+                }
+
+                has_local_side_effects
+            },
 
             Ops::Return => {
                 if let Some(children) = &mut node.children {
                     let return_node = match_unreachable!(ChildrenType::Unary(x) = children, x);
 
-                    function_side_effects = calculate_side_effects(return_node, symbol_table);
+                    function_side_effects = calculate_side_effects(return_node, scope_id, symbol_table);
                 } else {
                     function_side_effects = false;
                 }
@@ -1182,18 +1257,70 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
             },
         },
 
-        TokenKind::If => todo!(),
-        TokenKind::Else => todo!(),
-        TokenKind::While => todo!(),
-        TokenKind::Loop => todo!(),
-        TokenKind::DoWhile => todo!(),
-        TokenKind::ArrayOpen => todo!(),
-        TokenKind::ScopeOpen => todo!(),
+        TokenKind::If => {
+            let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = &mut node.children, (if_chain, else_block));
+
+            function_side_effects = false;
+            for if_block in if_chain {
+                function_side_effects |= calculate_side_effects(&mut if_block.condition, scope_id, symbol_table);
+                function_side_effects |= calculate_side_effects_block(&mut if_block.body, symbol_table);
+            }
+
+            if let Some(else_block) = else_block {
+                function_side_effects |= calculate_side_effects_block(else_block, symbol_table);
+            }
+
+            NO_LOCAL_SIDE_EFFECTS
+        },
+
+        TokenKind::While |
+        TokenKind::DoWhile
+         => {
+            let (condition_node, body_block) = match_unreachable!(Some(ChildrenType::While { condition, body }) = &mut node.children, (condition, body));
+
+            function_side_effects = calculate_side_effects(condition_node, scope_id, symbol_table);
+            function_side_effects |= calculate_side_effects_block(body_block, symbol_table);
+
+            NO_LOCAL_SIDE_EFFECTS
+        
+        },
+
+        TokenKind::Loop => {
+            let inner_block = match_unreachable!(Some(ChildrenType::ParsedBlock(inner_block)) = &mut node.children, inner_block);
+
+            function_side_effects = calculate_side_effects_block(inner_block, symbol_table);
+
+            NO_LOCAL_SIDE_EFFECTS
+        },
+
+        TokenKind::ArrayOpen => {
+            // Has side effects if any of its elements has side effects
+
+            let elements = match_unreachable!(Some(ChildrenType::List(elements)) = &mut node.children, elements);
+
+            function_side_effects = false;
+            let mut has_local_side_effects = false;
+            for element in elements {
+                function_side_effects |= calculate_side_effects(element, scope_id, symbol_table);
+                has_local_side_effects |= element.has_side_effects;
+            }
+
+            has_local_side_effects
+        },
+
+        TokenKind::ScopeOpen => {
+            let inner_block = match_unreachable!(Some(ChildrenType::ParsedBlock(inner_block)) = &mut node.children, inner_block);
+
+            function_side_effects = calculate_side_effects_block(inner_block, symbol_table);
+
+            // The local side effects internal to the block don't make it to the parent.
+            NO_LOCAL_SIDE_EFFECTS
+        },
 
         TokenKind::As => {
             let (_target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = &mut node.children, (target_type, expr));
 
-            function_side_effects = calculate_side_effects(expr, symbol_table);
+            function_side_effects = calculate_side_effects(expr, scope_id, symbol_table);
 
             expr.has_side_effects
         },
@@ -1201,7 +1328,7 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
         // A value has no side effects. Side effects may arise when the value is used in an operation.
         TokenKind::Value(_) => {
             function_side_effects = false;
-            NO_SIDE_EFFECTS
+            NO_LOCAL_SIDE_EFFECTS
         },
         
         _ => unreachable!("Unexpected node during side effects calculation: {:?}. This is a bug.", node.item.value)
@@ -1211,12 +1338,38 @@ fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> b
 }
 
 
-fn calculate_side_effects_function(function: &mut Function, symbol_table: &mut SymbolTable) {
+fn calculate_side_effects_block(block: &mut ScopeBlock, symbol_table: &SymbolTable) -> bool {
 
-    for statement in function.code.statements.iter_mut() {
+    let mut function_side_effects = false;
 
+    for statement in block.statements.iter_mut() {
+        function_side_effects |= calculate_side_effects(statement, block.scope_id, symbol_table);
     }
 
+    block.has_side_effects = function_side_effects;
+    function_side_effects
+}
+
+
+fn calculate_side_effects_function(function: &mut Function, symbol_table: &mut SymbolTable) {
+
+    // Conservative estimate of side effects. If a mutable reference is passed in, the function is assumed to have side effects.
+    let arg_types = match_unreachable!(DataType::Function { params, return_type: _ } = function.signature.as_ref(), params);
+    for arg in arg_types {
+        if let DataType::Ref { target: _, mutable: true } = arg.as_ref() {
+            function.has_side_effects = true;
+            break;
+        }
+    }
+
+    function.has_side_effects |= calculate_side_effects_block(&mut function.code, symbol_table);
+}
+
+
+fn calculate_side_effects_functions(functions: &mut [Function], symbol_table: &mut SymbolTable) {
+    for function in functions {
+        calculate_side_effects_function(function, symbol_table);
+    }
 }
 
 
@@ -1232,6 +1385,8 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &Optim
     println!("\n\nAfter symbol resolution:\n{:?}", functions);
     
     warn_unused_symbols(&block, symbol_table, source);
+
+    calculate_side_effects_functions(&mut functions, symbol_table);
 
     if optimization_flags.evaluate_constants {
         evaluate_constants_functions(&mut functions, symbol_table, source);

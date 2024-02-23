@@ -27,6 +27,7 @@ impl UnparsedScopeBlock<'_> {
 pub struct ScopeBlock<'a> {
     pub statements: Vec<TokenNode<'a>>,
     pub scope_id: ScopeID,
+    pub has_side_effects: bool,
 }
 
 
@@ -36,6 +37,7 @@ impl ScopeBlock<'_> {
         Self {
             statements: Vec::new(),
             scope_id,
+            has_side_effects: false,
         }
     }
 
