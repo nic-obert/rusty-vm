@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use crate::error::WarnResult;
 use crate::data_types::{DataType, LiteralValue};
 use crate::icr::Label;
+use crate::match_unreachable;
 use crate::token::StringToken;
 
 
@@ -60,22 +61,17 @@ impl Symbol<'_> {
             SymbolValue::Immutable(v) => v.into(),
             SymbolValue::Constant(v) => Some(v),
 
-            SymbolValue::UninitializedConstant => unreachable!(),
+            SymbolValue::Static { init_value, mutable: _ } => Some(init_value),
+
+            SymbolValue::UninitializedConstant |
+            SymbolValue::UninitializedStatic { .. }
+             => unreachable!(),
         }
     } 
 
 
     pub fn is_mutable(&self) -> bool {
-        match self.value {
-            SymbolValue::Mutable => true,
-
-            SymbolValue::Immutable(_) |
-            SymbolValue::Constant(_) |
-            SymbolValue::Function
-             => false,
-
-            SymbolValue::UninitializedConstant => unreachable!(),
-        }
+        self.value.is_mutable()
     }
 
 
@@ -86,13 +82,38 @@ impl Symbol<'_> {
 }
 
 
+#[derive(Debug)]
 pub enum SymbolValue {
     Mutable,
     Immutable (Option<LiteralValue>),
     Constant (LiteralValue),
     Function,
+    Static { init_value: LiteralValue, mutable: bool },
 
     UninitializedConstant,
+    UninitializedStatic { mutable: bool },
+}
+
+impl SymbolValue {
+
+    pub fn is_mutable(&self) -> bool {
+        match self {
+            SymbolValue::Mutable |
+            SymbolValue::Static { init_value: _, mutable: true }
+             => true,
+
+            SymbolValue::Static { init_value: _, mutable: false } |
+            SymbolValue::Immutable(_) |
+            SymbolValue::Constant(_) |
+            SymbolValue::Function 
+            => false,
+
+            SymbolValue::UninitializedConstant |
+            SymbolValue::UninitializedStatic { mutable: _ }
+             => unreachable!(),
+        }
+    }
+
 }
 
 
@@ -275,9 +296,23 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn define_constant(&self, name: &str, discriminant: ScopeDiscriminant, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
+    pub fn define_static(&self, name: &str, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
         
-        let mut symbol = self.get_symbol(scope_id, name, discriminant)
+        let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
+            .ok_or(())?
+            .borrow_mut();
+
+        let mutable = match_unreachable!(SymbolValue::UninitializedStatic { mutable } = &symbol.value, *mutable);
+
+        symbol.value = SymbolValue::Static { init_value: value, mutable };
+        symbol.initialized = true;
+        Ok(())
+    }
+
+
+    pub fn define_constant(&self, name: &str, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
+        
+        let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .ok_or(())?
             .borrow_mut();
 
@@ -309,6 +344,24 @@ impl<'a> SymbolTable<'a> {
         );
 
         // Cannot re-declare a function in the same scope
+        if discriminant.0 > 0 {
+            Err(symbol_list[(discriminant.0 - 1) as usize].borrow().token.clone())
+        } else {
+            Ok(())
+        }
+    }
+
+
+    pub fn declare_constant_or_static(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+
+        let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
+        let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
+        
+        symbol_list.push(
+            RefCell::new(symbol)
+        );
+
+        // Cannot re-declare a constant or a static in the same scope
         if discriminant.0 > 0 {
             Err(symbol_list[(discriminant.0 - 1) as usize].borrow().token.clone())
         } else {
@@ -366,8 +419,6 @@ impl<'a> SymbolTable<'a> {
     /// If the symbol is found outside the function boundary, including the boundary scope, return a true flag, else return a false flag.
     pub fn get_symbol_warn_if_outside_function(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant, function_boundary: ScopeID) -> (Option<&RefCell<Symbol<'a>>>, bool) {
         let scope = &self.scopes[scope_id.0];
-
-        assert_ne!(scope_id, function_boundary);
 
         if let Some(symbol) = scope.get_symbol(symbol_id, discriminant) {
             (Some(symbol), false)

@@ -75,10 +75,54 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                 DO_EXTRACT
             },
 
+            TokenKind::Static => {
+                // Evaluate the constant expression and add it to the symbol table
+
+                let (name, static_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Static { name, data_type, definition }) = statement.children.take(), (name, data_type, definition));
+
+                resolve_expression_types(&mut definition, block.scope_id, None, function_parent_scope, symbol_table, source);
+                evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
+
+                let literal_value = match std::mem::replace(&mut definition.item.value, TokenKind::Comma) { // Replace with a small random TokenKind to avoid cloning the LiteralValue
+
+                    // Allow initializing statics with literal values
+                    TokenKind::Value(Value::Literal { value }) => value,
+
+                    // Allow initializing statics with initialized constants and other initialized statics
+                    TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
+                        let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
+                        
+                        match &symbol.value {
+
+                            SymbolValue::Constant(value) |
+                            SymbolValue::Static { mutable: _, init_value: value }
+                             => value.clone(),
+
+                            _ => error::not_a_constant(&definition.item, source, "Static definition must be a literal value or a constant expression.")
+                        }
+                    },
+                    
+                    _ => error::not_a_constant(&definition.item, source, "Static definition must be a literal value or a constant expression.")
+                };
+
+                let value_type = literal_value.data_type(symbol_table);
+                if !value_type.is_implicitly_castable_to(&static_data_type, Some(&literal_value)) {
+                    error::type_error(&definition.item, &[&static_data_type.name()], &value_type, source, "Mismatched data type in static declaration.");
+                }
+                let final_value = LiteralValue::from_cast(literal_value, &value_type, &static_data_type);
+           
+                let res = symbol_table.define_static(name, block.scope_id, final_value);
+                if res.is_err() {
+                    error::compile_time_operation_error(&statement.item, source, format!("Could not define static \"{name}\".").as_str());
+                }
+
+                DO_EXTRACT
+            }
+
             TokenKind::Const => {
                 // Evaluate the constant expression and add it to the symbol table
 
-                let (name, discriminant, const_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Const { name, discriminant, data_type, definition }) = statement.children.take(), (name, discriminant, data_type, definition));
+                let (name, const_data_type, mut definition) = match_unreachable!(Some(ChildrenType::Const { name, data_type, definition }) = statement.children.take(), (name, data_type, definition));
                 
                 resolve_expression_types(&mut definition, block.scope_id, None, function_parent_scope, symbol_table, source);
                 evaluate_constants(&mut definition, source, block.scope_id, symbol_table);
@@ -88,7 +132,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     // Allow initializing constants with literal values
                     TokenKind::Value(Value::Literal { value }) => value,
 
-                    // Allow initializing constants with other initialized constatns
+                    // Allow initializing constants with other initialized constants
                     TokenKind::Value(Value::Symbol { name, scope_discriminant }) => {
                         let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
                         match &symbol.value {
@@ -106,7 +150,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                 }
                 let final_value = LiteralValue::from_cast(literal_value, &value_type, &const_data_type);
                 
-                let res = symbol_table.define_constant(name, discriminant, block.scope_id, final_value);
+                let res = symbol_table.define_constant(name, block.scope_id, final_value);
                 if res.is_err() {
                     error::compile_time_operation_error(&statement.item, source, format!("Could not define constant \"{name}\".").as_str());
                 }
@@ -742,7 +786,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                             let mut symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow_mut();
                             
                             if symbol.initialized {
-                                if matches!(symbol.value, SymbolValue::Immutable(_)) {
+                                if !symbol.is_mutable() {
                                     // Symbol is immutable and already initialized, so cannot assign to it again
                                     error::immutable_change(&l_node.item, &l_node.data_type, source, "Cannot assign to an immutable symbol.");
                                 }
@@ -843,8 +887,8 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                     || error::symbol_undefined(&expression.item, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.token.column, source[symbol.token.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
                 ).borrow_mut();
 
-                // Disallow caputuring symbols from outsize the function boundary, unless they are constants or functions
-                if outside_function_boundary && !matches!(symbol.value, SymbolValue::Constant(_) | SymbolValue::Function) {
+                // Disallow caputuring symbols from outsize the function boundary, unless they are constants, statics, or functions
+                if outside_function_boundary && !matches!(symbol.value, SymbolValue::Constant(_) | SymbolValue::Function | SymbolValue::Static { .. }) {
                     error::illegal_symbol_capture(&expression.item, source, format!("Cannot capture dynamic environment (symbol \"{}\") inside a function.\n Symbol declared at line {}:{}:\n\n{}", symbol.token.string, symbol.token.line_number(), symbol.token.column, &source[symbol.token.line_index()]).as_str());
                 }
 

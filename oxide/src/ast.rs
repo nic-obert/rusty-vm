@@ -143,7 +143,9 @@ fn divide_statements<'a>(mut tokens: TokenTree<'a>, symbol_table: &mut SymbolTab
                     Some(ChildrenType::UnparsedBlock(divide_statements(children_tree, symbol_table, Some(scope_id))))
                 } else {
                     // Empty scope
-                    Some(ChildrenType::ParsedBlock(ScopeBlock::new(ScopeID::placeholder())))
+                    // Still declare the empty scope in the symbol table because it will be needed to calculate the scope size
+                    let scope_id = symbol_table.add_scope(Some(scope_id));
+                    Some(ChildrenType::ParsedBlock(ScopeBlock::new(scope_id)))
                 };
 
                 // Scopes are not their own statements: they are treated as expressions like in Rust.
@@ -444,6 +446,77 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                     op_node.children = Some(ChildrenType::TypeDef { name: type_name, definition: data_type })
                 },
 
+                TokenKind::Static => {
+                    // Syntax: static [mut] <name>: <type> = <expression>
+                    // Explicit data type is required
+                    // Must be initialized
+
+                    // This node can either be the symbol name or the mut keyword
+                    let maybe_name_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing name in static declaration.")
+                    );
+    
+                    let (mutable, name_node) = if matches!(maybe_name_node.item.value, TokenKind::Mut) {
+                        let name = extract_right!().unwrap_or_else(
+                            || error::expected_argument(&op_node.item, source, "Missing name in static declaration.")
+                        );
+                        (true, name)
+                    } else {
+                        (false, maybe_name_node)
+                    };
+
+                    let symbol_name: &str = match_or!(TokenKind::Value(Value::Symbol { name, .. }) = &name_node.item.value, name, 
+                        error::invalid_argument(&op_node.item.value, &name_node.item, source, "Invalid name in static declaration.")
+                    );
+
+                    let colon_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing colon after name in static declaration.")
+                    );
+                    if !matches!(colon_node.item.value, TokenKind::Colon) {
+                        error::invalid_argument(&op_node.item.value, &colon_node.item, source, "Expected a colon after name in static declaration.")
+                    }
+
+                    let data_type_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing data type after name in static declaration.")
+                    );
+                    let data_type: Rc<DataType> = match_or!(TokenKind::DataType(data_type) = data_type_node.item.value, data_type,
+                        error::invalid_argument(&op_node.item.value, &data_type_node.item, source, "Invalid data type in static declaration.")
+                    );
+
+                    let assign_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing assignment operator after data type in static declaration.")
+                    );
+                    if !matches!(assign_node.item.value, TokenKind::Op(Ops::Assign)) {
+                        error::invalid_argument(&op_node.item.value, &assign_node.item, source, "Expected an assignment operator after data type in static declaration.")
+                    }
+
+                    let definition_node = extract_right!().unwrap_or_else(
+                        || error::expected_argument(&op_node.item, source, "Missing expression after assignment operator in static declaration.")
+                    );
+                    if !is_expression(&definition_node.item.value) {
+                        error::invalid_argument(&op_node.item.value, &definition_node.item, source, "Invalid expression after assignment operator in static declaration.")
+                    }
+
+                    let old_def = symbol_table.declare_constant_or_static(
+                        symbol_name,
+                        Symbol::new_uninitialized(
+                            data_type.clone(),
+                            op_node.item.token.clone(),
+                            SymbolValue::UninitializedStatic { mutable },
+                        ),
+                        block.scope_id
+                    );
+                    if let Err(old_def) = old_def {
+                        error::already_defined(&op_node.item.token, &old_def, source, "Cannot define a static multiple times in the same scope")
+                    }
+
+                    op_node.children = Some(ChildrenType::Static { 
+                        name: symbol_name,
+                        data_type,
+                        definition: definition_node,
+                    });
+                },
+
                 TokenKind::Const => {
                     // Syntax: const <name>: <type> = <expression>
                     // Explicit data type is required and cannot be mutable (of course)
@@ -483,7 +556,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         error::invalid_argument(&op_node.item.value, &definition_node.item, source, "Invalid expression after assignment operator in constant declaration.")
                     }
 
-                    let (discriminant, res) = symbol_table.declare_symbol(
+                    let old_def = symbol_table.declare_constant_or_static(
                         symbol_name,
                         Symbol::new_uninitialized(
                             data_type.clone(),
@@ -492,13 +565,13 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         ),
                         block.scope_id
                     );
-                    if let Some(warning) = res.warning() {
-                        error::warn(&name_node.item.token, source, warning);
+                    if let Err(old_def) = old_def {
+                        error::already_defined(&op_node.item.token, &old_def, source, "Cannot define a constant multiple times in the same scope")
                     }
+                   
 
                     op_node.children = Some(ChildrenType::Const { 
                         name: symbol_name,
-                        discriminant,
                         data_type,
                         definition: definition_node,
                     });

@@ -6,7 +6,7 @@ Project Description
 
 ### Todo
 
-- [ ] static keyword  
+- [ ] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  
 - [ ] check if variable is initialized in every path  
 - [ ] indexing a reference to an array returns a reference to the element  
 - [ ] flow analysis  
@@ -14,7 +14,7 @@ Project Description
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
-- [ ] add warnings for casting references to different-sized types  
+- [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
@@ -32,6 +32,7 @@ Project Description
 
 ### Done ✓
 
+- [x] static keyword  
 - [x] disallow changinc mutability when casting references  
 - [x] remove effectless operations in ir code as an optimization  
 - [x] declare optimizations/string representation/cli argument using a single macro  

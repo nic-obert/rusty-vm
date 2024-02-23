@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::data_types::{DataType, LiteralValue};
 use crate::match_unreachable;
-use crate::symbol_table::{ScopeDiscriminant, ScopeID};
+use crate::symbol_table::ScopeID;
 use crate::token::Token;
 
 
@@ -99,7 +99,8 @@ pub enum ChildrenType<'a> {
     Unary (Box<TokenNode<'a>>),
     While { condition: Box<TokenNode<'a>>, body: ScopeBlock<'a> },
     IfChain { if_chain: Vec<IfBlock<'a>>, else_block: Option<ScopeBlock<'a>> },
-    Const { name: &'a str, discriminant: ScopeDiscriminant, data_type: Rc<DataType>, definition: Box<TokenNode<'a>> },
+    Const { name: &'a str, data_type: Rc<DataType>, definition: Box<TokenNode<'a>> },
+    Static { name: &'a str, data_type: Rc<DataType>, definition: Box<TokenNode<'a>> },
     TypeDef { name: &'a str, definition: Rc<DataType>, },
 }
 
@@ -282,8 +283,12 @@ impl<'a> TokenNode<'a> {
                         }
                     }
                 },
-                ChildrenType::Const { name, discriminant: _, data_type, definition } => {
+                ChildrenType::Const { name, data_type, definition } => {
                     write!(f, "const {name}: {data_type} = ")?;
+                    definition.fmt_indented(indent + 1, f)?;
+                },
+                ChildrenType::Static { name, data_type, definition } => {
+                    write!(f, "static {name}: {data_type} = ")?;
                     definition.fmt_indented(indent + 1, f)?;
                 },
             }

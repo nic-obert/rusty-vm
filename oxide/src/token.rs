@@ -75,6 +75,7 @@ pub enum TokenKind<'a> {
     RefType,
 
     Const,
+    Static,
     TypeDef,
     Fn,
     Let,
@@ -204,6 +205,7 @@ impl TokenKind<'_> {
             // Const has to be the top-level node in constant declaration
             // const a: B = 1 + 2; --> const a: B = +(1, 2) --> const(a, B, +(1, 2))
             TokenKind::Const |
+            TokenKind::Static |
             // Same story with typedef
             TokenKind::TypeDef
              => Priority::Least_Assignment_FlowBreak,
@@ -310,6 +312,7 @@ impl Display for Token<'_> {
             TokenKind::Const => write!(f, "const"),
             TokenKind::TypeDef => write!(f, "typedef"),
             TokenKind::DoWhile => write!(f, "do-while"),
+            TokenKind::Static => write!(f, "static"),
         }
     }
 }

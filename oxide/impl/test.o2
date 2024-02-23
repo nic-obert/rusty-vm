@@ -1,6 +1,9 @@
 
+static i: i32 = 9;
+static n: i32 = i + 3 as i32; 
+
 fn main() {
 
-    1+'f';
+    let b = i + 9 as i32;
 
 }
