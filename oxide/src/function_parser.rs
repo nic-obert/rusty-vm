@@ -1020,6 +1020,162 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
 }
 
 
+/// Recursively calculate the side effects of the nodes and return whether the operation has global side effects (outside of the function)
+fn calculate_side_effects(node: &mut TokenNode, symbol_table: &SymbolTable) -> bool {
+    /*
+        A statement has side effects if:
+        - performs I/O operations
+        - performs an assignment
+        - calls a function with side effects
+        - contains a control flow operation
+        - contains an operation with side effects
+
+        A function has side effects if:
+        - performs I/O operations
+        - performs an assignment to a global variable
+        - has at least one mutable reference in its parameters (conservative approach, may be improved later)
+        - calls a function with global side effects
+        - takes a mutable reference to a global variable (conservative)
+
+
+        In a statement, side effects propagate from the children to the parent.
+        For instance:
+        `
+            let a = 0; <-- no side effects
+            let b = a + 1; <-- no side effects
+            a = b; <-- local side effects
+            let c = { a = 0; 2 } + 9; <-- local side effects
+        `
+
+    */
+
+    // Leave this intentionally uninitialized so that the compiler can warn if it is not set explicitly
+    let mut function_side_effects: bool;
+
+    const HAS_LOCAL_SIDE_EFFECTS: bool = true;
+    const NO_SIDE_EFFECTS: bool = false;
+
+    node.has_side_effects = match &node.item.value {
+
+        TokenKind::Op(op) => match op {
+            Ops::Add |
+            Ops::Sub |
+            Ops::Mul |
+            Ops::Div |
+            Ops::Equal |
+            Ops::NotEqual |
+            Ops::Greater |
+            Ops::Less |
+            Ops::GreaterEqual |
+            Ops::LessEqual |
+            Ops::LogicalAnd |
+            Ops::LogicalOr |
+            Ops::BitShiftLeft |
+            Ops::BitShiftRight |
+            Ops::BitwiseOr |
+            Ops::BitwiseAnd |
+            Ops::BitwiseXor |
+            Ops::ArrayIndexOpen |
+            Ops::Mod 
+             => {
+                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut node.children, (l_node, r_node));
+
+                function_side_effects = calculate_side_effects(l_node, symbol_table);
+                function_side_effects |= calculate_side_effects(r_node, symbol_table);
+
+                // Propagate the side effects of the children to the parent
+                l_node.has_side_effects | r_node.has_side_effects
+            },
+
+            Ops::LogicalNot |
+            Ops::BitwiseNot
+             => {
+                let operand = match_unreachable!(Some(ChildrenType::Unary (operand)) = &mut node.children, operand);
+
+                function_side_effects = calculate_side_effects(operand, symbol_table);
+
+                // Propagate the side effects of the children to the parent
+                operand.has_side_effects
+            },
+
+            Ops::Assign => {
+                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary (l_node, r_node)) = &mut node.children, (l_node, r_node));
+
+                function_side_effects = calculate_side_effects(l_node, symbol_table);
+                function_side_effects |= calculate_side_effects(r_node, symbol_table);
+
+                // TODO: Check if the left operand is a global variable
+
+                // An assignment operation always has local side effects
+                HAS_LOCAL_SIDE_EFFECTS
+            },
+
+            Ops::Ref { mutable: _ } => todo!(), 
+            Ops::Deref { mutable } => todo!(),
+            Ops::FunctionCallOpen => todo!(),
+
+            Ops::Return => {
+                if let Some(children) = &mut node.children {
+                    let return_node = match_unreachable!(ChildrenType::Unary(x) = children, x);
+
+                    function_side_effects = calculate_side_effects(return_node, symbol_table);
+                } else {
+                    function_side_effects = false;
+                }
+
+                // Unconditional control flow always has local side effects
+                HAS_LOCAL_SIDE_EFFECTS
+            },
+
+            Ops::Continue |
+            Ops::Break
+             => {
+                // No function side effects for unconditional control flow operations
+                function_side_effects = false;
+
+                // Unconditional control flow operations always have local side effects
+                HAS_LOCAL_SIDE_EFFECTS
+            },
+        },
+
+        TokenKind::If => todo!(),
+        TokenKind::Else => todo!(),
+        TokenKind::While => todo!(),
+        TokenKind::Loop => todo!(),
+        TokenKind::DoWhile => todo!(),
+        TokenKind::ArrayOpen => todo!(),
+        TokenKind::ScopeOpen => todo!(),
+
+        TokenKind::As => {
+            let (_target_type, expr) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = &mut node.children, (target_type, expr));
+
+            function_side_effects = calculate_side_effects(expr, symbol_table);
+
+            expr.has_side_effects
+        },
+        
+        // A value has no side effects. Side effects may arise when the value is used in an operation.
+        TokenKind::Value(_) => {
+            function_side_effects = false;
+            NO_SIDE_EFFECTS
+        },
+        
+        _ => unreachable!("Unexpected node during side effects calculation: {:?}. This is a bug.", node.item.value)
+    };
+
+    function_side_effects
+}
+
+
+fn calculate_side_effects_function(function: &mut Function, symbol_table: &mut SymbolTable) {
+
+    for statement in function.code.statements.iter_mut() {
+
+    }
+
+}
+
+
 pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
 
     let scope_id = block.scope_id;

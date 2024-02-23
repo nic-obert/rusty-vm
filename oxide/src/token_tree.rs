@@ -104,6 +104,8 @@ pub enum ChildrenType<'a> {
 }
 
 
+/// A syntax node in the code.
+/// This node is used to construct a bush that represents the program's syntactical hierarchy.
 #[derive(Debug)]
 pub struct TokenNode<'a> {
 
@@ -119,6 +121,11 @@ pub struct TokenNode<'a> {
     /// The data type this node evaluates to
     pub data_type: Rc<DataType>,
 
+    /// Whether the node may have side effects.
+    /// If this is false, then the node is guaranteed to not have side effects.
+    /// Since the compiler must be conservative, this field might be set to true even if the node does not have side effects, if the compiler can't determine that it doesn't.
+    pub has_side_effects: bool,
+
 }
 
 impl<'a> TokenNode<'a> {
@@ -130,6 +137,7 @@ impl<'a> TokenNode<'a> {
             children: None,
             item,
             data_type: Rc::new(DataType::Void),
+            has_side_effects: false,
         }
     }
 

@@ -11,6 +11,7 @@ pub struct OpenLinkedList<T> {
 
 }
 
+#[allow(dead_code)]
 impl<T> OpenLinkedList<T> {
 
     /// Create a new empty linked list .
@@ -114,7 +115,7 @@ impl<T> OpenLinkedList<T> {
 
 
     /// Create an immutable iterator over the linked list. Mutating the list or any of its elements while iterating is undefined behavior.
-    pub fn iter<'a>(&'a self) -> OpenLinkedListIterator<'a, T> {
+    pub fn iter(&self) -> OpenLinkedListIterator<'_, T> {
         OpenLinkedListIterator::new(self.head)
     }
 
@@ -169,6 +170,7 @@ pub struct OpenNode<T> {
 
 }
 
+#[allow(dead_code)]
 impl<T> OpenNode<T> {
 
     pub unsafe fn next(&self) -> *mut OpenNode<T> {

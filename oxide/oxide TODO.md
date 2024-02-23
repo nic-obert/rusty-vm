@@ -6,8 +6,9 @@ Project Description
 
 ### Todo
 
+- [ ] disallow changinc mutability when casting references  
+- [ ] indexing a reference to an array returns a reference to the element  
 - [ ] flow analysis  
-- [ ] take into account side effects of expressions when removing code in optimizations  
 - [ ] parallelize function IR code optimization since functions are independent from each other  
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
@@ -24,6 +25,7 @@ Project Description
 
 ### In Progress
 
+- [ ] take into account side effects of expressions when removing code in optimizations  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
