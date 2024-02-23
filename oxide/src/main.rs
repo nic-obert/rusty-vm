@@ -56,11 +56,11 @@ fn main() {
 
     let tokens = tokenizer::tokenize(&source, input_file, &mut symbol_table);
 
-    let ast = ast::build_ast(tokens, &source, &mut symbol_table);
+    let ast = ast::build_ast(tokens, &source, &mut symbol_table, args.verbose);
 
-    let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source);
+    let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source, args.verbose);
 
-    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags);
+    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags, args.verbose);
 
 }
 

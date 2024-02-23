@@ -1318,12 +1318,14 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
 
 
 /// Generate ir code from the given functions
-pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable, optimization_flags: &OptimizationFlags) -> Vec<FunctionIR<'a>> {
+pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable, optimization_flags: &OptimizationFlags, verbose: bool) -> Vec<FunctionIR<'a>> {
 
     let mut ir_functions = Vec::new();
     let mut irid_gen = IRIDGenerator::new();
 
-    println!("\n\nGenerating IR code for the following functions:");
+    if verbose {
+        println!("\n\nGenerating IR code for the following functions:");
+    }
 
     for function in functions {
 
@@ -1337,8 +1339,9 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
             ir_function
         );
 
-        println!("\n{}\n", ir_functions.last().unwrap());
-
+        if verbose {
+            println!("\n{}\n", ir_functions.last().unwrap());
+        }
     }
 
     ir_functions

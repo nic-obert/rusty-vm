@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] hide the debug printing to the console behind the -v flag  
 - [ ] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
 - [ ] indexing a reference to an array returns a reference to the element  
@@ -33,6 +32,7 @@ Project Description
 
 ### Done ✓
 
+- [x] hide the debug printing to the console behind the -v flag  
 - [x] static keyword  
 - [x] disallow changinc mutability when casting references  
 - [x] remove effectless operations in ir code as an optimization  

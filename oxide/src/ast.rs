@@ -1125,17 +1125,21 @@ fn find_highest_priority<'a>(tokens: &TokenTree<'a>) -> Option<*mut TokenNode<'a
 
 
 /// Build an abstract syntax tree from a flat list of tokens
-pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &SourceCode, symbol_table: &mut SymbolTable<'a>) -> ScopeBlock<'a> {
+pub fn build_ast<'a>(mut tokens: TokenTree<'a>, source: &SourceCode, symbol_table: &mut SymbolTable<'a>, verbose: bool) -> ScopeBlock<'a> {
 
     parse_scope_hierarchy(&mut tokens);
 
     let unparsed_outer = divide_statements(tokens, symbol_table, None);
 
-    println!("Statements after division:\n\n{:?}", unparsed_outer);
+    if verbose {
+        println!("Statements after division:\n\n{:?}", unparsed_outer);
+    }
 
     let parsed_outer = parse_block_hierarchy(unparsed_outer, symbol_table, source);
 
-    println!("\n\nStatement hierarchy:\n{:?}", parsed_outer);
+    if verbose {
+        println!("\n\nStatement hierarchy:\n{:?}", parsed_outer);
+    }
 
     parsed_outer
 }

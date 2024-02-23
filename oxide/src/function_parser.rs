@@ -1373,16 +1373,20 @@ fn calculate_side_effects_functions(functions: &mut [Function], symbol_table: &m
 }
 
 
-pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode) -> Vec<Function<'a>> {
+pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &OptimizationFlags, symbol_table: &mut SymbolTable, source: &SourceCode, verbose: bool) -> Vec<Function<'a>> {
 
     let scope_id = block.scope_id;
     let mut functions = extract_functions(&mut block, false, scope_id, symbol_table, source);
 
-    println!("\n\nFunctions:\n{:#?}\n", functions);
+    if verbose {
+        println!("\n\nFunctions:\n{:#?}\n", functions);
+    }
 
     resolve_functions_types(&mut functions, symbol_table, source);
 
-    println!("\n\nAfter symbol resolution:\n{:?}", functions);
+    if verbose {
+        println!("\n\nAfter symbol resolution:\n{:?}", functions);
+    }
     
     warn_unused_symbols(&block, symbol_table, source);
 
@@ -1390,7 +1394,9 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &Optim
 
     if optimization_flags.evaluate_constants {
         evaluate_constants_functions(&mut functions, symbol_table, source);
-        println!("\n\nAfter constant expression evaluation:\n{:?}", functions);
+        if verbose {
+            println!("\n\nAfter constant expression evaluation:\n{:?}", functions);
+        }
     }
     
     functions
