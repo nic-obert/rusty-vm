@@ -105,7 +105,7 @@ fn is_symbol_name(name: &str) -> bool {
 
 #[inline]
 const fn is_data_type_precursor(token: &Token) -> bool {
-    matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType)
+    matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType | TokenKind::As)
 }
 
 

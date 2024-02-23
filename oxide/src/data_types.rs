@@ -147,7 +147,9 @@ impl DataType {
             // A char is castable to 1-byte integers.
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
             // A pointer is castable to any other reference and to u64 (for pointer arithmetic).
-            DataType::Ref { .. } => matches!(target, DataType::Ref { .. } | DataType::U64),
+            DataType::Ref { mutable: true, target: _ } => matches!(target, DataType::Ref { mutable: _, target: _ } | DataType::U64),
+            // Cannot cast an immutable reference to a mutable reference.
+            DataType::Ref { mutable: false, target: _ } => matches!(target, DataType::Ref { mutable: false, target: _ } | DataType::U64),
             
             DataType::Bool => matches!(target, integer_pattern!()),
 
@@ -175,6 +177,7 @@ impl DataType {
         match self {
 
             // String references are interchangeable since they always have the same size (wide pointers).
+            // TODO: use an Option<usize> to allow for unspecified length.
             DataType::StringRef { length: _ } => matches!(target, DataType::StringRef { length: _ }),
 
             DataType::Array { element_type, size: src_size }

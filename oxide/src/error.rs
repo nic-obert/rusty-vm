@@ -60,7 +60,7 @@ fn print_source_context(source: &SourceCode, line_index: usize, char_pointer: us
     }
 
     // The highlighted line.
-    println!("{}{:line_number_width$} {}", ">".bright_red().bold(), index + 1, source[line_index]);
+    println!("{}{:line_number_width$}  {}", ">".bright_red().bold(), index + 1, source[line_index]);
     println!(" {:line_number_width$} {:>char_pointer$}{}", "", "", "^".bright_red().bold());
     index += 1;
 

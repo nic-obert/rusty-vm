@@ -129,6 +129,7 @@ pub enum Priority {
     Not,
 
     Ref_Cast,
+    TakeRef,
 
     /// Delimiters have the maximum priority.
     Delimiter,
@@ -167,7 +168,7 @@ impl TokenKind<'_> {
 
                 Ops::Deref { .. } |
                 Ops::Ref { .. }
-                 => Priority::Ref_Cast,
+                 => Priority::TakeRef,
 
                 Ops::FunctionCallOpen |
                 Ops::ArrayIndexOpen
@@ -223,9 +224,8 @@ impl TokenKind<'_> {
             TokenKind::Mut
              => Priority::Zero,
 
-            TokenKind::RefType |
-            TokenKind::As
-             => Priority::Ref_Cast,
+            TokenKind::RefType => Priority::TakeRef,
+            TokenKind::As => Priority::Ref_Cast,
 
             TokenKind::ArrayOpen |
             TokenKind::ParOpen |

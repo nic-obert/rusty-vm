@@ -6,7 +6,8 @@ Project Description
 
 ### Todo
 
-- [ ] disallow changinc mutability when casting references  
+- [ ] static keyword  
+- [ ] check if variable is initialized in every path  
 - [ ] indexing a reference to an array returns a reference to the element  
 - [ ] flow analysis  
 - [ ] parallelize function IR code optimization since functions are independent from each other  
@@ -31,6 +32,7 @@ Project Description
 
 ### Done ✓
 
+- [x] disallow changinc mutability when casting references  
 - [x] remove effectless operations in ir code as an optimization  
 - [x] declare optimizations/string representation/cli argument using a single macro  
 - [x] differentiate between dereference used to assign and dereference used to get a value  
