@@ -35,11 +35,11 @@ impl Symbol<'_> {
     }
 
 
-    pub fn new_function(signature: Rc<DataType>, token: Rc<StringToken<'_>>) -> Symbol<'_> {
+    pub fn new_function(signature: Rc<DataType>, is_const: bool, token: Rc<StringToken<'_>>) -> Symbol<'_> {
         Symbol {
             data_type: signature,
             token,
-            value: SymbolValue::Function,
+            value: SymbolValue::Function { is_const, has_side_effects: false},
             initialized: true,
             read_from: false,
         }
@@ -57,7 +57,7 @@ impl Symbol<'_> {
     pub fn get_value(&self) -> Option<&LiteralValue> {
         match &self.value {
             SymbolValue::Mutable => None,
-            SymbolValue::Function => None,
+            SymbolValue::Function { .. } => None,
             SymbolValue::Immutable(v) => v.into(),
             SymbolValue::Constant(v) => Some(v),
 
@@ -87,7 +87,7 @@ pub enum SymbolValue {
     Mutable,
     Immutable (Option<LiteralValue>),
     Constant (LiteralValue),
-    Function,
+    Function { is_const: bool, has_side_effects: bool },
     Static { init_value: LiteralValue, mutable: bool },
 
     UninitializedConstant,
@@ -105,7 +105,7 @@ impl SymbolValue {
             SymbolValue::Static { init_value: _, mutable: false } |
             SymbolValue::Immutable(_) |
             SymbolValue::Constant(_) |
-            SymbolValue::Function 
+            SymbolValue::Function { .. }
             => false,
 
             SymbolValue::UninitializedConstant |
@@ -267,6 +267,15 @@ impl<'a> SymbolTable<'a> {
     }
 
 
+    pub fn set_function_side_effects(&self, name: &str, scope_id: ScopeID, has_side_effects: bool) {
+        let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
+            .unwrap() // Assume the symbol is present
+            .borrow_mut();
+
+        match_unreachable!(SymbolValue::Function { is_const: _, has_side_effects: x } = &mut symbol.value, *x = has_side_effects);
+    }
+
+
     /// Maps a function id to a IR label, which will than be used to call the function.
     pub fn map_function_label(&mut self, function: FunctionUUID, label: Label) {
         self.function_labels.insert(function, label);
@@ -334,13 +343,13 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_function(&mut self, name: &'a str, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+    pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
         
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
         
         symbol_list.push(
-            RefCell::new(Symbol::new_function(signature, token))
+            RefCell::new(Symbol::new_function(signature, is_const, token))
         );
 
         // Cannot re-declare a function in the same scope
@@ -414,6 +423,23 @@ impl<'a> SymbolTable<'a> {
         )
     }
 
+
+    pub fn get_function(&self, name: &str, scope_id: ScopeID) -> Option<&RefCell<Symbol<'a>>> {
+        let scope = &self.scopes[scope_id.0];
+
+        if let Some(symbol) = scope.get_symbol(name, ScopeDiscriminant(0)) {
+            if let SymbolValue::Function { .. } = symbol.borrow().value {
+                return Some(symbol);
+            }
+        }
+
+        if let Some(parent_id) = scope.parent {
+            self.get_function(name, parent_id)
+        } else {
+            None
+        }
+    }
+    
 
     /// Get the symbol with the given id from the symbol table.
     /// If the symbol is found outside the function boundary, including the boundary scope, return a true flag, else return a false flag.

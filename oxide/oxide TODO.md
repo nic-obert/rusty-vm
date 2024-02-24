@@ -6,11 +6,12 @@ Project Description
 
 ### Todo
 
+- [ ] implement indirection operator .  
 - [ ] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
 - [ ] indexing a reference to an array returns a reference to the element  
-- [ ] flow analysis  
-- [ ] parallelize function IR code optimization since functions are independent from each other  
+- [ ] flow analysis (using directed graphs)  
+- [ ] eventually, parallelize function IR code optimization since functions are independent from each other (only if the number of functions is significant)  
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
@@ -19,13 +20,14 @@ Project Description
 - [ ] main function  
 - [ ] lifetimes?  
 - [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
-- [ ] implement const functions  
 - [ ] implement module system  
 - [ ] implement enums  
 - [ ] implement structs  
 
 ### In Progress
 
+- [ ] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
+- [ ] implement const functions  
 - [ ] take into account side effects of expressions when removing code in optimizations  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  

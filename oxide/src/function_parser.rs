@@ -110,11 +110,11 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                             SymbolValue::Static { mutable: _, init_value: value }
                              => value.clone(),
 
-                            _ => error::not_a_constant(&definition.item, source, "Static definition must be a literal value or a constant expression.")
+                            _ => error::not_a_constant(&definition.item.token, source, "Static definition must be a literal value or a constant expression.")
                         }
                     },
                     
-                    _ => error::not_a_constant(&definition.item, source, "Static definition must be a literal value or a constant expression.")
+                    _ => error::not_a_constant(&definition.item.token, source, "Static definition must be a literal value or a constant expression.")
                 };
 
                 let value_type = literal_value.data_type(symbol_table);
@@ -149,11 +149,11 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                         let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
                         match &symbol.value {
                             SymbolValue::Constant(value) => value.clone(),
-                            _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
+                            _ => error::not_a_constant(&definition.item.token, source, "Constant definition must be a literal value or a constant expression.")
                         }
                     },
                     
-                    _ => error::not_a_constant(&definition.item, source, "Constant definition must be a literal value or a constant expression.")
+                    _ => error::not_a_constant(&definition.item.token, source, "Constant definition must be a literal value or a constant expression.")
                 };
 
                 let value_type = literal_value.data_type(symbol_table);
@@ -196,8 +196,19 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
 
 fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut SymbolTable, source: &SourceCode) {
     for function in functions {
+
         let return_type = function.return_type();
         resolve_scope_types(&mut function.code, Some(return_type), function.parent_scope, symbol_table, source);
+
+        // Const functions
+        
+        let function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow();
+        let (is_const, has_side_effects) = match_unreachable!(SymbolValue::Function { is_const, has_side_effects } = &function_symbol.value, (*is_const, *has_side_effects));
+        if is_const && has_side_effects {
+            error::not_a_constant(&function_symbol.token, source, format!("Function \"{}\" is declared as const but has side effects.", function.name).as_str());
+        }
+
+        // TODO: check if the function can be evaluated at compile-time (all its statements must be constant expressions)
     }
 }
 
@@ -913,7 +924,7 @@ fn resolve_expression_types(expression: &mut TokenNode, scope_id: ScopeID, outer
                 ).borrow_mut();
 
                 // Disallow caputuring symbols from outsize the function boundary, unless they are constants, statics, or functions
-                if outside_function_boundary && !matches!(symbol.value, SymbolValue::Constant(_) | SymbolValue::Function | SymbolValue::Static { .. }) {
+                if outside_function_boundary && !matches!(symbol.value, SymbolValue::Constant(_) | SymbolValue::Function { .. } | SymbolValue::Static { .. }) {
                     error::illegal_symbol_capture(&expression.item, source, format!("Cannot capture dynamic environment (symbol \"{}\") inside a function.\n Symbol declared at line {}:{}:\n\n{}", symbol.token.string, symbol.token.line_number(), symbol.token.column, &source[symbol.token.line_index()]).as_str());
                 }
 
@@ -1363,6 +1374,8 @@ fn calculate_side_effects_function(function: &mut Function, symbol_table: &mut S
     }
 
     function.has_side_effects |= calculate_side_effects_block(&mut function.code, symbol_table);
+
+    symbol_table.set_function_side_effects(function.name, function.parent_scope, function.has_side_effects);
 }
 
 

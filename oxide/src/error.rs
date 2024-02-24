@@ -327,17 +327,17 @@ pub fn illegal_mutable_borrow(token: &Token, source: &SourceCode, hint: &str) ->
 }
 
 
-pub fn not_a_constant(token: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn not_a_constant(token: &StringToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
         
         Expected constant, but got non-constant expression at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.token.line_number(), token.token.column
+        token.unit_path.display(), token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
     
     println!("\n{}\n", hint);
     std::process::exit(1);

@@ -676,8 +676,19 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
     
                 TokenKind::Fn => {
                     // Function declaration syntax:
-                    // fn <name>(<arguments>) -> <return type> { <body> }
-                    // fn <name>(argumenta>) { <body> }
+                    // [const] fn <name>(<arguments>) [-> <return type>] { <body> }
+
+                    let is_const_function: bool = if let Some(left_node) = unsafe { op_node.left.as_ref() } {
+                        if matches!(left_node.item.value, TokenKind::Const) {
+                            // Syntax: const fn ...
+                            extract_left!().unwrap(); // Remove the const token
+                            true
+                        } else {
+                            false
+                        }
+                    } else { 
+                        false
+                    };
 
                     // Default return type is void, unless specified by the arrow ->
                     let mut return_type = Rc::new(DataType::Void);
@@ -754,6 +765,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
                     let old_def = symbol_table.declare_function(
                         function_name,
+                        is_const_function,
                         signature.clone(), 
                         op_node.item.token.clone(),
                         block.scope_id
