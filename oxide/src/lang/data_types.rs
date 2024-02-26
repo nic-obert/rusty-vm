@@ -85,13 +85,6 @@ pub mod dt_macros {
     }
     pub(crate) use numeric_pattern;
 
-    macro_rules! pointer_pattern {
-        () => {
-            DataType::Ref { .. }
-        };
-    }
-    pub(crate) use pointer_pattern;
-
 }
 
 impl DataType {
@@ -302,10 +295,10 @@ impl DataType {
                 Cow::Owned(name)
             },
             DataType::Void => Cow::Borrowed("void"),
-            DataType::Unspecified => Cow::Borrowed("Unspecified"),
             DataType::StringRef { length } => Cow::Owned(format!("str[{}]", length)),
             DataType::Usize => Cow::Borrowed("usize"),
             DataType::Isize => Cow::Borrowed("isize"),
+            DataType::Unspecified => Cow::Borrowed("Unspecified"),
         }
     }
 
@@ -415,6 +408,14 @@ impl Number {
         }
     }
 
+
+    pub fn assume_uint(&self) -> u64 {
+        match self {
+            Number::Uint(n) => *n,
+            _ => unreachable!("Cannot assume uint value from {:?}", self)
+        }
+    }
+
 }
 
 
@@ -443,24 +444,45 @@ pub enum LiteralValue {
 
 }
 
-
 impl LiteralValue {
+
+    pub fn assume_array(&self) -> (&Rc<DataType>, &Vec<LiteralValue>) {
+        match self {
+            LiteralValue::Array { element_type, items } => (element_type, items),
+            _ => unreachable!("Cannot assume array value from {:?}", self)
+        }
+    }
+
+    pub fn assume_numeric(&self) -> &Number {
+        match self {
+            LiteralValue::Numeric(n) => n,
+            _ => unreachable!("Cannot assume numeric value from {:?}", self)
+        }
+    }
+
+    pub fn assume_bool(&self) -> bool {
+        match self {
+            LiteralValue::Bool(b) => *b,
+            _ => unreachable!("Cannot assume bool value from {:?}", self)
+        }
+    }
 
     /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
     /// 
     /// This function can perform only compile-time casts.
-    pub fn from_cast(src_value: LiteralValue, src_type: &DataType, target_type: &DataType) -> Self {
+    pub fn from_cast(src_value: &LiteralValue, src_type: &DataType, target_type: &DataType) -> Self {
         
         assert!(src_type.is_castable_to(target_type));
 
-        if src_type == target_type {
-            return src_value;
-        }
+        // This is checked before calling the function.
+        // if src_type == target_type {
+        //     return src_value;
+        // }
 
         match src_type {
 
             DataType::Bool => {
-                let value = match_unreachable!(LiteralValue::Bool(value) = src_value, value);
+                let value = match_unreachable!(LiteralValue::Bool(value) = src_value, *value);
                 match target_type {
                     unsigned_integer_pattern!() => LiteralValue::Numeric(Number::Uint(value as u64)),
                     signed_integer_pattern!() => LiteralValue::Numeric(Number::Int(value as i64)),
@@ -469,7 +491,7 @@ impl LiteralValue {
             },
 
             DataType::Char => {
-                let ch = match_unreachable!(LiteralValue::Char(ch) = src_value, ch);
+                let ch = match_unreachable!(LiteralValue::Char(ch) = src_value, *ch);
                 match target_type {
                     DataType::I8 => LiteralValue::Numeric(Number::Int(ch as i64)),
                     DataType::U8 => LiteralValue::Numeric(Number::Uint(ch as u64)),
@@ -478,7 +500,7 @@ impl LiteralValue {
             },
 
             unsigned_integer_pattern!() => {
-                let value = match_unreachable!(LiteralValue::Numeric(Number::Uint(value)) = src_value, value);
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Uint(value)) = src_value, *value);
                 match target_type {
                     DataType::Bool => LiteralValue::Bool(value != 0),
                     DataType::Char => LiteralValue::Char(value as u8 as char),
@@ -497,7 +519,7 @@ impl LiteralValue {
             },
 
             signed_integer_pattern!() => {
-                let value = match_unreachable!(LiteralValue::Numeric(Number::Int(value)) = src_value, value);
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Int(value)) = src_value, *value);
                 match target_type {
                     DataType::Bool => LiteralValue::Bool(value != 0),
                     DataType::Char => LiteralValue::Char(value as u8 as char),
@@ -516,7 +538,7 @@ impl LiteralValue {
             },
             
             floating_point_pattern!() => {
-                let value = match_unreachable!(LiteralValue::Numeric(Number::Float(value)) = src_value, value);
+                let value = match_unreachable!(LiteralValue::Numeric(Number::Float(value)) = src_value, *value);
                 match target_type {
                     DataType::Bool => LiteralValue::Bool(value != 0.0),
                     DataType::Char => LiteralValue::Char(value as u8 as char),
@@ -539,11 +561,14 @@ impl LiteralValue {
                 
                 assert_eq!(items.len(), size.expect("Array size is not known at compile-time"));
 
-                let res = items.into_iter().map(
-                    |item| LiteralValue::from_cast(item, src_element_type, &target_element_type)
+                let res = items.iter().map(
+                    |item| LiteralValue::from_cast(item, src_element_type, target_element_type)
                 ).collect();
                 
-                LiteralValue::Array { element_type: target_element_type, items: res }
+                LiteralValue::Array { 
+                    element_type: target_element_type.clone(), 
+                    items: res 
+                }
             },
             
             _ => unreachable!("Cannot cast from {:?} to {:?} (or at least not at compile-time)", src_type, target_type)
@@ -596,7 +621,7 @@ impl Display for LiteralValue {
 
 #[cfg(test)]
 mod tests {
-    use crate::data_types::{LiteralValue, Number};
+    use super::*;
     use std::rc::Rc;
 
     use super::DataType;

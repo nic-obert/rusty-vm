@@ -1,11 +1,5 @@
 
-static mut i: i32 = 9;
-static n: i32 = i + 3 as i32; 
 
 fn main() {
-
-    let mut b = i + 9 as i32;
-
-    b = 2;
-
+    let s: i32;
 }

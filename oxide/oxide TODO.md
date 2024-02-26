@@ -6,10 +6,11 @@ Project Description
 
 ### Todo
 
+- [ ] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  
 - [ ] implement indirection operator .  
 - [ ] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
-- [ ] indexing a reference to an array returns a reference to the element  
+- [ ] indexing a reference to an array returns a reference to the element. maybe add a new SyntaxTokenValue like ArrayIndexRef { mutable, array, index }  
 - [ ] flow analysis (using directed graphs)  
 - [ ] eventually, parallelize function IR code optimization since functions are independent from each other (only if the number of functions is significant)  
 - [ ] eventually, implement compiler directives  
@@ -19,13 +20,13 @@ Project Description
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
-- [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
 - [ ] implement module system  
 - [ ] implement enums  
 - [ ] implement structs  
 
 ### In Progress
 
+- [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
 - [ ] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
 - [ ] implement const functions  
 - [ ] take into account side effects of expressions when removing code in optimizations  

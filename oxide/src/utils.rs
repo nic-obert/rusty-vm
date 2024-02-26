@@ -30,3 +30,12 @@ macro_rules! match_unreachable {
     };
 }
 
+
+#[inline]
+pub fn write_indent(f: &mut std::fmt::Formatter, indent: usize) -> std::fmt::Result {
+
+    const INDENT_PAD: usize = 2;
+
+    write!(f, "{:width$}", "", width = indent * INDENT_PAD)
+}
+

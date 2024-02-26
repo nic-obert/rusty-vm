@@ -1,13 +1,9 @@
-mod operations;
-mod token;
-mod data_types;
+mod lang;
 mod tokenizer;
 mod cli_parser;
 mod files;
-mod error;
 mod ast;
 mod symbol_table;
-mod token_tree;
 mod utils;
 mod icr;
 mod function_parser;

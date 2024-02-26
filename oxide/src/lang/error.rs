@@ -5,8 +5,8 @@ use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 use rusty_vm_lib::ir::SourceCode;
 
-use crate::data_types::DataType;
-use crate::token::{StringToken, Token, TokenKind};
+use crate::lang::data_types::DataType;
+use crate::tokenizer::{SourceToken, Token, TokenKind};
 
 
 /// Number of lines of source code to include before and after the highlighted line in error messages
@@ -31,7 +31,7 @@ impl<T> WarnResult<T> {
 }
 
 
-pub fn warn(token: &StringToken, source: &SourceCode, message: &str) {
+pub fn warn(token: &SourceToken, source: &SourceCode, message: &str) {
     println!("{}", formatdoc!("
         ⚠️  Warning at line {}:{} in unit \"{}\":
         ",
@@ -72,7 +72,7 @@ fn print_source_context(source: &SourceCode, line_index: usize, char_pointer: us
 }
 
 
-pub fn invalid_number(token: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn invalid_number(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
@@ -89,7 +89,7 @@ pub fn invalid_number(token: &StringToken, source: &SourceCode, hint: &str) -> !
 }
 
 
-pub fn unmatched_delimiter(delimiter: char, token: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn unmatched_delimiter(delimiter: char, token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
@@ -106,7 +106,7 @@ pub fn unmatched_delimiter(delimiter: char, token: &StringToken, source: &Source
 }
 
 
-pub fn invalid_char_literal(literal: &str, token: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn invalid_char_literal(literal: &str, token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
@@ -123,7 +123,7 @@ pub fn invalid_char_literal(literal: &str, token: &StringToken, source: &SourceC
 }
 
 
-pub fn invalid_token(token: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn invalid_token(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
@@ -164,27 +164,27 @@ pub fn expected_argument(operator: &Token, source: &SourceCode, hint: &str) -> !
         Expected argment for operator {:?} at line {}:{}, but got none:
         
         ",
-        operator.token.unit_path.display(), operator.value, operator.token.line_number(), operator.token.column
+        operator.source_token.unit_path.display(), operator.value, operator.source_token.line_number(), operator.source_token.column
     );
 
-    print_source_context(source, operator.token.line_index(), operator.token.column);
+    print_source_context(source, operator.source_token.line_index(), operator.source_token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn invalid_argument(operator: &TokenKind, arg: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn invalid_argument(operator: &TokenKind, arg: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Invalid argument {:?} for operator {:?} at line {}:{}:
 
         ",
-        arg.token.unit_path.display(), arg.token.string, operator, arg.token.line_number(), arg.token.column
+        arg.unit_path.display(), arg.string, operator, arg.line_number(), arg.column
     );
 
-    print_source_context(source, arg.token.line_index(), arg.token.column);
+    print_source_context(source, arg.line_index(), arg.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
@@ -198,136 +198,136 @@ pub fn unexpected_token(token: &Token, source: &SourceCode, hint: &str) -> ! {
         Unexpected token {:?} at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.value, token.token.line_number(), token.token.column
+        token.source_token.unit_path.display(), token.value, token.source_token.line_number(), token.source_token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.source_token.line_index(), token.source_token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn type_error(token: &Token, expected: &[&str], got: &DataType, source: &SourceCode, hint: &str) -> ! {
+pub fn type_error(token: &SourceToken, expected: &[&str], got: &DataType, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Expected type {}, but got {} at line {}:{}:
 
         ",
-        token.token.unit_path.display(), expected.iter().map(|dt| dt.to_string()).collect::<Vec<_>>().join(" or "), got, token.token.line_number(), token.token.column
+        token.unit_path.display(), expected.iter().map(|dt| dt.to_string()).collect::<Vec<_>>().join(" or "), got, token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn mismatched_call_arguments(token: &Token, expected: usize, got: usize, source: &SourceCode, hint: &str) -> ! {
+pub fn mismatched_call_arguments(token: &SourceToken, expected: usize, got: usize, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Expected {} arguments, but got {} at line {}:{}:
 
         ",
-        token.token.unit_path.display(), expected, got, token.token.line_number(), token.token.column
+        token.unit_path.display(), expected, got, token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn symbol_undefined(token: &Token, symbol: &str, source: &SourceCode, hint: &str) -> ! {
+pub fn symbol_undefined(token: &SourceToken, symbol: &str, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Undefined symbol \"{}\" at line {}:{}:
 
         ",
-        token.token.unit_path.display(), symbol, token.token.line_number(), token.token.column
+        token.unit_path.display(), symbol, token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn syntax_error(token: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn syntax_error(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Syntax error at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.token.line_number(), token.token.column
+        token.unit_path.display(), token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn compile_time_operation_error(token: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn compile_time_operation_error(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Compiletime operation error at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.token.line_number(), token.token.column
+        token.unit_path.display(), token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn immutable_change(token: &Token, type_of_immutable: &DataType, source: &SourceCode, hint: &str) -> ! {
+pub fn immutable_change(token: &SourceToken, type_of_immutable: &DataType, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Attempt to change immutable value of type {} at line {}:{}:
 
         ",
-        token.token.unit_path.display(), type_of_immutable, token.token.line_number(), token.token.column
+        token.unit_path.display(), type_of_immutable, token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn illegal_mutable_borrow(token: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn illegal_mutable_borrow(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
 
         Illegal mutable borrow at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.token.line_number(), token.token.column
+        token.unit_path.display(), token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
 
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn not_a_constant(token: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn not_a_constant(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
         
@@ -344,24 +344,24 @@ pub fn not_a_constant(token: &StringToken, source: &SourceCode, hint: &str) -> !
 }
 
 
-pub fn use_of_uninitialized_value(token: &Token, data_type: &DataType, source: &SourceCode, hint: &str) -> ! {
+pub fn use_of_uninitialized_value(token: &SourceToken, data_type: &DataType, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
         
         Use of uninitialized value of type {} at line {}:{}:
 
         ",
-        token.token.unit_path.display(), data_type, token.token.line_number(), token.token.column
+        token.unit_path.display(), data_type, token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
     
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
-pub fn already_defined(new_def: &StringToken, old_def: &StringToken, source: &SourceCode, hint: &str) -> ! {
+pub fn already_defined(new_def: &SourceToken, old_def: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
         
@@ -380,17 +380,17 @@ pub fn already_defined(new_def: &StringToken, old_def: &StringToken, source: &So
 }
 
 
-pub fn illegal_symbol_capture(token: &Token, source: &SourceCode, hint: &str) -> ! {
+pub fn illegal_symbol_capture(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
         
         Illegal capture of symbol at line {}:{}:
 
         ",
-        token.token.unit_path.display(), token.token.line_number(), token.token.column
+        token.unit_path.display(), token.line_number(), token.column
     );
 
-    print_source_context(source, token.token.line_index(), token.token.column);
+    print_source_context(source, token.line_index(), token.column);
     
     println!("\n{}\n", hint);
     std::process::exit(1);

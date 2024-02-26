@@ -7,10 +7,8 @@ use crate::match_unreachable;
 use crate::open_linked_list::OpenLinkedList;
 use crate::symbol_table::{FunctionUUID, ScopeDiscriminant, ScopeID, SymbolTable};
 use crate::function_parser::Function;
-use crate::data_types::{DataType, LiteralValue, Number};
-use crate::token::{TokenKind, Value};
-use crate::operations::Ops;
-use crate::token_tree::{ChildrenType, ScopeBlock, TokenNode};
+use crate::lang::data_types::{DataType, LiteralValue, Number};
+use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
 
 
 /// Generates a sequence of unique ids for the IR code
@@ -328,18 +326,17 @@ struct LoopLabels {
 
 /// Recursively generate IR code for the given node and return where its value is stored, if it's an expression 
 #[allow(clippy::too_many_arguments)]
-fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, st_scope: ScopeID, symbol_table: &mut SymbolTable) -> Option<Tn> {
+fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, st_scope: ScopeID, symbol_table: &mut SymbolTable) -> Option<Tn> {
     
-    match node.item.value {
+    match node.value {
 
-        TokenKind::Op(op) => match op {
-            Ops::Add => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+        SyntaxNodeValue::RuntimeOp(op) => match op {
+            RuntimeOp::Add { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Add {
                     target: target.clone(),
@@ -349,13 +346,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Sub => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Sub { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Sub {
                     target: target.clone(),
@@ -365,13 +361,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Mul => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Mul { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Mul {
                     target: target.clone(),
@@ -381,13 +376,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Div => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Div { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Div {
                     target: target.clone(),
@@ -397,13 +391,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Mod => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Mod { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Mod {
                     target: target.clone(),
@@ -413,18 +406,17 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Assign => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Assign { left, right } => {
                 
-                let deref_assign = matches!(l_node.item.value, TokenKind::Op(Ops::Deref { mutable: _ }));
+                let deref_assign = matches!(left.value, SyntaxNodeValue::RuntimeOp(RuntimeOp::Deref { .. }));
 
-                let target = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an assignable");
+                let target = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an assignable");
 
 
                 if deref_assign {
                     // Assigning to a dereference, this is a different operation than regular assignment
 
-                    let source = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                    let source = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                     ir_function.push(IROperator::DerefAssign {
                         target,
@@ -434,7 +426,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                 } else {
                     // Regular assignment, no further processing is needed
 
-                    generate_node(*r_node, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
+                    generate_node(*right, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table);
     
                     // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
     
@@ -442,12 +434,11 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 None
             },
-            Ops::Deref { mutable: _ } => {
-                let ref_node = match_unreachable!(Some(ChildrenType::Unary(ref_node)) = node.children, ref_node);
+            RuntimeOp::Deref { mutable: _, expr } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let ref_ = generate_node(*ref_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a reference");
+                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a reference");
 
                 ir_function.push(IROperator::Deref {
                     target: target.clone(),
@@ -456,12 +447,11 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Ref { mutable: _ } => {
-                let ref_node = match_unreachable!(Some(ChildrenType::Unary(ref_node)) = node.children, ref_node);
+            RuntimeOp::Ref { mutable: _, expr } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let ref_ = generate_node(*ref_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a reference");
+                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a reference");
 
                 ir_function.push(IROperator::Ref {
                     target: target.clone(),
@@ -470,14 +460,13 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::FunctionCallOpen => {
+            RuntimeOp::Call { callable, args } => {
                 /*
                     Tcallable = <callable>
                     [Targ-n = <arg-n>...]
                     [Tresult =] call Tcallable [Targ-n...] return: Lreturn
                     Lreturn:
                 */
-                let (callable, args) = match_unreachable!(Some(ChildrenType::Call { callable, args }) = node.children, (callable, args));
 
                 let return_target = if !matches!(*node.data_type, DataType::Void) {
                     target.or_else(|| Some(Tn { id: irid_gen.next_tn(), data_type: node.data_type }))
@@ -506,31 +495,29 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 return_target
             },
-            Ops::Return => {
-                match node.children {
-                    Some(ChildrenType::Unary(value_node)) => {
-                        let return_tn = ir_function.scope_table.return_tn(ir_scope).expect("The function returns a value, but no return Tn was supplied");
-                        generate_node(*value_node, Some(return_tn), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a value");
-                    },
-                    None => { 
-                        // No return value is provided and the function should return void
-                        assert!(ir_function.scope_table.return_tn(ir_scope).is_none());
-                    },
-                    _ => unreachable!("Return node has more than one child")
-                }
+            RuntimeOp::Return(expr) => {
+                
+                if let Some(expr) = expr {
 
+                    let return_tn = ir_function.scope_table.return_tn(ir_scope).expect("The function returns a value, but no return Tn was supplied");
+                    generate_node(*expr, Some(return_tn), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a value");
+
+                } else {
+                    // No return value is provided and the function should return void
+                    assert!(ir_function.scope_table.return_tn(ir_scope).is_none());
+                }
+                
                 // Jump to the function's exit label, which will take care of popping the stack and returning to the caller
                 ir_function.push(IROperator::Jump { target: ir_function.function_labels.exit });
 
                 None
             },
-            Ops::Equal => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Equal { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Equal {
                     target: target.clone(),
@@ -540,13 +527,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::NotEqual => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::NotEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::NotEqual {
                     target: target.clone(),
@@ -556,13 +542,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Greater => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Greater { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Greater {
                     target: target.clone(),
@@ -572,13 +557,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Less => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::Less { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::Less {
                     target: target.clone(),
@@ -588,13 +572,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::GreaterEqual => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::GreaterEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::GreaterEqual {
                     target: target.clone(),
@@ -604,13 +587,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::LessEqual => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::LessEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::LessEqual {
                     target: target.clone(),
@@ -620,12 +602,11 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::LogicalNot => {
-                let operand_node = match_unreachable!(Some(ChildrenType::Unary(operand_node)) = node.children, operand_node);
+            RuntimeOp::LogicalNot (operand)=> {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let operand = generate_node(*operand_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::LogicalNot {
                     target: target.clone(),
@@ -634,12 +615,11 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitwiseNot => {
-                let operand_node = match_unreachable!(Some(ChildrenType::Unary(operand_node)) = node.children, operand_node);
+            RuntimeOp::BitwiseNot (operand) => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let operand = generate_node(*operand_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitNot {
                     target: target.clone(),
@@ -648,13 +628,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::LogicalAnd => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::LogicalAnd { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::LogicalAnd {
                     target: target.clone(),
@@ -664,13 +643,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::LogicalOr => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::LogicalOr { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::LogicalOr {
                     target: target.clone(),
@@ -680,13 +658,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitShiftLeft => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::BitShiftLeft { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitShiftLeft {
                     target: target.clone(),
@@ -696,13 +673,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitShiftRight => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::BitShiftRight { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitShiftRight {
                     target: target.clone(),
@@ -712,13 +688,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitwiseOr => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::BitwiseOr { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitOr {
                     target: target.clone(),
@@ -728,13 +703,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitwiseAnd => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::BitwiseAnd { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitAnd {
                     target: target.clone(),
@@ -744,13 +718,12 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::BitwiseXor => {
-                let (l_node, r_node) = match_unreachable!(Some(ChildrenType::Binary(l_node, r_node)) = node.children, (l_node, r_node));
+            RuntimeOp::BitwiseXor { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*l_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-                let r_value = generate_node(*r_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                 ir_function.push(IROperator::BitXor {
                     target: target.clone(),
@@ -760,14 +733,13 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::ArrayIndexOpen => {
-                let (array_node, index_node) = match_unreachable!(Some(ChildrenType::Binary(array, index)) = node.children, (array, index));
+            RuntimeOp::ArrayIndex { array, index } => {
 
-                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array_node.data_type.as_ref(), element_type.clone());
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array.data_type.as_ref(), element_type.clone());
                 let element_size = element_type.static_size();
 
-                let array_addr_tn = generate_node(*array_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an array");
-                let index_tn = generate_node(*index_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an index");
+                let array_addr_tn = generate_node(*array, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an array");
+                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an index");
 
                 let offset_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Usize.into() };
                 ir_function.code.push_back(IROperator::Mul {
@@ -792,70 +764,104 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
                 Some(target)
             },
-            Ops::Break => {
+            RuntimeOp::Break => {
                 let loop_labels = outer_loop.expect("Break statement outside of a loop");
                 ir_function.push(
                     IROperator::Jump { target: loop_labels.after }
                 );
                 None
             },
-            Ops::Continue => {
+            RuntimeOp::Continue => {
                 let loop_labels = outer_loop.expect("Continue statement outside of a loop");
                 ir_function.push(
                     IROperator::Jump { target: loop_labels.start }
                 );
                 None
             },
-        },
-        TokenKind::Value(value) => match value {
-            Value::Literal { value } => {
+            RuntimeOp::MakeArray { elements } => {
+                // Set each array item to the corresponding value
+    
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = node.data_type.as_ref(), element_type.clone());
+                let element_size = element_type.static_size();
+    
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
+    
+                // Reference to the first element of the array, for now. This will be incremented for each element
+                let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
+    
+                // Get the address of the array (and store it into the `element_ptr` Tn)
+                ir_function.code.push_back(IROperator::Ref { 
+                    target: arr_element_ptr.clone(), 
+                    ref_: target.clone() 
+                });
+                
+                // Initialize each element
+                for element_node in elements {
+                    
+                    // Generate the code for the element and store the result in the array
+                    let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+    
+                    ir_function.code.push_back(IROperator::DerefCopy {
+                        target: arr_element_ptr.clone(),
+                        source: IRValue::Tn(element_tn),
+                    });
+    
+                    // Increment the pointer to the next element
+                    ir_function.code.push_back(IROperator::Add { 
+                        target: arr_element_ptr.clone(), 
+                        left: IRValue::Tn(arr_element_ptr.clone()), 
+                        right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)))
+                    });
+                }
+    
+                Some(target)
+            }, 
+        },
+        SyntaxNodeValue::Literal (value) => {
+            let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                ir_function.push(IROperator::Assign {
+            ir_function.push(IROperator::Assign {
+                target: target.clone(),
+                source: IRValue::Const(value),
+            });
+
+            Some(target)
+        },
+        SyntaxNodeValue::Symbol { name, scope_discriminant } => {
+            
+            if let Some(target) = target {
+                // The symbol should be loaded into `target`
+                // Assume the symbol has already been mapped to a Tn
+
+                let symbol_tn =  ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope).expect("Symbol not found in scope table, but it's being read");
+                    
+                ir_function.code.push_back(IROperator::Assign { 
                     target: target.clone(),
-                    source: IRValue::Const(value),
+                    source: IRValue::Tn(symbol_tn)
                 });
 
                 Some(target)
-            },
-            Value::Symbol { name, scope_discriminant } => {
-                
-                if let Some(target) = target {
-                    // The symbol should be loaded into `target`
-                    // Assume the symbol has already been mapped to a Tn
 
-                    let symbol_tn =  ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope).expect("Symbol not found in scope table, but it's being read");
-                       
-                    ir_function.code.push_back(IROperator::Assign { 
-                        target: target.clone(),
-                        source: IRValue::Tn(symbol_tn)
-                    });
+            } else {
 
-                    Some(target)
-
+                let target = if let Some(tn) = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope) {
+                    tn
                 } else {
+                    let tn = Tn { id: irid_gen.next_tn(), data_type: node.data_type };
+                    ir_function.scope_table.map_symbol(name, tn.clone(), ir_scope);
+                    tn
+                };
 
-                    let target = if let Some(tn) = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope) {
-                        tn
-                    } else {
-                        let tn = Tn { id: irid_gen.next_tn(), data_type: node.data_type };
-                        ir_function.scope_table.map_symbol(name, tn.clone(), ir_scope);
-                        tn
-                    };
-
-                    Some(target)
-                }
-            },
+                Some(target)
+            }
         },
-        TokenKind::As => {
+        SyntaxNodeValue::As { target_type, expr } => {
             // Just reinterpret the bits (drop excess bits or add padding if necessary)
             // Assume the conversion is possible, since the parser should have already checked that
 
             let mut target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-            let (expr_node, target_type) = match_unreachable!(Some(ChildrenType::TypeCast { target_type, expr }) = node.children, (expr, target_type));
-            
-            let src_size = expr_node.data_type.static_size();
+            let src_size = expr.data_type.static_size();
             let target_size = target_type.static_size();
 
             match src_size.cmp(&target_size) {
@@ -864,7 +870,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     // Reading directly from the source would read garbage and writing would overwrite surrounding memory.
                     // Copying is cheap since type casting is only allowed on primitives, which are usually small.
 
-                    let expr_tn = generate_node(*expr_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                    let expr_tn = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
 
                     target.data_type = target_type;
 
@@ -882,7 +888,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     // If the source and target have the same size, the bits are already in the correct format.
                     // If the source has more bits than the target, the excess bits are simply ignored.
                     
-                    generate_node(*expr_node, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
+                    generate_node(*expr, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
                     
                     // Just change the type of the Tn
                     target.data_type = target_type;
@@ -890,7 +896,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                 },
             }
         },
-        TokenKind::If => {
+        SyntaxNodeValue::IfChain { if_blocks, else_block } => {
             /*
                 Tcondition = <condition>
                 jumpifnot Tcondition Lnext
@@ -903,12 +909,11 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     <else_block>
                 Lafter:
             */
-            let (if_chain, else_block) = match_unreachable!(Some(ChildrenType::IfChain { if_chain, else_block }) = node.children, (if_chain, else_block));
 
             let mut next_if_block = irid_gen.next_label();
             let after_chain = irid_gen.next_label();
 
-            for if_block in if_chain {
+            for if_block in if_blocks {
                 
                 let condition_tn = generate_node(if_block.condition, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected a condition");
 
@@ -940,7 +945,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             // Return None because the if-chain's return value is stored in the target Tn by the if-blocks
             None
         },
-        TokenKind::While => {
+        SyntaxNodeValue::While { condition, body } => {
             /*
                 jump Lcheck
                 Lstart:
@@ -951,7 +956,6 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     jump Lstart
                 Lafter:
             */
-            let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = node.children, (condition, body));
             
             let loop_labels = LoopLabels {
                 start: irid_gen.next_label(),
@@ -986,14 +990,13 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
             None
         },
-        TokenKind::Loop => {
+        SyntaxNodeValue::Loop { body } => {
             /*
                 Lstart:
                     <body>
                 jump Lstart
                 Lafter:
             */
-            let block = match_unreachable!(Some(ChildrenType::ParsedBlock(block)) = node.children, block);
 
             let loop_labels = LoopLabels {
                 start: irid_gen.next_label(),
@@ -1007,7 +1010,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             );
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-            generate_block(block, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table);
+            generate_block(body, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table);
 
             ir_function.push(
                 IROperator::Jump { target: loop_labels.start }
@@ -1019,7 +1022,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
 
             None
         },
-        TokenKind::DoWhile => {
+        SyntaxNodeValue::DoWhile { body, condition } => {
             /*
                 Lstart:
                     <body>
@@ -1028,7 +1031,6 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
                     jumpif Tcondition Lstart
                 Lafter:
             */
-            let (condition, body) = match_unreachable!(Some(ChildrenType::While { condition, body }) = node.children, (condition, body));
 
             let loop_labels = LoopLabels {
                 start: irid_gen.next_label(),
@@ -1058,50 +1060,8 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             );
 
             None
-        }
-        TokenKind::ArrayOpen => {
-            // Set each array item to the corresponding value
-
-            let element_nodes = match_unreachable!(Some(ChildrenType::List (elements)) = node.children, elements);
-
-            let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = node.data_type.as_ref(), element_type.clone());
-            let element_size = element_type.static_size();
-
-            let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
-
-            // Reference to the first element of the array, for now. This will be incremented for each element
-            let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
-
-            // Get the address of the array (and store it into the `element_ptr` Tn)
-            ir_function.code.push_back(IROperator::Ref { 
-                target: arr_element_ptr.clone(), 
-                ref_: target.clone() 
-            });
-            
-            // Initialize each element
-            for element_node in element_nodes {
-                
-                // Generate the code for the element and store the result in the array
-                let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table).expect("Expected an expression");
-
-                ir_function.code.push_back(IROperator::DerefCopy {
-                    target: arr_element_ptr.clone(),
-                    source: IRValue::Tn(element_tn),
-                });
-
-                // Increment the pointer to the next element
-                ir_function.code.push_back(IROperator::Add { 
-                    target: arr_element_ptr.clone(), 
-                    left: IRValue::Tn(arr_element_ptr.clone()), 
-                    right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)))
-                });
-            }
-
-            Some(target)
-        }, 
-        TokenKind::ScopeOpen => {
-
-            let block = match_unreachable!(Some(ChildrenType::ParsedBlock(block)) = node.children, block);
+        },
+        SyntaxNodeValue::Scope(block) => {
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
 
@@ -1110,7 +1070,7 @@ fn generate_node<'a>(node: TokenNode<'a>, target: Option<Tn>, outer_loop: Option
             None
         },
 
-        _ => unreachable!("{:?} is not exprected.", node.item.value)
+        _ => unreachable!("{:?} is not exprected.", node)
     }
 }
 

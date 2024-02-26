@@ -4,11 +4,11 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use crate::error::WarnResult;
-use crate::data_types::{DataType, LiteralValue};
+use crate::lang::error::WarnResult;
+use crate::lang::data_types::{DataType, LiteralValue};
 use crate::icr::Label;
 use crate::match_unreachable;
-use crate::token::StringToken;
+use crate::tokenizer::SourceToken;
 
 
 /// Struct representing a symbol in the source code.
@@ -16,7 +16,7 @@ use crate::token::StringToken;
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol<'a> {
     pub data_type: Rc<DataType>,
-    pub token: Rc<StringToken<'a>>,
+    pub token: Rc<SourceToken<'a>>,
     pub value: SymbolValue,
     pub initialized: bool,
     pub read_from: bool,
@@ -24,7 +24,7 @@ pub struct Symbol<'a> {
 
 impl Symbol<'_> {
 
-    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<StringToken<'_>>, value: SymbolValue) -> Symbol<'_> {
+    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'_>>, value: SymbolValue) -> Symbol<'_> {
         Symbol {
             data_type,
             token,
@@ -35,7 +35,7 @@ impl Symbol<'_> {
     }
 
 
-    pub fn new_function(signature: Rc<DataType>, is_const: bool, token: Rc<StringToken<'_>>) -> Symbol<'_> {
+    pub fn new_function(signature: Rc<DataType>, is_const: bool, token: Rc<SourceToken<'_>>) -> Symbol<'_> {
         Symbol {
             data_type: signature,
             token,
@@ -132,7 +132,7 @@ pub struct StaticValue<'a> {
 
 pub struct TypeDef<'a> {
     pub definition: Rc<DataType>,
-    pub token: Rc<StringToken<'a>>
+    pub token: Rc<SourceToken<'a>>
 }
 
 
@@ -343,7 +343,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, token: Rc<StringToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+    pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, token: Rc<SourceToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<SourceToken>> {
         
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
@@ -361,7 +361,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_constant_or_static(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> Result<(), Rc<StringToken>> {
+    pub fn declare_constant_or_static(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> Result<(), Rc<SourceToken>> {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
@@ -503,7 +503,7 @@ impl<'a> SymbolTable<'a> {
 
     /// Try to define a new type in the scope.
     /// If a type with the same name is already defined in the same scope, return an error.
-    pub fn define_type(&mut self, name: &'a str, scope_id: ScopeID, definition: Rc<DataType>, token: Rc<StringToken<'a>>) -> Result<(), TypeDef> {
+    pub fn define_type(&mut self, name: &'a str, scope_id: ScopeID, definition: Rc<DataType>, token: Rc<SourceToken<'a>>) -> Result<(), TypeDef> {
 
         let type_def = TypeDef {
             definition,

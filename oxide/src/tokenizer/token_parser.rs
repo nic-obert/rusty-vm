@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use crate::data_types::{DataType, LiteralValue, Number};
+use super::{Priority, SourceToken, Token, TokenKind, TokenPriority, Value, TokenParsingList};
+
+use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::symbol_table::{ScopeDiscriminant, SymbolTable};
-use crate::token::{Priority, StringToken, Token, TokenKind, TokenPriority};
-use crate::error;
-use crate::operations::Ops;
-use crate::token::Value;
-use crate::token_tree::TokenTree;
+use crate::lang::error;
 
 use regex::Regex;
 use lazy_static::lazy_static;
@@ -22,7 +20,7 @@ lazy_static! {
 }
 
 
-fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, source: &SourceCode) -> String {
+fn escape_string_copy(string: &str, checked_until: usize, token: &SourceToken, source: &SourceCode) -> String {
     // use -1 because the escape character won't be copied
     let mut s = String::with_capacity(string.len() - 1);
 
@@ -53,7 +51,7 @@ fn escape_string_copy(string: &str, checked_until: usize, token: &StringToken, s
 }
 
 
-fn escape_string<'a>(string: &'a str, token: &StringToken, source: &SourceCode) -> Cow<'a, str> {
+fn escape_string<'a>(string: &'a str, token: &SourceToken, source: &SourceCode) -> Cow<'a, str> {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
     
@@ -189,7 +187,7 @@ impl TokenizerStatus {
 
 
 /// Divide the source code into meaningful string tokens
-fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = StringToken<'a>> {
+fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = SourceToken<'a>> {
     source.iter().enumerate().flat_map(
         |(line_index, line)| {
             if line.trim().is_empty() {
@@ -202,7 +200,7 @@ fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = 
                     break;
                 }
                 matches.push(
-                    StringToken {
+                    SourceToken {
                         string: mat.as_str(),
                         unit_path,
                         line_index,
@@ -217,11 +215,11 @@ fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = 
 
 
 /// Divide the source code into syntax tokens
-pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenTree<'a> {
+pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &mut SymbolTable<'a>) -> TokenParsingList<'a> {
 
     let raw_tokens = lex(source, unit_path);
 
-    let mut tokens = TokenTree::new();
+    let mut tokens = TokenParsingList::new();
 
     let mut ts = TokenizerStatus::new();
 
@@ -243,19 +241,20 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "(" => {
                 ts.enter_parenthesis();
 
-                let last_node = tokens.last_node();
-                
-                if may_be_expression(last_node.map(|node| &node.item)) {
+                let mut iter = tokens.iter_lex_tokens().rev();
+                let last = iter.next();
+
+                if may_be_expression(last) {
 
                     // Unwrap is safe because `last_node` is an expression
-                    let last_node = last_node.unwrap();
+                    let last_token = last.unwrap();
 
-                    if matches!(last_node.item.value, TokenKind::Value(Value::Symbol { .. })) && last_node.left().map(|node| matches!(node.item.value, TokenKind::Fn)).unwrap_or(false) {
+                    if matches!(last_token.value, TokenKind::Value(Value::Symbol { .. })) && iter.next().map(|token| matches!(token.value, TokenKind::Fn)).unwrap_or(false) {
                         // Syntax: fn <symbol> (
                         TokenKind::FunctionParamsOpen
                     } else {
                         // Syntax: <value-like> (
-                        TokenKind::Op(Ops::FunctionCallOpen)
+                        TokenKind::FunctionCallOpen
                     }
                 } else {
                     // Syntax: <not-a-value> (
@@ -271,20 +270,21 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "[" => {
                 ts.enter_square();
 
-                let last_token = tokens.last_node().map(|node| &node.item);
-                last_token.map(|last_token| if is_data_type_precursor(last_token) {
-                    // Syntax: <data-type-precursor> [
-                    TokenKind::ArrayTypeOpen
-                } else if may_be_expression(Some(last_token)) {
-                    // Syntax: <possible-array-type> [
-                    TokenKind::Op(Ops::ArrayIndexOpen)
+                if let Some(last_token) = tokens.last_token() {
+                    if is_data_type_precursor(last_token) {
+                        // Syntax: <data-type-precursor> [
+                        TokenKind::ArrayTypeOpen
+                    } else if may_be_expression(Some(last_token)) {
+                        // Syntax: <possible-array-type> [
+                        TokenKind::ArrayIndexOpen
+                    } else {
+                        // Syntax: <not-a-data-type-precursor> [
+                        TokenKind::ArrayOpen
+                    }
                 } else {
-                    // Syntax: <not-a-data-type-precursor> [
-                    TokenKind::ArrayOpen
-                }).unwrap_or(
                     // Syntax: <nothing> [
                     TokenKind::ArrayOpen
-                )
+                }
             },
             "]" => {
                 ts.leave_square().unwrap_or_else(
@@ -295,47 +295,47 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             ":" => TokenKind::Colon,
             ";" => TokenKind::Semicolon,
             "," => TokenKind::Comma,
-            "+" => TokenKind::Op(Ops::Add),
-            "-" => TokenKind::Op(Ops::Sub),
+            "+" => TokenKind::Add,
+            "-" => TokenKind::Sub,
             "*" => {
-                let last_token = tokens.last_node().map(|node| &node.item);
-                if may_be_expression(last_token) { TokenKind::Op(Ops::Mul) } else { TokenKind::Op(Ops::Deref { mutable: false }) }
+                let last_token = tokens.last_token();
+                if may_be_expression(last_token) { TokenKind::Mul } else { TokenKind::Deref }
             },
-            "/" => TokenKind::Op(Ops::Div),
-            "%" => TokenKind::Op(Ops::Mod),
-            "=" => TokenKind::Op(Ops::Assign),
-            "==" => TokenKind::Op(Ops::Equal),
-            "!=" => TokenKind::Op(Ops::NotEqual),
-            "<" => TokenKind::Op(Ops::Less),
-            ">" => TokenKind::Op(Ops::Greater),
-            "<=" => TokenKind::Op(Ops::LessEqual),
-            ">=" => TokenKind::Op(Ops::GreaterEqual),
+            "/" => TokenKind::Div,
+            "%" => TokenKind::Mod,
+            "=" => TokenKind::Assign,
+            "==" => TokenKind::Equal,
+            "!=" => TokenKind::NotEqual,
+            "<" => TokenKind::Less,
+            ">" => TokenKind::Greater,
+            "<=" => TokenKind::LessEqual,
+            ">=" => TokenKind::GreaterEqual,
             "&" => {
-                let last_token = tokens.last_node().map(|node| &node.item);
+                let last_token = tokens.last_token();
                 if may_be_expression(last_token) {
                     // Syntax: <value-like> &
-                    TokenKind::Op(Ops::BitwiseAnd)
+                    TokenKind::BitwiseAnd
                 } else if let Some(last_token) = last_token {
                     if is_data_type_precursor(last_token) {
                         // Syntax: <data-type-precursor> &
                         TokenKind::RefType
                     } else {
                         // Syntax: <not-a-data-type-precursor> &
-                        TokenKind::Op(Ops::Ref { mutable: false })
+                        TokenKind::Ref
                     }
                 } else {
                     // Syntax: <nothing> &
-                    TokenKind::Op(Ops::Ref { mutable: false })
+                    TokenKind::Ref
                 }
             },
-            "^" => TokenKind::Op(Ops::BitwiseXor),
-            "<<" => TokenKind::Op(Ops::BitShiftLeft),
-            ">>" => TokenKind::Op(Ops::BitShiftRight),
-            "~" => TokenKind::Op(Ops::BitwiseNot),
-            "!" => TokenKind::Op(Ops::LogicalNot),
-            "&&" => TokenKind::Op(Ops::LogicalAnd),
-            "||" => TokenKind::Op(Ops::LogicalOr),
-            "|" => TokenKind::Op(Ops::BitwiseOr),
+            "^" => TokenKind::BitwiseXor,
+            "<<" => TokenKind::BitShiftLeft,
+            ">>" => TokenKind::BitShiftRight,
+            "~" => TokenKind::BitwiseNot,
+            "!" => TokenKind::LogicalNot,
+            "&&" => TokenKind::LogicalAnd,
+            "||" => TokenKind::LogicalOr,
+            "|" => TokenKind::BitwiseOr,
 
             // Numbers
             string if string.starts_with(is_numeric) => {
@@ -388,7 +388,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
 
             // Reserved keywords
             "fn" => TokenKind::Fn,
-            "return" => TokenKind::Op(Ops::Return),
+            "return" => TokenKind::Return,
             "let" => TokenKind::Let,
             "mut" => TokenKind::Mut,
             "as" => TokenKind::As,
@@ -399,8 +399,8 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true) }),
             "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false) }),
             "const" => TokenKind::Const,
-            "break" => TokenKind::Op(Ops::Break),
-            "continue" => TokenKind::Op(Ops::Continue),
+            "break" => TokenKind::Break,
+            "continue" => TokenKind::Continue,
             "typedef" => TokenKind::TypeDef,
             "do" => TokenKind::DoWhile,
             "static" => TokenKind::Static,
@@ -434,7 +434,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             }
         };
 
-        tokens.append(
+        tokens.push_token(
             Token::new(token_kind, token, ts.base_priority)
         );
 
