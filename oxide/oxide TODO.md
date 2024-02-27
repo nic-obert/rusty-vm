@@ -27,9 +27,6 @@ Project Description
 
 ### In Progress
 
-- [ ] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  
-- [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
-- [ ] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
 - [ ] implement const functions  
 - [ ] take into account side effects of expressions when removing code in optimizations  
 - [ ] add tests and compile-time assertions  
@@ -37,6 +34,9 @@ Project Description
 
 ### Done ✓
 
+- [x] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
+- [x] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
+- [x] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  
 - [x] hide the debug printing to the console behind the -v flag  
 - [x] static keyword  
 - [x] disallow changinc mutability when casting references  
