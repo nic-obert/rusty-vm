@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::lang::data_types::{DataType, LiteralValue};
-use crate::symbol_table::{ScopeDiscriminant, ScopeID};
+use crate::symbol_table::{ScopeDiscriminant, ScopeID, SymbolTable};
 use crate::tokenizer::{SourceToken, TokenParsingList};
 use crate::utils::write_indent;
 
@@ -46,116 +46,146 @@ impl RuntimeOp<'_> {
 
     /// Assumes the operation is allowed at compile-time.
     /// Assumes the operands are literals.
-    pub fn execute(&self) -> Result<LiteralValue, &'static str> {
+    pub fn execute(&self, scope_id: ScopeID, symbol_table: &SymbolTable) -> Result<Rc<LiteralValue>, &'static str> {
 
         match self {
             RuntimeOp::Add { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.add(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.add(right)).into())
             },
             RuntimeOp::Sub { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.sub(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.sub(right)).into())
             },
             RuntimeOp::Mul { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.mul(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.mul(right)).into())
             },
             RuntimeOp::Div { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
                 match left.div(right) {
-                    Ok(result) => Ok(LiteralValue::Numeric(result)),
+                    Ok(result) => Ok(LiteralValue::Numeric(result).into()),
                     Err(()) => Err("Division by zero")
                 }
             },
             RuntimeOp::Mod { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
                 match left.modulo(right) {
-                    Ok(result) => Ok(LiteralValue::Numeric(result)),
+                    Ok(result) => Ok(LiteralValue::Numeric(result).into()),
                     Err(()) => Err("Division by zero")
                 }
             },
             RuntimeOp::Equal { left, right } => {
-                let left = left.assume_literal();
-                let right = right.assume_literal();
-                Ok(LiteralValue::Bool(left.equal(right)))
+                let left = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right.known_literal_value(scope_id, symbol_table).unwrap();
+                Ok(LiteralValue::Bool(left.equal(&right)).into())
             },
             RuntimeOp::NotEqual { left, right } => {
-                let left = left.assume_literal();
-                let right = right.assume_literal();
-                Ok(LiteralValue::Bool(!left.equal(right)))
+                let left = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right.known_literal_value(scope_id, symbol_table).unwrap();
+                Ok(LiteralValue::Bool(!left.equal(&right)).into())
             },
             RuntimeOp::Greater { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Bool(left.greater(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Bool(left.greater(right)).into())
             },
             RuntimeOp::Less { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Bool(left.less(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Bool(left.less(right)).into())
             },
             RuntimeOp::GreaterEqual { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Bool(left.greater_equal(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Bool(left.greater_equal(right)).into())
             },
             RuntimeOp::LessEqual { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Bool(left.less_equal(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Bool(left.less_equal(right)).into())
             },
             RuntimeOp::LogicalAnd { left, right } => {
-                let left = left.assume_literal().assume_bool();
-                let right = right.assume_literal().assume_bool();
-                Ok(LiteralValue::Bool(left && right))
+                let left = left.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
+                let right = right.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
+                Ok(LiteralValue::Bool(left && right).into())
             },
             RuntimeOp::LogicalOr { left, right } => {
-                let left = left.assume_literal().assume_bool();
-                let right = right.assume_literal().assume_bool();
-                Ok(LiteralValue::Bool(left || right))
+                let left = left.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
+                let right = right.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
+                Ok(LiteralValue::Bool(left || right).into())
             },
             RuntimeOp::BitShiftLeft { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.bitshift_left(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.bitshift_left(right)).into())
             },
             RuntimeOp::BitShiftRight { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.bitshift_right(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.bitshift_right(right)).into())
             },
             RuntimeOp::BitwiseOr { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.bitwise_or(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.bitwise_or(right)).into())
             },
             RuntimeOp::BitwiseAnd { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.bitwise_and(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.bitwise_and(right)).into())
             },
             RuntimeOp::BitwiseXor { left, right } => {
-                let left = left.assume_literal().assume_numeric();
-                let right = right.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(left.bitwise_xor(right)))
+                let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
+                let left = left_value.assume_numeric();
+                let right_value = right.known_literal_value(scope_id, symbol_table).unwrap();
+                let right = right_value.assume_numeric();
+                Ok(LiteralValue::Numeric(left.bitwise_xor(right)).into())
             },
             RuntimeOp::LogicalNot(operand) => {
-                let operand = operand.assume_literal().assume_bool();
-                Ok(LiteralValue::Bool(!operand))
+                let operand = operand.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
+                Ok(LiteralValue::Bool(!operand).into())
             },
             RuntimeOp::BitwiseNot(operand) => {
-                let operand = operand.assume_literal().assume_numeric();
-                Ok(LiteralValue::Numeric(operand.bitwise_not()))
+                let operand_value = operand.known_literal_value(scope_id, symbol_table).unwrap();
+                let operand = operand_value.assume_numeric();
+                Ok(LiteralValue::Numeric(operand.bitwise_not()).into())
             },
             RuntimeOp::ArrayIndex { array, index } => {
-                let index = index.assume_literal().assume_numeric().assume_uint();
-                let (_data_type, elements) = array.assume_literal().assume_array();
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
+                let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
+                let (_data_type, elements) = array_value.assume_array();
                 
                 if index as usize >= elements.len() {
                     return Err("Index out of bounds");
@@ -275,7 +305,7 @@ pub enum SyntaxNodeValue<'a> {
     DoWhile { body: ScopeBlock<'a>, condition: Box<SyntaxNode<'a>> },
     Scope(ScopeBlock<'a>),
     Symbol { name: &'a str, scope_discriminant: ScopeDiscriminant },
-    Literal(LiteralValue),
+    Literal(Rc<LiteralValue>),
     
     Const { name: &'a str, data_type: Rc<DataType>, definition: Box<SyntaxNode<'a>> },
     Static { name: &'a str, data_type: Rc<DataType>, definition: Box<SyntaxNode<'a>> },
@@ -375,25 +405,22 @@ impl<'a> SyntaxNode<'a> {
     }
 
 
-    pub fn literal_value(&self) -> Option<&LiteralValue> {
+    /// Return the symbol's literal value, if it is known at compile-time.
+    pub fn known_literal_value(&'a self, scope_id: ScopeID, symbol_table: &'a SymbolTable) -> Option<Rc<LiteralValue>> {
         match &self.value {
-            SyntaxNodeValue::Literal(value) => Some(value),
+            SyntaxNodeValue::Literal(value) => Some(value.clone()),
+            SyntaxNodeValue::Symbol { name, scope_discriminant } => {
+                symbol_table.get_symbol(scope_id, name, *scope_discriminant)
+                    .and_then(|symbol| symbol.borrow().get_value().clone())
+            },
             _ => None,
         }
     }
 
 
-    pub fn assume_literal(&self) -> &LiteralValue {
+    pub fn assume_literal(&self) -> Rc<LiteralValue> {
         match &self.value {
-            SyntaxNodeValue::Literal(value) => value,
-            _ => panic!("Expected a literal, but got {:?}", self.value),
-        }
-    }
-
-
-    pub fn assume_literal_extract_value(self) -> LiteralValue {
-        match self.value {
-            SyntaxNodeValue::Literal(value) => value,
+            SyntaxNodeValue::Literal(value) => value.clone(),
             _ => panic!("Expected a literal, but got {:?}", self.value),
         }
     }
@@ -587,16 +614,25 @@ impl UnparsedScopeBlock<'_> {
         }
     }
 
+
+    pub fn fmt_indented(&self, indent: usize, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write_indent(f, indent)?;
+        writeln!(f, "ScopeBlock {{")?;
+        for statement in &self.statements {
+            statement.fmt_indented(indent + 1, f)?;
+            writeln!(f)?;
+        }
+        writeln!(f)?;
+        write_indent(f, indent)?;
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+
 }
 
 impl Display for UnparsedScopeBlock<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "ScopeBlock {{")?;
-        for statement in &self.statements {
-            statement.fmt_indented(1, f)?;
-        }
-        writeln!(f, "}}")?;
-        Ok(())
+        self.fmt_indented(0, f)
     }
 }
 
@@ -625,11 +661,11 @@ impl ScopeBlock<'_> {
         }
     }
 
-    pub fn return_value_literal(&self) -> Option<&LiteralValue> {
+    pub fn return_value_literal(&self, symbol_table: &SymbolTable ) -> Option<Rc<LiteralValue>> {
 
-        self.statements.last().and_then(|last_statement| {
-            last_statement.literal_value()
-        })
+        self.statements.last()
+            .and_then(|last_statement| last_statement.known_literal_value(self.scope_id, symbol_table)
+        )
     }
 
     pub fn fmt_indented(&self, indent: usize, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -668,14 +704,22 @@ pub struct IfBlock<'a> {
 
 
 pub struct FunctionParam<'a> {
-    pub name: &'a str,
+    pub token: Rc<SourceToken<'a>>,
     pub data_type: Rc<DataType>,
     pub mutable: bool,
 }
 
+impl FunctionParam<'_> {
+
+    pub fn name(&self) -> &str {
+        self.token.string
+    }
+
+}
+
 impl std::fmt::Debug for FunctionParam<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}: {}", if self.mutable { "mut " } else { "" }, self.name, self.data_type)
+        write!(f, "{}{}: {}", if self.mutable { "mut " } else { "" }, self.name(), self.data_type)
     }
 }
 

@@ -6,7 +6,8 @@ Project Description
 
 ### Todo
 
-- [ ] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  
+- [ ] allow constant propagation for immutable statics  
+- [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
 - [ ] implement indirection operator .  
 - [ ] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
@@ -26,6 +27,7 @@ Project Description
 
 ### In Progress
 
+- [ ] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  
 - [ ] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
 - [ ] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
 - [ ] implement const functions  

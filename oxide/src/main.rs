@@ -48,6 +48,11 @@ fn main() {
         }
     };
 
+    if args.verbose {
+        println!("Read source code from {}", input_file.display());
+        println!("Optimization flags: {}", optimization_flags);
+    }
+
     let mut symbol_table = symbol_table::SymbolTable::new();
 
     let tokens = tokenizer::tokenize(&source, input_file, &mut symbol_table);
@@ -56,7 +61,7 @@ fn main() {
 
     let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source, args.verbose);
 
-    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags, args.verbose);
+    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
 
 }
 

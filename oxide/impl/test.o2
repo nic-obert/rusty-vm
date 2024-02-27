@@ -1,5 +1,6 @@
 
 
-fn main() {
-    let s: i32;
+fn main(argv: [&String]) {
+
+
 }

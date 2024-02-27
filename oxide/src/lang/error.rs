@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::path::Path;
+use std::rc::Rc;
 
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
@@ -11,24 +12,6 @@ use crate::tokenizer::{SourceToken, Token, TokenKind};
 
 /// Number of lines of source code to include before and after the highlighted line in error messages
 const SOURCE_CONTEXT_RADIUS: u8 = 3;
-
-
-#[must_use]
-pub enum WarnResult<T> {
-    Ok,
-    Warning(T)
-}
-
-impl<T> WarnResult<T> {
-    
-    pub fn warning(&self) -> Option<&T> {
-        match self {
-            WarnResult::Ok => None,
-            WarnResult::Warning(warning) => Some(warning)
-        }
-    }
-
-}
 
 
 pub fn warn(token: &SourceToken, source: &SourceCode, message: &str) {
@@ -45,7 +28,7 @@ pub fn warn(token: &SourceToken, source: &SourceCode, message: &str) {
 
 
 /// Print the source code context around the specified line.
-fn print_source_context(source: &SourceCode, line_index: usize, char_pointer: usize) {
+pub fn print_source_context(source: &SourceCode, line_index: usize, char_pointer: usize) {
 
     // Calculate the beginning of the context. Saturating subtraction is used interpret underflow as 0.
     let mut index = line_index.saturating_sub(SOURCE_CONTEXT_RADIUS as usize);
@@ -365,17 +348,20 @@ pub fn already_defined(new_def: &SourceToken, old_def: &SourceToken, source: &So
     printdoc!("
         ❌ Error in unit \"{}\"
         
-        Cannot redefine symbol at line {}:{}:
+        Cannot redefine symbol `{}` at line {}:{}:
 
         ",
-        new_def.unit_path.display(), new_def.line_number(), new_def.column
+        new_def.unit_path.display(), new_def.string, new_def.line_number(), new_def.column
     );
 
     print_source_context(source, new_def.line_index(), new_def.column);
     
-    println!("\n{}\n\n", hint);
+    println!("\n{}", hint);
 
-    println!("Outshadows previous definition in unit \"{}\" at line {}:{}:\n\n{}\n", old_def.unit_path.display(), old_def.line_number(), old_def.column, source[old_def.line_index()]);
+    println!("Outshadows previous definition in unit \"{}\" at line {}:{}:\n", old_def.unit_path.display(), old_def.line_number(), old_def.column);
+
+    print_source_context(source, old_def.line_index(), old_def.column);
+
     std::process::exit(1);
 }
 
@@ -391,6 +377,26 @@ pub fn illegal_symbol_capture(token: &SourceToken, source: &SourceCode, hint: &s
     );
 
     print_source_context(source, token.line_index(), token.column);
+    
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+
+
+pub fn unknown_sizes(tokens: &[(Rc<SourceToken>, Rc<DataType>)], source: &SourceCode, hint: &str) -> ! {
+    
+    for (token, dt) in tokens {
+        printdoc!("
+            ❌ Error in unit \"{}\"
+            
+            Cannot statically determine size of type `{}` at line {}:{}:
+
+            ",
+            token.unit_path.display(), dt.name(), token.line_number(), token.column
+        );
+
+        print_source_context(source, token.line_index(), token.column);
+    }
     
     println!("\n{}\n", hint);
     std::process::exit(1);

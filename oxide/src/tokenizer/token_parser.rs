@@ -342,15 +342,15 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
                 if string.contains('.') {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))) })
+                    ))).into() })
                 } else if string.starts_with('-') {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))) })
+                    ))).into() })
                 } else {
                     TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))) }) 
+                    ))).into() }) 
                 }
             },
 
@@ -366,7 +366,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
                 let static_id = symbol_table.add_static_string(string);
 
                 TokenKind::Value(Value::Literal { 
-                    value: LiteralValue::StaticString(static_id)
+                    value: LiteralValue::StaticString(static_id).into()
                 })
             },
 
@@ -382,7 +382,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
                 }
 
                 TokenKind::Value(Value::Literal { 
-                    value: LiteralValue::Char(s.chars().next().unwrap())
+                    value: LiteralValue::Char(s.chars().next().unwrap()).into()
                 })
             },
 
@@ -396,8 +396,8 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
             "loop" => TokenKind::Loop,
-            "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true) }),
-            "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false) }),
+            "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true).into() }),
+            "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false).into() }),
             "const" => TokenKind::Const,
             "break" => TokenKind::Break,
             "continue" => TokenKind::Continue,

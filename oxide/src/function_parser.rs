@@ -137,7 +137,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     // Allow initializing constants with literal values
                     SyntaxNodeValue::Literal(value) => value,
 
-                    // Allow initializing constants with other initialized constants
+                    // Allow initializing constants with other strictly initialized constants
                     SyntaxNodeValue::Symbol { name, scope_discriminant } => {
                         let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
                         match &symbol.value {
@@ -264,16 +264,18 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
     //     };
     // }
 
-    macro_rules! has_constant_value {
-        ($node:expr) => {
-            match &$node.value {
-                SyntaxNodeValue::Literal (_) => true,
+    macro_rules! has_known_value {
+        ($($node:expr),+) => {
+            ($(
+                match &$node.value {
+                    SyntaxNodeValue::Literal (_) => true,
 
-                SyntaxNodeValue::Symbol { name, scope_discriminant }
-                 => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
-                    
-                _ => false
-            }
+                    SyntaxNodeValue::Symbol { name, scope_discriminant }
+                    => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
+                        
+                    _ => false
+                }
+            )&&+)
         };
     }
 
@@ -302,7 +304,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                 evaluate_constants(r_node, source, scope_id, symbol_table);
 
                 // If the left operand is a plain symbol and the right operand is known, perform the assignment statically
-                if let (SyntaxNodeValue::Symbol { name, scope_discriminant }, true) = (&l_node.value, has_constant_value!(r_node)) {
+                if let (SyntaxNodeValue::Symbol { name, scope_discriminant }, true) = (&l_node.value, has_known_value!(r_node)) {
                     
                     let mut l_symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow_mut();
 
@@ -315,7 +317,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             
                             SyntaxNodeValue::Symbol { name, scope_discriminant } => {
                                 let symbol = symbol_table.get_symbol(scope_id, name, scope_discriminant).unwrap();
-                                symbol.borrow().get_value().cloned()
+                                symbol.borrow().get_value()
                             }
                             
                             _ => unreachable!()
@@ -352,15 +354,11 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                 evaluate_constants(left, source, scope_id, symbol_table);
                 evaluate_constants(right, source, scope_id, symbol_table);
 
-                if !(left.has_literal_value() && right.has_literal_value()) {
-                    return SHOULD_NOT_BE_REMOVED;
-                }
-
-                if !(left.has_literal_value() && right.has_literal_value()) {
+                if !has_known_value!(left, right) {
                     return SHOULD_NOT_BE_REMOVED;
                 }
                 
-                let res = match op.execute() {
+                let res = match op.execute(scope_id, symbol_table) {
                     Ok(res) => res,
                     Err(err) => error::compile_time_operation_error(&node.token, source, err)
                 };
@@ -378,11 +376,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                     return SHOULD_NOT_BE_REMOVED;
                 }
 
-                if !operand.has_literal_value() {
-                    return SHOULD_NOT_BE_REMOVED;
-                }
-
-                let res = match op.execute() {
+                let res = match op.execute(scope_id, symbol_table) {
                     Ok(res) => res,
                     Err(err) => error::compile_time_operation_error(&node.token, source, err)
                 };
@@ -423,8 +417,8 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             evaluate_constants_block(body, source, symbol_table);
             evaluate_constants(condition, source, scope_id, symbol_table);
 
-            if let Some(condition_value) = condition.literal_value() {
-                let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
+            if let Some(condition_value) = condition.known_literal_value(scope_id, symbol_table) {
+                let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value.as_ref(), v);
                 if *bool_value {
                     // The condition is always true, so the body will always be executed
                     // Downgrade the do-while loop to a unconditional loop
@@ -453,8 +447,8 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                 return SHOULD_NOT_BE_REMOVED;
             }
 
-            if let Some(condition_value) = condition.literal_value() {
-                let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value, v);
+            if let Some(condition_value) = condition.known_literal_value(scope_id, symbol_table) {
+                let bool_value = match_unreachable!(LiteralValue::Bool(v) = condition_value.as_ref(), v);
                 if *bool_value {
                     // The condition is always true, so the body will always be executed
                     // Downgrade the while loop to a unconditional loop
@@ -499,7 +493,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
 
             let value = expr.assume_literal();
 
-            let new_value = LiteralValue::from_cast(value, &expr.data_type, target_type);
+            let new_value = LiteralValue::from_cast(&value, &expr.data_type, target_type);
 
             node.value = SyntaxNodeValue::Literal (new_value);
         },
@@ -536,12 +530,28 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             }
         },
 
-        SyntaxNodeValue::Symbol { .. } |
-        SyntaxNodeValue::Literal(_) => {
-            // Literal values and symbols are already reduced to the minimum
+        SyntaxNodeValue::Loop { body } => {
+            evaluate_constants_block(body, source, symbol_table);
+
+            if body.statements.is_empty() {
+                // Empty loops can be removed
+                return SHOULD_BE_REMOVED;
+            }
         },
 
-        _ => unreachable!("{:?} should have been removed from the tree.", node)
+        SyntaxNodeValue::Symbol { .. } |
+        SyntaxNodeValue::Literal(_) => {
+            // Literal values and symbols are already reduced to the minimum.
+            // If the value of a symbol is known, it's up to the operator to get it.
+        },
+
+        SyntaxNodeValue::DataType(_) |
+        SyntaxNodeValue::FunctionParams(_) |
+        SyntaxNodeValue::Const { .. } |
+        SyntaxNodeValue::Static { .. } |
+        SyntaxNodeValue::TypeDef { .. } |
+        SyntaxNodeValue::Placeholder 
+            => unreachable!("{:?} should have been removed from the tree.", node)
     }
 
     // By default, the node should not be removed
@@ -856,8 +866,8 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     }
 
                     // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
-                    let r_value = r_node.literal_value();
-                    if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value) {
+                    let r_value = r_node.known_literal_value(scope_id, symbol_table);
+                    if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value.as_deref()) {
                         error::type_error(&r_node.token, &[&l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
                     }
                     
@@ -929,11 +939,11 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     if is_literal_array {
                         // If all the array elements are literals, the whole array is a literal array
                         // Change this token to a literal array
-                        let mut literal_items: Vec<LiteralValue> = Vec::with_capacity(elements.len());
+                        let mut literal_items = Vec::with_capacity(elements.len());
                         for element in mem::take(elements) {
-                            literal_items.push(element.assume_literal_extract_value());
+                            literal_items.push(element.assume_literal());
                         }
-                        expression.value = SyntaxNodeValue::Literal (LiteralValue::Array { element_type, items: literal_items } );
+                        expression.value = SyntaxNodeValue::Literal (LiteralValue::Array { element_type, items: literal_items }.into() );
                     }
         
                     data_type.into()
@@ -996,8 +1006,8 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             resolve_scope_types(body, Some(return_type.clone()), function_parent_scope, symbol_table, source);
 
             // Check return type
-            let return_value = body.return_value_literal();
-            if !body.return_type().is_implicitly_castable_to(return_type.as_ref(), return_value) {
+            let return_value = body.return_value_literal(symbol_table);
+            if !body.return_type().is_implicitly_castable_to(return_type.as_ref(), return_value.as_deref()) {
                 error::type_error(&expression.token, &[&return_type.name()], &body.return_type(), source, "Mismatched return type in function declaration.");
             }
 

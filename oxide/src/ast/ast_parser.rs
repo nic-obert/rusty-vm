@@ -413,7 +413,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 error::invalid_argument(&token.value, &callable.token, source, "Invalid function name or function-returning expression before function call operator.");
                             }
 
-                            let args = extract_list_like_delimiter_contents(&mut statement, op_node, &token.value, &TokenKind::ParClose, source).into_iter().map(
+                            let args = extract_list_like_delimiter_contents(&mut statement, op_node, &token, &TokenKind::ParClose, source).into_iter().map(
                                 |arg_node| {
 
                                     let arg_node = arg_node.syntax_node_extract_value()
@@ -517,7 +517,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
             
                         TokenKind::ArrayOpen => {
                             // Extract the nodes within the square brackets and check if they are valid expressions
-                            let inner_nodes = extract_list_like_delimiter_contents(&mut statement, op_node, &token.value, &TokenKind::SquareClose, source).into_iter()
+                            let inner_nodes = extract_list_like_delimiter_contents(&mut statement, op_node, &token, &TokenKind::SquareClose, source).into_iter()
                                 .map(|inner_node| inner_node.syntax_node_extract_value().unwrap_or_else(
                                     |arg| error::invalid_argument(&token.value, arg.source_token(), source, "Invalid token inside literal array. Expected an expression.")
                                 )).map(
@@ -570,7 +570,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
         
                             let res = symbol_table.define_type(type_name, block.scope_id, data_type.clone(), token.source_token.clone());
                             if let Some(shadow) = res.err() {
-                                error::already_defined(&token.source_token, &shadow.token, source, format!("{type_name} is defined multiple times in the same scope.").as_str())
+                                error::already_defined(&name_node.token, &shadow.token, source, format!("{type_name} is defined multiple times in the same scope.").as_str())
                             }
         
                             TokenParsingNodeValue::SyntaxToken(SyntaxNode::new(
@@ -662,7 +662,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 block.scope_id
                             );
                             if let Err(old_def) = old_def {
-                                error::already_defined(&token.source_token, &old_def, source, "Cannot define a static multiple times in the same scope")
+                                error::already_defined(&name_node.token, &old_def, source, "Cannot define a static multiple times in the same scope")
                             }
 
                             TokenParsingNodeValue::SyntaxToken(SyntaxNode::new(
@@ -743,7 +743,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 block.scope_id
                             );
                             if let Err(old_def) = old_def {
-                                error::already_defined(&token.source_token, &old_def, source, "Cannot define a constant multiple times in the same scope")
+                                error::already_defined(&name_node.token, &old_def, source, "Cannot define a constant multiple times in the same scope")
                             }
                         
                             TokenParsingNodeValue::SyntaxToken(SyntaxNode::new(
@@ -821,7 +821,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                             };
         
                             // Declare the new symbol in the local scope
-                            let (discriminant, res) = symbol_table.declare_symbol(
+                            let (discriminant, prev_declaration) = symbol_table.declare_symbol(
                                 symbol_name,
                                 Symbol::new_uninitialized(
                                     data_type, 
@@ -830,8 +830,9 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 ),
                                 block.scope_id
                             );
-                            if let Some(warning) = res.warning() {
-                                error::warn(&name_node.token, source, warning);
+                            if let Some(prev_declaration) = prev_declaration {
+                                error::warn(&name_node.token, source, &format!("Symbol `{}` was already declared in this scope. This declaration will overshadow the previous one.\nPrevious declaration at line {}:{}:", symbol_name, prev_declaration.line_number(), prev_declaration.column));
+                                error::print_source_context(source, prev_declaration.line_index(), prev_declaration.column);
                             }
         
                             if let SyntaxNodeValue::Symbol { name: _, scope_discriminant } = &mut name_node.value {
@@ -876,7 +877,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                         TokenKind::Value(Value::Literal { value }) => {
 
                             TokenParsingNodeValue::SyntaxToken(SyntaxNode::new(
-                                SyntaxNodeValue::Literal(value),
+                                SyntaxNodeValue::Literal(value), // TODO: fix this clone with Rc<LiteralValue>
                                 token.source_token.clone()
                             ))
                         },
@@ -976,17 +977,18 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
         
                             // Declare the function parameter names in the function's scope
                             for param in params {
-                                let (_discriminant, res) = symbol_table.declare_symbol(
-                                    param.name, 
+                                let (_discriminant, prev_declaration) = symbol_table.declare_symbol(
+                                    param.token.string, 
                                     Symbol::new_uninitialized(
-                                        param.data_type,
-                                        token.source_token.clone(),
+                                        param.data_type.clone(),
+                                        param.token.clone(),
                                         if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
                                     ), 
                                     body.scope_id // Note that the parameters are declared in the function's body scope
                                 );
-                                if let Some(warning) = res.warning() {
-                                    error::warn(&name_node.token, source, warning);
+                                if let Some(prev_declaration) = prev_declaration {
+                                    error::warn(&name_node.token, source, &format!("Symbol {} was already declared in this scope. This declaration will overshadow the previous one.\nPrevious declaration at line {}:{}:", param.name(), prev_declaration.line_number(), prev_declaration.column));
+                                    error::print_source_context(source, prev_declaration.line_index(), prev_declaration.column);
                                 }
                             }
         
@@ -998,7 +1000,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 block.scope_id
                             );
                             if let Err(old_def) = old_def {
-                                error::already_defined(&token.source_token, &old_def, source, "Cannot define a function multiple times in the same scope")
+                                error::already_defined(&name_node.token, &old_def, source, "Cannot define a function multiple times in the same scope")
                             }
                             
                             TokenParsingNodeValue::SyntaxToken(SyntaxNode::new(
@@ -1074,7 +1076,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                             error::invalid_argument(&token.value, &data_type_node.token, source, "Invalid data type in function declaration.")
                                         );
         
-                                        params.push(FunctionParam { name, data_type, mutable });
+                                        params.push(FunctionParam { token: sn.token, data_type, mutable });
         
                                         // A comma is expected after each argument except the last one
                                         expected_comma = true;
@@ -1429,7 +1431,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 
                 TokenParsingNodeValue::SyntaxToken(_) => unreachable!("Syntax nodes are not allowed at this stage, they should have been skipped cause 0 priority. This is a bug."),
                 TokenParsingNodeValue::RawScope { .. } => unreachable!("Raw scopes are not allowed at this stage, they should have been converted to UnparsedScope. This is a bug."),
-                TokenParsingNodeValue::Placeholder => unreachable!("Invalid node {:#?}: Placeholders are not allowed at this stage, they should have been removed. This is a bug.", op_node),
+                TokenParsingNodeValue::Placeholder => unreachable!("Placeholders are not allowed at this stage, they should have been removed. This is a bug."),
             }
                 
         }
@@ -1449,12 +1451,20 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
 /// Extract comma-separated tokens within a delimiter (parentheses, square brackets, etc.).
 /// 
 /// Removes the closing delimiter from the token list without including it in the returned arguments.
-fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenParsingList<'a>, start_delimiter: *mut TokenParsingNode<'a>, operator: &TokenKind<'_>, delimiter: &TokenKind<'_>, source: &SourceCode) -> Vec<TokenParsingNode<'a>> {
-    
+fn extract_list_like_delimiter_contents<'a>(
+
+    tokens: &mut TokenParsingList<'a>,
+    start_delimiter_ptr: *mut TokenParsingNode<'a>,
+    start_delimiter_token: &Token,
+    delimiter: &TokenKind<'_>,
+    source: &SourceCode
+
+) -> Vec<TokenParsingNode<'a>> 
+{
+
     let mut arguments = Vec::new();
 
-    let start_delimiter = unsafe { &mut *start_delimiter };
-    let start_delimiter_token = unsafe { start_delimiter.assume_lex_token() };
+    let start_delimiter = unsafe { &mut *start_delimiter_ptr };
 
     // Set to false because the first token in a collection can't be a comma
     let mut expected_comma: bool = false;
@@ -1463,7 +1473,7 @@ fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenParsingList<'a>, s
     loop {
 
         let arg_node = unsafe { tokens.extract_node(start_delimiter.right()) }.unwrap_or_else(
-            || error::expected_argument(start_delimiter_token, source, format!("Missing argument or closing delimiter for operator {:?}.", operator).as_str())
+            || error::expected_argument(start_delimiter_token, source, format!("Missing argument or closing delimiter for operator {:?}.", start_delimiter_token.value).as_str())
         );
 
         match &arg_node.value {
@@ -1480,16 +1490,18 @@ fn extract_list_like_delimiter_contents<'a>(tokens: &mut TokenParsingList<'a>, s
                         error::unexpected_token(token, source, "Did you add an extra comma?");
                     },
         
-                    _ => {
-                        // The token type will be checked later
-                        arguments.push(*arg_node);
-                        // A comma is expected after each argument except the last one
-                        expected_comma = true;
-                    }
+                    _ => unreachable!("Unexpected token kind during list extraction: {:?}. This is a bug.", token)
                 }
             },
 
-            _ => continue
+            TokenParsingNodeValue::SyntaxToken(_) => {
+                // The token type will be checked later
+                arguments.push(*arg_node);
+                // A comma is expected after each argument except the last one
+                expected_comma = true;
+            },
+            
+            _ => unreachable!("Invalid token kind during list extraction: {:?}. This is a bug.", arg_node)
         }
     }
 

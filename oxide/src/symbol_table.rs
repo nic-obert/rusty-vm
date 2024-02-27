@@ -4,7 +4,6 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use crate::lang::error::WarnResult;
 use crate::lang::data_types::{DataType, LiteralValue};
 use crate::icr::Label;
 use crate::match_unreachable;
@@ -46,7 +45,7 @@ impl Symbol<'_> {
     }
 
 
-    pub fn initialize_immutable(&mut self, value: LiteralValue) {
+    pub fn initialize_immutable(&mut self, value: Rc<LiteralValue>) {
 
         assert!(matches!(self.value, SymbolValue::Immutable(None)));
         
@@ -54,14 +53,17 @@ impl Symbol<'_> {
         self.initialized = true;
     }
 
-    pub fn get_value(&self) -> Option<&LiteralValue> {
+
+    pub fn get_value(&self) -> Option<Rc<LiteralValue>> {
         match &self.value {
             SymbolValue::Mutable => None,
             SymbolValue::Function { .. } => None,
-            SymbolValue::Immutable(v) => v.into(),
-            SymbolValue::Constant(v) => Some(v),
+            SymbolValue::Immutable(v) => v.clone(),
+            SymbolValue::Constant(v) => Some(v.clone()),
 
-            SymbolValue::Static { init_value, mutable: _ } => Some(init_value),
+            SymbolValue::Static { init_value, mutable: false } => Some(init_value.clone()),
+            // Since mutable statics can change at any moment, we cannot know their value at compile-time.
+            SymbolValue::Static { mutable: true, .. } => None,
 
             SymbolValue::UninitializedConstant |
             SymbolValue::UninitializedStatic { .. }
@@ -85,10 +87,10 @@ impl Symbol<'_> {
 #[derive(Debug)]
 pub enum SymbolValue {
     Mutable,
-    Immutable (Option<LiteralValue>),
-    Constant (LiteralValue),
+    Immutable (Option<Rc<LiteralValue>>),
+    Constant (Rc<LiteralValue>),
     Function { is_const: bool, has_side_effects: bool },
-    Static { init_value: LiteralValue, mutable: bool },
+    Static { init_value: Rc<LiteralValue>, mutable: bool },
 
     UninitializedConstant,
     UninitializedStatic { mutable: bool },
@@ -96,7 +98,7 @@ pub enum SymbolValue {
 
 impl SymbolValue {
 
-    pub fn is_mutable(&self) -> bool {
+    pub const fn is_mutable(&self) -> bool {
         match self {
             SymbolValue::Mutable |
             SymbolValue::Static { init_value: _, mutable: true }
@@ -158,23 +160,6 @@ impl<'a> Scope<'a> {
             types: Default::default(),
             children: Default::default(),
         }
-    }
-
-
-    /// Recursively get the size of the scope in bytes, including its children.
-    pub fn get_total_size(&self, symbol_table: &SymbolTable) -> usize {
-        let mut size = 0;
-
-        for symbol in self.symbols.values().flat_map(|s| s.iter()) {
-            size += symbol.borrow().data_type.static_size();
-        }
-
-        for child_id in &self.children {
-            let scope = &symbol_table.scopes[child_id.0];
-            size += scope.get_total_size(symbol_table);
-        }
-
-        size
     }
 
 
@@ -283,8 +268,34 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Get the size of a scope in bytes, including its children.
-    pub fn total_scope_size(&self, scope_id: ScopeID) -> usize {
-        self.scopes[scope_id.0].get_total_size(self)
+    #[allow(clippy::type_complexity)]
+    pub fn total_scope_size(&self, scope_id: ScopeID) -> Result<usize, Vec<(Rc<SourceToken>, Rc<DataType>)>> {
+        // self.scopes[scope_id.0].get_total_size(self)
+
+        let mut size = 0;
+        let mut unknown_sizes = Vec::new();
+
+        let scope = &self.scopes[scope_id.0];
+
+        for symbol in scope.symbols.values().flat_map(|s| s.iter()) {
+            match symbol.borrow().data_type.static_size() {
+                Ok(s) => size += s,
+                Err(()) => unknown_sizes.push((symbol.borrow().token.clone(), symbol.borrow().data_type.clone()))
+            }
+        }
+
+        for child_id in &scope.children {
+            match self.total_scope_size(*child_id) {
+                Ok(s) => size += s,
+                Err(e) => unknown_sizes.extend(e)
+            }
+        }
+
+        if unknown_sizes.is_empty() {
+            Ok(size)
+        } else {
+            Err(unknown_sizes)
+        }
     }
 
 
@@ -305,7 +316,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn define_static(&self, name: &str, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
+    pub fn define_static(&self, name: &str, scope_id: ScopeID, value: Rc<LiteralValue>) -> Result<(), ()> {
         
         let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .ok_or(())?
@@ -319,7 +330,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn define_constant(&self, name: &str, scope_id: ScopeID, value: LiteralValue) -> Result<(), ()> {
+    pub fn define_constant(&self, name: &str, scope_id: ScopeID, value: Rc<LiteralValue>) -> Result<(), ()> {
         
         let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .ok_or(())?
@@ -379,7 +390,9 @@ impl<'a> SymbolTable<'a> {
     }
 
     
-    pub fn declare_symbol(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, WarnResult<&'static str>) {
+    /// Declare the new symbol in the symbol table.
+    /// Return the the previous declaration of the symbol, if it exists.
+    pub fn declare_symbol(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, Option<Rc<SourceToken>>) {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
@@ -388,13 +401,13 @@ impl<'a> SymbolTable<'a> {
             RefCell::new(symbol)
         );
 
-        let warning = if discriminant.0 > 0 {
-            WarnResult::Warning("Symbol already declared in this scope. The new symbol will overshadow the previous declaration.")
+        let prev_declaration = if discriminant.0 > 0 {
+            Some(symbol_list[(discriminant.0 - 1) as usize].borrow().token.clone())
         } else {
-            WarnResult::Ok
+            None
         };
 
-        (discriminant, warning)
+        (discriminant, prev_declaration)
     }
 
 

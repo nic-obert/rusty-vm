@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use std::fmt::Display;
+use std::fmt;
 
 use clap::{Parser, Subcommand};
 use indoc::printdoc;
@@ -46,26 +48,29 @@ pub enum TopLevelCommand {
 
 }
 
+const TURN_ON: bool = true;
+const TURN_OFF: bool = false;
 
 impl CliParser {
 
-    fn parse_optimizations(string_flags: &[String], on: bool, flags: &mut OptimizationFlags) {
+    fn parse_optimizations(string_flags: &[String], on_off: bool, flags: &mut OptimizationFlags) {
 
         for opt in string_flags {
             match opt.as_str() {
                 "all" => {
+                    match on_off {
+                        TURN_ON => *flags = OptimizationFlags::all(),
+                        TURN_OFF => *flags = OptimizationFlags::none(),
+                    }
                     if string_flags.len() > 1 {
-                        if on {
-                            println!("Turning on single optimizations is redundant because -Oall turns on all optimizations.");
-                            *flags = OptimizationFlags::all();
-                        } else {
-                            println!("Turning off single optimizations is redundant because -Xall turns off all optimizations.");
-                            *flags = OptimizationFlags::none();
+                        match on_off {
+                            TURN_ON => println!("Turning on single optimizations is redundant because -Oall turns on all optimizations."),
+                            TURN_OFF => println!("Turning off single optimizations is redundant because -Xall turns off all optimizations."),
                         }
                     }
                 },
-                "evaluate_constants" => flags.evaluate_constants = on,
-                "remove_useless_code" => flags.remove_useless_code = on,
+                "evaluate_constants" => flags.evaluate_constants = on_off,
+                "remove_useless_code" => flags.remove_useless_code = on_off,
                 _ => {
                     println!("Unknown optimization flag: {}", opt);
                     std::process::exit(1);
@@ -78,8 +83,8 @@ impl CliParser {
     pub fn optimization(&self) -> OptimizationFlags {
         let mut flags = OptimizationFlags::default();
 
-        Self::parse_optimizations(&self.optimizations_on, true, &mut flags);
-        Self::parse_optimizations(&self.optimizations_off, false, &mut flags);
+        Self::parse_optimizations(&self.optimizations_on, TURN_ON, &mut flags);
+        Self::parse_optimizations(&self.optimizations_off, TURN_OFF, &mut flags);
 
         flags
     }
@@ -131,6 +136,25 @@ macro_rules! declare_optimizations {
                 OptimizationFlags {
                     $($opt_name: $default),*
                 }
+            }
+        }
+
+        impl Display for OptimizationFlags {
+            #[allow(unused_assignments)] // The compiler cannot see that first is used when the macro is expanded
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                let mut first = true;
+                write!(f, "[")?;
+                $(
+                    if self.$opt_name {
+                        if first {
+                            first = false;
+                        } else {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", stringify!($opt_name))?;
+                    }
+                )*
+                write!(f, "]")
             }
         }
 

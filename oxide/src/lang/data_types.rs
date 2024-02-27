@@ -2,7 +2,10 @@ use std::borrow::Cow;
 use std::fmt::{Display, Debug};
 use std::rc::Rc;
 
-use crate::{match_unreachable, symbol_table::{StaticID, SymbolTable}};
+use crate::match_unreachable;
+use crate::symbol_table::{StaticID, SymbolTable};
+
+use rusty_vm_lib::vm::ADDRESS_SIZE;
 
 use self::dt_macros::numeric_pattern;
 
@@ -90,27 +93,43 @@ pub mod dt_macros {
 impl DataType {
 
     /// Return the size of the data type in bytes, if it is known at compile-time.
-    pub fn static_size(&self) -> usize {
-        match self {
-            DataType::Bool => 1,
-            DataType::Char => 1,
-            DataType::I8 => 1,
-            DataType::I16 => 2,
-            DataType::I32 => 4,
-            DataType::I64 => 8,
-            DataType::U8 => 1,
-            DataType::U16 => 2,
-            DataType::U32 => 4,
-            DataType::U64 => 8,
-            DataType::F32 => 4,
-            DataType::F64 => 8,
-            DataType::Usize => rusty_vm_lib::vm::ADDRESS_SIZE,
-            DataType::Isize => rusty_vm_lib::vm::ADDRESS_SIZE,
-            
-            DataType::RawString { length } => DataType::Char.static_size() * *length, // Char size * number of chars
-            DataType::Array { element_type, size} => element_type.static_size() * size.expect("Array size is not known at compile-time"),
+    pub fn static_size(&self) -> Result<usize, ()> {
 
-            DataType::StringRef { length: _ } => rusty_vm_lib::vm::ADDRESS_SIZE + DataType::Usize.static_size(), // Address size + length size
+        const BOOL_SIZE: usize = 1;
+        const CHAR_SIZE: usize = 1;
+        const I8_SIZE: usize = 1;
+        const I16_SIZE: usize = 2;
+        const I32_SIZE: usize = 4;
+        const I64_SIZE: usize = 8;
+        const U8_SIZE: usize = 1;
+        const U16_SIZE: usize = 2;
+        const U32_SIZE: usize = 4;
+        const U64_SIZE: usize = 8;
+        const F32_SIZE: usize = 4;
+        const F64_SIZE: usize = 8;
+        const USIZE_SIZE: usize = ADDRESS_SIZE;
+        const ISIZE_SIZE: usize = ADDRESS_SIZE;
+
+        Ok(match self {
+            DataType::Bool => BOOL_SIZE,
+            DataType::Char => CHAR_SIZE,
+            DataType::I8 => I8_SIZE,
+            DataType::I16 => I16_SIZE,
+            DataType::I32 => I32_SIZE,
+            DataType::I64 => I64_SIZE,
+            DataType::U8 => U8_SIZE,
+            DataType::U16 => U16_SIZE,
+            DataType::U32 => U32_SIZE,
+            DataType::U64 => U64_SIZE,
+            DataType::F32 => F32_SIZE,
+            DataType::F64 => F64_SIZE,
+            DataType::Usize => USIZE_SIZE,
+            DataType::Isize => ISIZE_SIZE,
+            
+            DataType::RawString { length } => CHAR_SIZE * *length,
+            DataType::Array { element_type, size} => element_type.static_size()? * size.ok_or(())?,
+
+            DataType::StringRef { length: _ } => ADDRESS_SIZE + USIZE_SIZE,
             DataType::Ref { .. } => rusty_vm_lib::vm::ADDRESS_SIZE,
             
             DataType::String  // TODO: update with a rust-like string struct size
@@ -121,7 +140,7 @@ impl DataType {
              => 0,
 
             DataType::Unspecified => unreachable!("Unspecified data type size for {:?}", self),
-        }
+        })
     }
 
 
@@ -436,7 +455,7 @@ pub enum LiteralValue {
     Char (char),
     StaticString (StaticID),
 
-    Array { element_type: Rc<DataType>, items: Vec<LiteralValue> },
+    Array { element_type: Rc<DataType>, items: Vec<Rc<LiteralValue>> },
 
     Numeric (Number),
 
@@ -446,7 +465,7 @@ pub enum LiteralValue {
 
 impl LiteralValue {
 
-    pub fn assume_array(&self) -> (&Rc<DataType>, &Vec<LiteralValue>) {
+    pub fn assume_array(&self) -> (&Rc<DataType>, &[Rc<LiteralValue>]) {
         match self {
             LiteralValue::Array { element_type, items } => (element_type, items),
             _ => unreachable!("Cannot assume array value from {:?}", self)
@@ -470,7 +489,7 @@ impl LiteralValue {
     /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
     /// 
     /// This function can perform only compile-time casts.
-    pub fn from_cast(src_value: &LiteralValue, src_type: &DataType, target_type: &DataType) -> Self {
+    pub fn from_cast(src_value: &LiteralValue, src_type: &DataType, target_type: &DataType) -> Rc<Self> {
         
         assert!(src_type.is_castable_to(target_type));
 
@@ -572,7 +591,8 @@ impl LiteralValue {
             },
             
             _ => unreachable!("Cannot cast from {:?} to {:?} (or at least not at compile-time)", src_type, target_type)
-        }
+
+        }.into()
     }
 
 
@@ -682,9 +702,9 @@ mod tests {
 
         // Array of positive signed integers can be cast to array of unsigned integers.
         let a = LiteralValue::Array { element_type: Rc::new(DataType::I32), items: vec![
-            LiteralValue::Numeric(Number::Int(1)),
-            LiteralValue::Numeric(Number::Int(2)),
-            LiteralValue::Numeric(Number::Int(3)),
+            LiteralValue::Numeric(Number::Int(1)).into(),
+            LiteralValue::Numeric(Number::Int(2)).into(),
+            LiteralValue::Numeric(Number::Int(3)).into(),
         ]};
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&a)));
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: Some(3) }, Some(&a)));
@@ -693,9 +713,9 @@ mod tests {
 
             // Array with negative integers can only be cast to array of signed integers, not unsigned integers.
             let b = LiteralValue::Array { element_type: Rc::new(DataType::I32), items: vec![
-                LiteralValue::Numeric(Number::Int(1)),
-                LiteralValue::Numeric(Number::Int(-2)),
-                LiteralValue::Numeric(Number::Int(3)),
+                LiteralValue::Numeric(Number::Int(1)).into(),
+                LiteralValue::Numeric(Number::Int(-2)).into(),
+                LiteralValue::Numeric(Number::Int(3)).into(),
             ]};
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::I64), size: Some(3) }, Some(&b)));
             assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&b)));

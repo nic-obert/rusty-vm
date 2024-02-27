@@ -88,7 +88,7 @@ impl<'a> TokenParsingNode<'a> {
     pub unsafe fn assume_lex_token(&self) -> &Token {
         match &self.value {
             TokenParsingNodeValue::LexToken(token) => token,
-            _ => unreachable!()
+            _ => unreachable!("Argument was assumed to be a LexToken, but {:#?} was found", self.value)
         }
     }
 
@@ -104,7 +104,7 @@ impl<'a> TokenParsingNode<'a> {
     pub unsafe fn assume_lex_token_extract_value(self) -> Token<'a> {
         match self.value {
             TokenParsingNodeValue::LexToken(token) => token,
-            _ => unreachable!()
+            _ => unreachable!("Argument was assumed to be a LexToken, but {:#?} was found", self.value)
         }
     }
 
@@ -120,7 +120,7 @@ impl<'a> TokenParsingNode<'a> {
     pub unsafe fn assume_syntax_node_extract_value(self) -> SyntaxNode<'a> {
         match self.value {
             TokenParsingNodeValue::SyntaxToken(node) => node,
-            _ => unreachable!()
+            _ => unreachable!("Argument was assumed to be a SyntaxToken, but {:#?} was found", self.value)
         }
     }
  
@@ -230,6 +230,7 @@ impl<'a> TokenParsingList<'a> {
             } else {
                 (*self.tail).right = std::ptr::null_mut();
             }
+
             drop(Box::from_raw(old_tail));
         }
     }
@@ -301,30 +302,26 @@ impl<'a> TokenParsingList<'a> {
 
     pub fn fmt_indented(&self, indent: usize, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 
+        write_indent(f, indent)?;
+
         for node in self.iter() {
             
             match &node.value {
                 TokenParsingNodeValue::LexToken(token) => {
-                    write_indent(f, indent)?;
-                    writeln!(f, "{}", token)?;
+                    write!(f, "{} ", token)?;
                 },
                 TokenParsingNodeValue::SyntaxToken(node) => {
+                    // This probably will never be executed since when SyntaxTokens are introducen in the list, the list gets consumed and converted into a ScopeBlock.
                     node.fmt_indented(indent, f)?;
                 },
                 TokenParsingNodeValue::RawScope { inner_tokens, token } => {
-                    write_indent(f, indent)?;
                     writeln!(f, "{}", token)?;
-                    inner_tokens.fmt_indented(indent, f)?;
+                    inner_tokens.fmt_indented(indent + 1, f)?;
                 },
-                TokenParsingNodeValue::UnparsedScope { statements, token } => {
-                    write_indent(f, indent)?;
-                    writeln!(f, "{}", token)?;
-                    for statement in statements.statements.iter() {
-                        write_indent(f, indent + 1)?;
-                        writeln!(f, "{}", statement)?;
-                    }
+                TokenParsingNodeValue::UnparsedScope { statements, token: _ } => {
+                    statements.fmt_indented(indent + 1, f)?;
                 },
-                TokenParsingNodeValue::Placeholder => unreachable!()
+                TokenParsingNodeValue::Placeholder => unreachable!("Placeholder value found in TokenParsingList"),
             }
         }
 
@@ -478,7 +475,7 @@ impl SourceToken<'_> {
 #[derive(Debug)]
 pub enum Value<'a> {
 
-    Literal { value: LiteralValue },
+    Literal { value: Rc<LiteralValue> },
     Symbol { name: &'a str, scope_discriminant: ScopeDiscriminant }
 
 }
