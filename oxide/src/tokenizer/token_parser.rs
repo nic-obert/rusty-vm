@@ -15,7 +15,7 @@ use rusty_vm_lib::ir::SourceCode;
 
 lazy_static! {
 
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||[-+*/%\[\](){}=:#<>!^&|~]|\S"#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||//|[-+*/%\[\](){}=:<>!^&|~]|\S"#).unwrap();
 
 }
 
@@ -196,7 +196,7 @@ fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = 
             let mut matches = Vec::new();
             for mat in TOKEN_REGEX.find_iter(line) {
                 // Stop on comments
-                if mat.as_str() == "#" {
+                if mat.as_str() == "//" {
                     break;
                 }
                 matches.push(
