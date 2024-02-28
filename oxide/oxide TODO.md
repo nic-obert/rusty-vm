@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] vscode extension for syntax highlighting  
 - [ ] allow constant propagation for immutable statics  
 - [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
 - [ ] implement indirection operator .  
@@ -34,6 +35,7 @@ Project Description
 
 ### Done ✓
 
+- [x] implement multi-line comments  
 - [x] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
 - [x] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  
 - [x] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known  

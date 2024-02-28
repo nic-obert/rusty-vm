@@ -15,7 +15,7 @@ use rusty_vm_lib::ir::SourceCode;
 
 lazy_static! {
 
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||//|[-+*/%\[\](){}=:<>!^&|~]|\S"#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||//|/\*|\*/|[-+*/%\[\](){}=:<>!^&|~]|\S"#).unwrap();
 
 }
 
@@ -188,25 +188,41 @@ impl TokenizerStatus {
 
 /// Divide the source code into meaningful string tokens
 fn lex<'a>(source: &'a SourceCode, unit_path: &'a Path) -> impl Iterator<Item = SourceToken<'a>> {
+
+    let mut multiline_comment = false;
+
     source.iter().enumerate().flat_map(
-        |(line_index, line)| {
-            if line.trim().is_empty() {
+        move |(line_index, line)| {
+
+            if line.trim().is_empty() && !multiline_comment {
                 return Vec::new();
             }
+
             let mut matches = Vec::new();
+
             for mat in TOKEN_REGEX.find_iter(line) {
-                // Stop on comments
-                if mat.as_str() == "//" {
-                    break;
-                }
-                matches.push(
-                    SourceToken {
-                        string: mat.as_str(),
-                        unit_path,
-                        line_index,
-                        column: mat.start() + 1
+
+                if multiline_comment {
+                    if mat.as_str() == "*/" {
+                        multiline_comment = false;
                     }
-                );
+                    continue;
+                }
+
+                match mat.as_str() {
+                    "//" => break,
+                    "/*" => {
+                        multiline_comment = true;
+                    },
+                    s => matches.push(
+                        SourceToken {
+                            string: s,
+                            unit_path,
+                            line_index,
+                            column: mat.start() + 1
+                        }
+                    )
+                }
             }
             matches
         }
