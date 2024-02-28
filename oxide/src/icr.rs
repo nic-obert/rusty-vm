@@ -153,18 +153,23 @@ impl<'a> ScopeTable<'a> {
             
     }
 
+
     pub fn add_scope(&mut self, parent: Option<IRScopeID>) -> IRScopeID {
         self.scopes.push(IRScope::new(parent));
         IRScopeID(self.scopes.len() - 1)
     }
 
+
     /// Recursively get the Tn mapped to the given name, if it exists in a reachable scope
     pub fn get_tn(&mut self, name: &str, discriminant: ScopeDiscriminant, ir_scope: IRScopeID) -> Option<Tn> {
-        self.scopes[ir_scope.0].symbols.get(name).map(|symbol_list| symbol_list[discriminant.0 as usize].clone())
+        self.scopes[ir_scope.0].symbols.get(name)
+            .and_then(|symbol_list| symbol_list.get(discriminant.0 as usize).cloned())
             .or_else(|| self.scopes[ir_scope.0].parent
                 .and_then(|parent| self.get_tn(name, discriminant, parent)))
     }
 
+
+    /// Map a symbol name to a Tn in the given scope
     pub fn map_symbol(&mut self, name: &'a str, tn: Tn, ir_scope: IRScopeID) {
         self.scopes[ir_scope.0].symbols.entry(name).or_default().push(tn);
     }
@@ -833,12 +838,15 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             Some(target)
         },
         SyntaxNodeValue::Symbol { name, scope_discriminant } => {
+
+            // Try to get the symbol's Tn
+            let symbol_tn = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope);
             
             if let Some(target) = target {
                 // The symbol should be loaded into `target`
                 // Assume the symbol has already been mapped to a Tn
 
-                let symbol_tn =  ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope).expect("Symbol not found in scope table, but it's being read");
+                let symbol_tn =  symbol_tn.expect("Symbol not found in scope table, but it's being read");
                     
                 ir_function.code.push_back(IROperator::Assign { 
                     target: target.clone(),
@@ -849,7 +857,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             } else {
 
-                let target = if let Some(tn) = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope) {
+                let target = if let Some(tn) = symbol_tn {
                     tn
                 } else {
                     let tn = Tn { id: irid_gen.next_tn(), data_type: node.data_type };
