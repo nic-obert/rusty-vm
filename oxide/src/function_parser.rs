@@ -196,6 +196,10 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
         resolve_scope_types(&mut function.code, Some(return_type), function.parent_scope, symbol_table, source);
 
         // Const functions
+
+        // Reduce the constant function to the minimum
+        // This will be useful when the function is called statically because it will be faster to evaluate.
+        evaluate_constants_block(&mut function.code, source, symbol_table);
         
         let function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow();
         let (is_const, has_side_effects) = match_unreachable!(SymbolValue::Function { is_const, has_side_effects } = &function_symbol.value, (*is_const, *has_side_effects));
@@ -203,7 +207,8 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
             error::not_a_constant(&function_symbol.token, source, format!("Function \"{}\" is declared as const but has side effects.", function.name).as_str());
         }
 
-        // TODO: check if the const function can indeed be evaluated at compile-time (all its statements must be constant expressions)
+        // The function will be evaluated upon calling. Here we should check if the function can be evaluated statically.
+        // TODO: check if the function can indeed be evaluated statically
     }
 }
 
@@ -213,7 +218,6 @@ fn evaluate_constants_functions(functions: &mut [Function], symbol_table: &mut S
         evaluate_constants_block(&mut function.code, source, symbol_table);
     }
 }
-
 
 
 /// Resolve and check the types of symbols and expressions.

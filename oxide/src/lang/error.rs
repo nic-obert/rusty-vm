@@ -314,7 +314,7 @@ pub fn not_a_constant(token: &SourceToken, source: &SourceCode, hint: &str) -> !
     printdoc!("
         ❌ Error in unit \"{}\"
         
-        Expected constant, but got non-constant expression at line {}:{}:
+        Expected constant at line {}:{}:
 
         ",
         token.unit_path.display(), token.line_number(), token.column

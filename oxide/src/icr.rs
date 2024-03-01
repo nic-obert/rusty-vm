@@ -474,16 +474,16 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     [Targ-n = <arg-n>...]
                     [Tresult =] call Tcallable [Targ-n...] return: Lreturn
                     Lreturn:
-                */
-
-                let return_target = if !matches!(*node.data_type, DataType::Void) {
-                    target.or_else(|| Some(Tn { id: irid_gen.next_tn(), data_type: node.data_type }))
-                } else {
-                    None
-                };
-
-                let callable = generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a callable expression");
-                let args: Vec<IRValue> = args.into_iter().map(
+                    */
+                    
+                    let return_target = if !matches!(*node.data_type, DataType::Void) {
+                        target.or_else(|| Some(Tn { id: irid_gen.next_tn(), data_type: node.data_type }))
+                    } else {
+                        None
+                    };
+                    
+                    let callable = generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a callable expression");
+                    let args: Vec<IRValue> = args.into_iter().map(
                         |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Argument is expected to be an expression")
                     ).map(IRValue::Tn)
                     .collect();
@@ -1176,6 +1176,11 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
 /// Reverse iteration over the IR code to remove operations whose result is never used
 /// Starting from the back, when a Tn is assigned to but never read, the assignment is removed.
 fn remove_unread_operations(ir_function: &mut FunctionIR) {
+    /*
+        Statements marked as having side effects won't be removed, even if their result is never read.
+        Their result will probably have effects outside of the function's scope (or I/O).
+        Inside an macro-operation with side effects, there may be operations that do not have side effects, and they can be remvoved.
+    */
 
     let mut node_ptr = unsafe { ir_function.code.tail() };
 
