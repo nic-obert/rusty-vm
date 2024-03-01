@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] the symbol table should have a reference to functions' bodies to evaluate constant function calls  
 - [ ] vscode extension for syntax highlighting  
 - [ ] allow constant propagation for immutable statics  
 - [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
@@ -29,12 +30,12 @@ Project Description
 ### In Progress
 
 - [ ] implement const functions  
-- [ ] take into account side effects of expressions when removing code in optimizations  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] take into account side effects of expressions when removing code in optimizations  
 - [x] implement multi-line comments  
 - [x] split the the TokenNode into lexical nodes and syntax nodes. different structs, different enums in order to have less clutter. No more ChildrenType, no more match_unreachable! to get the node children  
 - [x] move operation arguments into ops/tokenkind enum??? the borrow checker would not be happy, though  

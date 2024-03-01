@@ -976,7 +976,13 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                             }.into();
         
                             // Declare the function parameter names in the function's scope
+                            // At the same time, construct a list of the parameter names
+                            let mut param_names: Vec<&str> = Vec::with_capacity(params.len());
+
                             for param in params {
+
+                                param_names.push(param.token.string);
+
                                 let (_discriminant, prev_declaration) = symbol_table.declare_symbol(
                                     param.token.string, 
                                     Symbol::new_uninitialized(
@@ -996,6 +1002,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 function_name,
                                 is_const_function,
                                 signature.clone(), 
+                                param_names.into_boxed_slice(),
                                 token.source_token.clone(),
                                 block.scope_id
                             );

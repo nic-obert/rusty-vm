@@ -16,14 +16,14 @@ use crate::tokenizer::SourceToken;
 pub struct Symbol<'a> {
     pub data_type: Rc<DataType>,
     pub token: Rc<SourceToken<'a>>,
-    pub value: SymbolValue,
+    pub value: SymbolValue<'a>,
     pub initialized: bool,
     pub read_from: bool,
 }
 
-impl Symbol<'_> {
+impl<'a> Symbol<'a> {
 
-    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'_>>, value: SymbolValue) -> Symbol<'_> {
+    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'a>>, value: SymbolValue<'a>) -> Symbol<'a> {
         Symbol {
             data_type,
             token,
@@ -34,11 +34,11 @@ impl Symbol<'_> {
     }
 
 
-    pub fn new_function(signature: Rc<DataType>, is_const: bool, token: Rc<SourceToken<'_>>) -> Symbol<'_> {
+    pub fn new_function(signature: Rc<DataType>, param_names: Box<[&'a str]>, is_const: bool, token: Rc<SourceToken<'a>>) -> Symbol<'a> {
         Symbol {
             data_type: signature,
             token,
-            value: SymbolValue::Function { is_const, has_side_effects: false},
+            value: SymbolValue::Function(FunctionInfo { is_const, has_side_effects: false, param_names }),
             initialized: true,
             read_from: false,
         }
@@ -85,18 +85,26 @@ impl Symbol<'_> {
 
 
 #[derive(Debug)]
-pub enum SymbolValue {
+pub struct FunctionInfo<'a> { 
+    pub is_const: bool, 
+    pub has_side_effects: bool, 
+    pub param_names: Box<[&'a str]>
+}
+
+
+#[derive(Debug)]
+pub enum SymbolValue<'a> {
     Mutable,
     Immutable (Option<Rc<LiteralValue>>),
     Constant (Rc<LiteralValue>),
-    Function { is_const: bool, has_side_effects: bool },
+    Function (FunctionInfo<'a>),
     Static { init_value: Rc<LiteralValue>, mutable: bool },
 
     UninitializedConstant,
     UninitializedStatic { mutable: bool },
 }
 
-impl SymbolValue {
+impl SymbolValue<'_> {
 
     pub const fn is_mutable(&self) -> bool {
         match self {
@@ -107,7 +115,7 @@ impl SymbolValue {
             SymbolValue::Static { init_value: _, mutable: false } |
             SymbolValue::Immutable(_) |
             SymbolValue::Constant(_) |
-            SymbolValue::Function { .. }
+            SymbolValue::Function (_)
             => false,
 
             SymbolValue::UninitializedConstant |
@@ -252,12 +260,13 @@ impl<'a> SymbolTable<'a> {
     }
 
 
+    /// Set the given function as having (or not having) side effects.
     pub fn set_function_side_effects(&self, name: &str, scope_id: ScopeID, has_side_effects: bool) {
         let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .unwrap() // Assume the symbol is present
             .borrow_mut();
 
-        match_unreachable!(SymbolValue::Function { is_const: _, has_side_effects: x } = &mut symbol.value, *x = has_side_effects);
+        match_unreachable!(SymbolValue::Function (FunctionInfo { has_side_effects: x, .. }) = &mut symbol.value, *x = has_side_effects);
     }
 
 
@@ -354,13 +363,13 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, token: Rc<SourceToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<SourceToken>> {
+    pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, param_names: Box<[&'a str]>, token: Rc<SourceToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<SourceToken>> {
         
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
         
         symbol_list.push(
-            RefCell::new(Symbol::new_function(signature, is_const, token))
+            RefCell::new(Symbol::new_function(signature, param_names, is_const, token))
         );
 
         // Cannot re-declare a function in the same scope
@@ -456,7 +465,9 @@ impl<'a> SymbolTable<'a> {
 
     /// Get the symbol with the given id from the symbol table.
     /// If the symbol is found outside the function boundary, including the boundary scope, return a true flag, else return a false flag.
+    /// `function_boundary` is the scope id of the function's parent scope
     pub fn get_symbol_warn_if_outside_function(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant, function_boundary: ScopeID) -> (Option<&RefCell<Symbol<'a>>>, bool) {
+        
         let scope = &self.scopes[scope_id.0];
 
         if let Some(symbol) = scope.get_symbol(symbol_id, discriminant) {
@@ -469,6 +480,25 @@ impl<'a> SymbolTable<'a> {
             }
         } else {
             (None, true)
+        }
+    }
+
+
+    /// Recursively checks if the symbol was declared in the top-level scope of the function identified by the given scope boundary.
+    /// `function_top_scope` is the top-level scope of the function.
+    pub fn is_function_top_level_symbol(&self, symbol_scope_id: ScopeID, function_top_scope: ScopeID, name: &str, discriminant: ScopeDiscriminant) -> bool {
+
+        let scope = &self.scopes[symbol_scope_id.0];
+
+        if scope.get_symbol(name, discriminant).is_some() {
+            symbol_scope_id == function_top_scope
+        } else if symbol_scope_id == function_top_scope {
+            // If the symbol is not found in the top-level scope of the function, it is not a top-level symbol of the function. (Declared outside the function boundary)
+            false
+        } else if let Some(parent_id) = scope.parent {
+            self.is_function_top_level_symbol(parent_id, function_top_scope, name, discriminant)
+        } else {
+            unreachable!("Function scopes should always have a parent scope. A top-level function has the global scope as parent scope. This is a bug.")
         }
     }
 
