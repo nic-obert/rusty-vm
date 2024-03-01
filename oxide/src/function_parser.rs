@@ -454,21 +454,6 @@ fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &
 /// Return whether the node can be removed because it has no effect.
 fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: ScopeID, symbol_table: &mut SymbolTable) -> bool {
 
-    // macro_rules! extract_constant_value {
-    //     ($node:expr) => {
-    //         match $node.value {
-    //             SyntaxNodeValue::Literal (value) => Some(value),
-
-    //             SyntaxNodeValue::Symbol { name, scope_discriminant } => {
-    //                 let symbol = symbol_table.get_symbol(scope_id, name, scope_discriminant).unwrap();
-    //                 symbol.borrow().get_value().cloned()
-    //             }
-                
-    //             _ => unreachable!()
-    //         }
-    //     };
-    // }
-
     macro_rules! has_known_value {
         ($($node:expr),+) => {
             ($(
@@ -476,7 +461,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                     SyntaxNodeValue::Literal (_) => true,
 
                     SyntaxNodeValue::Symbol { name, scope_discriminant }
-                    => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
+                        => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
                         
                     _ => false
                 }
@@ -1281,6 +1266,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             chain_return_type.unwrap()
         },
 
+        SyntaxNodeValue::DoWhile { body, condition } |
         SyntaxNodeValue::While { condition, body } => {
             
             resolve_expression_types(condition, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
@@ -1293,10 +1279,34 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                 error::type_error(&condition.token, &[&DataType::Bool.name()], &condition.data_type, source, "While loop condition must be a boolean.");
             }
 
-            DataType::Void.into()
-        }
+            // A while loop body should not return anything
+            if !matches!(body.return_type().as_ref(), DataType::Void) {
+                error::type_error(&body.statements.last().unwrap().token, &["void"], &body.return_type(), source, "Loop body should not return anything.");
+            }
 
-        _ => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
+            DataType::Void.into()
+        },
+
+        SyntaxNodeValue::Loop { body } => {
+
+            // Recursively resolve the types of the loop body
+            resolve_scope_types(body, outer_function_return, function_parent_scope, symbol_table, source);
+
+            if !matches!(body.return_type().as_ref(), DataType::Void) {
+                error::type_error(&body.statements.last().unwrap().token, &["void"], &body.return_type(), source, "Loop body should not return anything.");
+            }            
+
+            // A loop evaluates to void
+            DataType::Void.into()
+        },
+
+        SyntaxNodeValue::FunctionParams(_) |
+        SyntaxNodeValue::DataType(_) |
+        SyntaxNodeValue::Const { .. } |
+        SyntaxNodeValue::Static { .. } |
+        SyntaxNodeValue::TypeDef { .. } |
+        SyntaxNodeValue::Placeholder 
+            => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
     };
 }
 

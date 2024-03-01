@@ -354,6 +354,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
     match node.value {
 
         SyntaxNodeValue::RuntimeOp(op) => match op {
+            
             RuntimeOp::Add { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -372,6 +373,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Sub { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -390,6 +392,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Mul { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -408,6 +411,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Div { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -426,6 +430,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Mod { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -444,6 +449,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Assign { left, right } => {
                 
                 let deref_assign = matches!(left.value, SyntaxNodeValue::RuntimeOp(RuntimeOp::Deref { .. }));
@@ -475,6 +481,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 None
             },
+
             RuntimeOp::Deref { mutable: _, expr } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -491,6 +498,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Ref { mutable: _, expr } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -507,6 +515,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Call { callable, args } => {
                 /*
                     Tcallable = <callable>
@@ -550,6 +559,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 return_target
             },
+
             RuntimeOp::Return(expr) => {
                 
                 if let Some(expr) = expr {
@@ -572,6 +582,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 None
             },
+
             RuntimeOp::Equal { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -590,6 +601,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::NotEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -608,6 +620,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Greater { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -626,6 +639,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Less { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -644,6 +658,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::GreaterEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -662,6 +677,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::LessEqual { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -680,6 +696,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::LogicalNot (operand)=> {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -696,6 +713,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitwiseNot (operand) => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -712,6 +730,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::LogicalAnd { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -730,6 +749,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::LogicalOr { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -748,6 +768,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitShiftLeft { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -766,6 +787,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitShiftRight { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -784,6 +806,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitwiseOr { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -802,6 +825,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitwiseAnd { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -820,6 +844,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::BitwiseXor { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -838,6 +863,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::ArrayIndex { array, index } => {
 
                 let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array.data_type.as_ref(), element_type.clone());
@@ -879,6 +905,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
             RuntimeOp::Break => {
 
                 let loop_labels = outer_loop.expect("Break statement outside of a loop");
@@ -892,6 +919,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 None
             },
+
             RuntimeOp::Continue => {
 
                 let loop_labels = outer_loop.expect("Continue statement outside of a loop");
@@ -905,6 +933,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 
                 None
             },
+
             RuntimeOp::MakeArray { elements } => {
                 // Set each array item to the corresponding value
     
@@ -954,6 +983,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 Some(target)
             }, 
         },
+
         SyntaxNodeValue::Literal (value) => {
             let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
@@ -967,6 +997,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             Some(target)
         },
+
         SyntaxNodeValue::Symbol { name, scope_discriminant } => {
 
             // Try to get the symbol's Tn
@@ -1001,6 +1032,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 Some(target)
             }
         },
+
         SyntaxNodeValue::As { target_type, expr } => {
             // Just reinterpret the bits (drop excess bits or add padding if necessary)
             // Assume the conversion is possible, since the parser should have already checked that
@@ -1045,6 +1077,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 },
             }
         },
+
         SyntaxNodeValue::IfChain { if_blocks, else_block } => {
             /*
                 Tcondition = <condition>
@@ -1104,6 +1137,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             // Return None because the if-chain's return value is stored in the target Tn by the if-blocks
             None
         },
+
         SyntaxNodeValue::While { condition, body } => {
             /*
                 jump Lcheck
@@ -1165,6 +1199,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             None
         },
+
         SyntaxNodeValue::Loop { body } => {
             /*
                 Lstart:
@@ -1206,6 +1241,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             None
         },
+
         SyntaxNodeValue::DoWhile { body, condition } => {
             /*
                 Lstart:
@@ -1258,6 +1294,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             None
         },
+        
         SyntaxNodeValue::Scope(block) => {
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
@@ -1267,7 +1304,14 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             None
         },
 
-        _ => unreachable!("{:?} is not exprected.", node)
+        SyntaxNodeValue::FunctionParams(_) |
+        SyntaxNodeValue::DataType(_) |
+        SyntaxNodeValue::Function { .. } |
+        SyntaxNodeValue::Const { .. } |
+        SyntaxNodeValue::Static { .. } |
+        SyntaxNodeValue::TypeDef { .. } |
+        SyntaxNodeValue::Placeholder 
+            => unreachable!("{:?} is not expected. This is a bug.", node)
     }
 }
 

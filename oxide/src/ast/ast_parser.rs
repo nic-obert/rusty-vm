@@ -1416,9 +1416,19 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 },
                                 token.source_token.clone()
                             ))
-                        }
-        
-                        _ => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}.", token.value)
+                        },
+
+                        TokenKind::Else |
+                        TokenKind::Arrow |
+                        TokenKind::Semicolon |
+                        TokenKind::Colon |
+                        TokenKind::Comma |
+                        TokenKind::Mut |
+                        TokenKind::SquareClose |
+                        TokenKind::ParClose |
+                        TokenKind::ScopeOpen |
+                        TokenKind::ScopeClose 
+                            => unreachable!("Invalid token kind during statement hierarchy parsing: {:?}. We should not try to satisfy this token. This is a bug.", token.value)
                     }
                 },
 
