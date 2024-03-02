@@ -5,7 +5,7 @@ mod files;
 mod ast;
 mod symbol_table;
 mod utils;
-mod icr;
+mod irc;
 mod function_parser;
 mod flow_analyzer;
 mod open_linked_list;
@@ -61,7 +61,7 @@ fn main() {
 
     let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source, args.verbose);
 
-    let _ir_code = icr::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
+    let _ir_code = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
 
 }
 

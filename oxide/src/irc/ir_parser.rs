@@ -1,5 +1,3 @@
-use std::fmt::{Debug, Display};
-use std::rc::Rc;
 use std::collections::HashMap;
 
 use rusty_vm_lib::ir::SourceCode;
@@ -7,11 +5,12 @@ use rusty_vm_lib::ir::SourceCode;
 use crate::cli_parser::OptimizationFlags;
 use crate::lang::error;
 use crate::match_unreachable;
-use crate::open_linked_list::OpenLinkedList;
-use crate::symbol_table::{FunctionUUID, ScopeDiscriminant, ScopeID, SymbolTable};
+use crate::symbol_table::{FunctionUUID, ScopeID, SymbolTable};
 use crate::function_parser::Function;
 use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
+
+use super::{FunctionIR, IRNode, IROperator, IRScopeID, IRValue, Label, LabelID, Tn, TnID};
 
 
 /// Generates a sequence of unique ids for the IR code
@@ -47,292 +46,6 @@ impl IRIDGenerator {
 }
 
 
-/// Represents a temporary variable
-#[derive(Clone)]
-pub struct Tn {
-    pub id: TnID,
-    pub data_type: Rc<DataType>,
-}
-
-impl Display for Tn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "T{}", self.id.0)
-    }
-}
-
-
-#[derive(Clone, Copy)]
-pub struct Label(pub LabelID);
-
-impl Display for Label {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "L{}", self.0.0)
-    }
-
-}
-
-
-/// Represents an operand of ir operations
-pub enum IRValue {
-
-    Tn (Tn),
-    Const (Rc<LiteralValue>),
-
-}
-
-impl Debug for IRValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
-    
-    }
-}
-
-impl Display for IRValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IRValue::Tn(tn) => write!(f, "{}", tn),
-            IRValue::Const(value) => write!(f, "{}", value),
-        }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TnID(usize);
-
-#[derive(Clone, Copy)]
-pub struct LabelID(usize);
-
-
-/// Stores information about a scope
-pub struct IRScope<'a> {
-
-    /// Maps symbol names to Tns
-    symbols: HashMap<&'a str, Vec<Tn>>, // TODO: eventually, use a &str or Cow<str> to avoid copying
-    /// Keeps track of the return type and in which Tn to store it
-    return_tn: Option<Tn>,
-    parent: Option<IRScopeID>,
-
-}
-
-impl IRScope<'_> {
-
-    pub fn new(parent: Option<IRScopeID>) -> Self {
-        Self {
-            symbols: HashMap::new(),
-            return_tn: None,
-            parent,
-        }
-    }
-
-}
-
-
-#[derive(Clone, Copy)]
-pub struct IRScopeID(usize);
-
-/// Stores information about function scopes in the IR
-pub struct ScopeTable<'a> {
-    pub scopes: Vec<IRScope<'a>>,
-}
-
-impl<'a> ScopeTable<'a> {
-
-    pub fn new() -> Self {
-        Self {
-            scopes: vec![IRScope::new(None)],
-        }
-    }
-
-
-    /// Recursively get the function's return Tn, if it exists in a reachable scope
-    pub fn return_tn(&self, ir_scope: IRScopeID) -> Option<Tn> {
-        self.scopes[ir_scope.0].return_tn.clone()
-            .or_else(|| self.scopes[ir_scope.0].parent
-                .and_then(|parent| self.return_tn(parent)))
-            
-    }
-
-
-    pub fn add_scope(&mut self, parent: Option<IRScopeID>) -> IRScopeID {
-        self.scopes.push(IRScope::new(parent));
-        IRScopeID(self.scopes.len() - 1)
-    }
-
-
-    /// Recursively get the Tn mapped to the given name, if it exists in a reachable scope
-    pub fn get_tn(&mut self, name: &str, discriminant: ScopeDiscriminant, ir_scope: IRScopeID) -> Option<Tn> {
-        self.scopes[ir_scope.0].symbols.get(name)
-            .and_then(|symbol_list| symbol_list.get(discriminant.0 as usize).cloned())
-            .or_else(|| self.scopes[ir_scope.0].parent
-                .and_then(|parent| self.get_tn(name, discriminant, parent)))
-    }
-
-
-    /// Map a symbol name to a Tn in the given scope
-    pub fn map_symbol(&mut self, name: &'a str, tn: Tn, ir_scope: IRScopeID) {
-        self.scopes[ir_scope.0].symbols.entry(name).or_default().push(tn);
-    }
-
-}
-
-
-/// Represents an intermediate code operation
-pub enum IROperator {
-
-    Add { target: Tn, left: IRValue, right: IRValue },
-    Sub { target: Tn, left: IRValue, right: IRValue },
-    Mul { target: Tn, left: IRValue, right: IRValue },
-    Div { target: Tn, left: IRValue, right: IRValue },
-    Mod { target: Tn, left: IRValue, right: IRValue },
-    
-    Assign { target: Tn, source: IRValue },
-    Deref { target: Tn, ref_: IRValue },
-    /// Copy the value of the source into the address pointed to by the target
-    DerefAssign { target: Tn, source: IRValue },
-    Ref { target: Tn, ref_: Tn },
-    
-    Greater { target: Tn, left: IRValue, right: IRValue },
-    Less { target: Tn, left: IRValue, right: IRValue },
-    GreaterEqual { target: Tn, left: IRValue, right: IRValue },
-    LessEqual { target: Tn, left: IRValue, right: IRValue },
-    Equal { target: Tn, left: IRValue, right: IRValue },
-    NotEqual { target: Tn, left: IRValue, right: IRValue },
-    
-    LogicalAnd { target: Tn, left: IRValue, right: IRValue },
-    LogicalOr { target: Tn, left: IRValue, right: IRValue },
-    LogicalNot { target: Tn, operand: IRValue },
-    
-    BitShiftLeft { target: Tn, left: IRValue, right: IRValue },
-    BitShiftRight { target: Tn, left: IRValue, right: IRValue },
-    BitNot { target: Tn, operand: IRValue },
-    BitAnd { target: Tn, left: IRValue, right: IRValue },
-    BitOr { target: Tn, left: IRValue, right: IRValue },
-    BitXor { target: Tn, left: IRValue, right: IRValue },
-
-    /// Copy the raw bits from `source` into `target`.
-    /// Assume that `target` is either the same size or larget than `source`.
-    Copy { target: Tn, source: IRValue },
-    /// Copy the raw bits from `source` into the address pointed to by `target`.
-    /// Assume that `target` is either the same size or larget than `source`.
-    DerefCopy { target: Tn, source: IRValue },
-    
-    Jump { target: Label },
-    JumpIf { condition: Tn, target: Label },
-    JumpIfNot { condition: Tn, target: Label },
-    Label { label: Label },
-
-    Call { return_target: Option<Tn>, return_label: Label, callable: Tn, args: Vec<IRValue> },
-    Return,
-
-    PushScope { bytes: usize },
-    PopScope { bytes: usize },
-
-    Nop,
-
-}
-
-impl Display for IROperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IROperator::Add { target, left, right } => write!(f, "{} = {} + {}", target, left, right),
-            IROperator::Sub { target, left, right } => write!(f, "{} = {} - {}", target, left, right),
-            IROperator::Mul { target, left, right } => write!(f, "{} = {} * {}", target, left, right),
-            IROperator::Div { target, left, right } => write!(f, "{} = {} / {}", target, left, right),
-            IROperator::Mod { target, left, right } => write!(f, "{} = {} % {}", target, left, right),
-            IROperator::Assign { target, source } => write!(f, "{} = {}", target, source),
-            IROperator::DerefAssign { target, source } => write!(f, "[{}] = {}", target, source),
-            IROperator::Deref { target, ref_ } => write!(f, "{} = [{}]", target, ref_),
-            IROperator::Ref { target, ref_ } => write!(f, "{} = &{}", target, ref_),
-            IROperator::Greater { target, left, right } => write!(f, "{} = {} > {}", target, left, right),
-            IROperator::Less { target, left, right } => write!(f, "{} = {} < {}", target, left, right),
-            IROperator::GreaterEqual { target, left, right } => write!(f, "{} = {} >= {}", target, left, right),
-            IROperator::LessEqual { target, left, right } => write!(f, "{} = {} <= {}", target, left, right),
-            IROperator::Equal { target, left, right } => write!(f, "{} = {} == {}", target, left, right),
-            IROperator::NotEqual { target, left, right } => write!(f, "{} = {} != {}", target, left, right),
-            IROperator::LogicalAnd { target, left, right } => write!(f, "{} = {} && {}", target, left, right),
-            IROperator::LogicalOr { target, left, right } => write!(f, "{} = {} || {}", target, left, right),
-            IROperator::LogicalNot { target, operand } => write!(f, "{} = !{}", target, operand),
-            IROperator::BitShiftLeft { target, left, right } => write!(f, "{} = {} << {}", target, left, right),
-            IROperator::BitShiftRight { target, left, right } => write!(f, "{} = {} >> {}", target, left, right),
-            IROperator::BitNot { target, operand } => write!(f, "{} = ~{}", target, operand),
-            IROperator::BitAnd { target, left, right } => write!(f, "{} = {} & {}", target, left, right),
-            IROperator::BitOr { target, left, right } => write!(f, "{} = {} | {}", target, left, right),
-            IROperator::BitXor { target, left, right } => write!(f, "{} = {} ^ {}", target, left, right),
-            IROperator::Jump { target } => write!(f, "jump {}", target),
-            IROperator::JumpIf { condition, target } => write!(f, "jumpif {} {}", condition, target),
-            IROperator::JumpIfNot { condition, target } => write!(f, "jumpifnot {} {}", condition, target),
-            IROperator::Label { label } => write!(f, "{}:", label),
-            IROperator::Call { return_target, return_label, callable, args } => write!(f, "{}call {callable} {:?} (return: {return_label})", if let Some(target) = return_target { format!("{target} = ") } else { "".to_string() }, args),
-            IROperator::Return => write!(f, "return"),
-            IROperator::PushScope { bytes } => write!(f, "pushscope {}", bytes),
-            IROperator::PopScope { bytes } => write!(f, "popscope {}", bytes),
-            IROperator::Nop => write!(f, "nop"),
-            IROperator::Copy { target, source } => write!(f, "copy {} -> {}", source, target),
-            IROperator::DerefCopy { target, source } => write!(f, "copy {} -> [{}]", source, target),
-        }
-    }
-}
-
-
-pub struct IRNode {
-
-    pub op: IROperator,
-    pub has_side_effects: bool,
-
-}
-
-impl Display for IRNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.op, if self.has_side_effects { " // side effects" } else { "" })
-    }
-
-}
-
-
-pub struct FunctionIR<'a> {
-    pub name: &'a str,
-    pub code: OpenLinkedList<IRNode>,
-    pub scope_table: ScopeTable<'a>,
-    /// The first scope of the function in the symbol table.
-    // This is used to calculate how many bytes to pop upon returning from the function.
-    pub st_first_scope: ScopeID,
-    pub function_labels: FunctionLabels,
-}
-
-impl FunctionIR<'_> {
-
-    pub fn new<'a>(name: &'a str, first_scope: ScopeID, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
-        FunctionIR {
-            name,
-            code: OpenLinkedList::new(),
-            scope_table: ScopeTable::new(),
-            st_first_scope: first_scope,
-            function_labels: FunctionLabels {
-                start: irid_gen.next_label(),
-                exit: irid_gen.next_label(),
-            },
-        }
-    }
-
-    pub fn push(&mut self, node: IRNode) {
-        self.code.push_back(node);
-    }
-
-}
-
-impl Display for FunctionIR<'_> {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "fn {} {{", self.name)?;
-        for op in self.code.iter() {
-            writeln!(f, "    {}", op)?;
-        }
-        writeln!(f, "}}")
-    }
-
-}
-
 
 struct LoopLabels {
     /// The start of the loop body, does not include the condition check.
@@ -354,7 +67,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
     match node.value {
 
         SyntaxNodeValue::RuntimeOp(op) => match op {
-            
+
             RuntimeOp::Add { left, right } => {
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
@@ -704,7 +417,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
 
                 ir_function.push(IRNode {
-                    op: IROperator::LogicalNot {
+                    op: IROperator::BitNot {
                         target: target.clone(),
                         operand: IRValue::Tn(operand),
                     },
@@ -739,7 +452,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
 
                 ir_function.push(IRNode {
-                    op: IROperator::LogicalAnd {
+                    op: IROperator::BitAnd {
                         target: target.clone(),
                         left: IRValue::Tn(l_value),
                         right: IRValue::Tn(r_value),
@@ -758,7 +471,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
 
                 ir_function.push(IRNode {
-                    op: IROperator::LogicalOr {
+                    op: IROperator::BitOr {
                         target: target.clone(),
                         left: IRValue::Tn(l_value),
                         right: IRValue::Tn(r_value),
@@ -1450,13 +1163,11 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
             IROperator::LessEqual { target, left, right } |
             IROperator::Equal { target, left, right } |
             IROperator::NotEqual { target, left, right } |
-            IROperator::LogicalAnd { target, left, right } |
             IROperator::BitAnd { target, left, right } |
             IROperator::BitOr { target, left, right } |
             IROperator::BitXor { target, left, right } |
             IROperator::Greater { target, left, right } |
             IROperator::Less { target, left, right } |
-            IROperator::LogicalOr { target, left, right } |
             IROperator::BitShiftLeft { target, left, right } |
             IROperator::BitShiftRight { target, left, right } 
             => {
@@ -1480,7 +1191,6 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
                 }
             },
             
-            IROperator::LogicalNot { target, operand } |
             IROperator::Assign { target, source: operand } |
             IROperator::Deref { target, ref_: operand } |
             IROperator::DerefAssign { target, source: operand } |

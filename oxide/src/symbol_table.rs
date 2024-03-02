@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::lang::data_types::{DataType, LiteralValue};
-use crate::icr::Label;
+use crate::irc::Label;
 use crate::match_unreachable;
 use crate::tokenizer::SourceToken;
 
