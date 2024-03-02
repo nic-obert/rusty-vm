@@ -1,8 +1,11 @@
 use core::fmt::{Debug, Display};
 
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
+use std::collections::HashMap;
 
-use crate::{lang::data_types::{DataType, LiteralValue}, open_linked_list::OpenLinkedList, symbol_table::{ScopeDiscriminant, ScopeID}};
+use crate::symbol_table::{ScopeDiscriminant, ScopeID};
+use crate::open_linked_list::OpenLinkedList;
+use crate::lang::data_types::{DataType, LiteralValue};
 
 use super::ir_parser::{FunctionLabels, IRIDGenerator};
 
