@@ -434,14 +434,17 @@ fn resolve_scope_types(block: &mut ScopeBlock, outer_function_return: Option<Rc<
 }
 
 
-fn warn_unused_symbols(block: &ScopeBlock, symbol_table: &SymbolTable, source: &SourceCode) {
+fn mark_and_warn_unused_symbols(block: &ScopeBlock, symbol_table: &mut SymbolTable, source: &SourceCode) {
     for (name, symbol) in symbol_table.get_unread_symbols(block.scope_id) {
-        let symbol = symbol.borrow();
+        let mut symbol = symbol.borrow_mut();
 
         // Some symbols are used internally like the main() function and thus may not be used in the source code
         if let ("main", DataType::Function { .. }) = (name, symbol.data_type.as_ref()) {
             continue;
         }
+
+        // Mark the symbol as removed so that it doesn't get used in the code generation phase
+        symbol.removed = true;
 
         let token = &symbol.token;
         error::warn(token, source, format!("Symbol \"{name}\" is declared but never used.\nDeclaration occurs at {}:{}:\n\n{}\n", token.line_number(), token.column, &source[token.line_index()]).as_str());
@@ -1599,7 +1602,7 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &Optim
         println!("\n\nAfter symbol resolution:\n{:#?}", functions);
     }
     
-    warn_unused_symbols(&block, symbol_table, source);
+    mark_and_warn_unused_symbols(&block, symbol_table, source);
 
     calculate_side_effects_functions(&mut functions, symbol_table);
 

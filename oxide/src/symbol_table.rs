@@ -14,11 +14,20 @@ use crate::tokenizer::SourceToken;
 /// 
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol<'a> {
+
+    /// The data type this symbol was declared as.
     pub data_type: Rc<DataType>,
+    /// The source code token this symbol was declared at.
     pub token: Rc<SourceToken<'a>>,
+    /// The type and value of the symbol.
     pub value: SymbolValue<'a>,
+    /// Whether the symbol has been initialized with a value.
     pub initialized: bool,
+    /// Whether the symbol has been utilized at least once since its declaration.
     pub read_from: bool,
+    /// Whether the symbol has been removed as a result of optimization.
+    /// If a symbol has been removed, it should not be pushed to the stack.
+    pub removed: bool,
 }
 
 impl<'a> Symbol<'a> {
@@ -30,6 +39,7 @@ impl<'a> Symbol<'a> {
             value,
             initialized: false,
             read_from: false,
+            removed: false,
         }
     }
 
@@ -41,6 +51,7 @@ impl<'a> Symbol<'a> {
             value: SymbolValue::Function(FunctionInfo { is_const, has_side_effects: false, param_names }),
             initialized: true,
             read_from: false,
+            removed: false,
         }
     }
 
@@ -279,7 +290,6 @@ impl<'a> SymbolTable<'a> {
     /// Get the size of a scope in bytes, including its children.
     #[allow(clippy::type_complexity)]
     pub fn total_scope_size(&self, scope_id: ScopeID) -> Result<usize, Vec<(Rc<SourceToken>, Rc<DataType>)>> {
-        // self.scopes[scope_id.0].get_total_size(self)
 
         let mut size = 0;
         let mut unknown_sizes = Vec::new();
@@ -287,9 +297,18 @@ impl<'a> SymbolTable<'a> {
         let scope = &self.scopes[scope_id.0];
 
         for symbol in scope.symbols.values().flat_map(|s| s.iter()) {
-            match symbol.borrow().data_type.static_size() {
+            
+            let symbol = symbol.borrow();
+
+            // Do not include removed symbols in the scope stack size calculation.
+            // Removed symbols have been optimized out.
+            if symbol.removed {
+                continue;
+            }
+
+            match symbol.data_type.static_size() {
                 Ok(s) => size += s,
-                Err(()) => unknown_sizes.push((symbol.borrow().token.clone(), symbol.borrow().data_type.clone()))
+                Err(()) => unknown_sizes.push((symbol.token.clone(), symbol.data_type.clone()))
             }
         }
 

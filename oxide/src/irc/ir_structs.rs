@@ -149,10 +149,13 @@ pub enum IROperator {
     Div { target: Tn, left: IRValue, right: IRValue },
     Mod { target: Tn, left: IRValue, right: IRValue },
     
+    /// Copy the value of source into target.
     Assign { target: Tn, source: IRValue },
+    /// Copy the value pointed to by `ref_` into the target
     Deref { target: Tn, ref_: IRValue },
     /// Copy the value of the source into the address pointed to by the target
     DerefAssign { target: Tn, source: IRValue },
+    /// Copy the address of the `ref_` into the target
     Ref { target: Tn, ref_: Tn },
     
     Greater { target: Tn, left: IRValue, right: IRValue },
@@ -187,6 +190,7 @@ pub enum IROperator {
     PushScope { bytes: usize },
     PopScope { bytes: usize },
 
+    #[allow(dead_code)]
     Nop,
 
 }
