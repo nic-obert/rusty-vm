@@ -3,6 +3,7 @@
 /// A doubly-linked list that allows accessing its raw pointers for manual unsafe operations.
 ///
 /// The methods marked `unsafe` have undefined behavior if used improperly. Use at your own risk.
+#[derive(Debug)]
 pub struct OpenLinkedList<T> {
 
     head: *mut OpenNode<T>,
@@ -130,6 +131,12 @@ impl<T> Drop for OpenLinkedList<T> {
             let node = unsafe { Box::from_raw(node_ptr) };
             node_ptr = node.next;
         }
+    }
+}
+
+impl<T> Default for OpenLinkedList<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

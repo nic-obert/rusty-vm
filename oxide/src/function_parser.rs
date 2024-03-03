@@ -4,13 +4,12 @@ use std::rc::Rc;
 use crate::cli_parser::OptimizationFlags;
 use crate::{match_or, match_unreachable};
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
-use crate::symbol_table::{FunctionInfo, ScopeID, SymbolTable, SymbolValue};
+use crate::symbol_table::{FunctionConstantness, FunctionInfo, ScopeID, SymbolTable, SymbolValue};
 use crate::lang::data_types::{DataType, LiteralValue};
 use crate::lang::data_types::dt_macros::*;
 use crate::lang::error;
 
 use rusty_vm_lib::ir::SourceCode;
-
 
 
 pub struct Function<'a> {
@@ -202,18 +201,29 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
         // This will be useful when the function is called statically because it will be faster to evaluate.
         evaluate_constants_block(&mut function.code, source, symbol_table);
         
-        let function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow();
-        let function_info = match_unreachable!(SymbolValue::Function (function_info) = &function_symbol.value, function_info);
-        if function_info.is_const && function_info.has_side_effects {
-            error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but has side effects.", function.name).as_str());
+        let mut function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow_mut();
+        let function_info = match_unreachable!(SymbolValue::Function (function_info) = &mut function_symbol.value, function_info);
+        
+        match function_info.constantness {
+
+            FunctionConstantness::ProvenConst => continue, // No need to check if the function is constant, it has already been proven to be
+            
+            FunctionConstantness::MarkedConst
+            => if function_info.has_side_effects {
+                error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but has side effects.", function.name).as_str());
+            },
+            
+            FunctionConstantness::NotConst => { /* Perform checks below */ },
         }
 
         // The function will be evaluated upon calling. Here we should check if the function can be evaluated statically.
-        if !check_block_is_constant(&function.code, function.code.scope_id, function_info, symbol_table) {
+        if check_block_is_constant(&function.code, function.code.scope_id, function_info, symbol_table) {
+            // The function is proven to be constant
+            function_info.constantness = FunctionConstantness::ProvenConst;
+        } else {
             error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but it cannot be evaluated statically.", function.name).as_str())
         }
 
-        // TODO: store the function's constantness in the symbol table to avoid re-evaluating it every time it's called
     }
 }
 
@@ -223,6 +233,8 @@ const NOT_CONSTANT: bool = false;
 
 
 fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_scope: ScopeID, function_info: &FunctionInfo, symbol_table: &SymbolTable) -> bool {
+
+    // TODO: return a result that contains the non-const token if the node is not const
 
     match &node.value {
 
@@ -286,8 +298,14 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
                     let function_symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
                     let function_info = match_unreachable!(SymbolValue::Function (function_info) = &function_symbol.value, function_info);
 
-                    // TODO: check if the function is constant even if it's not marked as const
-                    function_info.is_const
+                    match function_info.constantness {
+
+                        FunctionConstantness::ProvenConst |
+                        FunctionConstantness::MarkedConst
+                            => IS_CONSTANT,
+
+                        FunctionConstantness::NotConst => NOT_CONSTANT
+                    }
                 } else {
                     // We don't know which function is being called
                     NOT_CONSTANT

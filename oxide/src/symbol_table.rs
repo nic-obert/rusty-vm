@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::lang::data_types::{DataType, LiteralValue};
-use crate::irc::Label;
+use crate::irc::{IRCode, Label};
 use crate::match_unreachable;
 use crate::tokenizer::SourceToken;
 
@@ -48,7 +48,12 @@ impl<'a> Symbol<'a> {
         Symbol {
             data_type: signature,
             token,
-            value: SymbolValue::Function(FunctionInfo { is_const, has_side_effects: false, param_names }),
+            value: SymbolValue::Function(FunctionInfo { 
+                constantness: if is_const { FunctionConstantness::MarkedConst } else { FunctionConstantness::NotConst },
+                has_side_effects: false, 
+                param_names,
+                code: None,
+            }),
             initialized: true,
             read_from: false,
             removed: false,
@@ -96,10 +101,32 @@ impl<'a> Symbol<'a> {
 
 
 #[derive(Debug)]
+pub struct FunctionCode {
+
+    pub label: Label,
+    pub code: Rc<RefCell<IRCode>>,
+
+}
+
+
+#[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
+pub enum FunctionConstantness {
+    NotConst,
+    MarkedConst,
+    ProvenConst,
+}
+
+
+#[derive(Debug)]
 pub struct FunctionInfo<'a> { 
-    pub is_const: bool, 
+    /// Whether the function is marked as const in the source code (or by the compiler if it can be determined that the function is const)
+    pub constantness: FunctionConstantness, 
     pub has_side_effects: bool, 
-    pub param_names: Box<[&'a str]>
+    pub param_names: Box<[&'a str]>,
+    /// The IR code of the function, if it has been generated.
+    /// This code may be copy-pasted in place of the function call if the compiler determines it's good to do so.
+    pub code: Option<FunctionCode>,
 }
 
 
@@ -465,6 +492,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
+    /// Recursively search the requested function symbol in the given scope and its reachable parents.
     pub fn get_function(&self, name: &str, scope_id: ScopeID) -> Option<&RefCell<Symbol<'a>>> {
         let scope = &self.scopes[scope_id.0];
 
@@ -577,6 +605,11 @@ impl<'a> SymbolTable<'a> {
             Some(shadow) => Err(shadow),
             None => Ok(())
         }
+    }
+
+
+    pub fn get_scope(&self, scope_id: ScopeID) -> &Scope<'a> {
+        &self.scopes[scope_id.0]
     }
 
 }

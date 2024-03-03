@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] the symbol table should have a reference to functions' bodies to evaluate constant function calls  
 - [ ] vscode extension for syntax highlighting  
 - [ ] allow constant propagation for immutable statics  
 - [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
@@ -34,6 +33,7 @@ Project Description
 
 ### Done ✓
 
+- [x] the symbol table should have a reference to functions' bodies to evaluate constant function calls  
 - [x] pushscope and popscope ir instructions should take into account removed stack variables  
 - [x] merge && into &, || into |, and ! into ~ in the IR code. Boolean logic operators just flip the bits, so we could use bitwise operators instead  
 - [x] change the _ matcher for a patten list when matching TokenKind and Ops when handling them in order to know when something isn't implemented  

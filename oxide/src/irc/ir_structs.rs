@@ -1,9 +1,10 @@
 use core::fmt::{Debug, Display};
 
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use crate::symbol_table::{ScopeDiscriminant, ScopeID};
+use crate::symbol_table::{ScopeDiscriminant, ScopeID, SymbolTable};
 use crate::open_linked_list::OpenLinkedList;
 use crate::lang::data_types::{DataType, LiteralValue};
 
@@ -11,7 +12,7 @@ use super::ir_parser::{FunctionLabels, IRIDGenerator};
 
 
 /// Represents a temporary variable
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Tn {
     pub id: TnID,
     pub data_type: Rc<DataType>,
@@ -24,7 +25,7 @@ impl Display for Tn {
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Label(pub LabelID);
 
 impl Display for Label {
@@ -60,10 +61,10 @@ impl Display for IRValue {
 }
 
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TnID(pub usize);
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct LabelID(pub usize);
 
 
@@ -141,6 +142,7 @@ impl<'a> ScopeTable<'a> {
 
 
 /// Represents an intermediate code operation
+#[derive(Debug)]
 pub enum IROperator {
 
     Add { target: Tn, left: IRValue, right: IRValue },
@@ -235,6 +237,7 @@ impl Display for IROperator {
 }
 
 
+#[derive(Debug)]
 pub struct IRNode {
 
     pub op: IROperator,
@@ -250,13 +253,16 @@ impl Display for IRNode {
 }
 
 
+pub type IRCode = OpenLinkedList<IRNode>;
+
+
 pub struct FunctionIR<'a> {
     pub name: &'a str,
-    pub code: OpenLinkedList<IRNode>,
+    pub code: Rc<RefCell<IRCode>>,
     pub scope_table: ScopeTable<'a>,
-    /// The first scope of the function in the symbol table.
+    /// The top-level scope of the function in the symbol table.
     // This is used to calculate how many bytes to pop upon returning from the function.
-    pub st_first_scope: ScopeID,
+    pub st_top_scope: ScopeID,
     pub function_labels: FunctionLabels,
 }
 
@@ -265,9 +271,9 @@ impl FunctionIR<'_> {
     pub fn new<'a>(name: &'a str, first_scope: ScopeID, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
         FunctionIR {
             name,
-            code: OpenLinkedList::new(),
+            code: Default::default(),
             scope_table: ScopeTable::new(),
-            st_first_scope: first_scope,
+            st_top_scope: first_scope,
             function_labels: FunctionLabels {
                 start: irid_gen.next_label(),
                 exit: irid_gen.next_label(),
@@ -275,8 +281,15 @@ impl FunctionIR<'_> {
         }
     }
 
-    pub fn push(&mut self, node: IRNode) {
-        self.code.push_back(node);
+
+    pub fn push_code(&mut self, node: IRNode) {
+        self.code.borrow_mut().push_back(node);
+    }
+
+
+    pub fn parent_scope(&self, symbol_table: &SymbolTable) -> ScopeID {
+        // Assume the parent scope exists since the global scope should always exist
+        symbol_table.get_scope(self.st_top_scope).parent.unwrap()
     }
 
 }
@@ -285,7 +298,7 @@ impl Display for FunctionIR<'_> {
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "fn {} {{", self.name)?;
-        for op in self.code.iter() {
+        for op in self.code.borrow().iter() {
             writeln!(f, "    {}", op)?;
         }
         writeln!(f, "}}")
