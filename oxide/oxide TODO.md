@@ -15,7 +15,6 @@ Project Description
 - [ ] eventually, parallelize function IR code optimization since functions are independent from each other (only if the number of functions is significant)  
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
-- [ ] add compile-time array bounds check for known index operations  
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
@@ -31,6 +30,7 @@ Project Description
 
 ### Done ✓
 
+- [x] add compile-time array bounds check for known index operations  
 - [x] indexing a reference to an array returns a reference to the element. maybe add a new SyntaxTokenValue like ArrayIndexRef { mutable, array, index }  
 - [x] allow constant propagation for immutable statics  
 - [x] the symbol table should have a reference to functions' bodies to evaluate constant function calls  

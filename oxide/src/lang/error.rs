@@ -402,3 +402,20 @@ pub fn unknown_sizes(tokens: &[(Rc<SourceToken>, Rc<DataType>)], source: &Source
     std::process::exit(1);
 }
 
+
+pub fn index_out_of_bounds(index: usize, length: usize, token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
+    printdoc!("
+        ❌ Error in unit \"{}\"
+        
+        Index {} out of bounds for array of length {} at line {}:{}:
+
+        ",
+        token.unit_path.display(), index, length, token.line_number(), token.column
+    );
+
+    print_source_context(source, token.line_index(), token.column);
+    
+    println!("\n{}\n", hint);
+    std::process::exit(1);
+}
+

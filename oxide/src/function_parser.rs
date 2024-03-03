@@ -5,7 +5,7 @@ use crate::cli_parser::OptimizationFlags;
 use crate::match_unreachable;
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
 use crate::symbol_table::{FunctionConstantness, FunctionInfo, ScopeID, SymbolTable, SymbolValue};
-use crate::lang::data_types::{DataType, LiteralValue};
+use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::lang::data_types::dt_macros::*;
 use crate::lang::error;
 
@@ -1125,6 +1125,25 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     // Assert that the array index is an unsigned integer
                     if !matches!(index.data_type.as_ref(), integer_pattern!()) {
                         error::type_error(&index.token, &[&DataType::Usize.name()], &index.data_type, source, "Array index must strictly be an unsigned integer.");
+                    }
+
+                    if let Some(index_value) = index.known_literal_value(scope_id, symbol_table) {
+                        // If the index is known, check if it is within the bounds of the array
+
+                        let index_value = match_unreachable!(LiteralValue::Numeric(Number::Uint(v)) = index_value.as_ref(), *v) as usize;
+
+                        let array_size = match array.data_type.as_ref() {
+
+                            DataType::Array { size: Some(size), .. } => *size,
+
+                            DataType::Ref { target, .. } => match_unreachable!(DataType::Array { size: Some(size), .. } = target.as_ref(), *size),
+
+                            _ => unreachable!("Invalid data type during expression type resolution: {:?}. This is a bug.", array.data_type)
+                        };
+
+                        if index_value >= array_size {
+                            error::index_out_of_bounds(index_value , array_size, &index.token, source, "Array index is out of bounds.");
+                        }
                     }
 
                     if matches!(data_type.as_ref(), DataType::Ref { .. }) {
