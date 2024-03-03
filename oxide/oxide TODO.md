@@ -6,18 +6,16 @@ Project Description
 
 ### Todo
 
+- [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
+- [ ] check if variable is initialized in every path (may be hard to implement)  
 - [ ] vscode extension for syntax highlighting  
-- [ ] allow constant propagation for immutable statics  
 - [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
 - [ ] implement indirection operator .  
-- [ ] check if variable is initialized in every path (may be hard to implement)  
-- [ ] indexing a reference to an array returns a reference to the element. maybe add a new SyntaxTokenValue like ArrayIndexRef { mutable, array, index }  
 - [ ] flow analysis (using directed graphs)  
 - [ ] eventually, parallelize function IR code optimization since functions are independent from each other (only if the number of functions is significant)  
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
 - [ ] add compile-time array bounds check for known index operations  
-- [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
 - [ ] implement tuples  
 - [ ] main function  
 - [ ] lifetimes?  
@@ -33,6 +31,8 @@ Project Description
 
 ### Done ✓
 
+- [x] indexing a reference to an array returns a reference to the element. maybe add a new SyntaxTokenValue like ArrayIndexRef { mutable, array, index }  
+- [x] allow constant propagation for immutable statics  
 - [x] the symbol table should have a reference to functions' bodies to evaluate constant function calls  
 - [x] pushscope and popscope ir instructions should take into account removed stack variables  
 - [x] merge && into &, || into |, and ! into ~ in the IR code. Boolean logic operators just flip the bits, so we could use bitwise operators instead  

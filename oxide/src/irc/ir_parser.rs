@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::collections::HashMap;
 
 use rusty_vm_lib::ir::SourceCode;
@@ -640,6 +639,42 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 Some(target)
             },
+
+            RuntimeOp::ArrayIndexRef { array_ref, index } => {
+
+                let array_type = match_unreachable!(DataType::Ref { target, mutable: _ } = array_ref.data_type.as_ref(), target.clone());
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array_type.as_ref(), element_type.clone());
+                let element_size = element_type.static_size()
+                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
+
+                let array_ref_tn = generate_node(*array_ref, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an array reference");
+                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an index");
+
+                let offset_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Usize.into() };
+                ir_function.push_code(IRNode {
+                    op: IROperator::Mul {
+                        target: offset_tn.clone(),
+                        left: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)).into()),
+                        right: IRValue::Tn(index_tn),
+                    },
+                    has_side_effects: node.has_side_effects
+                });
+
+                let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() });
+
+                ir_function.push_code(IRNode {
+                    op: IROperator::Add {
+                        target: target.clone(),
+                        left: IRValue::Tn(array_ref_tn),
+                        right: IRValue::Tn(offset_tn),
+                    },
+                    has_side_effects: node.has_side_effects
+                });
+
+                // Don't dereference the result, the reference is the result
+
+                Some(target)
+            }
 
             RuntimeOp::Break => {
 

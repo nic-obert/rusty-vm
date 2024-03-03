@@ -2,7 +2,7 @@ use std::mem;
 use std::rc::Rc;
 
 use crate::cli_parser::OptimizationFlags;
-use crate::{match_or, match_unreachable};
+use crate::match_unreachable;
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
 use crate::symbol_table::{FunctionConstantness, FunctionInfo, ScopeID, SymbolTable, SymbolValue};
 use crate::lang::data_types::{DataType, LiteralValue};
@@ -265,7 +265,8 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
             RuntimeOp::BitwiseOr { left, right } |
             RuntimeOp::BitwiseAnd { left, right } |
             RuntimeOp::BitwiseXor { left, right } |
-            RuntimeOp::ArrayIndex { array: left, index: right }
+            RuntimeOp::ArrayIndex { array: left, index: right } |
+            RuntimeOp::ArrayIndexRef { array_ref: left, index: right } 
                 => check_node_is_constant(left, scope_id, function_top_scope, function_info, symbol_table)
                     && check_node_is_constant(right, scope_id, function_top_scope, function_info, symbol_table),
             
@@ -410,6 +411,7 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
         SyntaxNodeValue::Const { .. } |
         SyntaxNodeValue::Static { .. } |
         SyntaxNodeValue::TypeDef { .. } |
+        
         SyntaxNodeValue::Placeholder
             => unreachable!("Unexpected SyntaxNode {:?}. This node should have been removed. This is a bug.", node),
     }
@@ -508,6 +510,14 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
 
                 // TODO: implement compile-time array indexing for literal arrays and initialized immutable arrays
             },
+
+            RuntimeOp::ArrayIndexRef { array_ref, index } => {
+                    
+                evaluate_constants(array_ref, source, scope_id, symbol_table);
+                evaluate_constants(index, source, scope_id, symbol_table);
+
+                // TODO: implement compile-time array indexing for literal arrays and initialized immutable arrays
+            }
 
             RuntimeOp::Assign { left: l_node, right: r_node } => {
 
@@ -1095,13 +1105,35 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     require_initialized!(array);
                     require_initialized!(index);
 
-                    let data_type = match_or!(DataType::Array { element_type, size: _ } = array.data_type.as_ref(), element_type.clone(),
-                        error::type_error(&array.token, &[&DataType::Array { element_type: DataType::Unspecified.into(), size: None }.name()], &array.data_type, source, "Can only index arrays.")
-                    );
+                    let data_type = match array.data_type.as_ref() {
+
+                        // Indexing an array returns the element type
+                        DataType::Array { element_type, size: _ } => element_type.clone(),
+
+                        // Indexing a reference to an array returns a reference to the element type
+                        DataType::Ref { target, mutable } 
+                            if matches!(target.as_ref(), DataType::Array { element_type, size: _ } 
+                                if matches!(element_type.as_ref(), DataType::Array { .. }) )
+                        => {
+                            let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = target.as_ref() , element_type);
+                            DataType::Ref { target: element_type.clone(), mutable: *mutable }.into()
+                        },
+
+                        _ => error::type_error(&array.token, &[&DataType::Array { element_type: DataType::Unspecified.into(), size: None }.name()], &array.data_type, source, "Can only index arrays.")
+                    };
 
                     // Assert that the array index is an unsigned integer
                     if !matches!(index.data_type.as_ref(), integer_pattern!()) {
                         error::type_error(&index.token, &[&DataType::Usize.name()], &index.data_type, source, "Array index must strictly be an unsigned integer.");
+                    }
+
+                    if matches!(data_type.as_ref(), DataType::Ref { .. }) {
+                        // We are indexing a reference to an array, so change the operator accordingly
+                        let (array_ref, index) = match_unreachable!(SyntaxNodeValue::RuntimeOp(RuntimeOp::ArrayIndex { array, index }) = expression.extract_value(), (array, index));
+                        expression.value = SyntaxNodeValue::RuntimeOp(RuntimeOp::ArrayIndexRef { 
+                            array_ref,
+                            index 
+                        });
                     }
                     
                     data_type
@@ -1159,6 +1191,9 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
         
                     data_type.into()
                 },
+
+                RuntimeOp::ArrayIndexRef { .. }
+                    => unreachable!("ArrayIndexRef is constructed artificially by ArrayIndex operators that index a reference to an array."),
             }
         },
 
@@ -1388,7 +1423,8 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
             RuntimeOp::BitwiseAnd { left, right } |
             RuntimeOp::BitwiseXor { left, right } |
             RuntimeOp::Mod { left, right } |
-            RuntimeOp::ArrayIndex { array: left, index: right }
+            RuntimeOp::ArrayIndex { array: left, index: right } |
+            RuntimeOp::ArrayIndexRef { array_ref: left, index: right }
             => {
                 
                 function_side_effects = calculate_side_effects(left, scope_id, symbol_table);

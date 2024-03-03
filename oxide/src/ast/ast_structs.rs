@@ -39,6 +39,7 @@ pub enum RuntimeOp<'a> {
     Break,
     Continue,
     ArrayIndex { array: Box<SyntaxNode<'a>>, index: Box<SyntaxNode<'a>> },
+    ArrayIndexRef { array_ref: Box<SyntaxNode<'a>>, index: Box<SyntaxNode<'a>> },
 
 }
 
@@ -49,6 +50,7 @@ impl RuntimeOp<'_> {
     pub fn execute(&self, scope_id: ScopeID, symbol_table: &SymbolTable) -> Result<Rc<LiteralValue>, &'static str> {
 
         match self {
+
             RuntimeOp::Add { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -56,6 +58,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.add(right)).into())
             },
+
             RuntimeOp::Sub { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -63,6 +66,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.sub(right)).into())
             },
+
             RuntimeOp::Mul { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -70,6 +74,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.mul(right)).into())
             },
+
             RuntimeOp::Div { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -80,6 +85,7 @@ impl RuntimeOp<'_> {
                     Err(()) => Err("Division by zero")
                 }
             },
+
             RuntimeOp::Mod { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -90,16 +96,19 @@ impl RuntimeOp<'_> {
                     Err(()) => Err("Division by zero")
                 }
             },
+
             RuntimeOp::Equal { left, right } => {
                 let left = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let right = right.known_literal_value(scope_id, symbol_table).unwrap();
                 Ok(LiteralValue::Bool(left.equal(&right)).into())
             },
+
             RuntimeOp::NotEqual { left, right } => {
                 let left = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let right = right.known_literal_value(scope_id, symbol_table).unwrap();
                 Ok(LiteralValue::Bool(!left.equal(&right)).into())
             },
+            
             RuntimeOp::Greater { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -107,6 +116,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Bool(left.greater(right)).into())
             },
+
             RuntimeOp::Less { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -114,6 +124,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Bool(left.less(right)).into())
             },
+
             RuntimeOp::GreaterEqual { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -121,6 +132,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Bool(left.greater_equal(right)).into())
             },
+
             RuntimeOp::LessEqual { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -128,16 +140,19 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Bool(left.less_equal(right)).into())
             },
+
             RuntimeOp::LogicalAnd { left, right } => {
                 let left = left.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
                 let right = right.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
                 Ok(LiteralValue::Bool(left && right).into())
             },
+
             RuntimeOp::LogicalOr { left, right } => {
                 let left = left.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
                 let right = right.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
                 Ok(LiteralValue::Bool(left || right).into())
             },
+
             RuntimeOp::BitShiftLeft { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -145,6 +160,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.bitshift_left(right)).into())
             },
+
             RuntimeOp::BitShiftRight { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -152,6 +168,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.bitshift_right(right)).into())
             },
+
             RuntimeOp::BitwiseOr { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -159,6 +176,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.bitwise_or(right)).into())
             },
+
             RuntimeOp::BitwiseAnd { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -166,6 +184,7 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.bitwise_and(right)).into())
             },
+
             RuntimeOp::BitwiseXor { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -173,15 +192,18 @@ impl RuntimeOp<'_> {
                 let right = right_value.assume_numeric();
                 Ok(LiteralValue::Numeric(left.bitwise_xor(right)).into())
             },
+
             RuntimeOp::LogicalNot(operand) => {
                 let operand = operand.known_literal_value(scope_id, symbol_table).unwrap().assume_bool();
                 Ok(LiteralValue::Bool(!operand).into())
             },
+
             RuntimeOp::BitwiseNot(operand) => {
                 let operand_value = operand.known_literal_value(scope_id, symbol_table).unwrap();
                 let operand = operand_value.assume_numeric();
                 Ok(LiteralValue::Numeric(operand.bitwise_not()).into())
             },
+
             RuntimeOp::ArrayIndex { array, index } => {
                 let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
                 let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
@@ -193,6 +215,21 @@ impl RuntimeOp<'_> {
 
                 Ok(elements[index as usize].clone())
             },
+            
+            RuntimeOp::ArrayIndexRef { array_ref, index } => {
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
+                let array_ref_value = array_ref.known_literal_value(scope_id, symbol_table).unwrap();
+                let (ref_target, mutable) = array_ref_value.assume_ref();
+                let (_element_type, elements) = ref_target.assume_array();
+
+                if index as usize >= elements.len() {
+                    return Err("Index out of bounds");
+                }
+
+                let element = elements[index as usize].clone();
+
+                Ok(LiteralValue::Ref { target: element, mutable }.into())
+            }
             
             RuntimeOp::MakeArray { elements: _ } => todo!(),
             
@@ -247,7 +284,8 @@ impl RuntimeOp<'_> {
             BitwiseNot,
             ArrayIndex,
             Break,
-            Continue
+            Continue,
+            ArrayIndexRef
         }
     }
 
@@ -277,7 +315,8 @@ impl RuntimeOp<'_> {
             RuntimeOp::BitwiseXor { .. } |
             RuntimeOp::LogicalNot(_) |
             RuntimeOp::BitwiseNot(_) |
-            RuntimeOp::ArrayIndex { .. } 
+            RuntimeOp::ArrayIndex { .. } |
+            RuntimeOp::ArrayIndexRef { .. }
                 => true,
 
             RuntimeOp::Assign { .. } |
@@ -465,7 +504,8 @@ impl<'a> SyntaxNode<'a> {
                 RuntimeOp::BitwiseOr { left: op1, right: op2 } |
                 RuntimeOp::BitwiseAnd { left: op1, right: op2 } |
                 RuntimeOp::BitwiseXor { left: op1, right: op2 } |
-                RuntimeOp::ArrayIndex { array: op1, index: op2 }
+                RuntimeOp::ArrayIndex { array: op1, index: op2 } |
+                RuntimeOp::ArrayIndexRef { array_ref: op1, index: op2 }
                 => {
                     op1.fmt_indented(indent + 1, f)?;
                     op2.fmt_indented(indent + 1, f)?;

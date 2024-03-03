@@ -90,6 +90,7 @@ pub mod dt_macros {
 
 }
 
+
 impl DataType {
 
     /// Return the size of the data type in bytes, if it is known at compile-time.
@@ -130,7 +131,7 @@ impl DataType {
             DataType::Array { element_type, size} => element_type.static_size()? * size.ok_or(())?,
 
             DataType::StringRef { length: _ } => ADDRESS_SIZE + USIZE_SIZE,
-            DataType::Ref { .. } => rusty_vm_lib::vm::ADDRESS_SIZE,
+            DataType::Ref { .. } => ADDRESS_SIZE,
             
             DataType::String  // TODO: update with a rust-like string struct size
             => todo!("String size is not yet implemented"),
@@ -151,26 +152,34 @@ impl DataType {
 
             // 1-byte integers are castable to chars and other numbers
             DataType::I8 | DataType::U8 => matches!(target, DataType::Char | numeric_pattern!()),
+
             // u64 is castable to pointers (and other numbers)
             DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref { .. }),    
+
             // A number is castable to any other number.
             #[allow(unreachable_patterns)]
             numeric_pattern!() => matches!(target, numeric_pattern!()),
+
             // A char is castable to 1-byte integers.
             DataType::Char => matches!(target, DataType::U8 | DataType::I8),
-            // A pointer is castable to any other reference and to u64 (for pointer arithmetic).
-            DataType::Ref { mutable: true, target: _ } => matches!(target, DataType::Ref { mutable: _, target: _ } | DataType::U64),
-            // Cannot cast an immutable reference to a mutable reference.
-            DataType::Ref { mutable: false, target: _ } => matches!(target, DataType::Ref { mutable: false, target: _ } | DataType::U64),
+
+            DataType::Ref { mutable: true, target: _ }
+            // A mutable pointer is castable to any other reference and to u64 (for pointer arithmetic).
+                => matches!(target, DataType::Ref { mutable: _, target: _ } | DataType::U64),
+
+            // Only allow casting an immutable referene to another immutable reference or to u64 (which is unsafe, though).
+            DataType::Ref { mutable: false, target: _ }
+                => matches!(target, DataType::Ref { mutable: false, target: _ } | DataType::U64),
             
             DataType::Bool => matches!(target, integer_pattern!()),
 
-            DataType::Array { element_type, size } => if let DataType::Array {element_type: target_element_type, size: target_size } = target {
-                // An array is castable to another array if the element type is implicitly castable to the target element type.
-                // Also, the arrays must be of the same size.
-                size == target_size
-                && element_type.is_implicitly_castable_to(target_element_type, None)
-            } else { false },
+            DataType::Array { element_type, size }
+             => if let DataType::Array {element_type: target_element_type, size: target_size } = target {
+                    // An array is castable to another array if the element type is implicitly castable to the target element type.
+                    // Also, the arrays must be of the same size.
+                    size == target_size
+                    && element_type.is_implicitly_castable_to(target_element_type, None)
+                } else { false },
 
             // Other type casts are not allowed.
             _ => false
@@ -461,6 +470,9 @@ pub enum LiteralValue {
 
     Bool (bool),
 
+    // TODO: probably we should use a RefCell here to allow for runtime mutability when evaluating constant operations.
+    Ref { target: Rc<LiteralValue>, mutable: bool }
+
 }
 
 impl LiteralValue {
@@ -483,6 +495,13 @@ impl LiteralValue {
         match self {
             LiteralValue::Bool(b) => *b,
             _ => unreachable!("Cannot assume bool value from {:?}", self)
+        }
+    }
+
+    pub fn assume_ref(&self) -> (&Rc<LiteralValue>, bool) {
+        match self {
+            LiteralValue::Ref { target, mutable } => (target, *mutable),
+            _ => unreachable!("Cannot assume reference value from {:?}", self)
         }
     }
 
@@ -620,6 +639,7 @@ impl LiteralValue {
                 Number::Float(f) => if *f > std::f32::MAX as f64 || *f < std::f32::MIN as f64 { DataType::F64 } else { DataType::F32 },
             },
             LiteralValue::Bool(_) => DataType::Bool,
+            LiteralValue::Ref { target, mutable } => DataType::Ref { target: target.data_type(symbol_table).into(), mutable: *mutable },
         }
     }
 
@@ -634,6 +654,7 @@ impl Display for LiteralValue {
             LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
             LiteralValue::Numeric(n) => write!(f, "{}", n),
             LiteralValue::Bool(b) => write!(f, "{}", b),
+            LiteralValue::Ref { target, mutable } => write!(f, "&{}{:?}", if *mutable { "mut " } else { "" }, target),
         }
     }
 }
