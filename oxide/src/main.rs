@@ -61,7 +61,9 @@ fn main() {
 
     let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source, args.verbose);
 
-    let _ir_code = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
+    let ir_code = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
+
+    flow_analyzer::flow_graph(ir_code);
 
 }
 

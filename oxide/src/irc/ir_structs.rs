@@ -25,7 +25,7 @@ impl Display for Tn {
 }
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Label(pub LabelID);
 
 impl Display for Label {
@@ -64,11 +64,11 @@ impl Display for IRValue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TnID(pub usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LabelID(pub usize);
 
 
-/// Stores information about a scope
+/// Stores information about a scope in the IR generation phase.
 pub struct IRScope<'a> {
 
     /// Maps symbol names to Tns
@@ -97,6 +97,7 @@ pub struct IRScopeID(pub usize);
 
 /// Stores information about function scopes in the IR
 pub struct ScopeTable<'a> {
+    /// List of all the scopes. This is NOT a stack.
     pub scopes: Vec<IRScope<'a>>,
 }
 

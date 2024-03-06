@@ -6,12 +6,12 @@ Project Description
 
 ### Todo
 
+- [ ] create a README with the project description and the language features and syntax  
 - [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
 - [ ] vscode extension for syntax highlighting  
 - [ ] catch as many errors as possible in each compiler pass. in each pass, keep a boolean variable like has_errors and or it whenevere an error is encountered  
 - [ ] implement indirection operator .  
-- [ ] flow analysis (using directed graphs)  
 - [ ] eventually, parallelize function IR code optimization since functions are independent from each other (only if the number of functions is significant)  
 - [ ] eventually, implement compiler directives  
 - [ ] eventually, add better type inference for array elements  
@@ -24,6 +24,7 @@ Project Description
 
 ### In Progress
 
+- [ ] flow analysis (using directed graphs)  
 - [ ] implement const functions  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  

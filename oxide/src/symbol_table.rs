@@ -100,10 +100,14 @@ impl<'a> Symbol<'a> {
 }
 
 
+/// Information about a function's IR code.
 #[derive(Debug)]
 pub struct FunctionCode {
 
+    /// The starting label of the function.
     pub label: Label,
+    /// The IR code of the function. 
+    /// Here we use shared mutability to allow for modification of the code for optimization reasons.
     pub code: Rc<RefCell<IRCode>>,
 
 }

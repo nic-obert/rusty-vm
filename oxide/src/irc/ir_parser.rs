@@ -46,6 +46,7 @@ impl IRIDGenerator {
 }
 
 
+/// Holds the significant labels that are used to implement a generic loop.
 struct LoopLabels {
     /// The start of the loop body, does not include the condition check.
     /// If the condition is met, the program should jump here.
@@ -1202,7 +1203,7 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
     // Allocate at least as much hashmap slots as the maximum number of Tns that will ever be inserted.
     // This isn't a bad estimate since almost every operation assigns to a Tn.
     // Also, the memory will be freed upon returning from this function.
-    let mut read_tns: HashMap<TnID, ()> = HashMap::with_capacity(function_code.length());
+    let mut read_tns: HashMap<TnID, ()> = HashMap::with_capacity(function_code.estimated_length());
 
     while let Some(node) = unsafe { node_ptr.as_ref() } {
 

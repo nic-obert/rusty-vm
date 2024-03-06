@@ -1,3 +1,4 @@
+use std::ptr;
 
 
 /// A doubly-linked list that allows accessing its raw pointers for manual unsafe operations.
@@ -8,6 +9,7 @@ pub struct OpenLinkedList<T> {
 
     head: *mut OpenNode<T>,
     tail: *mut OpenNode<T>,
+    /// Estimate of the list's length.
     length: usize,
 
 }
@@ -25,9 +27,14 @@ impl<T> OpenLinkedList<T> {
     }
 
 
+    pub fn is_empty(&self) -> bool {
+        self.head.is_null()
+    }
+
+
     /// Return the number of elements in the list. If the list was mutated unsafely, this number may be off.
     /// Because of this, this number should not be used in critical applications, but only as an estimate of the list length.
-    pub fn length(&self) -> usize {
+    pub fn estimated_length(&self) -> usize {
         self.length
     }
 
@@ -73,7 +80,7 @@ impl<T> OpenLinkedList<T> {
         let new_node = Box::into_raw(Box::new(OpenNode {
             data,
             next: self.head,
-            prev: std::ptr::null_mut(),
+            prev: ptr::null_mut(),
         }));
 
         if self.head.is_null() {
@@ -118,6 +125,71 @@ impl<T> OpenLinkedList<T> {
     /// Create an immutable iterator over the linked list. Mutating the list or any of its elements while iterating is undefined behavior.
     pub fn iter(&self) -> OpenLinkedListIterator<'_, T> {
         OpenLinkedListIterator::new(self.head)
+    }
+
+
+    /// Split the list at the specified node.
+    /// Returns a tuple containing:
+    /// - the slice before the node, excluding the `at` node
+    /// - the slice after the node, including the `at` node
+    /// 
+    /// One of the returned slices may be empty if the `at` node is a list bound.
+    /// 
+    /// Assumes the `at` node is in the list.
+    pub unsafe fn split_before(self, at: *mut OpenNode<T>) -> (Self, Self) {
+
+        let at_node = unsafe { &mut *at };
+
+        let prev = at_node.prev;
+        
+        // Disconnect the bound nodes
+        at_node.prev = ptr::null_mut();
+        if let Some(prev_node) = unsafe { prev.as_mut() } {
+            prev_node.next = ptr::null_mut();
+        }
+
+        // Head and tail may coincide, but that's ok
+        let first_half = Self {
+            head: self.head,
+            tail: prev,
+            length: 0, // It's not important to keep the length updated as it's just an estimate.
+        };
+
+        let second_half = Self {
+            head: at,
+            tail: self.tail,
+            length: 0,
+        };
+
+        (first_half, second_half)
+    }
+
+
+    pub unsafe fn split_after(self, at: *mut OpenNode<T>) -> (Self, Self) {
+        
+        let at_node = unsafe { &mut *at };
+
+        let next: *mut OpenNode<T> = at_node.next;
+
+        // DIsconnect the bound nodes
+        at_node.next = ptr::null_mut();
+        if let Some(next_node) = unsafe { next.as_mut() } {
+            next_node.prev = ptr::null_mut();
+        }
+
+        let first_half = Self {
+            head: self.head,
+            tail: at,
+            length: 0,
+        };
+
+        let second_half = Self {
+            head: next,
+            tail: self.tail,
+            length: 0,
+        };
+
+        (first_half, second_half)
     }
 
 
