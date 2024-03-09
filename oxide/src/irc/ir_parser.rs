@@ -10,7 +10,7 @@ use crate::function_parser::Function;
 use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
 
-use super::{FunctionIR, IRNode, IROperator, IRScopeID, IRValue, Label, LabelID, Tn, TnID};
+use super::{FunctionIR, IRJumpTarget, IRNode, IROperator, IRScopeID, IRValue, Label, LabelID, Tn, TnID};
 
 
 /// Generates a sequence of unique ids for the IR code
@@ -245,7 +245,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     None
                 };
 
-                if let SyntaxNodeValue::Symbol { name, scope_discriminant  } = &callable.value {
+                // If the callable is a known symbol, we can optimize the call
+                let callable: IRJumpTarget = if let SyntaxNodeValue::Symbol { name, scope_discriminant  } = &callable.value {
 
                     let function_symbol = symbol_table.get_symbol(st_scope, name, *scope_discriminant).unwrap().borrow();
                     // Assume the symbol is a function. The type checker should have already checked this.
@@ -265,9 +266,18 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         }
                     }
 
-                }
+                    // The function call is not constant, but we still know which function is being called.
+                    // We can optimize the call by using the function's label instead of the callable's Tn
+                    function_info.code.as_ref().map(|code| IRJumpTarget::Label(code.label))
+
+                } else { None }
+                .unwrap_or_else(|| 
+                    // The callable is not a known symbol or doesn't have a known label, we have to generate the code for it
+                    IRJumpTarget::Tn(
+                        generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a callable expression")
+                    )
+                );
                 
-                let callable = generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a callable expression");
                 let args: Vec<IRValue> = args.into_iter().map(
                     |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Argument is expected to be an expression")
                 ).map(IRValue::Tn)

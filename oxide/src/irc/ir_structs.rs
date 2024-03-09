@@ -61,6 +61,30 @@ impl Display for IRValue {
 }
 
 
+pub enum IRJumpTarget {
+
+    Tn (Tn),
+    Label (Label),
+    
+}
+
+impl Debug for IRJumpTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    
+    }
+}
+
+impl Display for IRJumpTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IRJumpTarget::Tn(tn) => write!(f, "{}", tn),
+            IRJumpTarget::Label(label) => write!(f, "{}", label),
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TnID(pub usize);
 
@@ -187,7 +211,7 @@ pub enum IROperator {
     JumpIfNot { condition: Tn, target: Label },
     Label { label: Label },
 
-    Call { return_target: Option<Tn>, return_label: Label, callable: Tn, args: Vec<IRValue> },
+    Call { return_target: Option<Tn>, return_label: Label, callable: IRJumpTarget, args: Vec<IRValue> },
     Return,
 
     PushScope { bytes: usize },

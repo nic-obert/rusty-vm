@@ -7,6 +7,7 @@
         "./assembler/Cargo.toml",
         "./rusty_vm_lib/Cargo.toml",
         "./oxide/Cargo.toml",
+        "./oxide/Cargo.toml",
         "./oxide/Cargo.toml"
     ],
     "coddx.taskBoard.fileList": "Global TODO.md, oxide/oxide TODO.md, vm/vm TODO.md, assembler/assembler TODO.md"
