@@ -1,7 +1,8 @@
 
 fn big_foo() {
 
-    let a = 8;
-    /*let a = 8;*/
-    
+    if true {
+        
+    } 
+
 }

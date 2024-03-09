@@ -12,6 +12,7 @@ fn divide_basic_blocks(ir_function: FunctionIR, bb_table: &mut BasicBlockTable) 
     
     let mut basic_blocks: Vec<Rc<RefCell<BasicBlock>>> = Vec::new();
 
+    // TODO: this may fuck up the function code in the symbol table
     let mut function_code = ir_function.code.take();
 
     let mut node_ptr = unsafe { function_code.head() };
@@ -56,11 +57,19 @@ fn divide_basic_blocks(ir_function: FunctionIR, bb_table: &mut BasicBlockTable) 
             IROperator::Call { .. } |
             IROperator::Return |
             IROperator::JumpIfNot { .. } |
-            IROperator::Jump { .. }
-                => unsafe { function_code.split_after(node_ptr) },
+            IROperator::Jump { .. } => {
 
-            IROperator::Label { .. }
-                => unsafe { function_code.split_before(node_ptr) },
+                let next_node_ptr = unsafe { node.next() };
+                let ret = unsafe { function_code.split_after(node_ptr) };
+                node_ptr = next_node_ptr;
+                ret
+            },
+
+            IROperator::Label { .. } => {
+                let res = unsafe { function_code.split_before(node_ptr) };
+                node_ptr = unsafe { node.next() };
+                res
+            },
         };
 
         function_code = second_half;
@@ -78,8 +87,6 @@ fn divide_basic_blocks(ir_function: FunctionIR, bb_table: &mut BasicBlockTable) 
 
             basic_blocks.push(basic_block);
         }
-
-        node_ptr = unsafe { node.next() };
     }
 
     // Add the last block, if it wasn't added yet
@@ -114,6 +121,7 @@ fn connect_function_graph(function_graph: &FunctionGraph, bb_table: &BasicBlockT
         match &unsafe { basic_block.code.tail().as_ref() }.unwrap().data.op {
 
             // These instructions don't change the control flow
+            // If any of these instructions is the last instruction of a block, the next block will be executed.
             IROperator::Add { .. } |
             IROperator::Sub { .. } |
             IROperator::Mul { .. } |
@@ -139,8 +147,14 @@ fn connect_function_graph(function_graph: &FunctionGraph, bb_table: &BasicBlockT
             IROperator::DerefCopy { .. } |
             IROperator::PushScope { .. } |
             IROperator::PopScope { .. } |
-            IROperator::Nop
-                => { },
+            IROperator::Nop |
+            IROperator::Label { .. } => {
+                
+                if let Some(&next_block) = graph_iter.peek() {
+                    basic_block.push_next(next_block.clone());
+                    next_block.borrow_mut().push_ref(basic_block_ref.clone());
+                }
+            },
 
             IROperator::Jump { target } => {
 
@@ -192,8 +206,7 @@ fn connect_function_graph(function_graph: &FunctionGraph, bb_table: &BasicBlockT
                 // We may not know which block will be executed by the function call, so don't do anything with it.
             },
 
-            IROperator::Label { .. } => {},
-            // Return does not know where to jump to
+            // Return does not know where to jump to, but it breaks the control flow
             IROperator::Return => {},
         }
         
@@ -236,10 +249,12 @@ fn remove_unreachable_blocks(function_graph: &mut FunctionGraph) {
         }
     }
 
+    function_graph.shrink_to_fit();
+
 }
 
 
-pub fn flow_graph(ir_code: Vec<FunctionIR>, optimization_flags: &OptimizationFlags) {
+pub fn flow_graph(ir_code: Vec<FunctionIR>, optimization_flags: &OptimizationFlags, verbose: bool) -> Vec<FunctionGraph> {
 
     let mut bb_table = BasicBlockTable::new();
 
@@ -249,17 +264,31 @@ pub fn flow_graph(ir_code: Vec<FunctionIR>, optimization_flags: &OptimizationFla
         divide_basic_blocks(ir_function, &mut bb_table)
     }).collect();
 
+    if verbose {
+        println!("Divided the IR code into basic blocks\n\n{:#?}\n\n", function_blocks);
+    }
+
     // Now we can analyze the relationships between the basic blocks
     for basic_blocks in function_blocks.iter() {
         connect_function_graph(basic_blocks, &bb_table);
     }
 
+    if verbose {
+        println!("Connected the basic blocks into a graph\n\n{:#?}\n\n", function_blocks);
+    }
+
     if optimization_flags.remove_useless_code {
+
         for basic_blocks in function_blocks.iter_mut() {
             remove_unreachable_blocks(basic_blocks);
         }
+
+        if verbose {
+            println!("Removed unreachable basic blocks\n\n{:#?}\n\n", function_blocks);
+        }
     }
 
+    function_blocks
 }
 
 /*

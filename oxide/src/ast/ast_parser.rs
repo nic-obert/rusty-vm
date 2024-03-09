@@ -177,6 +177,8 @@ fn divide_statements_of_scope<'a>(mut tokens: TokenParsingList<'a>, symbol_table
 
     // Add any remaining tokens as the last statement
     if !tokens.is_empty() {
+        // This is the last statement of the scope and it doesn't end with a semicolon
+        block.returns_expression = true;
         block.statements.push(tokens);
     }
     
@@ -189,6 +191,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
     // Do not check the types of the operators yet. This will be done in the next pass when the symbol table is created.
 
     let mut parsed_scope_block = ScopeBlock::new(block.scope_id);
+    parsed_scope_block.returns_expression = block.returns_expression;
 
     let mut unreachable_code = false;
 

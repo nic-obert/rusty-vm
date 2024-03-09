@@ -896,7 +896,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         target: after_chain
                     },
                     has_side_effects: node.has_side_effects
-            });
+                });
 
                 // If there's no else block, this label coincides with the after_chain label. This is ok, though, since labels are no-ops.
                 ir_function.push_code(IRNode {
@@ -904,7 +904,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         label: next_if_block
                     },
                     has_side_effects: false
-            });
+                });
                 
                 // A redundant label is generated at the last iteration of the loop, but that's ok since this operation is cheap and labels don't have to be serial.
                 next_if_block = irid_gen.next_label();
@@ -914,6 +914,13 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
                 generate_block(else_block, target, outer_loop, irid_gen, ir_function, inner_ir_scope, symbol_table, source);
             }
+
+            ir_function.push_code(IRNode {
+                op: IROperator::Label {
+                    label: after_chain
+                },
+                has_side_effects: false
+            });
 
             // Return None because the if-chain's return value is stored in the target Tn by the if-blocks
             None

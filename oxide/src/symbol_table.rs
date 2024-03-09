@@ -32,6 +32,15 @@ pub struct Symbol<'a> {
 
 impl<'a> Symbol<'a> {
 
+    pub unsafe fn assume_function(&self) -> &FunctionInfo<'a> {
+        match_unreachable!(SymbolValue::Function(info) = &self.value, info)
+    }
+
+    pub unsafe fn assume_function_mut(&mut self) -> &mut FunctionInfo<'a> {
+        match_unreachable!(SymbolValue::Function(info) = &mut self.value, info)
+    }
+
+
     pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'a>>, value: SymbolValue<'a>) -> Symbol<'a> {
         Symbol {
             data_type,
@@ -113,7 +122,7 @@ pub struct FunctionCode {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum FunctionConstantness {
     NotConst,

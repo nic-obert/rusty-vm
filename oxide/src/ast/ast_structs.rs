@@ -641,6 +641,7 @@ impl<'a> SyntaxNode<'a> {
 
 #[derive(Debug)]
 pub struct UnparsedScopeBlock<'a> {
+    pub returns_expression: bool,
     pub statements: Vec<TokenParsingList<'a>>,
     pub scope_id: ScopeID,
 }
@@ -650,7 +651,8 @@ impl UnparsedScopeBlock<'_> {
     pub fn new(scope_id: ScopeID) -> Self {
         Self {
             statements: Vec::new(),
-            scope_id
+            scope_id,
+            returns_expression: false,
         }
     }
 
@@ -678,6 +680,7 @@ impl Display for UnparsedScopeBlock<'_> {
 
 
 pub struct ScopeBlock<'a> {
+    pub returns_expression: bool,
     pub statements: Vec<SyntaxNode<'a>>,
     pub scope_id: ScopeID,
     pub has_side_effects: bool,
@@ -690,6 +693,7 @@ impl ScopeBlock<'_> {
             statements: Vec::new(),
             scope_id,
             has_side_effects: false,
+            returns_expression: false,
         }
     }
 

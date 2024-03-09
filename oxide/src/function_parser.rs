@@ -195,25 +195,26 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
         let return_type = function.return_type();
         resolve_scope_types(&mut function.code, Some(return_type), function.parent_scope, symbol_table, source);
 
-        // Const functions
+        // Special case for const functions
+        let constantness = unsafe { symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow().assume_function() }.constantness.clone();
+        match constantness {
+            FunctionConstantness::NotConst |
+            FunctionConstantness::ProvenConst
+            => continue,
+            
+            FunctionConstantness::MarkedConst => {}
+        }
+        // The function is marked as const, so we need to ensure that it's indeed const
 
         // Reduce the constant function to the minimum
         // This will be useful when the function is called statically because it will be faster to evaluate.
         evaluate_constants_block(&mut function.code, source, symbol_table);
         
         let mut function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow_mut();
-        let function_info = match_unreachable!(SymbolValue::Function (function_info) = &mut function_symbol.value, function_info);
+        let function_info = unsafe { function_symbol.assume_function_mut() };
         
-        match function_info.constantness {
-
-            FunctionConstantness::ProvenConst => continue, // No need to check if the function is constant, it has already been proven to be
-            
-            FunctionConstantness::MarkedConst
-            => if function_info.has_side_effects {
-                error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but has side effects.", function.name).as_str());
-            },
-            
-            FunctionConstantness::NotConst => { /* Perform checks below */ },
+        if function_info.has_side_effects {
+            error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but has side effects.", function.name).as_str());
         }
 
         // The function will be evaluated upon calling. Here we should check if the function can be evaluated statically.
@@ -1355,7 +1356,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             }
 
             // A while loop body should not return anything
-            if !matches!(body.return_type().as_ref(), DataType::Void) {
+            if body.returns_expression {
                 error::type_error(&body.statements.last().unwrap().token, &["void"], &body.return_type(), source, "Loop body should not return anything.");
             }
 

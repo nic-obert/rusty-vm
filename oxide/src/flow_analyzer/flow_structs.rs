@@ -52,11 +52,28 @@ impl BasicBlock {
 
 }
 
+impl std::fmt::Debug for BasicBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "BasicBlock {{")?;
+        writeln!(f, "  next: {}", self.next.len())?;
+        writeln!(f, "  refs: {}", self.refs.len())?;
+        writeln!(f, "  ref_count: {:?}", self.ref_count)?;
+        writeln!(f, "  code:")?;
+        
+        for ir in self.code.iter() {
+            writeln!(f, "    {ir}")?;
+        }
+
+        writeln!(f, "}}")
+    }
+}
+
 
 /// Maps a label to the basic block it introduces.
 /// 
 /// This is used to determine which basic block to jump to.
 pub type BasicBlockTable = HashMap<LabelID, Rc<RefCell<BasicBlock>>>;
 
+// TODO: make this a struct with references to the original function to allow for generating code and identifying the main function/exporting functionsand identifying the main function, etc.
 pub type FunctionGraph = Vec<Rc<RefCell<BasicBlock>>>;
 

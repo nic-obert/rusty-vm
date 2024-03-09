@@ -136,7 +136,7 @@ impl<T> OpenLinkedList<T> {
     /// One of the returned slices may be empty if the `at` node is a list bound.
     /// 
     /// Assumes the `at` node is in the list.
-    pub unsafe fn split_before(self, at: *mut OpenNode<T>) -> (Self, Self) {
+    pub unsafe fn split_before(mut self, at: *mut OpenNode<T>) -> (Self, Self) {
 
         let at_node = unsafe { &mut *at };
 
@@ -146,6 +146,8 @@ impl<T> OpenLinkedList<T> {
         at_node.prev = ptr::null_mut();
         if let Some(prev_node) = unsafe { prev.as_mut() } {
             prev_node.next = ptr::null_mut();
+        } else {
+            self.head = ptr::null_mut();
         }
 
         // Head and tail may coincide, but that's ok
@@ -161,20 +163,26 @@ impl<T> OpenLinkedList<T> {
             length: 0,
         };
 
+        // Invalidate the original list
+        self.head = ptr::null_mut();
+        self.tail = ptr::null_mut();
+
         (first_half, second_half)
     }
 
 
-    pub unsafe fn split_after(self, at: *mut OpenNode<T>) -> (Self, Self) {
+    pub unsafe fn split_after(mut self, at: *mut OpenNode<T>) -> (Self, Self) {
         
         let at_node = unsafe { &mut *at };
 
         let next: *mut OpenNode<T> = at_node.next;
 
-        // DIsconnect the bound nodes
+        // Disconnect the bound nodes
         at_node.next = ptr::null_mut();
         if let Some(next_node) = unsafe { next.as_mut() } {
             next_node.prev = ptr::null_mut();
+        } else {
+            self.tail = ptr::null_mut();
         }
 
         let first_half = Self {
@@ -188,6 +196,10 @@ impl<T> OpenLinkedList<T> {
             tail: self.tail,
             length: 0,
         };
+
+        // Invalidate the original list
+        self.head = ptr::null_mut();
+        self.tail = ptr::null_mut();
 
         (first_half, second_half)
     }

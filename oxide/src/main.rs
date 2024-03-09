@@ -63,7 +63,9 @@ fn main() {
 
     let ir_code = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
 
-    flow_analyzer::flow_graph(ir_code, &optimization_flags);
+    let function_graphs = flow_analyzer::flow_graph(ir_code, &optimization_flags, args.verbose);
+
+    // TODO: generate the assembly code from the IR code
 
 }
 

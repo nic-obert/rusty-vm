@@ -1,5 +1,5 @@
-# All of the code in this file should work.
-# If anything breaks, compiling this file may catch it
+// All of the code in this file should work.
+// If anything breaks, compiling this file may catch it
 
 fn big_foo() {
     fn main(argc: i32, argv: &[&String]) -> void {
