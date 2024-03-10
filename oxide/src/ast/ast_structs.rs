@@ -336,7 +336,7 @@ pub enum SyntaxNodeValue<'a> {
     RuntimeOp(RuntimeOp<'a>),
     FunctionParams(Vec<FunctionParam<'a>>),
     DataType(Rc<DataType>),
-    Function { name: &'a str, signature: Rc<DataType>, body: ScopeBlock<'a> },
+    Function { name: &'a str, signature: Rc<DataType>, body: ScopeBlock<'a>, marked_const: bool },
     As { target_type: Rc<DataType>, expr: Box<SyntaxNode<'a>> },
     IfChain { if_blocks: Vec<IfBlock<'a>>, else_block: Option<ScopeBlock<'a>> },
     While { condition: Box<SyntaxNode<'a>>, body: ScopeBlock<'a> },
@@ -550,9 +550,9 @@ impl<'a> SyntaxNode<'a> {
                 writeln!(f, "{}", dt.name())?;
             },
 
-            SyntaxNodeValue::Function { name, signature, body } => {
+            SyntaxNodeValue::Function { name, signature, body, marked_const } => {
                 write_indent(f, indent + 1)?;
-                writeln!(f, "fn {name}: {signature}")?;
+                writeln!(f, "{}fn {name}: {signature}", if *marked_const { "const " } else { "" })?;
                 body.fmt_indented(indent + 1, f)?;
             },
 

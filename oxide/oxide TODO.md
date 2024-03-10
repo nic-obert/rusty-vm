@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] detect infinite recursion  
 - [ ] create a README with the project description and the language features and syntax  
 - [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
 - [ ] check if variable is initialized in every path (may be hard to implement)  

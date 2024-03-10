@@ -5,7 +5,7 @@ use rusty_vm_lib::ir::SourceCode;
 use crate::cli_parser::OptimizationFlags;
 use crate::lang::error;
 use crate::match_unreachable;
-use crate::symbol_table::{FunctionCode, FunctionConstantness, FunctionUUID, ScopeID, SymbolTable, SymbolValue};
+use crate::symbol_table::{FunctionCode, FunctionUUID, ScopeID, SymbolTable, SymbolValue};
 use crate::function_parser::Function;
 use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
@@ -72,8 +72,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Add {
@@ -91,8 +91,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Sub {
@@ -110,8 +110,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Mul {
@@ -129,8 +129,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Div {
@@ -148,8 +148,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Mod {
@@ -167,13 +167,13 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 
                 let deref_assign = matches!(left.value, SyntaxNodeValue::RuntimeOp(RuntimeOp::Deref { .. }));
 
-                let target = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an assignable");
+                let target = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
 
                 if deref_assign {
                     // Assigning to a dereference, this is a different operation than regular assignment
 
-                    let source = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                    let source = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                     ir_function.push_code(IRNode {
                             op: IROperator::DerefAssign {
@@ -189,7 +189,6 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     generate_node(*right, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source);
     
                     // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
-    
                 }
 
                 None
@@ -199,7 +198,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a reference");
+                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Deref {
@@ -216,7 +215,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a reference");
+                let ref_ = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Ref {
@@ -236,8 +235,6 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     [Tresult =] call Tcallable [Targ-n...] return: Lreturn
                     Lreturn:
                 */
-
-                // TODO: const functions should be evaluated at this point
                 
                 let return_target = if !matches!(*node.data_type, DataType::Void) {
                     target.or_else(|| Some(Tn { id: irid_gen.next_tn(), data_type: node.data_type }))
@@ -252,19 +249,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // Assume the symbol is a function. The type checker should have already checked this.
                     let function_info = match_unreachable!(SymbolValue::Function(function_info) = &function_symbol.value, function_info);
 
-                    if matches!(function_info.constantness, FunctionConstantness::ProvenConst) {
-                        // Evaluate the const function if the arguments are also constant
-
-                        let args_are_constant = args.iter()
-                            .all(|arg| arg.known_literal_value(st_scope, symbol_table).is_some());
-                        
-                        if args_are_constant {
-                            let literal_args = args.into_iter()
-                                .map(|arg| arg.known_literal_value(st_scope, symbol_table).unwrap());
-                            
-                            todo!("evaluate const function")
-                        }
-                    }
+                    // Eventual constant functions will be executed later, so we don't need to worry about them here
 
                     // The function call is not constant, but we still know which function is being called.
                     // We can optimize the call by using the function's label instead of the callable's Tn
@@ -274,12 +259,12 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 .unwrap_or_else(|| 
                     // The callable is not a known symbol or doesn't have a known label, we have to generate the code for it
                     IRJumpTarget::Tn(
-                        generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a callable expression")
+                        generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
                     )
                 );
                 
                 let args: Vec<IRValue> = args.into_iter().map(
-                    |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Argument is expected to be an expression")
+                    |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
                 ).map(IRValue::Tn)
                     .collect();
 
@@ -309,8 +294,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 
                 if let Some(expr) = expr {
 
-                    let return_tn = ir_function.scope_table.return_tn(ir_scope).expect("The function returns a value, but no return Tn was supplied");
-                    generate_node(*expr, Some(return_tn), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a value");
+                    let return_tn = ir_function.scope_table.return_tn(ir_scope).unwrap();
+                    generate_node(*expr, Some(return_tn), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 } else {
                     // No return value is provided and the function should return void
@@ -332,8 +317,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode { 
                     op: IROperator::Equal {
@@ -351,8 +336,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::NotEqual {
@@ -370,8 +355,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Greater {
@@ -389,8 +374,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Less {
@@ -408,8 +393,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::GreaterEqual {
@@ -427,8 +412,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::LessEqual {
@@ -446,7 +431,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitNot {
@@ -463,7 +448,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let operand = generate_node(*operand, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitNot {
@@ -480,8 +465,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitAnd {
@@ -499,8 +484,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitOr {
@@ -518,8 +503,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitShiftLeft {
@@ -537,8 +522,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitShiftRight {
@@ -556,8 +541,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitOr {
@@ -575,8 +560,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitAnd {
@@ -594,8 +579,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
 
-                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
-                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::BitXor {
@@ -615,8 +600,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let element_size = element_type.static_size()
                     .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
 
-                let array_addr_tn = generate_node(*array, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an array");
-                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an index");
+                let array_addr_tn = generate_node(*array, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 let offset_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Usize.into() };
                 ir_function.push_code(IRNode {
@@ -658,8 +643,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let element_size = element_type.static_size()
                     .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
 
-                let array_ref_tn = generate_node(*array_ref, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an array reference");
-                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an index");
+                let array_ref_tn = generate_node(*array_ref, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
+                let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 let offset_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Usize.into() };
                 ir_function.push_code(IRNode {
@@ -740,7 +725,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 for element_node in elements {
                     
                     // Generate the code for the element and store the result in the array
-                    let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                    let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
     
                     ir_function.push_code(IRNode {
                         op: IROperator::DerefCopy {
@@ -829,7 +814,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // Reading directly from the source would read garbage and writing would overwrite surrounding memory.
                     // Copying is cheap since type casting is only allowed on primitives, which are usually small.
 
-                    let expr_tn = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                    let expr_tn = generate_node(*expr, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                     target.data_type = target_type;
 
@@ -850,7 +835,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // If the source and target have the same size, the bits are already in the correct format.
                     // If the source has more bits than the target, the excess bits are simply ignored.
                     
-                    generate_node(*expr, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected an expression");
+                    generate_node(*expr, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
                     
                     // Just change the type of the Tn
                     target.data_type = target_type;
@@ -878,7 +863,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             for if_block in if_blocks {
                 
-                let condition_tn = generate_node(if_block.condition, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a condition");
+                let condition_tn = generate_node(if_block.condition, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
                     op: IROperator::JumpIfNot {
@@ -968,7 +953,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 has_side_effects: false
             });
             
-            let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a condition");
+            let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
        
             ir_function.push_code(IRNode {
                 op: IROperator::JumpIf {
@@ -1063,7 +1048,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 has_side_effects: false
             });
 
-            let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).expect("Expected a condition");
+            let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
             ir_function.push_code(IRNode {
                 op: IROperator::JumpIf {

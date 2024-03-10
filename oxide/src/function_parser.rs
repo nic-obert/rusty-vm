@@ -8,6 +8,7 @@ use crate::symbol_table::{FunctionConstantness, FunctionInfo, ScopeID, SymbolTab
 use crate::lang::data_types::{DataType, LiteralValue, Number};
 use crate::lang::data_types::dt_macros::*;
 use crate::lang::error;
+use crate::tokenizer::SourceToken;
 
 use rusty_vm_lib::ir::SourceCode;
 
@@ -19,19 +20,21 @@ pub struct Function<'a> {
     pub signature: Rc<DataType>,
     pub parent_scope: ScopeID,
     /// Whether the function has non-local side effects (e.g. modifying a global variable, I/O, etc.)
-    pub has_side_effects: bool
+    pub has_side_effects: bool,
+    pub marked_const: bool
 
 }
 
 impl Function<'_> {
 
-    pub fn new<'a>(name: &'a str, body: ScopeBlock<'a>, signature: Rc<DataType>, parent_scope: ScopeID) -> Function<'a> {
+    pub fn new<'a>(name: &'a str, body: ScopeBlock<'a>, signature: Rc<DataType>, parent_scope: ScopeID, marked_const: bool) -> Function<'a> {
         Function {
             name,
             code: body,
             signature,
             parent_scope,
-            has_side_effects: false
+            has_side_effects: false,
+            marked_const
         }
     }
 
@@ -43,7 +46,7 @@ impl Function<'_> {
 
 impl std::fmt::Debug for Function<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}:\n{:?}", self.name, self.signature, self.code)
+        write!(f, "{}{} {:?}:\n{:?}", if self.marked_const { "const " } else { "" }, self.name, self.signature, self.code)
     }
 }
 
@@ -67,7 +70,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
 
         let keep_statement: Option<SyntaxNode> = match statement.value {
 
-            SyntaxNodeValue::Function { name, signature, mut body } => {
+            SyntaxNodeValue::Function { name, signature, mut body, marked_const, .. } => {
                 
                 // Recursively extract functions from the body
                 let inner_functions = extract_functions(&mut body, true, block.scope_id, symbol_table, source);
@@ -77,7 +80,8 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     name,
                     body,
                     signature.clone(),
-                    block.scope_id
+                    block.scope_id,
+                    marked_const
                 ));
 
                 None
@@ -218,24 +222,18 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
         }
 
         // The function will be evaluated upon calling. Here we should check if the function can be evaluated statically.
-        if check_block_is_constant(&function.code, function.code.scope_id, function_info, symbol_table) {
+        if let Err(non_const_token) = check_block_is_constant(&function.code, function.code.scope_id, function_info, symbol_table) {
+            error::not_a_constant(&non_const_token, source, format!("Function `{}` is declared as const but it cannot be evaluated statically.", function.name).as_str())
+        } else {
             // The function is proven to be constant
             function_info.constantness = FunctionConstantness::ProvenConst;
-        } else {
-            error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but it cannot be evaluated statically.", function.name).as_str())
         }
 
     }
 }
 
 
-const IS_CONSTANT: bool = true;
-const NOT_CONSTANT: bool = false;
-
-
-fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_scope: ScopeID, function_info: &FunctionInfo, symbol_table: &SymbolTable) -> bool {
-
-    // TODO: return a result that contains the non-const token if the node is not const
+fn check_node_is_constant<'a>(node: &'a SyntaxNode, scope_id: ScopeID, function_top_scope: ScopeID, function_info: &FunctionInfo, symbol_table: &SymbolTable) -> Result<(), Rc<SourceToken<'a>>> {
 
     match &node.value {
 
@@ -243,9 +241,9 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
             // A runtime operation is constant if all its operands are constant
 
             RuntimeOp::MakeArray { elements }
-                => elements.iter()
-                    .map(|elem| check_node_is_constant(elem, scope_id, function_top_scope, function_info, symbol_table))
-                    .fold(IS_CONSTANT, |acc, result| acc & result),
+                => for element in elements.iter() {
+                    check_node_is_constant(element, scope_id, function_top_scope, function_info, symbol_table)?;
+                },
 
             RuntimeOp::Add { left, right } |
             RuntimeOp::Sub { left, right } |
@@ -267,19 +265,22 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
             RuntimeOp::BitwiseAnd { left, right } |
             RuntimeOp::BitwiseXor { left, right } |
             RuntimeOp::ArrayIndex { array: left, index: right } |
-            RuntimeOp::ArrayIndexRef { array_ref: left, index: right } 
-                => check_node_is_constant(left, scope_id, function_top_scope, function_info, symbol_table)
-                    && check_node_is_constant(right, scope_id, function_top_scope, function_info, symbol_table),
+            RuntimeOp::ArrayIndexRef { array_ref: left, index: right }
+             => {
+                check_node_is_constant(left, scope_id, function_top_scope, function_info, symbol_table)?;
+                check_node_is_constant(right, scope_id, function_top_scope, function_info, symbol_table)?;
+            },
             
             RuntimeOp::Deref { mutable: _, expr } |
             RuntimeOp::Ref { mutable: _, expr } |
             RuntimeOp::LogicalNot(expr) |
             RuntimeOp::BitwiseNot(expr) 
-                => check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table),
+                => check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table)?,
             
             RuntimeOp::Return(expr)
-                => expr.as_ref().map(|expr| check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table))
-                    .unwrap_or(NOT_CONSTANT),
+                => if let Some(expr) = expr.as_ref() {
+                    check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table)?;
+                },
 
             RuntimeOp::Call { callable, args } => {
                 /*
@@ -289,31 +290,29 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
                     - the called function is constant
                 */
 
-                let mut is_constant = check_node_is_constant(callable, scope_id, function_top_scope, function_info, symbol_table);
+                check_node_is_constant(callable, scope_id, function_top_scope, function_info, symbol_table)?;
 
                 for arg in args {
-                    is_constant &= check_node_is_constant(arg, scope_id, function_top_scope, function_info, symbol_table);
+                    check_node_is_constant(arg, scope_id, function_top_scope, function_info, symbol_table)?;
                 }
 
-                is_constant &= if let SyntaxNodeValue::Symbol { name, scope_discriminant } = &callable.value {
+                if let SyntaxNodeValue::Symbol { name, scope_discriminant } = &callable.value {
 
                     let function_symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
-                    let function_info = match_unreachable!(SymbolValue::Function (function_info) = &function_symbol.value, function_info);
+                    let function_info = unsafe { function_symbol.assume_function() };
 
                     match function_info.constantness {
 
+                        FunctionConstantness::NotConst => return Err(callable.token.clone()),
+
                         FunctionConstantness::ProvenConst |
                         FunctionConstantness::MarkedConst
-                            => IS_CONSTANT,
-
-                        FunctionConstantness::NotConst => NOT_CONSTANT
+                            => {},
                     }
                 } else {
-                    // We don't know which function is being called
-                    NOT_CONSTANT
+                    // We don't know which function is being called, so we can't know if it's constant
+                    return Err(callable.token.clone());
                 };
-
-                is_constant
             },
 
             RuntimeOp::Break |
@@ -322,7 +321,7 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
         },
 
         SyntaxNodeValue::As { target_type: _, expr }
-            => check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table), // A type cast is constant if the expression to cast is constant
+            => check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table)?, // A type cast is constant if the expression to cast is constant
 
         SyntaxNodeValue::IfChain { if_blocks, else_block } => {
             /*
@@ -331,27 +330,23 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
                 - all its bodies are constant
             */
 
-            let mut is_constant = true;
-
             for if_block in if_blocks {
-                is_constant &= check_node_is_constant(&if_block.condition, scope_id, function_top_scope, function_info, symbol_table);
-                is_constant &= check_block_is_constant(&if_block.body, function_top_scope, function_info, symbol_table);
+                check_node_is_constant(&if_block.condition, scope_id, function_top_scope, function_info, symbol_table)?;
+                check_block_is_constant(&if_block.body, function_top_scope, function_info, symbol_table)?;
             }
 
             if let Some(else_block) = else_block {
-                is_constant &= check_block_is_constant(else_block, function_top_scope, function_info, symbol_table);
+                check_block_is_constant(else_block, function_top_scope, function_info, symbol_table)?;
             }
-
-            is_constant
         },
         
         SyntaxNodeValue::DoWhile { .. } |
         SyntaxNodeValue::While { .. } |
         SyntaxNodeValue::Loop { .. }
-            => NOT_CONSTANT, // Loops are assumed to be non-constant even though they might be. Determining if a loop is constant is tedious.
+            => return Err(node.token.clone()), // Loops are assumed to be non-constant even though they might be. Determining if a loop is constant is tedious.
 
         SyntaxNodeValue::Scope(inner_block)
-            => check_block_is_constant(inner_block, function_top_scope, function_info, symbol_table),
+            => check_block_is_constant(inner_block, function_top_scope, function_info, symbol_table)?,
 
         SyntaxNodeValue::Symbol { name, scope_discriminant } => {
             /*
@@ -370,7 +365,7 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
                     If the scope discriminant is not 0, this symbol is not the first symbol declared with its name in the scope.
                     Since the function parameters are the first symbols to be declared in a function body, this symbol is not a function parameter.
                 */
-                return NOT_CONSTANT;  
+                return Err(node.token.clone());  
             }
 
             /*
@@ -386,7 +381,7 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
                 Because of this, we have to check if the symbol was declared in the function's top-level scope.
             */
             if !symbol_table.is_function_top_level_symbol(scope_id, function_top_scope, name, *scope_discriminant) {
-                return NOT_CONSTANT;
+                return Err(node.token.clone());
             }
 
             /*
@@ -395,16 +390,16 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
             */
             for param_name in function_info.param_names.iter() {
                 if name == param_name {
-                    return IS_CONSTANT;
+                    return Ok(());
                 }
             }
 
             // The symbol name does not match any function parameter name and its value is not known
-            NOT_CONSTANT
+            return Err(node.token.clone());
         },
 
         SyntaxNodeValue::Literal(_)
-            => IS_CONSTANT, // Literals are always constant
+            => {}, // Literals are always constant
         
         SyntaxNodeValue::FunctionParams(_) |
         SyntaxNodeValue::DataType(_) |
@@ -416,22 +411,22 @@ fn check_node_is_constant(node: &SyntaxNode, scope_id: ScopeID, function_top_sco
         SyntaxNodeValue::Placeholder
             => unreachable!("Unexpected SyntaxNode {:?}. This node should have been removed. This is a bug.", node),
     }
+
+    Ok(())
 }
 
 
-fn check_block_is_constant(block: &ScopeBlock, function_top_scope: ScopeID, function_info: &FunctionInfo, symbol_table: &SymbolTable) -> bool {
+fn check_block_is_constant<'a>(block: &'a ScopeBlock<'a>, function_top_scope: ScopeID, function_info: &FunctionInfo, symbol_table: &SymbolTable) -> Result<(), Rc<SourceToken<'a>>> {
     /*
         A function can be declared as constant only if all its operations are constant expressions.
         Its parameters are the only symbols that are allowed to be undefined, as their values will be known upon calling.
     */
 
-    let mut is_constant = true;
-
     for statement in block.statements.iter() {
-        is_constant &= check_node_is_constant(statement, block.scope_id, function_top_scope, function_info, symbol_table);
+        check_node_is_constant(statement, block.scope_id, function_top_scope, function_info, symbol_table)?;
     }
 
-    is_constant
+    Ok(())
 }
 
 
@@ -625,6 +620,21 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                 for arg in args {
                     evaluate_constants(arg, source, scope_id, symbol_table);
                 }
+
+                // If the function is known and has no side effects, we can evaluate it statically
+                // if let SyntaxNodeValue::Symbol { name, scope_discriminant } = &callable.value {
+                //     let function_symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow();
+                //     let function_info = unsafe { function_symbol.assume_function() };
+
+                //     if function_info.has_side_effects {
+                //         return SHOULD_NOT_BE_REMOVED;
+                //     }
+
+                //     // The function is known and has no side effects
+                //     // We can evaluate it statically
+                //     let res = function_info.call(scope_id, symbol_table, args);
+                //     node.value = SyntaxNodeValue::Literal (res);
+                // }
             },
 
             RuntimeOp::MakeArray { elements } => {
@@ -720,7 +730,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             node.value = SyntaxNodeValue::Literal (new_value);
         },
 
-        SyntaxNodeValue::Function { name: _, signature: _, body } => {
+        SyntaxNodeValue::Function { body, .. } => {
             evaluate_constants_block(body, source, symbol_table);
         },
 
@@ -1264,7 +1274,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             symbol.data_type.clone()
         }
 
-        SyntaxNodeValue::Function { name: _, signature, body } => {
+        SyntaxNodeValue::Function { signature, body, .. } => {
             // Resolve the types inside the function body
             
             let return_type = match_unreachable!(DataType::Function { return_type, .. } = signature.as_ref(), return_type);

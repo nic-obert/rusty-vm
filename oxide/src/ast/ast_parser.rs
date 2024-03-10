@@ -1017,7 +1017,8 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                 SyntaxNodeValue::Function { 
                                     name: function_name, 
                                     signature, 
-                                    body 
+                                    body,
+                                    marked_const: is_const_function,
                                 },
                                 token.source_token.clone()
                             ))
