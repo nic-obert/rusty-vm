@@ -9,6 +9,7 @@ mod irc;
 mod function_parser;
 mod flow_analyzer;
 mod open_linked_list;
+mod bytecode_generator;
 
 use clap::Parser;
 use cli_parser::{OptimizationFlags, TopLevelCommand};
@@ -65,7 +66,12 @@ fn main() {
 
     let function_graphs = flow_analyzer::flow_graph(ir_code, &optimization_flags, args.verbose);
 
-    // TODO: generate the assembly code from the IR code
+    let bytecode = bytecode_generator::generate_bytecode(&symbol_table, function_graphs);
+
+    if let Err(e) = files::save_byte_code(&bytecode, input_file) {
+        println!("Could not save bytecode to file: {}", e);
+        std::process::exit(1);
+    }
 
 }
 

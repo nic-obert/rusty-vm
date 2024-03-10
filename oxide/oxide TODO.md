@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff  
 - [ ] detect infinite recursion  
 - [ ] create a README with the project description and the language features and syntax  
 - [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
@@ -26,7 +27,7 @@ Project Description
 ### In Progress
 
 - [ ] flow analysis (using directed graphs)  
-- [ ] implement const functions  
+- [ ] implement const function evaluation  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
 

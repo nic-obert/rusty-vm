@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::io;
 
-// use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::ir::SourceCode;
 
 
@@ -18,18 +18,18 @@ pub fn load_ir_code(file_path: &Path) -> io::Result<SourceCode> {
 }
 
 
-// fn generate_output_name(input_name: &Path) -> String {
+fn generate_output_name(input_name: &Path) -> String {
     
-//     input_name.with_extension("bc").to_str().unwrap().to_string()
-// }
+    input_name.with_extension("bc").to_str().unwrap().to_string()
+}
 
 
-// pub fn save_byte_code(byte_code: ByteCode, input_file: &Path) -> io::Result<String> {
+pub fn save_byte_code(byte_code: &ByteCode, input_file_name: &Path) -> io::Result<String> {
 
-//     let output_name = generate_output_name(input_file);
+    let output_name = generate_output_name(input_file_name);
 
-//     fs::write(&output_name, byte_code)?;
+    fs::write(&output_name, byte_code)?;
     
-//     Ok(output_name)
-// }
+    Ok(output_name)
+}
 
