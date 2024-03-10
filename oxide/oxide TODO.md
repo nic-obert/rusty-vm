@@ -6,9 +6,9 @@ Project Description
 
 ### Todo
 
+- [ ] create a README with the project description and the language features and syntax  
 - [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff  
 - [ ] detect infinite recursion  
-- [ ] create a README with the project description and the language features and syntax  
 - [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast  
 - [ ] check if variable is initialized in every path (may be hard to implement)  
 - [ ] vscode extension for syntax highlighting  
@@ -26,7 +26,8 @@ Project Description
 
 ### In Progress
 
-- [ ] flow analysis (using directed graphs)  
+- [ ] implement IR code to bytecode translation  
+- [ ] flow analysis (using directed graphs) & optimization  
 - [ ] implement const function evaluation  
 - [ ] add tests and compile-time assertions  
 - [ ] implement oprimizations  
