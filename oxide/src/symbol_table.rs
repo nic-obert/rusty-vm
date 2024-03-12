@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::Display;
+use std::iter::Enumerate;
 use std::rc::Rc;
 use std::collections::HashMap;
 
@@ -183,6 +184,16 @@ pub enum StaticLiteral<'a> {
     String (Cow<'a, str>),
 }
 
+impl StaticLiteral<'_> {
+
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            StaticLiteral::String(s) => s.as_bytes(),
+        }
+    }
+
+}
+
 
 #[derive(Debug)]
 pub struct StaticValue<'a> {
@@ -261,7 +272,7 @@ impl std::fmt::Display for ScopeID {
 }
 
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct StaticID(usize);
 
 
@@ -308,6 +319,13 @@ impl<'a> SymbolTable<'a> {
             statics: Vec::new(),
             function_labels: HashMap::new(),
         }
+    }
+
+
+    pub fn get_statics(&self) -> impl Iterator<Item = (StaticID, &StaticValue<'a>)> {
+        self.statics.iter()
+            .enumerate()
+            .map(|(i, s)| (StaticID(i), s))
     }
 
 

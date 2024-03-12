@@ -550,7 +550,7 @@ impl Processor {
         );
     }
 
-
+    
     fn handle_integer_sub(&mut self) {
         assert_exists!(ByteCodes::INTEGER_SUB);
         
@@ -2272,7 +2272,6 @@ impl Processor {
         Self::handle_flush_stdout, // 17
         Self::handle_host_fs, // 18
     ];
-
 
 }
 

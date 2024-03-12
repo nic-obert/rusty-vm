@@ -113,7 +113,23 @@ pub const BYTE_CODE_NAMES: [&str; BYTE_CODE_COUNT] = [
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
 pub enum ByteCodes {
+    /**
+     * Add `r1` and `r2` and store the result in `r1`.
+     * Set `zf` if the result is zero.
+     * Set `sf` if the most significant bit of the result is 1.
+     * Set `rf` to 0.
+     * Set `cf` if the operation overflowed.
+     * Set `of` to `sf` xor `cf`.
+    */
     INTEGER_ADD = 0,
+    /**
+     * Subtract `r2` from `r1` and store the result in `r1`.
+     * Set `zf` if the result is zero.
+     * Set `sf` if the most significant bit of the result is 1.
+     * Set `rf` to 0.
+     * Set `cf` if the operation overflowed.
+     * Set `of` to `sf` xor `cf`.
+    */
     INTEGER_SUB,
     INTEGER_MUL,
     INTEGER_DIV,
