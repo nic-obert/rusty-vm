@@ -130,7 +130,7 @@ impl Processor {
         // Set the heap start to after the static program section
         self.memory.init_layout(byte_code.len() as Address);
 
-        // Initialize the stack pointer
+        // Initialize the stack pointer to the end of the memory. The stack grows downwards
         self.registers.set(Registers::STACK_BASE_POINTER, self.memory.get_stack_start() as u64);
 
         // Load the program into memory
@@ -167,7 +167,6 @@ impl Processor {
     /// Decrement the stack base pointer
     #[inline(always)]
     fn push_stack_pointer(&mut self, offset: usize) {
-        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 + offset as u64);
         self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 - offset as u64);
 
         self.check_stack_overflow();
@@ -188,7 +187,6 @@ impl Processor {
     /// Decrement the stack top pointer
     /// Increment the stack base pointer
     fn pop_stack_pointer(&mut self, offset: usize) {
-        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 - offset as u64);
         self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 + offset as u64);
     }
 
@@ -476,12 +474,13 @@ impl Processor {
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
-            let top_bound = self.registers.stack_top().saturating_sub(MAX_STACK_VIEW_RANGE);
-            let base_bound = self.registers.stack_top();
+            let stack_top = self.memory.get_stack_start() - self.registers.get(Registers::STACK_BASE_POINTER) as Address;
+            let top_bound = stack_top.saturating_sub(MAX_STACK_VIEW_RANGE);
+            let base_bound = stack_top;
 
             println!(
                 "Stack: {:#X} {:?} {:#X}",
-                top_bound, &self.memory.get_raw()[top_bound .. base_bound], self.registers.stack_top()
+                top_bound, &self.memory.get_raw()[top_bound .. base_bound], stack_top
             );
 
             io::stdin().read_line(&mut String::new()).unwrap();

@@ -22,7 +22,6 @@ pub enum Registers {
     ERROR,
     PRINT,
 
-    STACK_TOP_POINTER,
     STACK_BASE_POINTER,
     PROGRAM_COUNTER,
 
@@ -62,7 +61,6 @@ impl Registers {
             "input" => Registers::INPUT,
             "error" => Registers::ERROR,
             "print" => Registers::PRINT,
-            "stp" => Registers::STACK_TOP_POINTER,
             "sbp" => Registers::STACK_BASE_POINTER,
             "pc" => Registers::PROGRAM_COUNTER,
             "zf" => Registers::ZERO_FLAG,
@@ -77,7 +75,6 @@ impl Registers {
 
 }
 
-
 impl std::convert::From<u8> for Registers {
 
     fn from(value: u8) -> Self {
@@ -89,7 +86,6 @@ impl std::convert::From<u8> for Registers {
     }
 
 }
-
 
 impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -113,7 +109,6 @@ pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
     "error",
     "print",
 
-    "stp",
     "sbp",
     "pc",
 

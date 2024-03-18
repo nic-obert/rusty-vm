@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] compile intermediate code to multiple targets  
 - [ ] create a README with the project description and the language features and syntax  
 - [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff  
 - [ ] detect infinite recursion  
@@ -29,11 +30,11 @@ Project Description
 - [ ] implement IR code to bytecode translation  
 - [ ] flow analysis (using directed graphs) & optimization  
 - [ ] implement const function evaluation  
-- [ ] add tests and compile-time assertions  
-- [ ] implement oprimizations  
 
 ### Done ✓
 
+- [x] implement oprimizations  
+- [x] add tests and compile-time assertions  
 - [x] add compile-time array bounds check for known index operations  
 - [x] indexing a reference to an array returns a reference to the element. maybe add a new SyntaxTokenValue like ArrayIndexRef { mutable, array, index }  
 - [x] allow constant propagation for immutable statics  

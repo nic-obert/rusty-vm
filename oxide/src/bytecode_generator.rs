@@ -1,7 +1,10 @@
 use std::collections::HashMap;
+use std::mem;
 
 use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::Address;
+use rusty_vm_lib::registers::{Registers, REGISTER_COUNT};
 
 use crate::irc::{LabelID, IROperator};
 use crate::symbol_table::{StaticID, SymbolTable};
@@ -10,6 +13,36 @@ use crate::flow_analyzer::FunctionGraph;
 
 type LabelAddressMap = HashMap<LabelID, Address>;
 type StaticAddressMap = HashMap<StaticID, Address>;
+
+
+struct RegisterSet {
+    registers: Vec<bool>,
+}
+
+impl RegisterSet {
+
+    pub fn new() -> Self {
+        Self {
+            registers: vec![false; REGISTER_COUNT]
+        }
+    }
+
+
+    pub fn set(&mut self, reg: Registers) {
+        self.registers[reg as usize] = true;
+    }
+
+
+    pub fn is_set(&mut self, reg: Registers) -> bool {
+        self.registers[reg as usize]
+    }
+
+
+    pub fn clear(&mut self, reg: Registers) {
+        self.registers[reg as usize] = false;
+    }
+
+}
 
 
 pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> ByteCode {
@@ -21,6 +54,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     let mut label_address_map = LabelAddressMap::new();
     let mut static_address_map = StaticAddressMap::new();
+    let mut reg_set = RegisterSet::new();
 
     let mut bytecode = ByteCode::new();
 
@@ -44,6 +78,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
     // Generate the code section (equivalent to .text section in assembly)
     // And also populate the label-address map
 
+    // List of labels that will need to be filled in later, when all label addresses are known.
     let mut labels_to_resolve: Vec<Address> = Vec::new();
     
     for function_graph in function_graphs {
@@ -52,8 +87,41 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
             for ir_node in block.borrow().code.iter() {
 
+                macro_rules! pushbc {
+                    ($instruction:path) => {
+                        bytecode.push($instruction as u8);
+                    }
+                }
+
+                macro_rules! set_reg_const {
+                    ($reg:path, $val:expr) => {
+                        pushbc!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        bytecode.extend(mem::size_of::<usize>().to_le_bytes());
+                        pushbc!($reg);
+                        bytecode.extend(($val).to_le_bytes());
+                    }
+                }
+
+                macro_rules! move_into_reg_from_reg {
+                    ($reg1:path, $reg2:path) => {
+                        pushbc!(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                        pushbc!($reg1);
+                        pushbc!($reg2);
+                    }
+                }
+
+                macro_rules! placeholder_label {
+                    ($label:ident) => {
+                        labels_to_resolve.push(bytecode.len());
+                        bytecode.extend(($label.0.0).to_le_bytes());
+                    }
+                }
+
                 match &ir_node.op {
-                    IROperator::Add { target, left, right } => todo!(),
+
+                    IROperator::Add { target, left, right } => {
+                        
+                    },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),
                     IROperator::Div { target, left, right } => todo!(),
@@ -76,23 +144,54 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
                     IROperator::BitXor { target, left, right } => todo!(),
                     IROperator::Copy { target, source } => todo!(),
                     IROperator::DerefCopy { target, source } => todo!(),
-                    IROperator::Jump { target } => todo!(),
+
+                    IROperator::Jump { target } => {
+                        pushbc!(ByteCodes::JUMP);
+                        placeholder_label!(target);
+                    },
+
                     IROperator::JumpIf { condition, target } => todo!(),
                     IROperator::JumpIfNot { condition, target } => todo!(),
-                    IROperator::Label { label } => todo!(),
+
+                    IROperator::Label { label } => {
+                        label_address_map.insert(label.0, bytecode.len());
+                    },
+
                     IROperator::Call { return_target, return_label, callable, args } => todo!(),
                     IROperator::Return => todo!(),
-                    IROperator::PushScope { bytes } => todo!(),
-                    IROperator::PopScope { bytes } => todo!(),
-                    IROperator::Nop => todo!(),
+
+                    IROperator::PushScope { bytes } => {
+                        set_reg_const!(Registers::R1, bytes);
+                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_BASE_POINTER);
+                        // The stack grows downwards
+                        pushbc!(ByteCodes::INTEGER_SUB);
+                        move_into_reg_from_reg!(Registers::STACK_BASE_POINTER, Registers::R1);
+                    },
+                    IROperator::PopScope { bytes } => {
+                        set_reg_const!(Registers::R1, bytes);
+                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_BASE_POINTER);
+                        pushbc!(ByteCodes::INTEGER_ADD);
+                        move_into_reg_from_reg!(Registers::STACK_BASE_POINTER, Registers::R1);
+                    },
+
+                    IROperator::Nop => {
+                        pushbc!(ByteCodes::NO_OPERATION);
+                    },
                 }
             }
         }
     }
 
     // Substitute labels with actual addresses
+    for label_location in labels_to_resolve {
+        let label_id = LabelID(usize::from_le_bytes(
+            bytecode[label_location..label_location + mem::size_of::<LabelID>()].try_into().unwrap()
+        ));
+        let address = label_address_map.get(&label_id).unwrap();
+        bytecode[label_location..label_location + mem::size_of::<LabelID>()].copy_from_slice(&address.to_le_bytes());
+    }
 
-    // Specify the entry point of the program
+    // Specify the entry point of the program (main function or __init__ function)
 
     bytecode
 }
