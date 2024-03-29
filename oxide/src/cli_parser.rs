@@ -5,6 +5,8 @@ use std::fmt;
 use clap::{Parser, Subcommand};
 use indoc::printdoc;
 
+use crate::targets::Targets;
+
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -36,6 +38,10 @@ pub struct CliParser {
     /// Use -Xall to turn off all optimizations
     #[arg(short = 'X', requires("input_file"), conflicts_with("check"))]
     optimizations_off: Vec<String>,
+
+    /// The target to compile to
+    #[arg(short = 't', requires("input_file"), conflicts_with("check"))]
+    target: Option<String>,
     
 }
 
@@ -45,6 +51,8 @@ pub enum TopLevelCommand {
 
     /// List the available optimizations
     ListOptimizations,
+    /// List the available targets
+    ListTargets
 
 }
 
@@ -52,33 +60,6 @@ const TURN_ON: bool = true;
 const TURN_OFF: bool = false;
 
 impl CliParser {
-
-    fn parse_optimizations(string_flags: &[String], on_off: bool, flags: &mut OptimizationFlags) {
-
-        for opt in string_flags {
-            match opt.as_str() {
-                "all" => {
-                    match on_off {
-                        TURN_ON => *flags = OptimizationFlags::all(),
-                        TURN_OFF => *flags = OptimizationFlags::none(),
-                    }
-                    if string_flags.len() > 1 {
-                        match on_off {
-                            TURN_ON => println!("Turning on single optimizations is redundant because -Oall turns on all optimizations."),
-                            TURN_OFF => println!("Turning off single optimizations is redundant because -Xall turns off all optimizations."),
-                        }
-                    }
-                },
-                "evaluate_constants" => flags.evaluate_constants = on_off,
-                "remove_useless_code" => flags.remove_useless_code = on_off,
-                _ => {
-                    println!("Unknown optimization flag: {}", opt);
-                    std::process::exit(1);
-                }
-            }
-        }
-
-    }
     
     pub fn optimization(&self) -> OptimizationFlags {
         let mut flags = OptimizationFlags::default();
@@ -87,6 +68,17 @@ impl CliParser {
         Self::parse_optimizations(&self.optimizations_off, TURN_OFF, &mut flags);
 
         flags
+    }
+
+
+    pub fn target(&self) -> Targets {
+        self.target.as_ref().map(|target| 
+            Targets::from_string(target)
+                .unwrap_or_else(|| {
+                    println!("Unknown target: {}", target);
+                    std::process::exit(1);
+                })
+        ).unwrap_or_default()
     }
 
 }
@@ -156,6 +148,39 @@ macro_rules! declare_optimizations {
                 )*
                 write!(f, "]")
             }
+        }
+
+
+        impl CliParser {
+
+            fn parse_optimizations(string_flags: &[String], on_off: bool, flags: &mut OptimizationFlags) {
+
+                for opt in string_flags {
+                    match opt.as_str() {
+                        "all" => {
+                            match on_off {
+                                TURN_ON => *flags = OptimizationFlags::all(),
+                                TURN_OFF => *flags = OptimizationFlags::none(),
+                            }
+                            if string_flags.len() > 1 {
+                                match on_off {
+                                    TURN_ON => println!("Turning on single optimizations is redundant because -Oall turns on all optimizations."),
+                                    TURN_OFF => println!("Turning off single optimizations is redundant because -Xall turns off all optimizations."),
+                                }
+                            }
+                        },
+                        $(
+                            stringify!($opt_name) => flags.$opt_name = on_off,
+                        )*
+                        _ => {
+                            println!("Unknown optimization flag: {}", opt);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+        
+            }
+
         }
 
     };

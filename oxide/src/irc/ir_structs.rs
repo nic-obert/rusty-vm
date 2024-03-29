@@ -96,7 +96,7 @@ pub struct LabelID(pub usize);
 pub struct IRScope<'a> {
 
     /// Maps symbol names to Tns
-    pub(super) symbols: HashMap<&'a str, Vec<Tn>>, // TODO: eventually, use a &str or Cow<str> to avoid copying
+    pub(super) symbols: HashMap<&'a str, Vec<Tn>>,
     /// Keeps track of the return type and in which Tn to store it
     pub(super) return_tn: Option<Tn>,
     pub(super) parent: Option<IRScopeID>,

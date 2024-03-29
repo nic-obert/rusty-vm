@@ -4,7 +4,7 @@ use std::mem;
 use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::Address;
-use rusty_vm_lib::registers::{Registers, REGISTER_COUNT};
+use rusty_vm_lib::registers::{Registers, GENERAL_PURPOSE_REGISTER_COUNT};
 
 use crate::irc::{LabelID, IROperator};
 use crate::symbol_table::{StaticID, SymbolTable};
@@ -15,34 +15,34 @@ type LabelAddressMap = HashMap<LabelID, Address>;
 type StaticAddressMap = HashMap<StaticID, Address>;
 
 
-struct RegisterSet {
-    registers: Vec<bool>,
-}
+// struct GeneralPurposeRegisterSet {
+//     registers: Vec<bool>,
+// }
 
-impl RegisterSet {
+// impl GeneralPurposeRegisterSet {
 
-    pub fn new() -> Self {
-        Self {
-            registers: vec![false; REGISTER_COUNT]
-        }
-    }
-
-
-    pub fn set(&mut self, reg: Registers) {
-        self.registers[reg as usize] = true;
-    }
+//     pub fn new() -> Self {
+//         Self {
+//             registers: vec![false; GENERAL_PURPOSE_REGISTER_COUNT]
+//         }
+//     }
 
 
-    pub fn is_set(&mut self, reg: Registers) -> bool {
-        self.registers[reg as usize]
-    }
+//     pub fn set(&mut self, reg: Registers) {
+//         self.registers[reg as usize] = true;
+//     }
 
 
-    pub fn clear(&mut self, reg: Registers) {
-        self.registers[reg as usize] = false;
-    }
+//     pub fn is_set(&mut self, reg: Registers) -> bool {
+//         self.registers[reg as usize]
+//     }
 
-}
+
+//     pub fn clear(&mut self, reg: Registers) {
+//         self.registers[reg as usize] = false;
+//     }
+
+// }
 
 
 pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> ByteCode {
@@ -54,7 +54,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     let mut label_address_map = LabelAddressMap::new();
     let mut static_address_map = StaticAddressMap::new();
-    let mut reg_set = RegisterSet::new();
+    // let mut reg_set = GeneralPurposeRegisterSet::new();
 
     let mut bytecode = ByteCode::new();
 
@@ -120,7 +120,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
                 match &ir_node.op {
 
                     IROperator::Add { target, left, right } => {
-                        
+                        // TODO: we need to keep a record of which tns map to which memory address in the stack.                
                     },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),

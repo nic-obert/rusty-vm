@@ -9,25 +9,32 @@ mod irc;
 mod function_parser;
 mod flow_analyzer;
 mod open_linked_list;
-mod bytecode_generator;
+mod targets;
 
 use clap::Parser;
 use cli_parser::{OptimizationFlags, TopLevelCommand};
 
 use crate::cli_parser::CliParser;
+use crate::targets::Targets;
 
 
 fn main() {
     
     let args = CliParser::parse();
 
-    match args.top_level_command {
-        Some(TopLevelCommand::ListOptimizations) => {
-            OptimizationFlags::list_optimizations();
-            std::process::exit(0);
-        },
-        None => {
-            // No command, so we are compiling by default
+    if let Some(command) = args.top_level_command {
+        match command {
+
+            TopLevelCommand::ListOptimizations => {
+                OptimizationFlags::list_optimizations();
+                std::process::exit(0);
+            },
+
+            TopLevelCommand::ListTargets => {
+                Targets::list_targets();
+                std::process::exit(0);
+            }
+
         }
     }
 
@@ -66,7 +73,7 @@ fn main() {
 
     let function_graphs = flow_analyzer::flow_graph(ir_code, &optimization_flags, args.verbose);
 
-    let bytecode = bytecode_generator::generate_bytecode(&symbol_table, function_graphs);
+    let bytecode = args.target().generate(&symbol_table, function_graphs);
 
     if let Err(e) = files::save_byte_code(&bytecode, input_file) {
         println!("Could not save bytecode to file: {}", e);

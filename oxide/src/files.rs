@@ -2,8 +2,9 @@ use std::fs;
 use std::path::Path;
 use std::io;
 
-use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::ir::SourceCode;
+
+use crate::targets::CompiledBinary;
 
 
 pub fn load_ir_code(file_path: &Path) -> io::Result<SourceCode> {
@@ -24,11 +25,11 @@ fn generate_output_name(input_name: &Path) -> String {
 }
 
 
-pub fn save_byte_code(byte_code: &ByteCode, input_file_name: &Path) -> io::Result<String> {
+pub fn save_byte_code(byte_code: &impl CompiledBinary, input_file_name: &Path) -> io::Result<String> {
 
     let output_name = generate_output_name(input_file_name);
 
-    fs::write(&output_name, byte_code)?;
+    fs::write(&output_name, byte_code.as_bytes())?;
     
     Ok(output_name)
 }

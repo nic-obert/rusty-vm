@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] compile intermediate code to multiple targets  
 - [ ] create a README with the project description and the language features and syntax  
 - [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff  
 - [ ] detect infinite recursion  
@@ -33,6 +32,7 @@ Project Description
 
 ### Done ✓
 
+- [x] compile intermediate code to multiple targets  
 - [x] implement oprimizations  
 - [x] add tests and compile-time assertions  
 - [x] add compile-time array bounds check for known index operations  

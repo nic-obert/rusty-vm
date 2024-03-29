@@ -38,6 +38,10 @@ pub const REGISTER_COUNT: usize = {
     Registers::OVERFLOW_FLAG as usize + 1
 };
 
+pub const GENERAL_PURPOSE_REGISTER_COUNT: usize = {
+    assert!((Registers::R8 as usize) < 8);
+    Registers::R8 as usize + 1
+};
 
 impl Registers {
 
