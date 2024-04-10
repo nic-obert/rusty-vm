@@ -15,7 +15,9 @@ use rusty_vm_lib::ir::SourceCode;
 
 lazy_static! {
 
-    static ref TOKEN_REGEX: Regex = Regex::new(r#"(?m)((?:'|").*(?:'|"))|\w+|[+-]?\d+[.]\d*|[+-]?[.]\d+|->|==|<=|>=|!=|&&|\|\||//|/\*|\*/|[-+*/%\[\](){}=:<>!^&|~]|\S"#).unwrap();
+    static ref TOKEN_REGEX: Regex = Regex::new(
+        r#"(?m)'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|[_a-zA-Z]\w*|-?\d+[.]\d*|-?[.]?\d+|->|==|<=|>=|!=|&&|\|\||//|/\*|\*/|[-+*/%\[\](){}=:<>!^&|~]|\S"#
+    ).unwrap();
 
 }
 
