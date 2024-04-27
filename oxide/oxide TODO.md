@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] the intermediate code Tn system should assign to Tns only once. Tns are worm variables  
 - [ ] create a README with the project description and the language features and syntax  
 - [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff  
 - [ ] detect infinite recursion  
