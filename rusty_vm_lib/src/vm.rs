@@ -9,10 +9,47 @@ pub type Address = usize;
 pub const ADDRESS_SIZE: usize = mem::size_of::<Address>();
 
 
+macro_rules! declare_errors {
+    ($($name:ident),+) => {
+
 #[derive(Clone, Copy, Debug)]
 pub enum ErrorCodes {
 
-    NoError = 0,
+    $($name),+
+
+}
+
+
+const ERROR_CODES_COUNT: usize = mem::variant_count::<ErrorCodes>();
+
+
+impl Display for ErrorCodes {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+
+}
+
+
+impl From<u8> for ErrorCodes {
+
+    fn from(code: u8) -> ErrorCodes {
+        if code < ERROR_CODES_COUNT as u8 {
+            unsafe { mem::transmute(code) }
+        } else {
+            panic!("Invalid error code: {}", code);
+        }
+    }
+
+}
+
+    };
+}
+
+declare_errors! {
+
+    NoError,
 
     EndOfFile,
     InvalidInput,
@@ -32,62 +69,7 @@ pub enum ErrorCodes {
     OutOfMemory,
     WriteZero,
     ModuleUnavailable,
-
-    // This has to be the last variant
     GenericError
-
-}
-
-
-const ERROR_CODES_COUNT: usize = {
-    assert!((ErrorCodes::GenericError as usize) < 256);
-    ErrorCodes::GenericError as usize + 1
-};
-
-
-const ERROR_CODE_REPR: [&str; ERROR_CODES_COUNT] = [
-    "No error",
-    "End of file",
-    "Invalid input",
-    "Zero division",
-    "Allocation too large",
-    "Stack overflow",
-    "Heap overflow",
-    "Double free",
-    "Out of bounds",
-    "Unaligned address",
-    "Permission denied",
-    "Timed out",
-    "Not found",
-    "Already exists",
-    "Invalid data",
-    "Interrupted",
-    "Out of memory",
-    "Write zero",
-    "Module unavailable",
-
-    "Generic error"
-];
-
-
-impl Display for ErrorCodes {
-
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", ERROR_CODE_REPR[*self as usize])
-    }
-
-}
-
-
-impl From<u8> for ErrorCodes {
-
-    fn from(code: u8) -> ErrorCodes {
-        if code < ERROR_CODES_COUNT as u8 {
-            unsafe { mem::transmute(code) }
-        } else {
-            panic!("Invalid error code: {}", code);
-        }
-    }
 
 }
 
