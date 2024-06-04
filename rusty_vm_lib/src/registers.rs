@@ -1,3 +1,4 @@
+use std::mem;
 use std::fmt;
 
 pub const REGISTER_ID_SIZE: usize = 1;
@@ -5,38 +6,18 @@ pub type RegisterContentType = u64;
 pub const REGISTER_SIZE: usize = std::mem::size_of::<RegisterContentType>();
 
 
+macro_rules! declare_registers {
+    ($($name:ident $repr:ident),+) => {
+
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
 pub enum Registers {
-    R1 = 0,
-    R2,
-    R3,
-    R4,
-    R5,
-    R6,
-    R7,
-    R8,
-
-    EXIT,
-    INPUT,
-    ERROR,
-    PRINT,
-
-    STACK_BASE_POINTER,
-    PROGRAM_COUNTER,
-
-    ZERO_FLAG,
-    SIGN_FLAG,
-    REMAINDER_FLAG,
-    CARRY_FLAG,
-    OVERFLOW_FLAG,
+    $(
+        $name,
+    )+
 }
 
-
-pub const REGISTER_COUNT: usize = {
-    assert!((Registers::OVERFLOW_FLAG as usize) < 256);
-    Registers::OVERFLOW_FLAG as usize + 1
-};
+pub const REGISTER_COUNT: usize = mem::variant_count::<Registers>();
 
 pub const GENERAL_PURPOSE_REGISTER_COUNT: usize = {
     assert!((Registers::R8 as usize) < 8);
@@ -45,7 +26,7 @@ pub const GENERAL_PURPOSE_REGISTER_COUNT: usize = {
 
 impl Registers {
 
-    pub fn to_bytes(&self) -> [u8; REGISTER_ID_SIZE] {
+    pub  const fn to_bytes(&self) -> [u8; REGISTER_ID_SIZE] {
         [*self as u8]
     }
 
@@ -53,28 +34,16 @@ impl Registers {
     /// Return the register given its name.
     pub fn from_name(name: &str) -> Option<Self> {
         Some(match name {
-            "r1" => Registers::R1,
-            "r2" => Registers::R2,
-            "r3" => Registers::R3,
-            "r4" => Registers::R4,
-            "r5" => Registers::R5,
-            "r6" => Registers::R6,
-            "r7" => Registers::R7,
-            "r8" => Registers::R8,
-            "exit" => Registers::EXIT,
-            "input" => Registers::INPUT,
-            "error" => Registers::ERROR,
-            "print" => Registers::PRINT,
-            "sbp" => Registers::STACK_BASE_POINTER,
-            "pc" => Registers::PROGRAM_COUNTER,
-            "zf" => Registers::ZERO_FLAG,
-            "sf" => Registers::SIGN_FLAG,
-            "rf" => Registers::REMAINDER_FLAG,
-            "cf" => Registers::CARRY_FLAG,
-            "of" => Registers::OVERFLOW_FLAG,
+            $(stringify!($repr) => Self::$name,)+
 
             _ => return None
         })
+    }
+
+    pub const fn name(&self) -> &'static str {
+        match self {
+            $(Self::$name => stringify!($repr)),+
+        }
     }
 
 }
@@ -93,49 +62,37 @@ impl std::convert::From<u8> for Registers {
 
 impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", REGISTER_NAMES[*self as usize])
+        write!(f, "{}", self.name())
     }
 }
 
+    };
+}
 
-pub const REGISTER_NAMES: [&str; REGISTER_COUNT] = [
-    "r1",
-    "r2",
-    "r3",
-    "r4",
-    "r5",
-    "r6",
-    "r7",
-    "r8",
-    
-    "exit",
-    "input",
-    "error",
-    "print",
+declare_registers! {
 
-    "sbp",
-    "pc",
+    R1 r1,
+    R2 r2,
+    R3 r3,
+    R4 r4,
+    R5 r5,
+    R6 r6,
+    R7 r7,
+    R8 r8,
 
-    "zf",
-    "sf",
-    "rf",
-    "cf",
-    "of",
-];
+    EXIT exit,
+    INPUT input,
+    ERROR error,
+    PRINT print,
 
+    STACK_BASE_POINTER sbp,
+    PROGRAM_COUNTER pc,
 
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-
-    #[test]
-    fn register_names_consistency() {
-        for (i, name) in REGISTER_NAMES.iter().enumerate() {
-            assert_eq!(Registers::from(i as u8).to_string(), *name);
-        }
-    }
+    ZERO_FLAG zf,
+    SIGN_FLAG sf,
+    REMAINDER_FLAG rf,
+    CARRY_FLAG cf,
+    OVERFLOW_FLAG of
 
 }
 

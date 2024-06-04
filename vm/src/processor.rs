@@ -9,7 +9,7 @@ use rand::Rng;
 
 use assert_exists::assert_exists;
 
-use rusty_vm_lib::registers::{self, Registers};
+use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 
@@ -493,7 +493,7 @@ impl Processor {
 
     fn display_registers(&self) -> String {
         self.registers.iter().enumerate().fold(String::new(), |mut output, (i, reg)| {
-            output.push_str(format!("{}: {}, ", registers::REGISTER_NAMES[i], reg).as_str());
+            output.push_str(format!("{}: {}, ", Registers::from(i as u8), reg).as_str());
             output
         })
     }
