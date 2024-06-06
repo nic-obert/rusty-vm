@@ -10,6 +10,7 @@
 
 ### Done ✓
 
+- [x] Create a rust tool to automatically generate an asm library file with info about the vm architecture  
 - [x] write a README.md for every module  
 - [x] change project name to something better  
 

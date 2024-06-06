@@ -6,3 +6,4 @@ pub mod registers;
 pub mod token;
 pub mod vm;
 pub mod ir;
+pub mod interrupts;

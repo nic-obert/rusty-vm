@@ -12,6 +12,7 @@ use assert_exists::assert_exists;
 use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
+use rusty_vm_lib::interrupts::Interrupts;
 
 use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};
@@ -508,9 +509,576 @@ impl Processor {
     }
 
     
-    #[inline(always)]
     fn handle_instruction(&mut self, opcode: ByteCodes) {
-        Self::INSTRUCTION_HANDLER_TABLE[opcode as usize](self);
+        match opcode {
+
+            ByteCodes::INTEGER_ADD => {
+                let r1 = self.registers.get(Registers::R1);
+                let r2 = self.registers.get(Registers::R2);
+                
+                let (result, carry) = match r1.checked_add(r2) {
+                    Some(result) => (result, false),
+                    None => (r1.wrapping_add(r2), true)
+                };
+
+                self.registers.set(Registers::R1, result);
+
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    carry,
+                    carry ^ is_msb_set(result)
+                );
+            },
+
+            ByteCodes::INTEGER_SUB => {
+                let r1 = self.registers.get(Registers::R1);
+                let r2 = self.registers.get(Registers::R2);
+
+                let (result, carry) = match r1.checked_sub(r2) {
+                    Some(result) => (result, false),
+                    None => (r1.wrapping_sub(r2), true)
+                };
+
+                self.registers.set(Registers::R1, result);
+
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    carry,
+                    carry ^ is_msb_set(result)
+                );
+            },
+
+            ByteCodes::INTEGER_MUL => {
+                let r1 = self.registers.get(Registers::R1);
+                let r2 = self.registers.get(Registers::R2);
+
+                let (result, carry) = match r1.checked_mul(r2) {
+                    Some(result) => (result, false),
+                    None => (r1.wrapping_mul(r2), true)
+                };
+
+                self.registers.set(Registers::R1, result);
+
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    carry,
+                    carry ^ is_msb_set(result)
+                );
+            },
+
+            ByteCodes::INTEGER_DIV => {
+                let r1 = self.registers.get(Registers::R1);
+                let r2 = self.registers.get(Registers::R2);
+        
+                if r2 == 0 {
+                    self.registers.set_error(ErrorCodes::ZeroDivision);
+                    return;
+                }
+        
+                // Assume no carry or overflow
+                let result = r1 / r2;
+                
+                self.registers.set(Registers::R1, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    r1 % r2,
+                    false,
+                    false
+                );  
+            },
+
+            ByteCodes::INTEGER_MOD => {
+                let r1 = self.registers.get(Registers::R1);
+                let r2 = self.registers.get(Registers::R2);
+
+                if r2 == 0 {
+                    self.registers.set_error(ErrorCodes::ZeroDivision);
+                    return;
+                }
+
+                let result = r1 % r2;
+
+                self.registers.set(Registers::R1, result);
+
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    false,
+                    false
+                );
+            },
+
+            ByteCodes::FLOAT_ADD => {
+                let r1 = self.registers.get(Registers::R1) as f64;
+                let r2 = self.registers.get(Registers::R2) as f64;
+                
+                let result = r1 + r2;
+
+                self.registers.set(Registers::R1, result as u64);
+
+                self.set_arithmetical_flags(
+                    result == 0.0,
+                    result.is_sign_negative(),
+                    // Use unused integer flags as float flags
+                    result.is_nan() as u64,
+                    result.is_infinite() && result.is_sign_positive(),
+                    result.is_infinite() && result.is_sign_negative()
+                );
+            },
+
+            ByteCodes::FLOAT_SUB => {
+                let r1 = self.registers.get(Registers::R1) as f64;
+                let r2 = self.registers.get(Registers::R2) as f64;
+                
+                let result = r1 - r2;
+        
+                self.registers.set(Registers::R1, result as u64);
+        
+                self.set_arithmetical_flags(
+                    result == 0.0,
+                    result.is_sign_negative(),
+                    // Use unused integer flags as float flags
+                    result.is_nan() as u64,
+                    result.is_infinite() && result.is_sign_positive(),
+                    result.is_infinite() && result.is_sign_negative()
+                );
+            },
+
+            ByteCodes::FLOAT_MUL => {
+                let r1 = self.registers.get(Registers::R1) as f64;
+                let r2 = self.registers.get(Registers::R2) as f64;
+                
+                let result = r1 * r2;
+        
+                self.registers.set(Registers::R1, result as u64);
+        
+                self.set_arithmetical_flags(
+                    result == 0.0,
+                    result.is_sign_negative(),
+                    // Use unused integer flags as float flags
+                    result.is_nan() as u64,
+                    result.is_infinite() && result.is_sign_positive(),
+                    result.is_infinite() && result.is_sign_negative()
+                );
+            },
+
+            ByteCodes::FLOAT_DIV => {
+                let r1 = self.registers.get(Registers::R1) as f64;
+                let r2 = self.registers.get(Registers::R2) as f64;
+                
+                let result = r1 / r2;
+        
+                self.registers.set(Registers::R1, result as u64);
+        
+                self.set_arithmetical_flags(
+                    result == 0.0,
+                    result.is_sign_negative(),
+                    // Use unused integer flags as float flags
+                    result.is_nan() as u64,
+                    result.is_infinite() && result.is_sign_positive(),
+                    result.is_infinite() && result.is_sign_negative()
+                );
+            },
+
+            ByteCodes::FLOAT_MOD => {
+                let r1 = self.registers.get(Registers::R1) as f64;
+                let r2 = self.registers.get(Registers::R2) as f64;
+                
+                let result = r1 % r2;
+        
+                self.registers.set(Registers::R1, result as u64);
+        
+                self.set_arithmetical_flags(
+                    result == 0.0,
+                    result.is_sign_negative(),
+                    // Use unused integer flags as float flags
+                    result.is_nan() as u64,
+                    result.is_infinite() && result.is_sign_positive(),
+                    result.is_infinite() && result.is_sign_negative()
+                );
+            },
+
+            ByteCodes::INC_REG => {
+                let dest_reg = Registers::from(self.get_next_byte());
+                let value = self.registers.get(dest_reg);
+        
+                let (result, carry) = match value.checked_add(1) {
+                    Some(result) => (result, false),
+                    None => (value.saturating_add(1), true)
+                };
+        
+                self.registers.set(dest_reg, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    carry,
+                    carry ^ is_msb_set(result)
+                );  
+            },
+
+            ByteCodes::INC_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+                let address_reg = Registers::from(self.get_next_byte());
+                let address: Address = self.registers.get(address_reg) as Address;
+                
+                self.increment_bytes(address, size);
+            },
+
+            ByteCodes::INC_ADDR_LITERAL => {
+                let size = self.get_next_byte();
+                let dest_address = self.get_next_address();
+                
+                self.increment_bytes(dest_address, size);
+            },
+
+            ByteCodes::DEC_REG => {
+                let dest_reg = Registers::from(self.get_next_byte());
+                let value = self.registers.get(dest_reg);
+        
+                let (result, carry) = match value.checked_sub(1) {
+                    Some(result) => (result, false),
+                    None => (value.wrapping_sub(1), true)
+                };
+        
+                self.registers.set(dest_reg, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    carry,
+                    carry ^ is_msb_set(result)
+                );
+            },
+
+            ByteCodes::DEC_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+                let address_reg = Registers::from(self.get_next_byte());
+                let address: Address = self.registers.get(address_reg) as Address;
+                
+                self.decrement_bytes(address, size);
+            },
+
+            ByteCodes::DEC_ADDR_LITERAL => {
+                let size = self.get_next_byte();
+            let dest_address = self.get_next_address();
+            
+            self.decrement_bytes(dest_address, size);
+            },
+
+            ByteCodes::NO_OPERATION => {
+                // No operation
+            },
+
+            ByteCodes::MOVE_INTO_REG_FROM_REG => {
+                let dest_reg = Registers::from(self.get_next_byte());
+                let source_reg = Registers::from(self.get_next_byte());
+                self.registers.set(dest_reg, self.registers.get(source_reg));
+            },
+
+            ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+                let dest_reg = Registers::from(self.get_next_byte());
+                let address_reg = Registers::from(self.get_next_byte());
+                let src_address = self.registers.get(address_reg) as Address;
+
+                self.move_bytes_into_register(src_address, dest_reg, size);
+            },
+
+            ByteCodes::MOVE_INTO_REG_FROM_CONST => {
+                let size = self.get_next_byte();
+                let dest_reg = Registers::from(self.get_next_byte());
+        
+                // Hack the borrow checker
+                let src_address = self.registers.pc();
+        
+                self.move_bytes_into_register(src_address, dest_reg, size);
+                self.registers.inc_pc(size as usize);
+            },
+            
+            ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL => {
+                let size = self.get_next_byte();
+                let dest_reg = Registers::from(self.get_next_byte());
+                let src_address = self.get_next_address();
+
+                self.move_bytes_into_register(src_address, dest_reg, size);
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST => {
+                
+            },
+            
+            ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::PUSH_FROM_REG => {
+                
+            },
+            
+            ByteCodes::PUSH_FROM_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::PUSH_FROM_CONST => {
+                
+            },
+            
+            ByteCodes::PUSH_FROM_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::PUSH_STACK_POINTER_REG => {
+                
+            },
+            
+            ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::PUSH_STACK_POINTER_CONST => {
+                
+            },
+            
+            ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::POP_INTO_REG => {
+                
+            },
+            
+            ByteCodes::POP_INTO_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::POP_INTO_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::POP_STACK_POINTER_REG => {
+                
+            },
+            
+            ByteCodes::POP_STACK_POINTER_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::POP_STACK_POINTER_CONST => {
+                
+            },
+            
+            ByteCodes::POP_STACK_POINTER_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::LABEL => {
+                
+            },
+            
+            ByteCodes::JUMP => {
+                
+            },
+            
+            ByteCodes::JUMP_NOT_ZERO => {
+                
+            },
+            
+            ByteCodes::JUMP_ZERO => {
+    
+            },
+            
+            ByteCodes::JUMP_GREATER => {
+                
+            },
+            
+            ByteCodes::JUMP_LESS => {
+                
+            },
+            
+            ByteCodes::JUMP_GREATER_OR_EQUAL => {
+                
+            },
+            
+            ByteCodes::JUMP_LESS_OR_EQUAL => {
+                
+            },
+            
+            ByteCodes::JUMP_CARRY => {
+                
+            },
+            
+            ByteCodes::JUMP_NOT_CARRY => {
+                
+            },
+            
+            ByteCodes::JUMP_OVERFLOW => {
+                
+            },
+            
+            ByteCodes::JUMP_NOT_OVERFLOW => {
+                
+            },
+            
+            ByteCodes::JUMP_SIGN => {
+                
+            },
+            
+            ByteCodes::JUMP_NOT_SIGN => {
+                
+            },
+            
+            ByteCodes::CALL => {
+                
+            },
+            
+            ByteCodes::RETURN => {
+                
+            },
+            
+            ByteCodes::COMPARE_REG_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_REG_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_REG_CONST => {
+                
+            },
+            
+            ByteCodes::COMPARE_REG_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_IN_REG_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_IN_REG_CONST => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::COMPARE_CONST_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_CONST_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_CONST_CONST => {
+                
+            },
+            
+            ByteCodes::COMPARE_CONST_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_LITERAL_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_LITERAL_CONST => {
+                
+            },
+            
+            ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::AND => {
+                
+            },
+            
+            ByteCodes::OR => {
+                
+            },
+            
+            ByteCodes::XOR => {
+                
+            },
+            
+            ByteCodes::NOT => {
+                
+            },
+            
+            ByteCodes::SHIFT_LEFT => {
+                
+            },
+            
+            ByteCodes::SHIFT_RIGHT => {
+                
+            },
+            
+            ByteCodes::INTERRUPT_REG => {
+                
+            },
+            
+            ByteCodes::INTERRUPT_ADDR_IN_REG => {
+                
+            },
+            
+            ByteCodes::INTERRUPT_CONST => {
+                
+            },
+            
+            ByteCodes::INTERRUPT_ADDR_LITERAL => {
+                
+            },
+            
+            ByteCodes::EXIT => {
+                
+            },
+        }
     }
 
 
@@ -530,313 +1098,112 @@ impl Processor {
     fn handle_integer_add(&mut self) {
         assert_exists!(ByteCodes::INTEGER_ADD);
 
-        let r1 = self.registers.get(Registers::R1);
-        let r2 = self.registers.get(Registers::R2);
         
-        let (result, carry) = match r1.checked_add(r2) {
-            Some(result) => (result, false),
-            None => (r1.wrapping_add(r2), true)
-        };
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry ^ is_msb_set(result)
-        );
     }
 
     
     fn handle_integer_sub(&mut self) {
         assert_exists!(ByteCodes::INTEGER_SUB);
         
-        let r1 = self.registers.get(Registers::R1);
-        let r2 = self.registers.get(Registers::R2);
-
-        let (result, carry) = match r1.checked_sub(r2) {
-            Some(result) => (result, false),
-            None => (r1.wrapping_sub(r2), true)
-        };
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry ^ is_msb_set(result)
-        );
+        
     }
 
 
     fn handle_integer_mul(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MUL);
         
-        let r1 = self.registers.get(Registers::R1);
-        let r2 = self.registers.get(Registers::R2);
-
-        let (result, carry) = match r1.checked_mul(r2) {
-            Some(result) => (result, false),
-            None => (r1.wrapping_mul(r2), true)
-        };
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry ^ is_msb_set(result)
-        );
+        
     }
 
 
     fn handle_integer_div(&mut self) {
         assert_exists!(ByteCodes::INTEGER_DIV);
 
-        let r1 = self.registers.get(Registers::R1);
-        let r2 = self.registers.get(Registers::R2);
-
-        if r2 == 0 {
-            self.registers.set_error(ErrorCodes::ZeroDivision);
-            return;
-        }
-
-        // Assume no carry or overflow
-        let result = r1 / r2;
         
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            r1 % r2,
-            false,
-            false
-        );
     }
 
 
     fn handle_integer_mod(&mut self) {
         assert_exists!(ByteCodes::INTEGER_MOD);
         
-        let r1 = self.registers.get(Registers::R1);
-        let r2 = self.registers.get(Registers::R2);
-
-        if r2 == 0 {
-            self.registers.set_error(ErrorCodes::ZeroDivision);
-            return;
-        }
-
-        let result = r1 % r2;
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            false,
-            false
-        );
+        
     }
 
 
     fn handle_float_add(&mut self) {
         assert_exists!(ByteCodes::FLOAT_ADD);
 
-        let r1 = self.registers.get(Registers::R1) as f64;
-        let r2 = self.registers.get(Registers::R2) as f64;
         
-        let result = r1 + r2;
-
-        self.registers.set(Registers::R1, result as u64);
-
-        self.set_arithmetical_flags(
-            result == 0.0,
-            result.is_sign_negative(),
-            // Use unused integer flags as float flags
-            result.is_nan() as u64,
-            result.is_infinite() && result.is_sign_positive(),
-            result.is_infinite() && result.is_sign_negative()
-        );
     }
 
 
     fn handle_float_sub(&mut self) {
         assert_exists!(ByteCodes::FLOAT_SUB);
 
-        let r1 = self.registers.get(Registers::R1) as f64;
-        let r2 = self.registers.get(Registers::R2) as f64;
         
-        let result = r1 - r2;
-
-        self.registers.set(Registers::R1, result as u64);
-
-        self.set_arithmetical_flags(
-            result == 0.0,
-            result.is_sign_negative(),
-            // Use unused integer flags as float flags
-            result.is_nan() as u64,
-            result.is_infinite() && result.is_sign_positive(),
-            result.is_infinite() && result.is_sign_negative()
-        );
     }
 
 
     fn handle_float_mul(&mut self) {
         assert_exists!(ByteCodes::FLOAT_MUL);
 
-        let r1 = self.registers.get(Registers::R1) as f64;
-        let r2 = self.registers.get(Registers::R2) as f64;
         
-        let result = r1 * r2;
-
-        self.registers.set(Registers::R1, result as u64);
-
-        self.set_arithmetical_flags(
-            result == 0.0,
-            result.is_sign_negative(),
-            // Use unused integer flags as float flags
-            result.is_nan() as u64,
-            result.is_infinite() && result.is_sign_positive(),
-            result.is_infinite() && result.is_sign_negative()
-        );
     }
 
 
     fn handle_float_div(&mut self) {
         assert_exists!(ByteCodes::FLOAT_DIV);
 
-        let r1 = self.registers.get(Registers::R1) as f64;
-        let r2 = self.registers.get(Registers::R2) as f64;
         
-        let result = r1 / r2;
-
-        self.registers.set(Registers::R1, result as u64);
-
-        self.set_arithmetical_flags(
-            result == 0.0,
-            result.is_sign_negative(),
-            // Use unused integer flags as float flags
-            result.is_nan() as u64,
-            result.is_infinite() && result.is_sign_positive(),
-            result.is_infinite() && result.is_sign_negative()
-        );
     }
 
 
     fn handle_float_mod(&mut self) {
         assert_exists!(ByteCodes::FLOAT_MOD);
 
-        let r1 = self.registers.get(Registers::R1) as f64;
-        let r2 = self.registers.get(Registers::R2) as f64;
         
-        let result = r1 % r2;
-
-        self.registers.set(Registers::R1, result as u64);
-
-        self.set_arithmetical_flags(
-            result == 0.0,
-            result.is_sign_negative(),
-            // Use unused integer flags as float flags
-            result.is_nan() as u64,
-            result.is_infinite() && result.is_sign_positive(),
-            result.is_infinite() && result.is_sign_negative()
-        );
     }
 
 
     fn handle_inc_reg(&mut self) {
         assert_exists!(ByteCodes::INC_REG);
 
-        let dest_reg = Registers::from(self.get_next_byte());
-        let value = self.registers.get(dest_reg);
-
-        let (result, carry) = match value.checked_add(1) {
-            Some(result) => (result, false),
-            None => (value.saturating_add(1), true)
-        };
-
-        self.registers.set(dest_reg, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry ^ is_msb_set(result)
-        );
+        
     }
 
 
     fn handle_inc_addr_in_reg(&mut self) {
         assert_exists!(ByteCodes::INC_ADDR_IN_REG);
 
-        let size = self.get_next_byte();
-        let address_reg = Registers::from(self.get_next_byte());
-        let address: Address = self.registers.get(address_reg) as Address;
         
-        self.increment_bytes(address, size);
     }
 
 
     fn handle_inc_addr_literal(&mut self) {
         assert_exists!(ByteCodes::INC_ADDR_LITERAL);
 
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
         
-        self.increment_bytes(dest_address, size);
     }
 
 
     fn handle_dec_reg(&mut self) {
         assert_exists!(ByteCodes::DEC_REG);
 
-        let dest_reg = Registers::from(self.get_next_byte());
-        let value = self.registers.get(dest_reg);
-
-        let (result, carry) = match value.checked_sub(1) {
-            Some(result) => (result, false),
-            None => (value.wrapping_sub(1), true)
-        };
-
-        self.registers.set(dest_reg, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry ^ is_msb_set(result)
-        );
+        
     }
 
 
     fn handle_dec_addr_in_reg(&mut self) {
         assert_exists!(ByteCodes::DEC_ADDR_IN_REG);
 
-        let size = self.get_next_byte();
-        let address_reg = Registers::from(self.get_next_byte());
-        let address: Address = self.registers.get(address_reg) as Address;
         
-        self.decrement_bytes(address, size);
     }
 
 
     fn handle_dec_addr_literal(&mut self) {
         assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
 
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
         
-        self.decrement_bytes(dest_address, size);
     }
 
 
@@ -850,46 +1217,27 @@ impl Processor {
     fn handle_move_into_reg_from_reg(&mut self) {
         assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_REG);
 
-        let dest_reg = Registers::from(self.get_next_byte());
-        let source_reg = Registers::from(self.get_next_byte());
-        self.registers.set(dest_reg, self.registers.get(source_reg));
+        
     }
 
 
     fn handle_move_into_reg_from_addr_in_reg(&mut self) {
         assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
 
-        let size = self.get_next_byte();
-        let dest_reg = Registers::from(self.get_next_byte());
-        let address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.registers.get(address_reg) as Address;
-
-        self.move_bytes_into_register(src_address, dest_reg, size);
-    }
+            }
 
 
     fn handle_move_into_reg_from_const(&mut self) {
         assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
 
-        let size = self.get_next_byte();
-        let dest_reg = Registers::from(self.get_next_byte());
-
-        // Hack the borrow checker
-        let src_address = self.registers.pc();
-
-        self.move_bytes_into_register(src_address, dest_reg, size);
-        self.registers.inc_pc(size as usize);
+        
     }
 
 
     fn handle_move_into_reg_from_addr_literal(&mut self) {
         assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL);
 
-        let size = self.get_next_byte();
-        let dest_reg = Registers::from(self.get_next_byte());
-        let src_address = self.get_next_address();
-
-        self.move_bytes_into_register(src_address, dest_reg, size);
+        
     }
 
 
@@ -1814,12 +2162,6 @@ impl Processor {
     }
 
 
-    #[inline(always)]
-    fn handle_interrupt(&mut self, intr_code: u8) {
-        Self::INTERRUPT_HANDLER_TABLE[intr_code as usize](self);
-    }
-
-
     fn handle_exit(&mut self) {
         assert_exists!(ByteCodes::EXIT);
 
@@ -1832,113 +2174,6 @@ impl Processor {
         
         std::process::exit(exit_code as i32);
     }
-
-
-    const INSTRUCTION_HANDLER_TABLE: [ fn(&mut Self); BYTE_CODE_COUNT ] = [
-        Self::handle_integer_add,
-        Self::handle_integer_sub,
-        Self::handle_integer_mul,
-        Self::handle_integer_div,
-        Self::handle_integer_mod,
-
-        Self::handle_float_add,
-        Self::handle_float_sub,
-        Self::handle_float_mul,
-        Self::handle_float_div,
-        Self::handle_float_mod,
-
-        Self::handle_inc_reg,
-        Self::handle_inc_addr_in_reg,
-        Self::handle_inc_addr_literal,
-
-        Self::handle_dec_reg,
-        Self::handle_dec_addr_in_reg,
-        Self::handle_dec_addr_literal,
-
-        Self::handle_no_operation,
-
-        Self::handle_move_into_reg_from_reg,
-        Self::handle_move_into_reg_from_addr_in_reg,
-        Self::handle_move_into_reg_from_const,
-        Self::handle_move_into_reg_from_addr_literal,
-        Self::handle_move_into_addr_in_reg_from_reg,
-        Self::handle_move_into_addr_in_reg_from_addr_in_reg,
-        Self::handle_move_into_addr_in_reg_from_const,
-        Self::handle_move_into_addr_in_reg_from_addr_literal,
-        Self::handle_move_into_addr_literal_from_reg,
-        Self::handle_move_into_addr_literal_from_addr_in_reg,
-        Self::handle_move_into_addr_literal_from_const,
-        Self::handle_move_into_addr_literal_from_addr_literal,
-
-        Self::handle_push_from_reg,
-        Self::handle_push_from_addr_in_reg,
-        Self::handle_push_from_const,
-        Self::handle_push_from_addr_literal,
-
-        Self::handle_push_stack_pointer_reg,
-        Self::handle_push_stack_pointer_addr_in_reg,
-        Self::handle_push_stack_pointer_const,
-        Self::handle_push_stack_pointer_addr_literal,
-
-        Self::handle_pop_into_reg,
-        Self::handle_pop_into_addr_in_reg,
-        Self::handle_pop_into_addr_literal,
-
-        Self::handle_pop_stack_pointer_reg,
-        Self::handle_pop_stack_pointer_addr_in_reg,
-        Self::handle_pop_stack_pointer_const,
-        Self::handle_pop_stack_pointer_addr_literal,
-
-        Self::handle_label,
-
-        Self::handle_jump,
-        Self::handle_jump_not_zero,
-        Self::handle_jump_zero,
-        Self::handle_jump_greater,
-        Self::handle_jump_less,
-        Self::handle_jump_greater_or_equal,
-        Self::handle_jump_less_or_equal,
-        Self::handle_jump_carry,
-        Self::handle_jump_not_carry,
-        Self::handle_jump_overflow,
-        Self::handle_jump_not_overflow,
-        Self::handle_jump_sign,
-        Self::handle_jump_not_sign,
-
-        Self::handle_call,
-        Self::handle_return,
-
-        Self::handle_compare_reg_reg,
-        Self::handle_compare_reg_addr_in_reg,
-        Self::handle_compare_reg_const,
-        Self::handle_compare_reg_addr_literal,
-        Self::handle_compare_addr_in_reg_reg,
-        Self::handle_compare_addr_in_reg_addr_in_reg,
-        Self::handle_compare_addr_in_reg_const,
-        Self::handle_compare_addr_in_reg_addr_literal,
-        Self::handle_compare_const_reg,
-        Self::handle_compare_const_addr_in_reg,
-        Self::handle_compare_const_const,
-        Self::handle_compare_const_addr_literal,
-        Self::handle_compare_addr_literal_reg,
-        Self::handle_compare_addr_literal_addr_in_reg,
-        Self::handle_compare_addr_literal_const,
-        Self::handle_compare_addr_literal_addr_literal,
-
-        Self::handle_and,
-        Self::handle_or,
-        Self::handle_xor,
-        Self::handle_not,
-        Self::handle_shift_left,
-        Self::handle_shift_right,
-
-        Self::handle_interrupt_reg,
-        Self::handle_interrupt_addr_in_reg,
-        Self::handle_interrupt_const,
-        Self::handle_interrupt_addr_literal,
-
-        Self::handle_exit,
-    ];
 
 
     fn handle_interrupt_addr_in_reg(&mut self) {
@@ -1971,306 +2206,223 @@ impl Processor {
     }
 
 
-    fn handle_print_signed(&mut self) {
+    fn handle_interrupt(&mut self, intr_code: u8) {
+
+        match Interrupts::from(intr_code) {
+
+            Interrupts::PrintSigned => {
+                let value = self.registers.get(Registers::PRINT);
+                print!("{}", value as i64);
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::PrintUnsigned => {
+                let value = self.registers.get(Registers::PRINT);
+                print!("{}", value);
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::PrintChar => {
+                let value = self.registers.get(Registers::PRINT);
+                io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::PrintString => {
+                let string_address = self.registers.get(Registers::PRINT) as Address;
+                let length = self.strlen(string_address);
+                let bytes = self.memory.get_bytes(string_address, length);
+
+                io::stdout().write_all(bytes).expect("Failed to write to stdout");
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::PrintBytes => {
+                let bytes_address = self.registers.get(Registers::PRINT) as Address;
+                let length = self.registers.get(Registers::R1) as usize;
+                let bytes = self.memory.get_bytes(bytes_address, length);
+
+                io::stdout().write_all(bytes).expect("Failed to write to stdout");
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::InputSignedInt => {
+                let mut input = String::new();
+
+                match io::stdin().read_line(&mut input) {
+                    Ok(bytes_read) => {
+
+                        // Check for EOF errors
+                        if bytes_read == 0 {
+                            self.registers.set_error(ErrorCodes::EndOfFile);
+                            return;
+                        }
+
+                        match input.trim().parse::<i64>() {
+                            Ok(value) => {
+                                self.registers.set(Registers::INPUT, value as u64);
+                                self.registers.set_error(ErrorCodes::NoError);
+                            },
+                            Err(_) => {
+                                self.registers.set_error(ErrorCodes::InvalidInput);
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        self.registers.set_error(ErrorCodes::GenericError);
+                    },
+                }
+            },
+
+            Interrupts::InputUnsignedInt => {
+                let mut input = String::new();
+
+                match io::stdin().read_line(&mut input) {
+                    Ok(bytes_read) => {
+
+                        // Check for EOF errors
+                        if bytes_read == 0 {
+                            self.registers.set_error(ErrorCodes::EndOfFile);
+                            return;
+                        }
+
+                        match input.trim().parse::<u64>() {
+                            Ok(value) => {
+                                self.registers.set(Registers::INPUT, value);
+                                self.registers.set_error(ErrorCodes::NoError);
+                            },
+                            Err(_) => {
+                                self.registers.set_error(ErrorCodes::InvalidInput);
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        self.registers.set_error(ErrorCodes::GenericError);
+                    },
+                }
+            },
+
+            Interrupts::InputString => {
+                let mut input = String::new();
+
+                match io::stdin().read_line(&mut input) {
+                    Ok(bytes_read) => {
+
+                        // Check for EOF errors
+                        if bytes_read == 0 {
+                            self.registers.set_error(ErrorCodes::EndOfFile);
+                            return;
+                        }
+
+                        // Allocate the user input on the heap
+                        let address = match self.memory.allocate(input.len()) {
+                            Ok(address) => address,
+                            Err(e) => {
+                                self.registers.set_error(e);
+                                return;
+                            }
+                        };
+                        self.memory.set_bytes(address, input.as_bytes());
+
+                        self.registers.set(Registers::INPUT, address as u64);
+                        self.registers.set(Registers::R1, input.len() as u64);
+
+                        self.registers.set_error(ErrorCodes::NoError); 
+                    },
+
+                    Err(_) => {
+                        self.registers.set_error(ErrorCodes::GenericError);
+                    },
+                }
+            },
+
+            Interrupts::Random => {
+                let mut rng = rand::thread_rng();
+                let random_number = rng.gen_range(u64::MIN..u64::MAX);
+
+                self.registers.set(Registers::R1, random_number);
+            },
+
+            Interrupts::HostTimeNanos => {
+                // Casting to u64 will be ok until around 2500
+                let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
+
+                self.registers.set(Registers::R1, time);
+            },
+
+            Interrupts::ElapsedTimeNanos => {
+                // Casting to u64 will be ok until around 2500
+                let time = SystemTime::now().duration_since(self.start_time).unwrap().as_nanos() as u64;
+
+                self.registers.set(Registers::R1, time);
+            },
+
+            Interrupts::DiskRead => {
+                let disk_address = self.registers.get(Registers::R1) as Address;
+                let buffer_address = self.registers.get(Registers::R2) as Address;
+                let size = self.registers.get(Registers::R3) as usize;
         
-        let value = self.registers.get(Registers::PRINT);
-        print!("{}", value as i64);
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_unsigned(&mut self) {
-
-        let value = self.registers.get(Registers::PRINT);
-        print!("{}", value);
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_char(&mut self) {
-
-        let value = self.registers.get(Registers::PRINT);
-        io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_string(&mut self) {
-
-        let string_address = self.registers.get(Registers::PRINT) as Address;
-        let length = self.strlen(string_address);
-        let bytes = self.memory.get_bytes(string_address, length);
-
-        io::stdout().write_all(bytes).expect("Failed to write to stdout");
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_print_bytes(&mut self) {
-
-        let bytes_address = self.registers.get(Registers::PRINT) as Address;
-        let length = self.registers.get(Registers::R1) as usize;
-        let bytes = self.memory.get_bytes(bytes_address, length);
-
-        io::stdout().write_all(bytes).expect("Failed to write to stdout");
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_input_signed_int(&mut self) {
-
-        let mut input = String::new();
-
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.registers.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                match input.trim().parse::<i64>() {
-                    Ok(value) => {
-                        self.registers.set(Registers::INPUT, value as u64);
-                        self.registers.set_error(ErrorCodes::NoError);
-                    },
-                    Err(_) => {
-                        self.registers.set_error(ErrorCodes::InvalidInput);
+                let err = if let Some(storage) = &self.modules.storage {
+                    match storage.read(disk_address, size) {
+                        Ok(bytes) => {
+                            self.memory.set_bytes(buffer_address, &bytes);
+                            ErrorCodes::NoError
+                        },
+                        Err(e) => e
                     }
-                }
-            },
-            Err(_) => {
-                self.registers.set_error(ErrorCodes::GenericError);
-            },
-        }
-    }
-
-
-    fn handle_input_unsigned_int(&mut self) {
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.registers.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                match input.trim().parse::<u64>() {
-                    Ok(value) => {
-                        self.registers.set(Registers::INPUT, value);
-                        self.registers.set_error(ErrorCodes::NoError);
-                    },
-                    Err(_) => {
-                        self.registers.set_error(ErrorCodes::InvalidInput);
-                    }
-                }
-            },
-            Err(_) => {
-                self.registers.set_error(ErrorCodes::GenericError);
-            },
-        }
-    }
-
-
-    fn handle_input_string(&mut self) {
-
-        let mut input = String::new();
-
-        match io::stdin().read_line(&mut input) {
-            Ok(bytes_read) => {
-
-                // Check for EOF errors
-                if bytes_read == 0 {
-                    self.registers.set_error(ErrorCodes::EndOfFile);
-                    return;
-                }
-
-                // Allocate the user input on the heap
-                let address = match self.memory.allocate(input.len()) {
-                    Ok(address) => address,
-                    Err(e) => {
-                        self.registers.set_error(e);
-                        return;
-                    }
+                } else {
+                    ErrorCodes::ModuleUnavailable
                 };
-                self.memory.set_bytes(address, input.as_bytes());
-
-                self.registers.set(Registers::INPUT, address as u64);
-                self.registers.set(Registers::R1, input.len() as u64);
-
-                self.registers.set_error(ErrorCodes::NoError); 
-            },
-
-            Err(_) => {
-                self.registers.set_error(ErrorCodes::GenericError);
-            },
-        }
-    }
-
-
-    fn handle_malloc(&mut self) {
-
-        let size = self.registers.get(Registers::R1) as usize;
-
-        match self.memory.allocate(size) {
-
-            Ok(address) => {
-                self.registers.set(Registers::R1, address as u64);
-                self.registers.set_error(ErrorCodes::NoError);
-            },
-
-            Err(e) => {
-                self.registers.set_error(e);
-            }
-
-        }
-    }
-
-
-    fn handle_free(&mut self) {
-
-        let address = self.registers.get(Registers::R1) as Address;
-
-        match self.memory.free(address) {
-
-            Ok(_) => {
-                self.registers.set_error(ErrorCodes::NoError);
-            },
-
-            Err(e) => {
-                self.registers.set_error(e);
-            }
-
-        }
-    }
-
-
-    fn handle_random(&mut self) {
-
-        let mut rng = rand::thread_rng();
-        let random_number = rng.gen_range(u64::MIN..u64::MAX);
-
-        self.registers.set(Registers::R1, random_number);
-    }
-
-
-    fn handle_host_time_nanos(&mut self) {
-
-        // Casting to u64 will be ok until around 2500
-        let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
-
-        self.registers.set(Registers::R1, time);
-    }
-
-
-    fn handle_elapsed_time_nanos(&mut self) {
-
-        // Casting to u64 will be ok until around 2500
-        let time = SystemTime::now().duration_since(self.start_time).unwrap().as_nanos() as u64;
-
-        self.registers.set(Registers::R1, time);
-    }
-
-
-    fn handle_disk_read(&mut self) {
-
-        let disk_address = self.registers.get(Registers::R1) as Address;
-        let buffer_address = self.registers.get(Registers::R2) as Address;
-        let size = self.registers.get(Registers::R3) as usize;
-
-        let err = if let Some(storage) = &self.modules.storage {
-            match storage.read(disk_address, size) {
-                Ok(bytes) => {
-                    self.memory.set_bytes(buffer_address, &bytes);
-                    ErrorCodes::NoError
-                },
-                Err(e) => e
-            }
-        } else {
-            ErrorCodes::ModuleUnavailable
-        };
-
-        self.registers.set_error(err);
-    }
-
-
-    fn handle_disk_write(&mut self) {
-
-        let disk_address = self.registers.get(Registers::R1) as Address;
-        let data_address = self.registers.get(Registers::R2) as Address;
-        let size = self.registers.get(Registers::R3) as usize;
-
-        let buffer = self.memory.get_bytes(data_address, size);
-
-        self.registers.set_error(
-            if let Some(storage) = &self.modules.storage {
-                match storage.write(disk_address, buffer) {
-                    Ok(_) => ErrorCodes::NoError,
-                    Err(e) => e
-                }
-            } else {
-                ErrorCodes::ModuleUnavailable
-            }
-        );
-    }
-
-
-    fn handle_terminal(&mut self) {
-
-        let term_code = self.registers.get(Registers::PRINT); 
-
-        let err = self.modules.terminal.handle_code(term_code as usize, &mut self.registers, &mut self.memory);
-        self.registers.set_error(err);
-    }
-
-
-    fn handle_set_timer_nanos(&mut self) {
-
-        let time = self.registers.get(Registers::R1);
-        let duration = std::time::Duration::from_nanos(time);
-
-        std::thread::sleep(duration);
-    }
-
-
-    fn handle_flush_stdout(&mut self) {
-        io::stdout().flush().expect("Failed to flush stdout");
-    }
-
-
-    fn handle_host_fs(&mut self) {
         
-        let fs_code = self.registers.get(Registers::PRINT);
+                self.registers.set_error(err);
+            },
 
-        let err = self.modules.host_fs.handle_code(fs_code as usize, &mut self.registers, &mut self.memory);
-        self.registers.set_error(err);
+            Interrupts::DiskWrite => {
+                let disk_address = self.registers.get(Registers::R1) as Address;
+                let data_address = self.registers.get(Registers::R2) as Address;
+                let size = self.registers.get(Registers::R3) as usize;
+        
+                let buffer = self.memory.get_bytes(data_address, size);
+        
+                self.registers.set_error(
+                    if let Some(storage) = &self.modules.storage {
+                        match storage.write(disk_address, buffer) {
+                            Ok(_) => ErrorCodes::NoError,
+                            Err(e) => e
+                        }
+                    } else {
+                        ErrorCodes::ModuleUnavailable
+                    }
+                );
+            },
+
+            Interrupts::Terminal => {
+                let term_code = self.registers.get(Registers::PRINT); 
+
+                let err = self.modules.terminal.handle_code(term_code as usize, &mut self.registers, &mut self.memory);
+                self.registers.set_error(err);
+            },
+
+            Interrupts::SetTimerNanos => {
+                let time = self.registers.get(Registers::R1);
+                let duration = std::time::Duration::from_nanos(time);
+        
+                std::thread::sleep(duration);
+            },
+
+            Interrupts::FlushStdout => {
+                io::stdout().flush().expect("Failed to flush stdout");
+            },
+
+            Interrupts::HostFs => {
+                let fs_code = self.registers.get(Registers::PRINT);
+
+                let err = self.modules.host_fs.handle_code(fs_code as usize, &mut self.registers, &mut self.memory);
+                self.registers.set_error(err);
+            },
+
+        }
     }
-
-
-    const INTERRUPT_HANDLER_TABLE: [ fn(&mut Self); 19 ] = [
-        Self::handle_print_signed, // 0
-        Self::handle_print_unsigned, // 1
-        Self::handle_print_char, // 2
-        Self::handle_print_string, // 3
-        Self::handle_print_bytes, // 4
-        Self::handle_input_signed_int, // 5
-        Self::handle_input_unsigned_int, // 6
-        Self::handle_input_string, // 7
-        Self::handle_malloc, // 8
-        Self::handle_free, // 9
-        Self::handle_random, // 10
-        Self::handle_host_time_nanos, // 11
-        Self::handle_elapsed_time_nanos, // 12
-        Self::handle_disk_read, // 13
-        Self::handle_disk_write, // 14
-        Self::handle_terminal, // 15
-        Self::handle_set_timer_nanos, // 16
-        Self::handle_flush_stdout, // 17
-        Self::handle_host_fs, // 18
-    ];
 
 }
 

@@ -6,5 +6,5 @@ members = [
     "assembler",
     "rusty_vm_lib",
     "vm",
-    "oxide",
+    "oxide", "generate_archlib",
 ]
