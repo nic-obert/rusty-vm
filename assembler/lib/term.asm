@@ -4,7 +4,7 @@
 
 .include:
 
-    interrupts.asm
+    archlib.asm
     stdbool.asm
     errors.asm
     asmutils/functional.asm

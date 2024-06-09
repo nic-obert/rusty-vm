@@ -1,4 +1,3 @@
-mod allocator;
 mod processor;
 mod memory;
 mod files;
@@ -35,7 +34,7 @@ fn main() {
     let byte_code = files::load_byte_code(&args.input_file);
 
     let mut processor = processor::Processor::new(
-        if args.max_memory_size == 0 { None } else { Some(args.max_memory_size) },
+        args.max_memory_size,
         args.quiet,
         if let Some(storage_file) = args.storage_file {
             Some(StorageOptions::new(

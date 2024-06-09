@@ -85,7 +85,7 @@ declare_registers! {
     ERROR error,
     PRINT print,
 
-    STACK_BASE_POINTER sbp,
+    STACK_TOP_POINTER stp,
     PROGRAM_COUNTER pc,
 
     ZERO_FLAG zf,

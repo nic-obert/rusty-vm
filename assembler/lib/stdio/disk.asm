@@ -1,6 +1,6 @@
 .include:
 
-    interrupts.asm
+    archlib.asm
     asmutils/functional.asm
     errors.asm
     stdbool.asm

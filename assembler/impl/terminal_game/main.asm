@@ -86,7 +86,7 @@
 
     # Allocate the keyboard listener buffer on the stack
     pushsp1 =TERM_KEY_DATA_SIZE
-    mov r1 sbp
+    mov r1 stp
     
     !term_get_key_listener
     mov =listener r1

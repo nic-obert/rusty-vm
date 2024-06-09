@@ -74,10 +74,10 @@
         pushsp =num
 
         # Copy source into intermediate buffer on the stack
-        !memcpy =src sbp =num
+        !memcpy =src stp =num
 
         # Copy intermediate buffer into destination
-        !memcpy sbp =dest =num
+        !memcpy stp =dest =num
 
         # Pop the intermediate buffer after it's being used
         popsp =num

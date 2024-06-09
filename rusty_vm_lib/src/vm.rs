@@ -26,7 +26,7 @@ const ERROR_CODES_COUNT: usize = mem::variant_count::<ErrorCodes>();
 impl Display for ErrorCodes {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{}", self.name())
     }
 
 }
@@ -39,6 +39,17 @@ impl From<u8> for ErrorCodes {
             unsafe { mem::transmute(code) }
         } else {
             panic!("Invalid error code: {}", code);
+        }
+    }
+
+}
+
+
+impl ErrorCodes {
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            $(Self::$name => stringify!($name)),+
         }
     }
 

@@ -1,16 +1,14 @@
 #![allow(clippy::no_effect)]
 
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::io;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 
-use assert_exists::assert_exists;
-
 use rusty_vm_lib::registers::Registers;
-use rusty_vm_lib::byte_code::{ByteCodes, BYTE_CODE_COUNT};
+use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 use rusty_vm_lib::interrupts::Interrupts;
 
@@ -92,7 +90,7 @@ impl Processor {
     const STATIC_PROGRAM_ADDRESS: Address = 0;
 
 
-    pub fn new(max_memory_size: Option<usize>, quiet_exit: bool, storage: Option<StorageOptions>) -> Self {
+    pub fn new(max_memory_size: usize, quiet_exit: bool, storage: Option<StorageOptions>) -> Self {
 
         let storage = if let Some(storage) = storage {
             Some(Storage::new(storage.file_path, storage.max_size))
@@ -128,11 +126,8 @@ impl Processor {
         let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
         self.registers.set(Registers::PROGRAM_COUNTER, program_start as u64);
 
-        // Set the heap start to after the static program section
-        self.memory.init_layout(byte_code.len() as Address);
-
         // Initialize the stack pointer to the end of the memory. The stack grows downwards
-        self.registers.set(Registers::STACK_BASE_POINTER, self.memory.get_stack_start() as u64);
+        self.registers.set(Registers::STACK_TOP_POINTER, self.memory.get_stack_base() as u64);
 
         // Load the program into memory
         self.memory.set_bytes(Self::STATIC_PROGRAM_ADDRESS, byte_code);
@@ -164,31 +159,30 @@ impl Processor {
 
 
     /// Push the stack pointer forward
-    /// Increment the stack top pointer
-    /// Decrement the stack base pointer
-    #[inline(always)]
+    /// Decrement the stack top pointer
+    #[inline]
     fn push_stack_pointer(&mut self, offset: usize) {
-        self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 - offset as u64);
+        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 - offset as u64);
 
         self.check_stack_overflow();
     }
 
 
-    /// Checks if the stack has overflowed into the heap
     /// If the stack has overflowed, set the error register and terminate the program (stack overflow is unrecoverable)
     fn check_stack_overflow(&mut self) {
-        if (self.registers.get(Registers::STACK_BASE_POINTER) as usize) < self.memory.get_heap_end() {
+        if (self.registers.get(Registers::STACK_TOP_POINTER) as usize) > self.memory.get_stack_base() {
             self.registers.set_error(ErrorCodes::StackOverflow);
-            self.handle_exit();
+            self.handle_instruction(ByteCodes::EXIT);
         }
     }
 
 
     /// Pop the stack pointer backwards
-    /// Decrement the stack top pointer
-    /// Increment the stack base pointer
+    /// Increment the stack top pointer
     fn pop_stack_pointer(&mut self, offset: usize) {
-        self.registers.set(Registers::STACK_BASE_POINTER, self.registers.stack_base() as u64 + offset as u64);
+        self.registers.set(Registers::STACK_TOP_POINTER, self.registers.stack_top() as u64 + offset as u64);
+
+        self.check_stack_overflow();
     }
 
 
@@ -376,7 +370,7 @@ impl Processor {
 
         // Copy the bytes onto the stack
         self.memory.set_bytes(
-            self.registers.stack_base(),
+            self.registers.stack_top(),
             bytes,
         );
     }
@@ -389,7 +383,7 @@ impl Processor {
         self.push_stack_pointer(size);
 
         // Copy the bytes onto the stack
-        self.memory.memcpy(src_address, self.registers.stack_base(), size);
+        self.memory.memcpy(src_address, self.registers.stack_top(), size);
     }
 
 
@@ -404,9 +398,9 @@ impl Processor {
 
         self.pop_stack_pointer(size);
 
-        // Subtract the size from the stack base pointer to get the address of the previous top of the stack
+        // Subtract the size from the stack top pointer to get the address of the previous top of the stack
         self.memory.get_bytes(
-            self.registers.stack_base() - size,
+            self.registers.stack_top() - size,
             size,
         )
     }
@@ -475,7 +469,7 @@ impl Processor {
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
-            let stack_top = self.memory.get_stack_start() - self.registers.get(Registers::STACK_BASE_POINTER) as Address;
+            let stack_top = self.memory.get_stack_base() - self.registers.get(Registers::STACK_TOP_POINTER) as Address;
             let top_bound = stack_top.saturating_sub(MAX_STACK_VIEW_RANGE);
             let base_bound = stack_top;
 
@@ -816,267 +810,770 @@ impl Processor {
             },
             
             ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG => {
-                
+                let size = self.get_next_byte();
+                let dest_address_reg = Registers::from(self.get_next_byte());
+                let src_reg = Registers::from(self.get_next_byte());
+                let dest_address = self.registers.get(dest_address_reg) as Address;
+
+                self.move_from_register_into_address(src_reg, dest_address, size);
             },
             
             ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+                let dest_address_reg = Registers::from(self.get_next_byte());
+                let src_address_reg = Registers::from(self.get_next_byte());
+                let dest_address = self.registers.get(dest_address_reg) as Address;
+                let src_address = self.registers.get(src_address_reg) as Address;
                 
+                self.memory.memcpy(src_address, dest_address, size as usize);
             },
             
             ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST => {
+                let size = self.get_next_byte();
+                let dest_address_reg = Registers::from(self.get_next_byte());
+                let dest_address = self.registers.get(dest_address_reg) as Address;
+                let src_address = self.registers.pc();
                 
+                self.memory.memcpy(src_address, dest_address, size as usize);
+                self.registers.inc_pc(size as usize);
             },
             
             ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+                let dest_address_reg = Registers::from(self.get_next_byte());
+                let dest_address = self.registers.get(dest_address_reg) as Address;
+                let src_address = self.get_next_address();
+        
+                self.memory.memcpy(src_address, dest_address, size as usize);
             },
             
             ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG => {
-                
+                let size = self.get_next_byte();
+                let dest_address = self.get_next_address();
+                let src_reg = Registers::from(self.get_next_byte());
+        
+                self.move_from_register_into_address(src_reg, dest_address, size);
             },
             
             ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+                let dest_address = self.get_next_address();
+                let src_address_reg = Registers::from(self.get_next_byte());
+                let src_address = self.registers.get(src_address_reg) as Address;
+        
+                self.memory.memcpy(src_address, dest_address, size as usize);  
             },
             
             ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST => {
-                
+                let size = self.get_next_byte();
+                let dest_address = self.get_next_address();
+                let src_address = self.registers.pc();
+        
+                self.memory.memcpy(src_address, dest_address, size as usize);
+                self.registers.inc_pc(size as usize);
             },
             
             ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+                let dest_address = self.get_next_address();
+                let src_address = self.get_next_address();
+
+                self.memory.memcpy(src_address, dest_address, size as usize);
             },
             
             ByteCodes::PUSH_FROM_REG => {
-                
+                let src_reg = Registers::from(self.get_next_byte());
+
+                self.push_stack(self.registers.get(src_reg));
             },
             
             ByteCodes::PUSH_FROM_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let src_address_reg = Registers::from(self.get_next_byte());
+                let src_address = self.registers.get(src_address_reg) as Address;
+        
+                self.push_stack_from_address(src_address, size as usize);  
             },
             
             ByteCodes::PUSH_FROM_CONST => {
-                
+                let size = self.get_next_byte();
+
+                // Hack to get around the borrow checker
+                self.push_stack_from_address(self.registers.pc(), size as usize);
+                self.registers.inc_pc(size as usize);
             },
             
             ByteCodes::PUSH_FROM_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let src_address = self.get_next_address();
+
+                self.push_stack_from_address(src_address, size as usize);
             },
             
             ByteCodes::PUSH_STACK_POINTER_REG => {
-                
+                let reg = Registers::from(self.get_next_byte());
+                let offset = self.registers.get(reg);
+        
+                self.push_stack_pointer(offset as usize);
             },
             
             ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let address_reg = Registers::from(self.get_next_byte());
+                let address = self.registers.get(address_reg) as Address;
+        
+                let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+        
+                self.push_stack_pointer(offset as usize);
             },
             
             ByteCodes::PUSH_STACK_POINTER_CONST => {
-                
+                let size = self.get_next_byte();
+
+                let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
+        
+                self.push_stack_pointer(offset as usize);  
             },
             
             ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let address = self.get_next_address();
+        
+                let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+        
+                self.push_stack_pointer(offset as usize);
             },
             
             ByteCodes::POP_INTO_REG => {
-                
+                let size = self.get_next_byte();
+
+                let dest_reg = Registers::from(self.get_next_byte());
+                let bytes = self.pop_stack_bytes(size as usize);
+                let value = bytes_to_int(bytes, size);
+        
+                self.registers.set(dest_reg, value);
             },
             
             ByteCodes::POP_INTO_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let dest_address_reg = Registers::from(self.get_next_byte());
+                let dest_address = self.registers.get(dest_address_reg) as Address;
+        
+                self.memory.memcpy(self.registers.stack_top(), dest_address, size as usize);
+        
+                self.pop_stack_pointer(size as usize);
             },
             
             ByteCodes::POP_INTO_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let dest_address = self.get_next_address();
+        
+                self.memory.memcpy(self.registers.stack_top(), dest_address, size as usize);
+        
+                self.pop_stack_pointer(size as usize);
             },
             
             ByteCodes::POP_STACK_POINTER_REG => {
-                
+                let reg = Registers::from(self.get_next_byte());
+                let offset = self.registers.get(reg);
+
+                self.pop_stack_pointer(offset as usize);
             },
             
             ByteCodes::POP_STACK_POINTER_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let address_reg = Registers::from(self.get_next_byte());
+                let address = self.registers.get(address_reg) as Address;
+        
+                let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+        
+                self.pop_stack_pointer(offset as usize);
             },
             
             ByteCodes::POP_STACK_POINTER_CONST => {
-                
+                let size = self.get_next_byte();
+
+                let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
+        
+                self.pop_stack_pointer(offset as usize);
             },
             
             ByteCodes::POP_STACK_POINTER_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let address = self.get_next_address();
+        
+                let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
+        
+                self.pop_stack_pointer(offset as usize);
             },
             
             ByteCodes::LABEL => {
-                
+                unreachable!() // TODO: maybe this should be removed then
             },
             
             ByteCodes::JUMP => {
-                
+                let addr = self.get_next_address();
+                self.jump_to(addr);
             },
             
             ByteCodes::JUMP_NOT_ZERO => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::ZERO_FLAG) == 0 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_ZERO => {
-    
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::ZERO_FLAG) == 1 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_GREATER => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG)
+                    && self.registers.get(Registers::ZERO_FLAG) == 0 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_LESS => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG) {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_GREATER_OR_EQUAL => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG) {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_LESS_OR_EQUAL => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG)
+                    || self.registers.get(Registers::ZERO_FLAG) == 1 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_CARRY => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::CARRY_FLAG) == 1 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_NOT_CARRY => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::CARRY_FLAG) == 0 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_OVERFLOW => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::OVERFLOW_FLAG) == 1 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_NOT_OVERFLOW => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::OVERFLOW_FLAG) == 0 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::JUMP_SIGN => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) == 1 {
+                    self.jump_to(jump_address);
+                }  
             },
             
             ByteCodes::JUMP_NOT_SIGN => {
-                
+                let jump_address = self.get_next_address();
+
+                if self.registers.get(Registers::SIGN_FLAG) == 0 {
+                    self.jump_to(jump_address);
+                }
             },
             
             ByteCodes::CALL => {
-                
+                let jump_address = self.get_next_address();
+
+                // Push the return address onto the stack (return address is the current pc)
+                self.push_stack(self.registers.pc() as u64);
+        
+                // Jump to the subroutine
+                self.jump_to(jump_address);
             },
             
             ByteCodes::RETURN => {
-                
+                // Get the return address from the stack
+                let return_address = bytes_as_address(
+                    self.pop_stack_bytes(ADDRESS_SIZE)
+                );
+
+                // Jump to the return address
+                self.jump_to(return_address);
             },
             
             ByteCodes::COMPARE_REG_REG => {
-                
+                let left_reg = Registers::from(self.get_next_byte());
+                let right_reg = Registers::from(self.get_next_byte());
+            
+                let result = self.registers.get(left_reg) as i64 - self.registers.get(right_reg) as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_REG_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let left_reg = Registers::from(self.get_next_byte());
+                let left_value = self.registers.get(left_reg);
+        
+                let right_address_reg = Registers::from(self.get_next_byte());
+                let right_address = self.registers.get(right_address_reg) as Address;
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_REG_CONST => {
-                
+                let size = self.get_next_byte();
+
+                let left_reg = Registers::from(self.get_next_byte());
+                let left_value = self.registers.get(left_reg);
+        
+                let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_REG_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let left_reg = Registers::from(self.get_next_byte());
+                let left_value = self.registers.get(left_reg);
+        
+                let right_address = self.get_next_address();
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_IN_REG_REG => {
+                let size = self.get_next_byte();
+
+                let left_address_reg = Registers::from(self.get_next_byte());
+                let left_address = self.registers.get(left_address_reg) as Address;
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
                 
+                let right_reg = Registers::from(self.get_next_byte());
+                let right_value = self.registers.get(right_reg);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+
+                let left_address_reg = Registers::from(self.get_next_byte());
+                let left_address = self.registers.get(left_address_reg) as Address;
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
                 
+                let right_address_reg = Registers::from(self.get_next_byte());
+                let right_address = self.registers.get(right_address_reg) as Address;
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_IN_REG_CONST => {
-                
+                let size = self.get_next_byte();
+
+                let left_address_reg = Registers::from(self.get_next_byte());
+                let left_address = self.registers.get(left_address_reg) as Address;
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+               
+                let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let left_address_reg = Registers::from(self.get_next_byte());
+                let left_address = self.registers.get(left_address_reg) as Address;
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+               
+                let right_address = self.get_next_address();
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_CONST_REG => {
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_bytes(size as usize);
+                let left_value = bytes_to_int(left_address, size);
+        
+                let right_reg = Registers::from(self.get_next_byte());
+                let right_value = self.registers.get(right_reg);
                 
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_CONST_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_bytes(size as usize);
+                let left_value = bytes_to_int(left_address, size);
+        
+                let right_address_reg = Registers::from(self.get_next_byte());
+                let right_address = self.registers.get(right_address_reg) as Address;
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_CONST_CONST => {
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_bytes(size as usize);
+                let left_value = bytes_to_int(left_address, size);
+        
+                let right_address = self.get_next_bytes(size as usize);
+                let right_value = bytes_to_int(right_address, size);
                 
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_CONST_ADDR_LITERAL => {
-                
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_bytes(size as usize);
+                let left_value = bytes_to_int(left_address, size);
+        
+                let right_address = self.get_next_address();
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64), 
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_LITERAL_REG => {
-                
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_address();
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+        
+                let right_reg = Registers::from(self.get_next_byte());
+                let right_value = self.registers.get(right_reg);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64), 
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG => {
-                
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_address();
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+        
+                let right_address_reg = Registers::from(self.get_next_byte());
+                let right_address = self.registers.get(right_address_reg) as Address;
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+        
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64), 
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_LITERAL_CONST => {
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_address();
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+        
+                let right_address = self.get_next_bytes(size as usize);
+                let right_value = bytes_to_int(right_address, size);
                 
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64), 
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL => {
+                let size = self.get_next_byte();
+
+                let left_address = self.get_next_address();
+                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+        
+                let right_address = self.get_next_address();
+                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
                 
+                let result = left_value as i64 - right_value as i64;
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64), 
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::AND => {
-                
+                let result = self.registers.get(Registers::R1) & self.registers.get(Registers::R2);
+
+                self.registers.set(Registers::R1, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::OR => {
-                
+                let result = self.registers.get(Registers::R1) | self.registers.get(Registers::R2);
+
+                self.registers.set(Registers::R1, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    false,
+                    false
+                );
             },
             
             ByteCodes::XOR => {
-                
+                let result = self.registers.get(Registers::R1) ^ self.registers.get(Registers::R2);
+
+                self.registers.set(Registers::R1, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    false,
+                    true
+                );
             },
             
             ByteCodes::NOT => {
-                
+                let result = !self.registers.get(Registers::R1);
+
+                self.registers.set(Registers::R1, result);
+        
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result),
+                    0,
+                    false,
+                    true
+                );
             },
             
             ByteCodes::SHIFT_LEFT => {
-                
+                let value = self.registers.get(Registers::R1);
+                let shift_amount = self.registers.get(Registers::R2);
+        
+                let result = value.overflowing_shl(shift_amount as u32).0;
+        
+                self.registers.set(Registers::R1, result);
             },
             
             ByteCodes::SHIFT_RIGHT => {
-                
+                let value = self.registers.get(Registers::R1);
+                let shift_amount = self.registers.get(Registers::R2);
+        
+                let result = value.overflowing_shr(shift_amount as u32).0;
+        
+                self.registers.set(Registers::R1, result);
             },
             
             ByteCodes::INTERRUPT_REG => {
-                
+                let reg = Registers::from(self.get_next_byte());
+                let intr_code = self.registers.get(reg) as u8;
+        
+                self.handle_interrupt(intr_code);
             },
             
             ByteCodes::INTERRUPT_ADDR_IN_REG => {
-                
+                let address_reg = Registers::from(self.get_next_byte());
+                let address = self.registers.get(address_reg) as Address;
+                let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
+        
+                self.handle_interrupt(intr_code);
             },
             
             ByteCodes::INTERRUPT_CONST => {
-                
+                let intr_code = self.get_next_byte();
+
+                self.handle_interrupt(intr_code);
             },
             
             ByteCodes::INTERRUPT_ADDR_LITERAL => {
-                
+                let address = self.get_next_address();
+                let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
+        
+                self.handle_interrupt(intr_code);
             },
             
             ByteCodes::EXIT => {
+                let exit_code_n = self.registers.get(Registers::EXIT) as u8;
+                let exit_code = ErrorCodes::from(exit_code_n);
+        
+                if !self.quiet_exit {
+                    println!("Program exited with code {} ({})", exit_code_n, exit_code);
+                }
                 
+                std::process::exit(exit_code as i32);
             },
         }
     }
@@ -1089,1120 +1586,6 @@ impl Processor {
         self.registers.set(Registers::REMAINDER_FLAG, rf);
         self.registers.set(Registers::CARRY_FLAG, cf as u64);
         self.registers.set(Registers::OVERFLOW_FLAG, of as u64);
-    }
-
-
-    // Instruction handlers
-
-
-    fn handle_integer_add(&mut self) {
-        assert_exists!(ByteCodes::INTEGER_ADD);
-
-        
-    }
-
-    
-    fn handle_integer_sub(&mut self) {
-        assert_exists!(ByteCodes::INTEGER_SUB);
-        
-        
-    }
-
-
-    fn handle_integer_mul(&mut self) {
-        assert_exists!(ByteCodes::INTEGER_MUL);
-        
-        
-    }
-
-
-    fn handle_integer_div(&mut self) {
-        assert_exists!(ByteCodes::INTEGER_DIV);
-
-        
-    }
-
-
-    fn handle_integer_mod(&mut self) {
-        assert_exists!(ByteCodes::INTEGER_MOD);
-        
-        
-    }
-
-
-    fn handle_float_add(&mut self) {
-        assert_exists!(ByteCodes::FLOAT_ADD);
-
-        
-    }
-
-
-    fn handle_float_sub(&mut self) {
-        assert_exists!(ByteCodes::FLOAT_SUB);
-
-        
-    }
-
-
-    fn handle_float_mul(&mut self) {
-        assert_exists!(ByteCodes::FLOAT_MUL);
-
-        
-    }
-
-
-    fn handle_float_div(&mut self) {
-        assert_exists!(ByteCodes::FLOAT_DIV);
-
-        
-    }
-
-
-    fn handle_float_mod(&mut self) {
-        assert_exists!(ByteCodes::FLOAT_MOD);
-
-        
-    }
-
-
-    fn handle_inc_reg(&mut self) {
-        assert_exists!(ByteCodes::INC_REG);
-
-        
-    }
-
-
-    fn handle_inc_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::INC_ADDR_IN_REG);
-
-        
-    }
-
-
-    fn handle_inc_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::INC_ADDR_LITERAL);
-
-        
-    }
-
-
-    fn handle_dec_reg(&mut self) {
-        assert_exists!(ByteCodes::DEC_REG);
-
-        
-    }
-
-
-    fn handle_dec_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::DEC_ADDR_IN_REG);
-
-        
-    }
-
-
-    fn handle_dec_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::DEC_ADDR_LITERAL);
-
-        
-    }
-
-
-    fn handle_no_operation(&mut self) {
-        assert_exists!(ByteCodes::NO_OPERATION);
-
-        // Do nothing
-    }
-
-
-    fn handle_move_into_reg_from_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_REG);
-
-        
-    }
-
-
-    fn handle_move_into_reg_from_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
-
-            }
-
-
-    fn handle_move_into_reg_from_const(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
-
-        
-    }
-
-
-    fn handle_move_into_reg_from_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_LITERAL);
-
-        
-    }
-
-
-    fn handle_move_into_addr_in_reg_from_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG);
-
-        let size = self.get_next_byte();
-        let dest_address_reg = Registers::from(self.get_next_byte());
-        let src_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.registers.get(dest_address_reg) as Address;
-
-        self.move_from_register_into_address(src_reg, dest_address, size);
-    }
-
-
-    fn handle_move_into_addr_in_reg_from_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-        let dest_address_reg = Registers::from(self.get_next_byte());
-        let src_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.registers.get(dest_address_reg) as Address;
-        let src_address = self.registers.get(src_address_reg) as Address;
-        
-        self.memory.memcpy(src_address, dest_address, size as usize);
-    }
-
-
-    fn handle_move_into_addr_in_reg_from_const(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
-
-        let size = self.get_next_byte();
-        let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.registers.get(dest_address_reg) as Address;
-        let src_address = self.registers.pc();
-        
-        self.memory.memcpy(src_address, dest_address, size as usize);
-        self.registers.inc_pc(size as usize);
-    }
-
-
-    fn handle_move_into_addr_in_reg_from_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-        let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.registers.get(dest_address_reg) as Address;
-        let src_address = self.get_next_address();
-
-        self.memory.memcpy(src_address, dest_address, size as usize);
-    }
-
-
-    fn handle_move_into_addr_literal_from_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_REG);
-
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
-        let src_reg = Registers::from(self.get_next_byte());
-
-        self.move_from_register_into_address(src_reg, dest_address, size);
-    }
-
-
-    fn handle_move_into_addr_literal_from_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
-        let src_address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.registers.get(src_address_reg) as Address;
-
-        self.memory.memcpy(src_address, dest_address, size as usize);
-    }
-
-
-    fn handle_move_into_addr_literal_from_const(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_CONST);
-
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
-        let src_address = self.registers.pc();
-
-        self.memory.memcpy(src_address, dest_address, size as usize);
-        self.registers.inc_pc(size as usize);
-    }
-
-
-    fn handle_move_into_addr_literal_from_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-        let dest_address = self.get_next_address();
-        let src_address = self.get_next_address();
-
-        self.memory.memcpy(src_address, dest_address, size as usize);
-    }
-
-
-    fn handle_push_from_reg(&mut self) {
-        assert_exists!(ByteCodes::PUSH_FROM_REG);
-
-        let src_reg = Registers::from(self.get_next_byte());
-
-        self.push_stack(self.registers.get(src_reg));
-    }
-
-
-    fn handle_push_from_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::PUSH_FROM_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let src_address_reg = Registers::from(self.get_next_byte());
-        let src_address = self.registers.get(src_address_reg) as Address;
-
-        self.push_stack_from_address(src_address, size as usize);
-    }
-
-
-    fn handle_push_from_const(&mut self) {
-        assert_exists!(ByteCodes::PUSH_FROM_CONST);
-
-        let size = self.get_next_byte();
-
-        // Hack to get around the borrow checker
-        self.push_stack_from_address(self.registers.pc(), size as usize);
-        self.registers.inc_pc(size as usize);
-    }
-
-
-    fn handle_push_from_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::PUSH_FROM_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let src_address = self.get_next_address();
-
-        self.push_stack_from_address(src_address, size as usize);
-    }
-
-
-    fn handle_push_stack_pointer_reg(&mut self) {
-        assert_exists!(ByteCodes::PUSH_STACK_POINTER_REG);
-
-        let reg = Registers::from(self.get_next_byte());
-        let offset = self.registers.get(reg);
-
-        self.push_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_push_stack_pointer_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.registers.get(address_reg) as Address;
-
-        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
-
-        self.push_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_push_stack_pointer_const(&mut self) {
-        assert_exists!(ByteCodes::PUSH_STACK_POINTER_CONST);
-
-        let size = self.get_next_byte();
-
-        let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
-
-        self.push_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_push_stack_pointer_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::PUSH_STACK_POINTER_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let address = self.get_next_address();
-
-        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
-
-        self.push_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_pop_into_reg(&mut self) {
-        assert_exists!(ByteCodes::POP_INTO_REG);
-
-        let size = self.get_next_byte();
-
-        let dest_reg = Registers::from(self.get_next_byte());
-        let bytes = self.pop_stack_bytes(size as usize);
-        let value = bytes_to_int(bytes, size);
-
-        self.registers.set(dest_reg, value);
-    }
-
-
-    fn handle_pop_into_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::POP_INTO_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let dest_address_reg = Registers::from(self.get_next_byte());
-        let dest_address = self.registers.get(dest_address_reg) as Address;
-
-        self.memory.memcpy(self.registers.stack_base(), dest_address, size as usize);
-
-        self.pop_stack_pointer(size as usize);
-    }
-
-
-    fn handle_pop_into_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::POP_INTO_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let dest_address = self.get_next_address();
-
-        self.memory.memcpy(self.registers.stack_base(), dest_address, size as usize);
-
-        self.pop_stack_pointer(size as usize);
-    }
-
-
-    fn handle_pop_stack_pointer_reg(&mut self) {
-        assert_exists!(ByteCodes::POP_STACK_POINTER_REG);
-
-        let reg = Registers::from(self.get_next_byte());
-        let offset = self.registers.get(reg);
-
-        self.pop_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_pop_stack_pointer_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.registers.get(address_reg) as Address;
-
-        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
-
-        self.pop_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_pop_stack_pointer_const(&mut self) {
-        assert_exists!(ByteCodes::POP_STACK_POINTER_CONST);
-
-        let size = self.get_next_byte();
-
-        let offset = bytes_to_int(self.get_next_bytes(size as usize), size);
-
-        self.pop_stack_pointer(offset as usize);
-    }
-
-
-    fn handle_pop_stack_pointer_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::POP_STACK_POINTER_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let address = self.get_next_address();
-
-        let offset = bytes_to_int(self.memory.get_bytes(address, size as usize), size);
-
-        self.pop_stack_pointer(offset as usize);
-    }
-
-
-    /// This function is never used, it's only a placeholder to make the lookup table work
-    fn handle_label(&mut self) { 
-        unreachable!()
-    }
-
-
-    fn handle_jump(&mut self) {
-        assert_exists!(ByteCodes::JUMP);
-
-        let jump_address = self.get_next_address();
-
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_jump_not_zero(&mut self) {
-        assert_exists!(ByteCodes::JUMP_NOT_ZERO);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::ZERO_FLAG) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_zero(&mut self) {
-        assert_exists!(ByteCodes::JUMP_ZERO);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::ZERO_FLAG) == 1 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_greater(&mut self) {
-        assert_exists!(ByteCodes::JUMP_GREATER);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG)
-            && self.registers.get(Registers::ZERO_FLAG) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_greater_or_equal(&mut self) {
-        assert_exists!(ByteCodes::JUMP_GREATER_OR_EQUAL);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG) {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_less(&mut self) {
-        assert_exists!(ByteCodes::JUMP_LESS);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG) {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_less_or_equal(&mut self) {
-        assert_exists!(ByteCodes::JUMP_LESS_OR_EQUAL);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG)
-            || self.registers.get(Registers::ZERO_FLAG) == 1 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_overflow(&mut self) {
-        assert_exists!(ByteCodes::JUMP_OVERFLOW);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::OVERFLOW_FLAG) == 1 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_not_overflow(&mut self) {
-        assert_exists!(ByteCodes::JUMP_NOT_OVERFLOW);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::OVERFLOW_FLAG) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_carry(&mut self) {
-        assert_exists!(ByteCodes::JUMP_CARRY);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::CARRY_FLAG) == 1 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_not_carry(&mut self) {
-        assert_exists!(ByteCodes::JUMP_NOT_CARRY);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::CARRY_FLAG) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_sign(&mut self) {
-        assert_exists!(ByteCodes::JUMP_SIGN);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) == 1 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_jump_not_sign(&mut self) {
-        assert_exists!(ByteCodes::JUMP_NOT_SIGN);
-
-        let jump_address = self.get_next_address();
-
-        if self.registers.get(Registers::SIGN_FLAG) == 0 {
-            self.jump_to(jump_address);
-        }
-    }
-
-
-    fn handle_call(&mut self) {
-        assert_exists!(ByteCodes::CALL);
-
-        let jump_address = self.get_next_address();
-
-        // Push the return address onto the stack (return address is the current pc)
-        self.push_stack(self.registers.pc() as u64);
-
-        // Jump to the subroutine
-        self.jump_to(jump_address);
-    }
-
-
-    fn handle_return(&mut self) {
-        assert_exists!(ByteCodes::RETURN);
-
-        // Get the return address from the stack
-        let return_address = bytes_as_address(
-            self.pop_stack_bytes(ADDRESS_SIZE)
-        );
-
-        // Jump to the return address
-        self.jump_to(return_address);
-    }
-
-
-    fn handle_compare_reg_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_REG_REG);
-
-        let left_reg = Registers::from(self.get_next_byte());
-        let right_reg = Registers::from(self.get_next_byte());
-    
-        let result = self.registers.get(left_reg) as i64 - self.registers.get(right_reg) as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_reg_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_REG_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.registers.get(left_reg);
-
-        let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.registers.get(right_address_reg) as Address;
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_reg_const(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_REG_CONST);
-
-        let size = self.get_next_byte();
-
-        let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.registers.get(left_reg);
-
-        let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_reg_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_REG_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let left_reg = Registers::from(self.get_next_byte());
-        let left_value = self.registers.get(left_reg);
-
-        let right_address = self.get_next_address();
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_in_reg_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.registers.get(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-        
-        let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.registers.get(right_reg);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_in_reg_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.registers.get(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-        
-        let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.registers.get(right_address_reg) as Address;
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_in_reg_const(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_CONST);
-
-        let size = self.get_next_byte();
-
-        let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.registers.get(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-       
-        let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_in_reg_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let left_address_reg = Registers::from(self.get_next_byte());
-        let left_address = self.registers.get(left_address_reg) as Address;
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-       
-        let right_address = self.get_next_address();
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_const_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_CONST_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_bytes(size as usize);
-        let left_value = bytes_to_int(left_address, size);
-
-        let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.registers.get(right_reg);
-        
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_const_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_CONST_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_bytes(size as usize);
-        let left_value = bytes_to_int(left_address, size);
-
-        let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.registers.get(right_address_reg) as Address;
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_const_const(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_CONST_CONST);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_bytes(size as usize);
-        let left_value = bytes_to_int(left_address, size);
-
-        let right_address = self.get_next_bytes(size as usize);
-        let right_value = bytes_to_int(right_address, size);
-        
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_const_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_CONST_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_bytes(size as usize);
-        let left_value = bytes_to_int(left_address, size);
-
-        let right_address = self.get_next_address();
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64), 
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_literal_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_address();
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-
-        let right_reg = Registers::from(self.get_next_byte());
-        let right_value = self.registers.get(right_reg);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64), 
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_literal_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_address();
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-
-        let right_address_reg = Registers::from(self.get_next_byte());
-        let right_address = self.registers.get(right_address_reg) as Address;
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64), 
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_literal_const(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_CONST);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_address();
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-
-        let right_address = self.get_next_bytes(size as usize);
-        let right_value = bytes_to_int(right_address, size);
-        
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64), 
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_compare_addr_literal_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL);
-
-        let size = self.get_next_byte();
-
-        let left_address = self.get_next_address();
-        let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
-
-        let right_address = self.get_next_address();
-        let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
-        
-        let result = left_value as i64 - right_value as i64;
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result as u64), 
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_and(&mut self) {
-        assert_exists!(ByteCodes::AND);
-
-        let result = self.registers.get(Registers::R1) & self.registers.get(Registers::R2);
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_or(&mut self) {
-        assert_exists!(ByteCodes::OR);
-
-        let result = self.registers.get(Registers::R1) | self.registers.get(Registers::R2);
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            false,
-            false
-        );
-    }
-
-
-    fn handle_xor(&mut self) {
-        assert_exists!(ByteCodes::XOR);
-
-        let result = self.registers.get(Registers::R1) ^ self.registers.get(Registers::R2);
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            false,
-            true
-        );
-    }
-
-
-    fn handle_not(&mut self) {
-        assert_exists!(ByteCodes::NOT);
-
-        let result = !self.registers.get(Registers::R1);
-
-        self.registers.set(Registers::R1, result);
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            false,
-            true
-        );
-    }
-
-
-    fn handle_shift_left(&mut self) {
-        assert_exists!(ByteCodes::SHIFT_LEFT);
-
-        let value = self.registers.get(Registers::R1);
-        let shift_amount = self.registers.get(Registers::R2);
-
-        let result = value.overflowing_shl(shift_amount as u32).0;
-
-        self.registers.set(Registers::R1, result);
-    }
-
-
-    fn handle_shift_right(&mut self) {
-        assert_exists!(ByteCodes::SHIFT_RIGHT);
-
-        let value = self.registers.get(Registers::R1);
-        let shift_amount = self.registers.get(Registers::R2);
-
-        let result = value.overflowing_shr(shift_amount as u32).0;
-
-        self.registers.set(Registers::R1, result);
-    }
-
-
-    fn handle_interrupt_reg(&mut self) {
-        assert_exists!(ByteCodes::INTERRUPT_REG);
-
-        let reg = Registers::from(self.get_next_byte());
-        let intr_code = self.registers.get(reg) as u8;
-
-        self.handle_interrupt(intr_code);
-    }
-
-
-    fn handle_exit(&mut self) {
-        assert_exists!(ByteCodes::EXIT);
-
-        let exit_code_n = self.registers.get(Registers::EXIT) as u8;
-        let exit_code = ErrorCodes::from(exit_code_n);
-
-        if !self.quiet_exit {
-            println!("Program exited with code {} ({})", exit_code_n, exit_code);
-        }
-        
-        std::process::exit(exit_code as i32);
-    }
-
-
-    fn handle_interrupt_addr_in_reg(&mut self) {
-        assert_exists!(ByteCodes::INTERRUPT_ADDR_IN_REG);
-
-        let address_reg = Registers::from(self.get_next_byte());
-        let address = self.registers.get(address_reg) as Address;
-        let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
-
-        self.handle_interrupt(intr_code);
-    }
-
-
-    fn handle_interrupt_const(&mut self) {
-        assert_exists!(ByteCodes::INTERRUPT_CONST);
-
-        let intr_code = self.get_next_byte();
-
-        self.handle_interrupt(intr_code);
-    }
-
-
-    fn handle_interrupt_addr_literal(&mut self) {
-        assert_exists!(ByteCodes::INTERRUPT_ADDR_LITERAL);
-
-        let address = self.get_next_address();
-        let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
-
-        self.handle_interrupt(intr_code);
     }
 
 
@@ -2303,9 +1686,13 @@ impl Processor {
             },
 
             Interrupts::InputString => {
-                let mut input = String::new();
+                
+                let buf_addr = self.registers.get(Registers::R1) as Address;
+                let size = self.registers.get(Registers::R2) as usize;
+                    
+                let buf = self.memory.get_bytes_mut(buf_addr, size);
 
-                match io::stdin().read_line(&mut input) {
+                match io::stdin().read(buf) {
                     Ok(bytes_read) => {
 
                         // Check for EOF errors
@@ -2314,19 +1701,7 @@ impl Processor {
                             return;
                         }
 
-                        // Allocate the user input on the heap
-                        let address = match self.memory.allocate(input.len()) {
-                            Ok(address) => address,
-                            Err(e) => {
-                                self.registers.set_error(e);
-                                return;
-                            }
-                        };
-                        self.memory.set_bytes(address, input.as_bytes());
-
-                        self.registers.set(Registers::INPUT, address as u64);
-                        self.registers.set(Registers::R1, input.len() as u64);
-
+                        self.registers.set(Registers::INPUT, bytes_read as u64);
                         self.registers.set_error(ErrorCodes::NoError); 
                     },
 

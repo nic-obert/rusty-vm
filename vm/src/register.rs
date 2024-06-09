@@ -47,10 +47,10 @@ impl CPURegisters {
     }
 
 
-    /// Get the stack base pointer
+    /// Get the stack top pointer
     #[inline(always)]
-    pub fn stack_base(&self) -> Address {
-        self.0[Registers::STACK_BASE_POINTER as usize] as Address
+    pub fn stack_top(&self) -> Address {
+        self.0[Registers::STACK_TOP_POINTER as usize] as Address
     }
 
 

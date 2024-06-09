@@ -1,10 +1,12 @@
 # memory
 # Library for memory management
 
+# THIS IS DEPRECATED
+
 
 .include:
 
-    interrupts.asm
+    archlib.asm
     asmutils/functional.asm
 
 

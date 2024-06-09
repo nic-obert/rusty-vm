@@ -4,7 +4,7 @@
 
 .include:
 
-    interrupts.asm
+    archlib.asm
     asmutils/functional.asm
 
 .text:

@@ -71,7 +71,7 @@
         mov =item_addr r1
 
         # Calculate the return value address
-        mov r1 sbp
+        mov r1 stp
         mov1 r2 24
         isub
 

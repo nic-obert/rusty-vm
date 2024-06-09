@@ -162,16 +162,16 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
                     IROperator::PushScope { bytes } => {
                         set_reg_const!(Registers::R1, bytes);
-                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_BASE_POINTER);
+                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         // The stack grows downwards
                         pushbc!(ByteCodes::INTEGER_SUB);
-                        move_into_reg_from_reg!(Registers::STACK_BASE_POINTER, Registers::R1);
+                        move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
                     IROperator::PopScope { bytes } => {
                         set_reg_const!(Registers::R1, bytes);
-                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_BASE_POINTER);
+                        move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         pushbc!(ByteCodes::INTEGER_ADD);
-                        move_into_reg_from_reg!(Registers::STACK_BASE_POINTER, Registers::R1);
+                        move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
 
                     IROperator::Nop => {

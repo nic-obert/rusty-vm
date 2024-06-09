@@ -100,7 +100,7 @@
                 }
             },
             "args": [
-                "impl/terminal_clicker/main.bc",
+                "assembler/impl/seconds_counter.bc",
                 "--max-mem", "2048",
             ],
             "cwd": "${workspaceFolder}"

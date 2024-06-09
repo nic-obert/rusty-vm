@@ -48,13 +48,13 @@
         pushsp =num
 
         # Copy the first memory region into the buffer
-        !memcpy =first sbp =num
+        !memcpy =first stp =num
 
         # Copy the second memory region into the first one
         !memcpy =second =first =num
 
         # Copy the temporary buffer into the second memory region
-        !memcpy sbp =second =num
+        !memcpy stp =second =num
 
         # Pop the intermediate buffer from the stack
         popsp r6

@@ -14,7 +14,7 @@
     #
     %% set_fstart:
 
-        mov =FSTART_REG sbp
+        mov =FSTART_REG stp
 
     %endmacro
 
