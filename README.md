@@ -14,7 +14,7 @@ There are a few known vulnerabilities, plus it's not very efficient compared to 
 
 - The [`vm`](vm) directory contains the code for the virtual machine.
 - The [`assembler`](assembler) directory contains the code for the assembler.
-  - [`assembler/lib`](assembler/lib) contains shared assembly libraries to include in the assembly source code.
+  - [`asm_lib`](asm_lib) contains shared assembly libraries to include in the assembly source code.
 - The [`disassembler`](disassembler) directory contains the code for the disassembler. **(currently outdated)**
 - The [`rust_vm_lib`](rust_vm_lib) directory contains the code for the shared library used across all Rust tools.
 - The [`oxide`](oxide) directory contains an AOT compiler that compiles a custom language to the VM's bytecode.

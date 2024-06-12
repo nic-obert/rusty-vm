@@ -2,21 +2,30 @@
 .include:
 
     stdio/print.asm
-    stdlib.asm
+    math.asm
+    archlib.asm
 
 
 .data:
 
-    UPPER u8 28
+    ERROR_POW string "Invalid input for powi function.\0"
 
 
 .text:
 
 @start
 
-    !rand_range 0 [UPPER]
+    
+    mov8 r1 7
+    mov8 r2 -8
+    call powi
 
-    !println_uint r1
+    cmp1 error =NO_ERROR
+    jmpz no_error
 
-    exit
+        !println_str ERROR_POW
+
+    @no_error
+
+    !println_int r1
 

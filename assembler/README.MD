@@ -267,7 +267,7 @@ The first operand is treated as the destination by the processor, whereas the se
 
 ### Interrupts
 
-Interrupts are defined in the [`interrupts.asm`](lib/interrupts.asm) library file.
+Interrupts are defined in the [`archlib.asm`](../asm_lib/archlib.asm) library file.
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
@@ -279,8 +279,6 @@ Interrupts are defined in the [`interrupts.asm`](lib/interrupts.asm) library fil
 | `INPUT_SIGNED`  | Get the next signed integer input from the console and store it in the `input` register. |
 | `INPUT_UNSIGNED`  | Get the next unsigned integer input from the console and store it in the `input` register. |
 | `INPUT_STRING`  | Get the next string input from the console and allocate it on the heap. Store its address in the `input` register and its length in the `r1` register. The returned string is not to be considered null-terminated.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
-| `MALLOC`        | Allocate a block of memory of the size specified in `r1` and store its address in the `r1` register.<br>If the allocation fails, set the `error` register. |
-| `FREE`          | Free the block of memory at the address specified in `r1`. If the deallocatoin fails, set the `error` register. |
 | `RAND`          | Generate a random 8-byte number and store it in the `r1` register. |
 | `HOST_TIME_NANOS` | Get the current host system time in nanoseconds and store it in the `r1` register. |
 | `ELAPSED_TIME_NANOS` | Get the elapsed time since the program started in nanoseconds and store it in the `r1` register. |
@@ -347,10 +345,7 @@ An error code is represented as a 1-byte unsigned integer.
 | `END_OF_FILE`   | End of file reached while reading input. |
 | `INVALID_INPUT` | The input from the console was not a valid integer. |
 | `ZERO_DIVISION` | A division by zero occurred. |
-| `ALLOCATION_TOO_LARGE` | The requested allocation size was too large. |
 | `STACK_OVERFLOW` | The stack overflowed. |
-| `HEAP_OVERFLOW` | The heap overflowed. |
-| `DOUBLE_FREE` | A double free occurred. |
 | `OUT_OF_BOUNDS` | An out of bounds memory access occurred. |
 | `UNALIGNED_ADDRESS` | An unaligned memory access occurred. |
 | `PERMISSION_DENIED` | A permission denied error occurred. |
