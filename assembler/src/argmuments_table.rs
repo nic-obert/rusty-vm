@@ -37,6 +37,7 @@ impl Mnemonic {
 }
 
 
+// 6 is the number of possible operand types (register, address in register, constant, address literal, label, address at label)
 type OneArgument = [Option<Mnemonic>; 6];
 type TwoArguments = [Option<OneArgument>; 6];
 
