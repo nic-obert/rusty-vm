@@ -55,6 +55,42 @@ const LABEL_PLACEHOLDER: [u8; ADDRESS_SIZE] = (0 as Address).to_le_bytes();
 
 
 pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token>, handled_size: u8, label_registry: &mut LabelReferenceRegistry, last_byte_code: Address, line_number: usize, unit_path: &Path, line: &str) -> ByteCode {
+    
+    
+    macro_rules! address_literal_arg {
+        ($operand:literal, $bytes:ident) => {
+            match &mut operands[$operand].value {
+                TokenValue::AddressLiteral { value, .. } => {
+                    $bytes.extend(value.to_le_bytes());
+                },
+                TokenValue::AddressAtLabel(label) => {
+                    label_registry.add_reference(mem::take(label), last_byte_code + $bytes.len(), line_number);
+                    $bytes.extend(LABEL_PLACEHOLDER);
+                },
+                _ => unreachable!()
+            }
+        };
+    }
+
+    macro_rules! const_arg {
+        ($operand:literal, $bytes:ident) => {
+            match &mut operands[$operand].value {
+                TokenValue::Number { value, .. } => {
+                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
+                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
+                    );
+                    $bytes.extend(repr);
+                },
+                TokenValue::Label(label) => {
+                    label_registry.add_reference(mem::take(label), last_byte_code + $bytes.len(), line_number);
+                    $bytes.extend(LABEL_PLACEHOLDER);
+                },
+                _ => unreachable!()
+            }
+        };
+    }
+
+
     match instruction {
 
         ByteCodes::INTEGER_ADD |
@@ -95,16 +131,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(cap);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => {
-                    bytes.extend(value.to_le_bytes());
-                },
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -125,16 +152,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(cap);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => {
-                    bytes.extend(value.to_le_bytes());
-                },
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -163,19 +181,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let dest_reg = extract!(operands[0], Register) as u8;
             bytes.push(dest_reg);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -187,14 +193,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let dest_reg = extract!(operands[0], Register) as u8;
             bytes.push(dest_reg);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
             
             bytes
         },
@@ -222,19 +221,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let dest_reg = extract!(operands[0], AddressInRegister) as u8;
             bytes.push(dest_reg);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -246,14 +233,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let dest_reg = extract!(operands[0], AddressInRegister) as u8;
             bytes.push(dest_reg);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
@@ -262,14 +242,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             let src_reg = extract!(operands[1], Register) as u8;
             bytes.push(src_reg);
@@ -281,14 +254,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             let src_reg = extract!(operands[1], AddressInRegister) as u8;
             bytes.push(src_reg);
@@ -300,28 +266,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -330,23 +277,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
@@ -366,19 +299,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
             bytes
         },
@@ -387,14 +308,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -416,19 +330,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
             bytes
         },
@@ -437,14 +339,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -467,14 +362,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                }
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -496,19 +384,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
             bytes
         },
@@ -517,14 +393,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + 1, line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             bytes
         },
@@ -580,19 +449,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let left_reg = extract!(operands[0], Register) as u8;
             bytes.push(left_reg);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -604,14 +461,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let left_reg = extract!(operands[0], Register) as u8;
             bytes.push(left_reg);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
@@ -639,19 +489,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let left_reg = extract!(operands[0], AddressInRegister) as u8;
             bytes.push(left_reg);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -663,14 +501,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let left_reg = extract!(operands[0], AddressInRegister) as u8;
             bytes.push(left_reg);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER);
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
@@ -679,19 +510,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
             let right_reg = extract!(operands[1], Register) as u8;
             bytes.push(right_reg);
@@ -703,19 +522,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
             let right_reg = extract!(operands[1], AddressInRegister) as u8;
             bytes.push(right_reg);
@@ -727,33 +534,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -762,28 +545,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + handled_size as usize + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::Number { value, .. }=> {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10,  handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
@@ -792,14 +556,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             let right_reg = extract!(operands[1], Register) as u8;
             bytes.push(right_reg);
@@ -811,14 +568,7 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + REGISTER_ID_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
             let right_reg = extract!(operands[1], AddressInRegister) as u8;
             bytes.push(right_reg);
@@ -830,28 +580,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + handled_size as usize);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::Number { value, .. } => {
-                    let repr = fit_into_bytes(*value, handled_size).unwrap_or_else(
-                        || error::number_out_of_range::<u64>(unit_path, value.to_string().as_str(), 10, handled_size, line_number, line)
-                    );
-                    bytes.extend(repr);
-                },
-                TokenValue::Label(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            const_arg!(1, bytes);
         
             bytes
         },
@@ -860,23 +591,9 @@ pub fn generate_operand_bytecode(instruction: ByteCodes, mut operands: Vec<Token
             let mut bytes = ByteCode::with_capacity(1 + ADDRESS_SIZE + ADDRESS_SIZE);
             bytes.push(handled_size);
         
-            match &mut operands[0].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(0, bytes);
         
-            match &mut operands[1].value {
-                TokenValue::AddressLiteral { value, .. } => bytes.extend(value.to_le_bytes()),
-                TokenValue::AddressAtLabel(label) => {
-                    label_registry.add_reference(mem::take(label), last_byte_code + bytes.len(), line_number);
-                    bytes.extend(LABEL_PLACEHOLDER)
-                },
-                _ => unreachable!()
-            }
+            address_literal_arg!(1, bytes);
         
             bytes
         },
