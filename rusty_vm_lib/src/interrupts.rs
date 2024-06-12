@@ -6,6 +6,7 @@ pub enum Interrupts {
 
     PrintSigned,
     PrintUnsigned,
+    PrintFloat,
     PrintChar,
     PrintString,
     PrintBytes,

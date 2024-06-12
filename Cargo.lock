@@ -78,7 +78,6 @@ dependencies = [
 name = "assembler"
 version = "1.0.0"
 dependencies = [
- "assert_exists",
  "clap",
  "colored",
  "indoc",
@@ -86,12 +85,6 @@ dependencies = [
  "num",
  "rusty_vm_lib",
 ]
-
-[[package]]
-name = "assert_exists"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24a3341c9b053c031f0bac089f13cb03ca3d32bd654024621fc4bbc803bea6d5"
 
 [[package]]
 name = "autocfg"

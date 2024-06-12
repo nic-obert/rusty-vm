@@ -16,8 +16,8 @@
 @start
 
     
-    mov8 r1 -1
-    call expi2
+    mov8 r1 4
+    call expi
 
     cmp1 error =NO_ERROR
     jmpz no_error
@@ -26,5 +26,5 @@
 
     @no_error
 
-    !println_int r1
+    !println_float r1
 

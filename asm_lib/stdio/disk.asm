@@ -2,7 +2,6 @@
 
     archlib.asm
     asmutils/functional.asm
-    errors.asm
     stdbool.asm
 
 

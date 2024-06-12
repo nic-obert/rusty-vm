@@ -1605,6 +1605,12 @@ impl Processor {
                 io::stdout().flush().expect("Failed to flush stdout");
             },
 
+            Interrupts::PrintFloat => {
+                let value = self.registers.get(Registers::PRINT);
+                print!("{}", value as f64);
+                io::stdout().flush().expect("Failed to flush stdout");
+            }
+
             Interrupts::PrintChar => {
                 let value = self.registers.get(Registers::PRINT);
                 io::stdout().write_all(&[value as u8]).expect("Failed to write to stdout");

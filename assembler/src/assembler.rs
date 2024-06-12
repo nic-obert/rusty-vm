@@ -6,7 +6,7 @@ use crate::data_types::DataType;
 use crate::error;
 use crate::tokenizer::{tokenize_operands, is_identifier_name, is_reserved_name, is_identifier_char};
 use crate::argmuments_table::get_arguments_table;
-use crate::token_to_byte_code::{get_token_converter, use_converter};
+use crate::token_to_byte_code::generate_operand_bytecode;
 use crate::files;
 use crate::configs;
 
@@ -1083,14 +1083,11 @@ fn assemble_instruction(asm_unit: &AssemblyUnit, trimmed_line: &str, line: &str,
 
     let operation = arg_table.get_operation(operator_name, &operands, asm_unit.path, line_number, line);
 
-    // Convert the operands to byte code and append them to the byte code
-    let converter = get_token_converter(operation.instruction);
-
     // Add the instruction code to the byte code
     byte_code.push(operation.instruction as u8);
 
     // Add the operands to the byte code
-    let operand_bytes = use_converter(converter, operands, operation.handled_size, label_reference_registry, byte_code.len(), line_number, asm_unit.path, line);
+    let operand_bytes = generate_operand_bytecode(operation.instruction, operands, operation.handled_size, label_reference_registry, byte_code.len(), line_number, asm_unit.path, line);
     
     if operand_bytes.len() != operation.total_arg_size as usize {
         panic!("The generated operand byte code size {} for instruction \"{}\" does not match the expected size {}. This is a bug.", operand_bytes.len(), operation.instruction, operation.total_arg_size);

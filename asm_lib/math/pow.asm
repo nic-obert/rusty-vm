@@ -4,6 +4,7 @@
 .include:
 
     archlib.asm
+    asmutils/functional.asm
 
 
 .text:
@@ -17,6 +18,9 @@
     #   - r1: the integer result
     #
     @@ powi
+
+        !save_reg_state r3
+        !save_reg_state r4
 
         cmp8 r2 0
         jmplt negative_exp
@@ -42,6 +46,9 @@
 
         @endloop
 
+        !restore_reg_state r4
+        !restore_reg_state r3
+
         ret
 
 
@@ -53,6 +60,9 @@
 
         mov1 error =INVALID_INPUT
 
+        !restore_reg_state r4
+        !restore_reg_state r3
+
         ret
 
     
@@ -60,5 +70,8 @@
 
         # x^0 = 1
         mov1 r1 0
+
+        !restore_reg_state r4
+        !restore_reg_state r3
 
         ret

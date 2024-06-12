@@ -35,6 +35,7 @@ fn main() {
 
     %%- PRINT_SIGNED: {PRINT_SIGNED_CODE}
     %%- PRINT_UNSIGNED:{PRINT_UNSIGNED_CODE}
+    %%- PRINT_FLOAT: {PRINT_FLOAT_CODE}
     %%- PRINT_CHAR: {PRINT_CHAR_CODE}
     %%- PRINT_STRING: {PRINT_STRING_CODE}
     %%- PRINT_BYTES: {PRINT_BYTES_CODE}
@@ -83,6 +84,7 @@ fn main() {
         GENERATED_AT = chrono::Utc::now().to_rfc2822(),
         PRINT_SIGNED_CODE = Interrupts::PrintSigned as u8,
         PRINT_UNSIGNED_CODE = Interrupts::PrintUnsigned as u8,
+        PRINT_FLOAT_CODE = Interrupts::PrintFloat as u8,
         PRINT_CHAR_CODE = Interrupts::PrintChar as u8,
         PRINT_STRING_CODE = Interrupts::PrintString as u8,
         PRINT_BYTES_CODE = Interrupts::PrintBytes as u8,

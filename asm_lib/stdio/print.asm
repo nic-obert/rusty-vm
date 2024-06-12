@@ -119,6 +119,24 @@
     %endmacro
 
 
+    %% print_float n:
+
+        mov8 print {n}
+        intr =PRINT_FLOAT
+    
+    %endmacro
+
+
+    %% println_float n:
+
+        mov8 print {n}
+        intr =PRINT_FLOAT
+        mov1 print 10
+        intr =PRINT_CHAR
+    
+    %endmacro
+
+
     %% println:
 
         mov1 print 10
