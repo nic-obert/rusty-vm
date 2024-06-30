@@ -1,479 +1,300 @@
-use std::mem;
+use std::borrow::Cow;
+use std::collections::VecDeque;
 use std::path::Path;
+use std::rc::Rc;
 
-use rusty_vm_lib::registers::{Registers, REGISTER_SIZE};
-use rusty_vm_lib::token::{Token, TokenValue, NumberFormat, NumberSign};
-use rusty_vm_lib::vm::Address;
+use lazy_static::lazy_static;
+
+use regex::Regex;
+use rusty_vm_lib::registers::Registers;
 
 use crate::error;
-use crate::argmuments_table;
+use crate::lang::{AsmInstruction, Number};
 
 
-/// Returns whether the name is a reserved name by the assembler
-/// Reserved names are register names, and instruction names, error names
-pub fn is_reserved_name(name: &str) -> bool {
-    Registers::from_name(name).is_some() 
-    || argmuments_table::get_arguments_table(name).is_some()
-    || name == "endmacro"
+lazy_static! {
+
+    static ref TOKEN_REGEX: Regex = Regex::new(
+        r#"(?m)#.*$|'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|0x[a-fA-F\d]+|-?\d+[.]\d*|-?[.]?\d+|%%-|%-|@@|%%|=[_a-zA-Z]\w*|[_a-zA-Z]\w*|\S"#
+    ).expect("Failed to compile regex");
+
+    static ref IDENTIFIER_REGEX: Regex = Regex::new(
+        r#"[_a-zA-Z]\w*"#
+    ).expect("Failed to compile regex");
+
+}
+
+
+#[derive(Debug, Clone)]
+pub enum TokenValue<'a> {
+
+    FunctionMacroDef { export: bool },
+    InlineMacroDef { export: bool },
+    Endmacro,
+    Bang,
+    LabelDef { export: bool },
+    Dot,
+    Comma,
+    SquareOpen,
+    SquareClose,
+    CurlyOpen,
+    CurlyClose,
+    CurrentPosition,
+    Register (Registers),
+    Number (Number),
+    Identifier (&'a str),
+    StringLiteral (Cow<'a, str>),
+    Instruction (AsmInstruction),
+
+}
+
+
+#[derive(Debug)]
+pub struct SourceToken<'a> {
+
+    pub string: &'a str,
+    pub line_index: usize,
+    pub column: usize,
+    pub unit_path: &'a Path
+
+}
+
+impl SourceToken<'_> {
+
+    #[inline]
+    pub fn line_number(&self) -> usize {
+        self.line_index + 1
+    }
+
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Token<'a> {
+
+    pub value: TokenValue<'a>,
+    pub source: Rc<SourceToken<'a>>,
     
 }
 
 
-/// Return whether the given character is a valid identifier character.
-/// 
-/// Identifiers can only contain letters, numbers, and underscores.
-/// The first character cannot be a number.
-pub fn is_identifier_char(c: char, is_first_char: bool) -> bool {
-    c == '_'
-    || c.is_alphabetic()
-    || (!is_first_char && c.is_numeric())
-}
+pub type SourceCode<'a> = &'a [&'a str];
 
 
-/// Returns whether the given string is a valid label name.
-/// 
-/// Label names can only contain letters, numbers, and underscores.
-/// The first character cannot be a number.
-pub fn is_identifier_name(name: &str) -> bool {
-
-    if name.is_empty() {
-        return false;
-    }
-
-    let mut it = name.chars();
-
-    if !is_identifier_char(it.next().unwrap(), true) {
-        return false;
-    }
-
-    for c in it {
-        if !is_identifier_char(c, false) {
-            return false;
-        }
-    }
-
-    true
-}
-
-
-/// Returns the evaluated escape character
-fn match_escape_char(c: char, line_number: usize, char_index: usize, line: &str, unit_path: &Path) -> char {
-    match c {
-        '\\' => '\\',
-        'n' => '\n',
-        't' => '\t',
-        'r' => '\r',
-        '0' => '\0',
-        '\'' => '\'',
-        _ => error::invalid_character(unit_path, c, line_number, char_index, line, "Invalid escape character.")
-    }
-}
-
-
-/// Evaluates escape characters in a string literal
-pub fn evaluate_string(string: &str, delimiter: char, line_number: usize, line: &str, unit_path: &Path) -> String {
+fn escape_string_copy(string: &str, checked_until: usize, token: &SourceToken, source: SourceCode) -> String {
+    // use -1 because the escape character won't be copied
+    let mut s = String::with_capacity(string.len() - 1);
     
-    let mut evaluated_string = String::with_capacity(string.len());
+    // Copy the part of the string before the escape character
+    s.push_str(&string[..checked_until]);
 
-    let mut escape_char = false;
+    let mut escape = true;
 
-    for (char_index, c) in string.chars().enumerate() {
-
-        if escape_char {
-            evaluated_string.push(
-                match_escape_char(c, line_number, char_index, line, unit_path)
-            );
-            escape_char = false;
-            continue;
+    for (i, c) in string[checked_until + 1..].chars().enumerate() {
+        if escape {
+            escape = false;
+            s.push(match c { // Characters that are part of an escape sequence
+                'n' => '\n',
+                'r' => '\r',
+                '0' => '\0',
+                't' => '\t',
+                '\\' => '\\',
+                '\'' => '\'',
+                '"' => '"',
+                c => error::invalid_escape_sequence(token, c, token.column + checked_until + i + 2, source)
+            })
+        } else if c == '\\' {
+            escape = true;
+        } else {
+            s.push(c);
         }
+    }
 
+    s
+}
+
+
+fn escape_string<'a>(string: &'a str, token: &SourceToken, source: SourceCode<'a>) -> Cow<'a, str> {
+    // Ignore the enclosing quote characters
+    let string = &string[1..string.len() - 1];
+    
+    for (i, c) in string.chars().enumerate() {
         if c == '\\' {
-            escape_char = true;
-            continue;
+            let copied_string = escape_string_copy(string, i, token, source);
+            return Cow::Owned(copied_string);
         }
-
-        if c == delimiter {
-            break;
-        }
-
-        evaluated_string.push(c);
     }
 
-    evaluated_string
+    Cow::Borrowed(string)
 }
 
 
-/// Tokenizes the operands of an instruction and returns a vector of tokens.
-/// 
-/// The tokenizer handles eventual labels and converts them to their address.
-pub fn tokenize_operands(operands: &str, line_number: usize, line: &str, unit_path: &Path) -> Vec<Token> {
+#[inline]
+fn is_decimal_numeric(c: char) -> bool {
+    c.is_numeric() || c == '-' || c == '+' || c == '.'
+}
 
-    let mut tokens: Vec<Token> = Vec::new();
 
-    let mut current_token: Option<Token> = None;
+pub type TokenList<'a> = VecDeque<Token<'a>>;
+pub type TokenLines<'a> = VecDeque<TokenList<'a>>;
 
-    let mut escape_char = false;
-    let mut string_length: usize = 0;
 
-    let mut chars_iter = operands.chars();
+pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: &'a Path) -> TokenLines<'a> {
 
-    // Iterate one additional time to handle the end of the string
-    for char_index in 0..=operands.len() {
+    let mut last_unique_symbol: usize = 0;
+    macro_rules! generate_unique_symbol {
+        () => {{
+            last_unique_symbol += 1;
+            Box::new(
+                format!("__unique_symbol_{}", last_unique_symbol)
+            ).leak()
+        }};
+    }
 
-        // Get the next character
-        // chars_iter.next() will fail only at the end of the string
-        let c = chars_iter.next().unwrap_or('#');
-        
-        if let Some(token) = &mut current_token {
+    
+    source.iter().enumerate().filter_map(
+        |(line_index, raw_line)| {
 
-            match &mut token.value {
+            if raw_line.trim().is_empty() {
+                return None;
+            }
 
-                TokenValue::Char(value) => {
+            let mut current_line = TokenList::new();
 
-                    if string_length > 1 {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, "Expected a closing single quote: Character literals can only be one character long.");
-                    }
+            for mat in TOKEN_REGEX.find_iter(raw_line) {
 
-                    if escape_char {
-                        *value = match_escape_char(c, line_number, char_index, line, unit_path);
-                        escape_char = false;
-                        string_length += 1;
-                        continue;
-                    } 
-                    
-                    match c {
+                let string = mat.as_str();
 
-                        '\'' => {
-                            // The character literal is complete
-                            if string_length == 0 {
-                                error::invalid_character(unit_path, c, line_number, char_index, line, "Character literals cannot be empty.");
-                            }
-                            string_length = 0;
-                            // Convert the character to a byte
-                            tokens.push(Token::new(TokenValue::Number { value: *value as i64, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
-                            current_token = None;
-                        },
-
-                        '\\' => escape_char = true,
-
-                        _ => {
-                            *value = c;
-                            string_length += 1;
-                        }
-
-                    }
-
-                    continue;
-                },
-
-                TokenValue::AddressGeneric() => {
-
-                    if c == '0' {
-                        current_token = Some(Token::new(TokenValue::AddressLiteral { value: 0, format: NumberFormat::Unknown }));
-
-                    } else if let Some(digit) = c.to_digit(10) {
-                        current_token = Some(Token::new(TokenValue::AddressLiteral { value: digit as usize, format: NumberFormat::Decimal }));
-
-                    } else if is_identifier_char(c, true) {
-                        current_token = Some(Token::new(TokenValue::AddressAtIdentifier(c.to_string())));
-
-                    } else if c == ']' {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses cannot be empty.");
-                    
-                    } else {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, "Addresses can only be numeric or names.");
-                    }
-
-                    continue;
-                },
-                
-                TokenValue::AddressLiteral { value, format } => {
-
-                    match format {
-
-                        NumberFormat::Decimal => {
-                            if let Some(digit) = c.to_digit(10) {
-                                *value = value.checked_mul(10).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                );
-        
-                                continue;
-                            }
-                        },
-
-                        NumberFormat::Hexadecimal => {
-                            if let Some(digit) = c.to_digit(16) {
-                                *value = value.checked_mul(16).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
-                                ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
-                                );
-        
-                                continue;
-                            }
-                        },
-
-                        NumberFormat::Binary => {
-                            if let Some(digit) = c.to_digit(2) {
-                                *value = value.checked_mul(2).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
-                                ).checked_add(digit as usize).unwrap_or_else(
-                                    || error::number_out_of_range::<Address>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
-                                );
-        
-                                continue;
-                            }
-                        },
-
-                        NumberFormat::Unknown => {
-                            match c {
-                                'x' => *format = NumberFormat::Hexadecimal,
-                                'b' => *format = NumberFormat::Binary,
-                                'd' => *format = NumberFormat::Decimal,
-                                _ => error::invalid_character(unit_path, c, line_number, char_index, line, "Invalid number format.")
-                            }
-
-                            continue;
-                        },
-
-                        NumberFormat::Float { .. } => unreachable!("Cannot have a float address literal. This is a bug."),
-
-                    }  
-
-                    if c == ']' {
-                        tokens.push(current_token.take().unwrap());                    
-                    } else {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, "Address literals can only be numeric.");
-                    }
-
-                    continue;
-                },
-
-                TokenValue::AddressAtIdentifier(identifier) => {
-                    if is_identifier_char(c, false) {
-                        identifier.push(c);
-                        continue;
-                    }
-
-                    if c != ']' {
-                        error::invalid_character(unit_path, c, line_number, char_index, line, format!("Expected a closing address ']', got '{}' instead.", c).as_str());
-                    }
-
-                    // Determine what kind of identifier it is
-                    if let Some(register) = Registers::from_name(identifier) {
-                        tokens.push(Token::new(TokenValue::AddressInRegister(register)));
-
-                    } else if is_reserved_name(identifier) {
-                        // Check if the name is a reserved keyword
-                        error::invalid_address_identifier(unit_path, identifier, line_number, line);
-
-                    } else {
-                        // The name is not reserved, then it's a label
-                        tokens.push(Token::new(TokenValue::AddressAtLabel(mem::take(identifier))));
-                    }
-
-                    current_token = None;
-
-                    continue;
-                },
-
-                TokenValue::Name(name) => {
-                    if is_identifier_char(c, false) {
-                        name.push(c);
-                        continue;
-                    }
-
-                    // Check if the name is a special reserved name 
-
-                    if let Some(register) = Registers::from_name(name) {
-                        tokens.push(Token::new(TokenValue::Register(register)));
-
-                    } else {
-                        // The name is not special, then it's a label
-                        tokens.push(Token::new(TokenValue::Label(mem::take(name))));
-                    }
-                    
-                    current_token = None;
+                if string.starts_with('#') {
+                    break;
                 }
-                   
-                TokenValue::Number { value, sign, format } => {
 
-                    match format {
+                let token_rc = Rc::new(SourceToken {
+                    string,
+                    unit_path,
+                    line_index,
+                    column: mat.start() + 1
+                });
 
-                        NumberFormat::Decimal => {
-                            if let Some(digit) = c.to_digit(10) {
+                let token = token_rc.as_ref();
+    
+                let token_value = match token.string {
+    
+                    "&" => TokenValue::Identifier(generate_unique_symbol!()),
 
-                                if matches!(sign, NumberSign::Negative) {
+                    "!" => TokenValue::Bang,
 
-                                    *value = value.checked_mul(10).unwrap_or_else(
-                                        || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                    ).checked_add(digit as i64).unwrap_or_else(
-                                        || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                    );
+                    "." => TokenValue::Dot,
+    
+                    "$" => TokenValue::CurrentPosition,
+    
+                    "%-" => TokenValue::InlineMacroDef { export: false },
+                    "%%-" => TokenValue::InlineMacroDef { export: true },
+    
+                    "@" => TokenValue::LabelDef { export: false },
+                    "@@" => TokenValue::LabelDef { export: true },
+    
+                    "%" => TokenValue::FunctionMacroDef { export: false },
+                    "%%" => TokenValue::FunctionMacroDef { export: true },
+    
+                    "[" => TokenValue::SquareOpen,
+                    "]" => TokenValue::SquareClose,
+                    "{" => TokenValue::CurlyOpen,
+                    "}" => TokenValue::CurlyClose,
+    
+                    "," => TokenValue::Comma,
+    
+                    string if string.starts_with("0x") => {
+                        TokenValue::Number(Number::UnsignedInt(
+                            u64::from_str_radix(&string[2..], 16)
+                                .unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str()))
+                        ))
+                    },
 
-                                } else {
-
-                                    *value = (*value as u64).checked_mul(10).unwrap_or_else(
-                                        || error::number_out_of_range::<u64>(unit_path, format!("{}{}", *value as u64, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                    ).checked_add(digit as u64).unwrap_or_else(
-                                        || error::number_out_of_range::<u64>(unit_path, format!("{}{}", *value as u64, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                    ) as i64;
-
-                                }
-
-                                continue;
-
-                            } else if c == '.' {
-                                *format = NumberFormat::Float { decimal: String::new() };
-                                continue;
-                            }
-        
-                            // After the decimal number is constructed, evaluate its sign
-                            if matches!(sign, NumberSign::Negative) {
-                                *value = -*value;
-                            }
-                        },
-
-                        NumberFormat::Hexadecimal => {
-                            if let Some(digit) = c.to_digit(16) {
-                                *value = value.checked_mul(16).unwrap_or_else(
-                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
-                                ).checked_add(digit as i64).unwrap_or_else(
-                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#x}{}", value, digit).as_str(), 16, REGISTER_SIZE as u8, line_number, line)
-                                );
-        
-                                continue;
-                            }
-                        },
-
-                        NumberFormat::Binary => {
-                            if let Some(digit) = c.to_digit(2) {
-                                *value = value.checked_mul(2).unwrap_or_else(
-                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
-                                ).checked_add(digit as i64).unwrap_or_else(
-                                    || error::number_out_of_range::<i64>(unit_path, format!("{:#b}{}", value, digit).as_str(), 2, REGISTER_SIZE as u8, line_number, line)
-                                );
-        
-                                continue;
-                            }
-                        },
-
-                        NumberFormat::Unknown => {
-                            match c {
-                                'x' => *format = NumberFormat::Hexadecimal,
-                                'b' => *format = NumberFormat::Binary,
-                                'd' => *format = NumberFormat::Decimal,
-
-                                _ => {
-
-                                    if let Some(digit) = c.to_digit(10) {
-                                        *format = NumberFormat::Decimal;
-
-                                        *value = value.checked_mul(10).unwrap_or_else(
-                                            || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                        ).checked_add(digit as i64).unwrap_or_else(
-                                            || error::number_out_of_range::<i64>(unit_path, format!("{}{}", value, digit).as_str(), 10, REGISTER_SIZE as u8, line_number, line)
-                                        );
-
-                                    } else {
-                                        tokens.push(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
-                                        current_token = None;
-                                    }
-                                }
-                            }
-
-                            continue;
-                        },
+                    string if string.starts_with("0b") => {
+                        TokenValue::Number(Number::UnsignedInt(
+                            u64::from_str_radix(&string[2..], 2)
+                                .unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str()))
+                        ))
+                    },
+    
+                    string if string.starts_with(is_decimal_numeric) => {
+                        TokenValue::Number(if string.contains('.') {
+                            Number::Float(string.parse::<f64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                        } else if string.starts_with('-') {
+                            Number::SignedInt(string.parse::<i64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                        } else {
+                            Number::UnsignedInt(string.parse::<u64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                        })
+                    },
+    
+                    string if string.starts_with('"') => {
+    
+                        if !string.ends_with('"') {
+                            error::tokenizer_error(&token, source, "Unterminated string literal.");
+                        }
+    
+                        let string = escape_string(string, &token, source);
+    
+                        TokenValue::StringLiteral(string)
+                    },
+            
+                    string if string.starts_with('\'') => {
+    
+                        if !string.ends_with('\'') {
+                            error::tokenizer_error(&token, source, "Unterminated character literal.");
+                        }
+    
+                        let escaped_string = escape_string(string, &token, source);
+    
+                        if escaped_string.len() != 1 {
+                            error::tokenizer_error(&token, source, format!("Invalid character literal. A character literal can only contain one character, but {} were found.", escaped_string.len()).as_str());
+                        }
+    
+                        let c = escaped_string.chars().next().unwrap();
+    
+                        TokenValue::Number(Number::UnsignedInt(c as u64))
+                    },
+    
+                    string => {
                         
-                        NumberFormat::Float { decimal } => {
-                            if c.is_ascii_digit() {
-                                decimal.push(c);
-                                continue;
-                            }
-
-                            if c == '.' {
-                                error::invalid_character(unit_path, c, line_number, char_index, line, "Floats can only have one decimal point.");
-                            }
-
-                            let decimal = decimal.parse::<f64>().unwrap_or_else(
-                                |e| error::invalid_float_number(unit_path, format!("{}.{}", value, decimal).as_str(), line_number, line, e.to_string().as_str())
-                            );
-
-                            // After the decimal number is constructed, evaluate its sign
-                            if matches!(sign, NumberSign::Negative) {
-                                *value = (*value as f64 - decimal) as i64;
+                        if let Some(instruction) = AsmInstruction::from_name(string) {
+                            TokenValue::Instruction(instruction)
+    
+                        } else if let Some(register) = Registers::from_name(string) {
+                            TokenValue::Register(register)
+    
+                        } else if string == "endmacro" {
+    
+                            if let Some(last_token) = current_line.pop_back() {
+                                if !matches!(last_token.value, TokenValue::FunctionMacroDef {..}) {
+                                    error::tokenizer_error(&token, source, "Expected the macro modifier `%` before the 'endmacro' keyword.")
+                                }
                             } else {
-                                *value = (*value as f64 + decimal) as i64;
+                                error::tokenizer_error(&token, source, "Expected the macro modifier `%` before the 'endmacro' keyword.")
                             }
-
-                        },
-
-                    }                    
-
-                    tokens.push(current_token.take().unwrap());
-                },
+    
+                            TokenValue::Endmacro
+    
+                        } else if IDENTIFIER_REGEX.is_match(string) {
+                            TokenValue::Identifier(string)
+    
+                        } else {
+                            error::tokenizer_error(&token, source, "Invalid token.")
+                        }
+    
+                    }
+                };
+    
+                current_line.push_back(Token {
+                    source: token_rc,
+                    value: token_value,
+                });
                 
-                _ => unreachable!("Unhandled token value type: {:?}. This is a bug.", token.value)
-                
-            }
-        }
-
-
-        if is_identifier_char(c, true) {
-            current_token = Some(Token::new(TokenValue::Name(c.to_string())));
-            continue;
-        }
-
-        if c == '0' {
-            current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Unknown }));
-            continue;
-        }
-
-        if let Some(digit) = c.to_digit(10) {
-            current_token = Some(Token::new(TokenValue::Number { value: digit as i64, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
-            continue;
-        }
-
-        match c {
-            ' ' | '\t' => continue,
-
-            '.' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Float { decimal: String::new() } }));
-                continue;
             }
 
-            '+' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Positive, format: NumberFormat::Decimal }));
-                continue;
-            }
-
-            '-' => {
-                current_token = Some(Token::new(TokenValue::Number { value: 0, sign: NumberSign::Negative, format: NumberFormat::Decimal }));
-                continue;
-            }
-
-            '\'' => {
-                // Use a null character to represent an empty char literal that will be filled later
-                current_token = Some(Token::new(TokenValue::Char('\0')));
-                continue;
-            }
-
-            '#' => break,
-
-            '[' => {
-                current_token = Some(Token::new(TokenValue::AddressGeneric()));
-                continue;
-            },
-
-            '=' => error::invalid_character(unit_path, c, line_number, char_index, line, "The given character wans't expected in this context. Maybe you forgot to declare a const macro?"),
-
-            _ => error::invalid_character(unit_path, c, line_number, char_index, line, "The given character wans't expected in this context.")
+            Some(current_line)
         }
-
-    }   
-
-    tokens
+    ).collect::<TokenLines>()
 }
 

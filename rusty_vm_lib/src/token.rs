@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::Path};
 
 use crate::registers::Registers;
 
@@ -18,6 +18,13 @@ pub enum NumberFormat {
 pub enum NumberSign {
     Positive,
     Negative,
+}
+
+
+pub enum Number {
+    SignedInt(i64),
+    UnsignedInt(u64),
+    Float(f64)
 }
 
 
@@ -100,23 +107,35 @@ impl TokenTypes {
 
 
 #[derive(Debug)]
-pub struct Token {
-    pub value: TokenValue
+pub struct SourceToken<'a> {
+
+    pub string: &'a str,
+    pub line_index: usize,
+    pub column: usize,
+    pub unit_path: &'a Path
+
 }
 
+impl SourceToken<'_> {
 
-impl Token {
-
-    pub fn new(value: TokenValue) -> Token {
-        Token {
-            value
-        }
+    #[inline]
+    pub fn line_number(&self) -> usize {
+        self.line_index + 1
     }
 
 }
 
 
-impl fmt::Display for Token {
+#[derive(Debug)]
+pub struct Token<'a> {
+
+    pub value: TokenValue,
+    pub source: SourceToken<'a>,
+    
+}
+
+
+impl fmt::Display for Token<'_> {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {

@@ -10,6 +10,7 @@ colored = "2.0.4"
 indoc = "2.0.3"
 lazy_static = "1.4.0"
 num = "0.4.1"
+regex = "1.10.5"
 
 [dependencies.rusty_vm_lib]
 path = "../rusty_vm_lib"

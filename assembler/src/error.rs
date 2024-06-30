@@ -1,13 +1,41 @@
-use std::path::Path;
+use std::cmp::min;
 
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
-use num::{FromPrimitive, Num};
-use num::traits::ToBytes;
 
-use rusty_vm_lib::token::Token;
+use crate::module_manager::ModuleManager;
+use crate::tokenizer::{SourceCode, SourceToken};
 
-use crate::assembler::{LabelMap, MacroMap};
+
+pub fn print_source_context(source: SourceCode, line_index: usize, char_pointer: usize) {
+
+    /// Number of lines of source code to include before and after the highlighted line in error messages
+    const SOURCE_CONTEXT_RADIUS: u8 = 3;
+
+    // Calculate the beginning of the context. Saturating subtraction is used interpret underflow as 0.
+    let mut index = line_index.saturating_sub(SOURCE_CONTEXT_RADIUS as usize);
+    let end_index = min(line_index + SOURCE_CONTEXT_RADIUS as usize + 1, source.len());
+
+    let line_number_width = end_index.to_string().len();
+    
+    // Print the source lines before the highlighted line.
+    while index < line_index {
+        println!(" {:line_number_width$}  {}", index + 1, source[index]);
+        index += 1;
+    }
+
+    // The highlighted line.
+    println!("{}{:line_number_width$}  {}", ">".bright_red().bold(), index + 1, source[line_index]);
+    println!(" {:line_number_width$} {:>char_pointer$}{}", "", "", "^".bright_red().bold());
+    index += 1;
+
+    // Lines after the highlighted line.
+    while index < end_index {
+        println!(" {:line_number_width$}  {}", index + 1, source[index]);
+        index += 1;
+    }
+}
+
 
 
 pub fn warn(message: &str) {
@@ -19,348 +47,129 @@ pub fn warn(message: &str) {
 }
 
 
-pub fn invalid_data_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_escape_sequence(token: &SourceToken, sequence: char, char_at: usize, source: SourceCode) -> ! {
     printdoc!("
         ❌ Error in assembly unit_path \"{}\"
 
-        Invalid data declaration at line {}:
-        {}
-
-        {}
+        Invalid escape sequence `{sequence}` at line {}:{}:
         ",
-        unit_path.display(), line_number, line, hint
+        token.unit_path.display(), token.line_number(), token.column
     );
+
+    print_source_context(source, token.line_index, char_at);
+
+    std::process::exit(1);   
+}
+
+
+pub fn parsing_error(token: &SourceToken, module_manager: &ModuleManager, message: &str) -> ! {
+    eprintln!("Assembly unit \"{}\"", token.unit_path.display());
+    eprintln!("Parsing error at {}:{} on token `{}`:\n{}", token.line_number(), token.column, token.string, message);
+
+    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+
     std::process::exit(1);
 }
 
 
-pub fn invalid_macro_declaration(unit_path: &Path, macro_name: &str, line_number: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_number_format(token: &SourceToken, source: SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
-        Invalid macro declaration \"{}\" at line {}:
-        {}
-
-        {}
+        Invalid number `{}` at line {}:{}:
+        {hint}
         ",
-        unit_path.display(), macro_name, line_number, line, hint
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
+
+    print_source_context(source, token.line_index, token.column);
+
     std::process::exit(1);
 }
 
 
-pub fn invalid_macro_call(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
+pub fn invalid_number_size(token: &SourceToken, module_manager: &ModuleManager, actual_size: usize, expected_size: usize) {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
-        Invalid macro call at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), line_number, line, hint
-    );
-    std::process::exit(1);
-}
-
-
-pub fn macro_redeclaration(unit_path: &Path, macro_name: &str, prev_declaration_line: usize, prev_declaration_unit: &Path, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Macro \"{}\" redeclaration at line {}:
-        {}
-
-        Previously declared at line {} in unit \"{}\".
-        ",
-        unit_path.display(), macro_name, line_number, line, prev_declaration_line, prev_declaration_unit.display()
-    );
-    std::process::exit(1);
-}
-
-
-pub fn out_of_section(unit_path: &Path, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
+        Invalid number `{}` at line {}:{}:
+        The number is expected to have a size of {expected_size} bytes, but the least amount of bytes needed to correctly represent it is {actual_size}.
         
-        Instruction or data declaration outside of a section at line {}:
-        {}
         ",
-        unit_path.display(), line_number, line
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
+
+    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+
     std::process::exit(1);
 }
 
 
-pub fn invalid_section_declaration(unit_path: &Path, name: &str, line_number: usize, line: &str, hint: &str) -> ! {
+pub fn symbol_redeclaration(old_def: &SourceToken, new_def: &SourceToken, module_manager: &ModuleManager, message: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
-        Invalid section declaration \"{}\" at line {}:
-        {}
+        Redeclaration of symbol '{}` at line {}:{}:
 
-        {}
-        ",
-        unit_path.display(), name, line_number, line, hint
+        New declaration in assembly unit \"{}\":
+
+    ",
+        new_def.unit_path.display(), new_def.string, new_def.line_number(), new_def.column, new_def.unit_path.display()
     );
+
+    print_source_context(&module_manager.get_unit(new_def.unit_path).lines, new_def.line_index, new_def.column);
+
+    println!("\nOld declaration in assembly unit \"{}\":\n", old_def.unit_path.display());
+
+    print_source_context(&module_manager.get_unit(old_def.unit_path).lines, old_def.line_index, old_def.column);
+
+    println!("\n\n{message}\n");
+
     std::process::exit(1);
 }
 
 
-pub fn label_redeclaration(unit_path: &Path, label: &str, line_number: usize, line: &str) -> ! {
+pub fn tokenizer_error(token: &SourceToken, source: SourceCode, message: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
-        Label \"{}\" redeclaration at line {}:
-        {}
+        Tokenization error on token `{}` at {}:{}:
+        {message}
         ",
-        unit_path.display(), label, line_number, line
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
+
+    print_source_context(source, token.line_index, token.column);
+
     std::process::exit(1);
 }
 
 
-pub fn invalid_character(unit_path: &Path, c: char, line_number: usize, char_index: usize, line: &str, hint: &str) -> ! {
+pub fn unresolved_label(token: &SourceToken, module_manager: &ModuleManager) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
-        Invalid character '{}' at line {};{}:
-        {}
-
-        {}
+        Could not resolve label `{}` at {}:{}:
+        
         ",
-        unit_path.display(), c, line_number, char_index, line, hint
+        token.unit_path.display(), token.string, token.line_number(), token.column
     );
+
+    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+
     std::process::exit(1);
 }
 
 
-pub fn invalid_instruction_name(unit_path: &Path, name: &str, line_number: usize, line: &str) -> ! {
+pub fn io_error(error: std::io::Error, hint: &str) -> ! {
     printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid instruction name '{}' at line {}:
-        {}
-        ",
-        unit_path.display(), name, line_number, line
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_arg_number(unit_path: &Path, given: usize, expected: usize, line_number: usize, line: &str, instruction: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid number of arguments for instruction `{}` at line {}:
-        {}
-
-        Expected {} arguments, got {}.
-        ",
-        unit_path.display(), instruction, line_number, line, expected, given
-    );
-    std::process::exit(1);
-}
-
-
-pub fn unclosed_macro_definition(unit_path: &Path, macro_name: &str, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Unclosed macro definition \"{}\" at line {}:
-        {}
-        ",
-        unit_path.display(), macro_name, line_number, line
-    );
-    std::process::exit(1);
-}
-
-
-pub fn undeclared_label(unit_path: &Path, label: &str, local_labels: &LabelMap, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Undeclared label \"{}\" at line {}:
-        {}
-
-        Available labels are:
-        {}
-        ",
-        unit_path.display(), label, line_number, line,
-        // Cloning is fine since this is the program exit point
-        local_labels.keys().cloned().collect::<Vec<String>>().join("\n")
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_bss_declaration(unit_path: &Path, line_number: usize, line: &str, hint: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid BSS declaration at line {}:
-        {}
+        ❌ IO error: {}
 
         {}
         ",
-        unit_path.display(), line_number, line, hint
+        error, hint
     );
-    std::process::exit(1);
-}
 
-
-pub fn undeclared_macro(unit_path: &Path, macro_name: &str, local_macros: &MacroMap, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Undeclared macro \"{}\" at line {}:
-        {}
-
-        Available macros are:
-        {}
-        ",
-        unit_path.display(), macro_name, line_number, line,
-        local_macros.iter().map(
-            |(name, def)| format!("{} in {}", name, def.unit_path.display())
-        ).collect::<Vec<String>>().join("\n")
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_label_name(unit_path: &Path, name: &str, line_number: usize, line: &str, hint: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid label name \"{}\" at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), name, line_number, line, hint
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_token_argument(unit_path: &Path, instruction: &str, arg: &Token, line_number: usize, line: &str, possible_arguments: &[String]) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid argument \"{}\" for instruction `{}` at line {}:
-        {}
-
-        Possible arguments for instruction {} are:
-        {}
-        ",
-        unit_path.display(), arg, instruction, line_number, line, instruction,
-        possible_arguments.iter().map(
-            |args| format!("{} {}", instruction, args)
-        ).collect::<Vec<String>>().join("\n")
-    );
-    
-    std::process::exit(1);
-}
-
-
-pub fn number_out_of_range<N>(unit_path: &Path, number: &str, radix: u32, size_bytes: u8, line_number: usize, line: &str) -> ! 
-    where N: Num + ToBytes + FromPrimitive
-{
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Number {} is out of range at line {}:
-        {}
-
-        The number must fit in {} bytes.
-        Bytes: {:?}
-        ",
-        unit_path.display(), number, line_number, line, size_bytes,
-        N::from_str_radix(number, radix).map(|n| n.to_le_bytes()).unwrap_or(N::from_f32(f32::NAN).unwrap().to_le_bytes())
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_float_number(unit_path: &Path, number: &str, line_number: usize, line: &str, hint: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid float number {} at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), number, line_number, line, hint
-    );
-    std::process::exit(1);
-}
-
-
-pub fn unclosed_string_literal(unit_path: &Path, line_number: usize, char_index: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Unclosed string literal at line {};{}:
-        {}
-        ",
-        unit_path.display(), line_number, char_index, line
-    );
-    std::process::exit(1);
-}
-
-
-pub fn unclosed_char_literal(unit_path: &Path, line_number: usize, char_index: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Unclosed character literal at line {};{}:
-        {}
-        ",
-        unit_path.display(), line_number, char_index, line
-    );
-    std::process::exit(1);
-}
-
-
-pub fn io_error(unit_path: &Path, error: &std::io::Error, hint: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        IO error: {}
-
-        {}
-        ",
-        unit_path.display(), error, hint
-    );
-    std::process::exit(1);
-}
-
-
-pub fn include_error(unit_path: &Path, error: &std::io::Error, file_path: &str, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Failed to include file \"{}\" at line {}:
-        {}
-
-        {}
-        ",
-        unit_path.display(), file_path, line_number, line, error
-    );
-    std::process::exit(1);
-}
-
-
-pub fn invalid_address_identifier(unit_path: &Path, name: &str, line_number: usize, line: &str) -> ! {
-    printdoc!("
-        ❌ Error in assembly unit \"{}\"
-
-        Invalid address identifier \"{}\" at line {}:
-        {}
-        ",
-        unit_path.display(), name, line_number, line
-    );
     std::process::exit(1);
 }
 

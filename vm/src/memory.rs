@@ -50,6 +50,15 @@ impl Memory {
     }
 
 
+    // TODO: probably this is faster than get_bytes
+    pub fn read<T>(&self, address: Address) -> T {
+        unsafe {
+            ((self.memory.as_ptr() as usize + address) as *const T)
+            .read_unaligned()
+        }
+    }
+
+
     pub fn get_byte(&self, address: Address) -> Byte {
         self.memory[address]
     }

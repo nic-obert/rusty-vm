@@ -49,7 +49,6 @@ impl Registers {
 }
 
 impl std::convert::From<u8> for Registers {
-
     fn from(value: u8) -> Self {
         if value < REGISTER_COUNT as u8 {
             unsafe { std::mem::transmute(value) }
@@ -57,7 +56,6 @@ impl std::convert::From<u8> for Registers {
             panic!("Invalid register number: {}", value);
         }
     }
-
 }
 
 impl fmt::Display for Registers {
@@ -84,6 +82,7 @@ declare_registers! {
     INPUT input,
     ERROR error,
     PRINT print,
+    INTERRUPT intreg,
 
     STACK_TOP_POINTER stp,
     PROGRAM_COUNTER pc,

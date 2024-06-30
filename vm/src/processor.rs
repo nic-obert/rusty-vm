@@ -23,7 +23,7 @@ use crate::terminal::Terminal;
 
 
 /// Return whether the most significant bit of the given value is set
-#[inline(always)]
+#[inline]
 fn is_msb_set(value: u64) -> bool {
     value & (1 << 63) != 0
 }
@@ -41,10 +41,11 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
 }
 
 
+// TODO: make this function faster (and unsafe)
 /// Interprets the given bytes as an address
 /// 
 /// The byte array must be 8 bytes long
-#[inline(always)]
+#[inline]
 fn bytes_as_address(bytes: &[Byte]) -> Address {
     Address::from_le_bytes(bytes.try_into().unwrap())
 }
@@ -187,7 +188,7 @@ impl Processor {
 
 
     /// Get the next address in the bytecode
-    #[inline(always)]
+    #[inline]
     fn get_next_address(&mut self) -> Address {
         let pc = self.registers.pc();
         self.registers.inc_pc(ADDRESS_SIZE);
@@ -766,9 +767,9 @@ impl Processor {
 
             ByteCodes::DEC_ADDR_LITERAL => {
                 let size = self.get_next_byte();
-            let dest_address = self.get_next_address();
+                let dest_address = self.get_next_address();
             
-            self.decrement_bytes(dest_address, size);
+                self.decrement_bytes(dest_address, size);
             },
 
             ByteCodes::NO_OPERATION => {
@@ -779,6 +780,16 @@ impl Processor {
                 let dest_reg = Registers::from(self.get_next_byte());
                 let source_reg = Registers::from(self.get_next_byte());
                 self.registers.set(dest_reg, self.registers.get(source_reg));
+            },
+
+            ByteCodes::MOVE_INTO_REG_FROM_REG_SIZED => {
+                let size = self.get_next_byte();
+                let dest_reg = Registers::from(self.get_next_byte());
+                let source_reg = Registers::from(self.get_next_byte());
+
+                let value = self.registers.get_masked(source_reg, size);
+
+                self.registers.set(dest_reg, value);
             },
 
             ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG => {
@@ -886,6 +897,15 @@ impl Processor {
 
                 self.push_stack(self.registers.get(src_reg));
             },
+
+            ByteCodes::PUSH_FROM_REG_SIZED => {
+                let size = self.get_next_byte();
+                let src_reg = Registers::from(self.get_next_byte());
+
+                self.push_stack(
+                    self.registers.get_masked(src_reg, size)
+                );
+            }
             
             ByteCodes::PUSH_FROM_ADDR_IN_REG => {
                 let size = self.get_next_byte();
@@ -917,6 +937,15 @@ impl Processor {
                 let offset = self.registers.get(reg);
         
                 self.push_stack_pointer(offset as usize);
+            },
+
+            ByteCodes::PUSH_STACK_POINTER_REG_SIZED => {
+                let size = self.get_next_byte();
+                let reg = Registers::from(self.get_next_byte());
+
+                self.push_stack_pointer(
+                    self.registers.get_masked(reg, size) as usize
+                );
             },
             
             ByteCodes::PUSH_STACK_POINTER_ADDR_IN_REG => {
@@ -1146,7 +1175,8 @@ impl Processor {
                 let left_reg = Registers::from(self.get_next_byte());
                 let right_reg = Registers::from(self.get_next_byte());
             
-                let result = self.registers.get(left_reg) as i64 - self.registers.get(right_reg) as i64;
+                let result = self.registers.get(left_reg) as i64
+                    - self.registers.get(right_reg) as i64;
         
                 self.set_arithmetical_flags(
                     result == 0,
@@ -1156,6 +1186,23 @@ impl Processor {
                     false
                 );
             },
+
+            ByteCodes::COMPARE_REG_REG_SIZED => {
+                let size = self.get_next_byte();
+                let left_reg = Registers::from(self.get_next_byte());
+                let right_reg = Registers::from(self.get_next_byte());
+
+                let result = self.registers.get_masked(left_reg, size) as i64
+                    - self.registers.get_masked(right_reg, size) as i64;
+            
+                self.set_arithmetical_flags(
+                    result == 0,
+                    is_msb_set(result as u64),
+                    0,
+                    false,
+                    false
+                );
+            }
             
             ByteCodes::COMPARE_REG_ADDR_IN_REG => {
                 let size = self.get_next_byte();
@@ -1537,30 +1584,8 @@ impl Processor {
                 self.registers.set(Registers::R1, result);
             },
             
-            ByteCodes::INTERRUPT_REG => {
-                let reg = Registers::from(self.get_next_byte());
-                let intr_code = self.registers.get(reg) as u8;
-        
-                self.handle_interrupt(intr_code);
-            },
-            
-            ByteCodes::INTERRUPT_ADDR_IN_REG => {
-                let address_reg = Registers::from(self.get_next_byte());
-                let address = self.registers.get(address_reg) as Address;
-                let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
-        
-                self.handle_interrupt(intr_code);
-            },
-            
-            ByteCodes::INTERRUPT_CONST => {
-                let intr_code = self.get_next_byte();
-
-                self.handle_interrupt(intr_code);
-            },
-            
-            ByteCodes::INTERRUPT_ADDR_LITERAL => {
-                let address = self.get_next_address();
-                let intr_code = bytes_to_int(self.memory.get_bytes(address, 1), 1) as u8;
+            ByteCodes::INTERRUPT => {
+                let intr_code = self.registers.get(Registers::INTERRUPT) as u8;
         
                 self.handle_interrupt(intr_code);
             },
@@ -1580,6 +1605,7 @@ impl Processor {
 
 
     /// Set the arithmetical flags
+    #[inline]
     fn set_arithmetical_flags(&mut self, zf: bool, sf: bool, rf: u64, cf: bool, of: bool) {
         self.registers.set(Registers::ZERO_FLAG, zf as u64);
         self.registers.set(Registers::SIGN_FLAG, sf as u64);
