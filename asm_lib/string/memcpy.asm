@@ -3,7 +3,7 @@
 
 .include:
 
-    asmutils/functoinal.asm
+    "asmutils/functoinal.asm"
 
 
 .text:

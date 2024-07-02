@@ -10,10 +10,10 @@
 
 ### In Progress
 
-- [ ] put all include paths in quotes to make it easier to parse  
 
 ### Done ✓
 
+- [x] put all include paths in quotes to make it easier to parse  
 - [x] fix misrepresented float numbers. during tokenization, all numbers are converted to i64. here we need to use a union or an enum to distinguish between u64, i64, and f64  
 - [x] eventually, upgrade the assembler to use a parsing tree to allow for more complex expressions (const expressions, for example)  
 - [x] add sized operations for registers aloing with whole-register operations. for example PUSH_FROM_REG can have a twin like PUSH_FROM_REG_SIZED to specify how many bytes to push from the register. Not every reg instruction needs a sized counterpart, though. increment and decrement instructiond don't need a sized twin.  

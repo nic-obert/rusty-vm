@@ -1,13 +1,13 @@
 .include:
 
-    asmutils/functional.asm
-    string/memcpy.asm
-    stdlib/memory.asm
+    "asmutils/functional.asm"
+    "string/memcpy.asm"
+    "stdlib/memory.asm"
 
-    item_size.asm
-    length.asm
-    shared.asm
-    metadata.asm
+    "item_size.asm"
+    "length.asm"
+    "shared.asm"
+    "metadata.asm"
 
 
 .text:

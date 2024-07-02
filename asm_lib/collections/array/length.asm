@@ -1,6 +1,6 @@
 .include:
 
-    metadata.asm
+    "metadata.asm"
 
 
 .text:

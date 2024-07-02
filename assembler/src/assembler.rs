@@ -1,12 +1,12 @@
 use rusty_vm_lib::assembly::ByteCode;
 
 use crate::generator::generate_bytecode;
-use crate::lang::AsmNode;
+use crate::lang::{AsmNode, ENTRY_SECTION_NAME};
 use crate::{error, generator, parser, tokenizer};
 use crate::module_manager::{AsmUnit, ModuleManager};
 use crate::symbol_table::{ExportedSymbols, SymbolTable};
-use crate::files;
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
 
@@ -932,7 +932,8 @@ use std::path::{Path, PathBuf};
 // }
 
 
-pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, symbol_table: &SymbolTable<'a>, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> Box<[AsmNode<'a>]> {
+/// Load the assembly if it isn't already loaded
+pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, symbol_table: &SymbolTable<'a>, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> Option<Box<[AsmNode<'a>]>> {
 
     // Shadow the previous `unit_path` to avoid confusion with the variables
     let unit_path = module_manager.resolve_include_path(caller_directory, unit_path)
@@ -940,11 +941,11 @@ pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, s
             error::io_error(err, format!("Failed to canonicalize path \"{}\"", unit_path.display()).as_str()));
 
     if module_manager.is_loaded(&unit_path) {
-        // If the module was already imported, return an empty assembly
-        return Default::default();
+        // The module was already imported, there's no need to re-import it
+        return None;
     }
 
-    let raw_source = files::load_assembly(unit_path)
+    let raw_source = fs::read_to_string(unit_path)
         .unwrap_or_else(|err| error::io_error(err, format!("Could not load file \"{}\"", unit_path.display()).as_str()));
 
     let asm_unit = module_manager.add_unit(unit_path, AsmUnit::new(raw_source));
@@ -965,29 +966,23 @@ pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, s
     //     println!("{:?}", node);
     // }
 
-    asm
+    Some(asm)
 }
 
 
-pub fn assemble_unit<'a>(caller_directory: &Path, unit_path: &'a Path, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> ExportedSymbols<'a> {
+pub fn assemble_included_unit<'a>(caller_directory: &Path, unit_path: &'a Path, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> ExportedSymbols<'a> {
 
     let symbol_table = SymbolTable::new();
 
-    let asm = load_unit_asm(Some(caller_directory), unit_path, &symbol_table, &module_manager, bytecode);
+    let asm = if let Some(asm) = load_unit_asm(Some(caller_directory), unit_path, &symbol_table, &module_manager, bytecode) {
+        asm
+    } else {
+        return Default::default();
+    };
 
     generator::generate_bytecode(asm, &symbol_table, module_manager, bytecode);
 
     symbol_table.export_symbols()
-}
-
-
-fn assemble_unit_no_exports<'a>(caller_directory: &Path, unit_path: &'a Path, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) {
-
-    let symbol_table = SymbolTable::new();
-
-    let asm = load_unit_asm(Some(caller_directory), unit_path, &symbol_table, &module_manager, bytecode);
-
-    generate_bytecode(asm, &symbol_table, module_manager, bytecode);
 }
 
 
@@ -996,9 +991,20 @@ pub fn assemble_all(caller_directory: &Path, unit_path: &Path, include_paths: Ve
     
     let module_manager = ModuleManager::new(include_paths);
 
+    let symbol_table = SymbolTable::new();
+    
     let mut bytecode = ByteCode::new();
 
-    assemble_unit_no_exports(caller_directory, unit_path, &module_manager, &mut bytecode);
+    let asm = load_unit_asm(Some(caller_directory), unit_path, &symbol_table, &module_manager, &mut bytecode)
+        .expect("Main ASM unit should not be already loaded");
+
+    generate_bytecode(asm, &symbol_table, &module_manager, &mut bytecode);
+
+    if let Some(program_start) = symbol_table.get_resolved_label(ENTRY_SECTION_NAME) {
+        bytecode.extend(program_start.to_le_bytes());
+    } else {
+        error::missing_entry_point(unit_path);
+    }
 
     bytecode
 }

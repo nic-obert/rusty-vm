@@ -4,7 +4,7 @@
 
 .include:
 
-    errors.asm
+    "archlib.asm"
 
 
 .text:

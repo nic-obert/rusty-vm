@@ -3,10 +3,10 @@
 
 .include:
 
-    constants.asm
-    archlib.asm
-    asmutils/functional.asm
-    stdio.asm
+    "constants.asm"
+    "archlib.asm"
+    "asmutils/functional.asm"
+    "stdio.asm"
 
 
 .text:

@@ -1,7 +1,7 @@
 use rusty_vm_lib::assembly::ByteCode;
 
 use crate::{assembler, error};
-use crate::lang::{AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, FunctionMacroDef, InlineMacroDef, LabelDef, INCLUDE_SECTION_NAME};
+use crate::lang::{AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, FunctionMacroDef, InlineMacroDef, INCLUDE_SECTION_NAME};
 use crate::tokenizer::{Token, TokenLines, TokenList, TokenValue};
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
@@ -19,7 +19,8 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
 
     while let Some(token) = tokens.get(i) {
 
-        if matches!(token.value, TokenValue::Bang) {
+        // ! is the first token in the line, this is a function macro, not an inline macro
+        if matches!(token.value, TokenValue::Bang) && i != 0 {
 
             let macro_name = tokens.get(i+1).unwrap_or_else(
                 || error::parsing_error(&token.source, module_manager, "Missing macro name after `!`.")
@@ -146,7 +147,8 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
                     TokenValue::CurlyOpen |
                     TokenValue::CurlyClose |
                     TokenValue::StringLiteral(_) |
-                    TokenValue::Instruction(_)
+                    TokenValue::Instruction(_) |
+                    TokenValue::Colon
                         => error::parsing_error(&addr_operand.source, module_manager, "Cannot address this token"),
 
                     TokenValue::Bang => unreachable!("Macros are expanded before the main parsing")
@@ -161,7 +163,8 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
             TokenValue::SquareClose |
             TokenValue::FunctionMacroDef { .. } |
             TokenValue::InlineMacroDef { .. } |
-            TokenValue::Comma
+            TokenValue::Comma |
+            TokenValue::Colon
                 => error::parsing_error(&token.source, module_manager, "Token cannot be used as here."),
             
             TokenValue::Bang => unreachable!("Macros are expanded before the main parsing"),
@@ -222,7 +225,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
 
             symbol_table.declare_label(
                 label, 
-                LabelDef { source: main_operator.source, value: None }, 
+                main_operator.source, 
                 export
             );
         },
@@ -254,7 +257,8 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         TokenValue::CurlyClose |
         TokenValue::Register(_) |
         TokenValue::Identifier(_) |
-        TokenValue::StringLiteral(_) 
+        TokenValue::StringLiteral(_) |
+        TokenValue::Colon
         => error::parsing_error(&main_operator.source, module_manager, "Token cannot be used as a main operator"),
         
         TokenValue::Dot |
@@ -335,6 +339,19 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
         error::parsing_error(&name_token.source, module_manager, "Expected an identifier as section name");
     };
 
+    let colon_token = line.pop_front().unwrap_or_else(
+        || error::parsing_error(&main_operator.source, module_manager, "Expected a trailing colon after section name in section delcaration.")
+    );
+    if !matches!(colon_token.value, TokenValue::Colon) {
+        error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon after section name in section delcaration.");
+    }
+    if !line.is_empty() {
+        error::parsing_error(&line.pop_front().unwrap().source, module_manager, "Unexpected token after section declaration. A section delcaration must end with a colon.");
+    }
+
+    // Declare the section label so that it can be used. Section labels are not exportable.
+    symbol_table.declare_label(name, name_token.source, false);
+
     nodes.push(AsmNode {
         source: Rc::clone(&main_operator.source),
         value: AsmNodeValue::Label(name)
@@ -382,7 +399,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
                 error::parsing_error(&include_line[0].source, module_manager, "Expected a string literal as include path")
             };
 
-            let exports = assembler::assemble_unit(&main_operator.source.unit_path, include_path, module_manager, bytecode);
+            let exports = assembler::assemble_included_unit(&main_operator.source.unit_path, include_path, module_manager, bytecode);
 
             symbol_table.import_symbols(exports, to_re_export, module_manager);
         }
@@ -402,9 +419,9 @@ fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Toke
         error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name");
     };
 
-    // The rest of the line is the macro parameters
+    // The rest of the line is the macro parameters, except for the trailing semicolon
 
-    let args = line.drain(..).map(
+    let args = line.drain(..line.len()-1).map(
         |token| {
             if let TokenValue::Identifier(name) = token.value {
                 name
@@ -414,6 +431,13 @@ fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Toke
         }
         ).collect::<Vec<&str>>()
         .into_boxed_slice();
+
+    let colon_token = line.get(0).unwrap_or_else(
+        || error::parsing_error(&main_operator.source, module_manager, "Expected a trailing colon in macro definition")
+    );
+    if !matches!(colon_token.value, TokenValue::Colon) {
+        error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon in macro definition");
+    }
 
     // The next lines until %endmacro are the body
 

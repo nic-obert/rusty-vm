@@ -32,6 +32,7 @@ pub enum TokenValue<'a> {
     InlineMacroDef { export: bool },
     Endmacro,
     Bang,
+    Colon,
     LabelDef { export: bool },
     Dot,
     Comma,
@@ -179,6 +180,8 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: &'a Path) -> TokenLines<'
                 let token = token_rc.as_ref();
     
                 let token_value = match token.string {
+
+                    ":" => TokenValue::Colon,
     
                     "&" => TokenValue::Identifier(generate_unique_symbol!()),
 

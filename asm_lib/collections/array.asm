@@ -9,11 +9,11 @@
 
 .include:
 
-    @@ array/get.asm
-    @@ array/item_size.asm
-    @@ array/length.asm
-    @@ array/new.asm
-    @@ array/set.asm
-    @@ array/resize.asm
-    @@ array/shared.asm
+    @@ "array/get.asm"
+    @@ "array/item_size.asm"
+    @@ "array/length.asm"
+    @@ "array/new.asm"
+    @@ "array/set.asm"
+    @@ "array/resize.asm"
+    @@ "array/shared.asm"
 

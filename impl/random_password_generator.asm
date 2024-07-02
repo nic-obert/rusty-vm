@@ -4,9 +4,9 @@
 
 .include:
 
-    stdio.asm
-    stdlib.asm
-    errors.asm
+    "stdio.asm"
+    "stdlib.asm"
+    "errors.asm"
 
 
 .data:

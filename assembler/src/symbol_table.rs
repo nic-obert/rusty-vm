@@ -8,6 +8,7 @@ use rusty_vm_lib::vm::Address;
 use crate::error;
 use crate::lang::{FunctionMacroDef, InlineMacroDef, LabelDef};
 use crate::module_manager::ModuleManager;
+use crate::tokenizer::SourceToken;
 
 
 struct LabelExport<'a> {
@@ -44,6 +45,8 @@ impl<'a> Into<(&'a str, FunctionMacroDef<'a>)> for FunctionMacroExport<'a> {
     }
 }
 
+
+#[derive(Default)]
 pub struct ExportedSymbols<'a> {
 
     labels: Box<[LabelExport<'a>]>,
@@ -245,11 +248,14 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_label(&self, name: &'a str, def: LabelDef<'a>, export: bool) -> Option<LabelDef> {
+    pub fn declare_label(&self, name: &'a str, def: Rc<SourceToken<'a>>, export: bool) -> Option<LabelDef> {
 
         let labels = unsafe { &mut *self.labels.get() };
 
-        let old_def = labels.insert(name, def);
+        let old_def = labels.insert(name, LabelDef {
+            source: def,
+            value: None
+        });
 
         if export {
             unsafe { &mut *self.export_labels.get() }.push(name);
@@ -264,7 +270,9 @@ impl<'a> SymbolTable<'a> {
 
         let labels = unsafe { &mut *self.labels.get() };
 
-        labels.get_mut(name).unwrap().value = Some(value);
+        labels.get_mut(name)
+            .expect(format!("Label `{name}` should already be declared").as_str())
+            .value = Some(value);
     }
 
 

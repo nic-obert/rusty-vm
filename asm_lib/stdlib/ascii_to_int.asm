@@ -9,10 +9,10 @@
 
 .include:
 
-    ctype.asm
-    stdlib/ascii_to_digit.asm
-    errors.asm
-    math/to_signed.asm
+    "ctype.asm"
+    "stdlib/ascii_to_digit.asm"
+    "errors.asm"
+    "math/to_signed.asm"
 
 
 .text:

@@ -14,9 +14,9 @@
 
 .include:
 
-    asmutils/functional.asm
-    asmutils/pointer/ptr_def.asm
-    stdlib/memory.asm
+    "asmutils/functional.asm"
+    "asmutils/pointer/ptr_def.asm"
+    "stdlib/memory.asm"
 
 
 .text:

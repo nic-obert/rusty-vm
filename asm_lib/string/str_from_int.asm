@@ -3,9 +3,9 @@
 
 .include:
 
-    stdlib/memory.asm
-    stdio/print.asm
-    asmutils/functional.asm
+    "stdlib/memory.asm"
+    "stdio/print.asm"
+    "asmutils/functional.asm"
 
 
 .text:

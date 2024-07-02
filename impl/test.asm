@@ -1,9 +1,9 @@
 
 .include:
 
-    stdio/print.asm
-    math.asm
-    archlib.asm
+    "stdio/print.asm"
+    "math.asm"
+    "archlib.asm"
 
 
 .data:
@@ -13,7 +13,7 @@
 
 .text:
 
-@start
+@start:
 
     
     mov8 r1 4

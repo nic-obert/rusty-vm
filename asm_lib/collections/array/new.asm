@@ -1,9 +1,9 @@
 .include:
 
-    asmutils/functional.asm
-    stdlib/memory.asm
+    "asmutils/functional.asm"
+    "stdlib/memory.asm"
 
-    metadata.asm
+    "metadata.asm"
 
 
 .text:

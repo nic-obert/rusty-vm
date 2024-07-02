@@ -4,6 +4,6 @@
 
 .include:
 
-    @@ pointer/ptr_index.asm
-    @@ pointer/ptr_def.asm
+    @@ "pointer/ptr_index.asm"
+    @@ "pointer/ptr_def.asm"
 

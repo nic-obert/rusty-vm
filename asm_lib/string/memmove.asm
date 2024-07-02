@@ -3,8 +3,8 @@
 
 .include:
 
-    string/memcpy.asm
-    asmutils/functional.asm
+    "string/memcpy.asm"
+    "asmutils/functional.asm"
 
 
 .text:

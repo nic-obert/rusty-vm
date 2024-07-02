@@ -9,8 +9,8 @@
 
 .include: 
 
-    stdio.asm
-    time.asm
+    "stdio.asm"
+    "time.asm"
 
 
 .text:

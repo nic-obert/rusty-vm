@@ -1,7 +1,7 @@
 .include:
 
-    interrupts.asm
-    stdio/print.asm
+    "archlib.asm"
+    "stdio/print.asm"
 
 
 .text:

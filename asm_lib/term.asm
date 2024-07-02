@@ -4,11 +4,11 @@
 
 .include:
 
-    archlib.asm
-    stdbool.asm
-    errors.asm
-    asmutils/functional.asm
-    asmutils/ptr_index.asm
+    "archlib.asm"
+    "stdbool.asm"
+    "errors.asm"
+    "asmutils/functional.asm"
+    "asmutils/ptr_index.asm"
 
 
 .text:

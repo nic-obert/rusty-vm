@@ -1,8 +1,8 @@
 .include:
 
-    asmutils/functional.asm
+    "asmutils/functional.asm"
 
-    item_size.asm
+    "item_size.asm"
 
 
 .text:

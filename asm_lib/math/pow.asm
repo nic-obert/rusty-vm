@@ -3,8 +3,8 @@
 
 .include:
 
-    archlib.asm
-    asmutils/functional.asm
+    "archlib.asm"
+    "asmutils/functional.asm"
 
 
 .text:

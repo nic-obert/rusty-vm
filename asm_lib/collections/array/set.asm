@@ -1,10 +1,10 @@
 .include:
 
-    asmutils/functional.asm
-    string/memcpy.asm
+    "asmutils/functional.asm"
+    "string/memcpy.asm"
 
-    item_size.asm
-    metadata.asm
+    "item_size.asm"
+    "metadata.asm"
 
 
 .text:

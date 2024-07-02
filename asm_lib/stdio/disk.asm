@@ -1,8 +1,8 @@
 .include:
 
-    archlib.asm
-    asmutils/functional.asm
-    stdbool.asm
+    "archlib.asm"
+    "asmutils/functional.asm"
+    "stdbool.asm"
 
 
 .text:

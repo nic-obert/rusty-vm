@@ -1,10 +1,12 @@
 use std::cmp::min;
+use std::path::Path;
 
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
 use crate::module_manager::ModuleManager;
 use crate::tokenizer::{SourceCode, SourceToken};
+use crate::lang::ENTRY_SECTION_NAME;
 
 
 pub fn print_source_context(source: SourceCode, line_index: usize, char_pointer: usize) {
@@ -156,6 +158,19 @@ pub fn unresolved_label(token: &SourceToken, module_manager: &ModuleManager) -> 
     );
 
     print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+
+    std::process::exit(1);
+}
+
+
+pub fn missing_entry_point(unit_path: &Path) -> ! {
+    printdoc!("
+        ❌ Error in assembly unit \"{}\"
+
+        Could not find an entry point. An executable must have an entry section named \"{ENTRY_SECTION_NAME}\"
+        ",
+        unit_path.display()
+    );
 
     std::process::exit(1);
 }
