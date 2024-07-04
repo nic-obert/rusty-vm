@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::path::Path;
 use std::rc::Rc;
 
 use lazy_static::lazy_static;
@@ -10,6 +9,7 @@ use rusty_vm_lib::registers::Registers;
 
 use crate::error;
 use crate::lang::{AsmInstruction, Number};
+use crate::module_manager::UnitPath;
 
 
 lazy_static! {
@@ -57,7 +57,7 @@ pub struct SourceToken<'a> {
     pub string: &'a str,
     pub line_index: usize,
     pub column: usize,
-    pub unit_path: &'a Path
+    pub unit_path: UnitPath<'a>
 
 }
 
@@ -141,7 +141,7 @@ pub type TokenList<'a> = VecDeque<Token<'a>>;
 pub type TokenLines<'a> = VecDeque<TokenList<'a>>;
 
 
-pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: &'a Path) -> TokenLines<'a> {
+pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLines<'a> {
 
     let mut last_unique_symbol: usize = 0;
     macro_rules! generate_unique_symbol {

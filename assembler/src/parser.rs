@@ -393,7 +393,14 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
                 error::parsing_error(&include_line[0].source, module_manager, "Expected a string literal as include path")
             };
 
-            assembler::assemble_included_unit(&main_operator.source.unit_path, include_path, module_manager, bytecode);
+            // Shadow the previous `include_path` to avoid confusion with the variables
+            let include_path = module_manager.resolve_include_path(main_operator.source.unit_path.as_path(), include_path)
+                .unwrap_or_else(|err| 
+                    error::io_error(err, format!("Failed to resolve path \"{}\"", include_path.display()).as_str()
+                )
+            );
+
+            assembler::assemble_included_unit(include_path, module_manager, bytecode);
 
             let exports = module_manager.get_unit_exports(include_path);
 

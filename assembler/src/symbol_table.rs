@@ -111,7 +111,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn import_symbols(&self, imports: &ExportedSymbols<'a>, re_export: bool, module_manager: &ModuleManager) {
+    pub fn import_symbols(&self, imports: &ExportedSymbols<'a>, re_export: bool, module_manager: &ModuleManager<'a>) {
 
         // TODO: find a way to avoid cloning each definition for every export. Maybe we could use an Rc<Definition> for this since definitions should be accessible from wherever they are imported.
 

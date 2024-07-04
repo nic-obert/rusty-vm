@@ -1,10 +1,9 @@
 use std::cmp::min;
-use std::path::Path;
 
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
-use crate::module_manager::ModuleManager;
+use crate::module_manager::{ModuleManager, UnitPath};
 use crate::tokenizer::{SourceCode, SourceToken};
 use crate::lang::ENTRY_SECTION_NAME;
 
@@ -55,7 +54,7 @@ pub fn invalid_escape_sequence(token: &SourceToken, sequence: char, char_at: usi
 
         Invalid escape sequence `{sequence}` at line {}:{}:
         ",
-        token.unit_path.display(), token.line_number(), token.column
+        token.unit_path, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index, char_at);
@@ -64,8 +63,8 @@ pub fn invalid_escape_sequence(token: &SourceToken, sequence: char, char_at: usi
 }
 
 
-pub fn parsing_error(token: &SourceToken, module_manager: &ModuleManager, message: &str) -> ! {
-    eprintln!("Assembly unit \"{}\"", token.unit_path.display());
+pub fn parsing_error<'a>(token: &SourceToken<'a>, module_manager: &ModuleManager<'a>, message: &str) -> ! {
+    eprintln!("Assembly unit \"{}\"", token.unit_path);
     eprintln!("Parsing error at {}:{} on token `{}`:\n{}", token.line_number(), token.column, token.string, message);
 
     print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
@@ -81,7 +80,7 @@ pub fn invalid_number_format(token: &SourceToken, source: SourceCode, hint: &str
         Invalid number `{}` at line {}:{}:
         {hint}
         ",
-        token.unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path, token.string, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index, token.column);
@@ -90,7 +89,7 @@ pub fn invalid_number_format(token: &SourceToken, source: SourceCode, hint: &str
 }
 
 
-pub fn invalid_number_size(token: &SourceToken, module_manager: &ModuleManager, actual_size: usize, expected_size: usize) {
+pub fn invalid_number_size<'a>(token: &SourceToken<'a>, module_manager: &ModuleManager<'a>, actual_size: usize, expected_size: usize) {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
@@ -98,7 +97,7 @@ pub fn invalid_number_size(token: &SourceToken, module_manager: &ModuleManager, 
         The number is expected to have a size of {expected_size} bytes, but the least amount of bytes needed to correctly represent it is {actual_size}.
         
         ",
-        token.unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path, token.string, token.line_number(), token.column
     );
 
     print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
@@ -107,7 +106,7 @@ pub fn invalid_number_size(token: &SourceToken, module_manager: &ModuleManager, 
 }
 
 
-pub fn symbol_redeclaration(old_def: &SourceToken, new_def: &SourceToken, module_manager: &ModuleManager, message: &str) -> ! {
+pub fn symbol_redeclaration<'a>(old_def: &SourceToken<'a>, new_def: &SourceToken<'a>, module_manager: &ModuleManager<'a>, message: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
@@ -116,12 +115,12 @@ pub fn symbol_redeclaration(old_def: &SourceToken, new_def: &SourceToken, module
         New declaration in assembly unit \"{}\":
 
     ",
-        new_def.unit_path.display(), new_def.string, new_def.line_number(), new_def.column, new_def.unit_path.display()
+        new_def.unit_path, new_def.string, new_def.line_number(), new_def.column, new_def.unit_path
     );
 
     print_source_context(module_manager.get_unit(new_def.unit_path).lines(), new_def.line_index, new_def.column);
 
-    println!("\nOld declaration in assembly unit \"{}\":\n", old_def.unit_path.display());
+    println!("\nOld declaration in assembly unit \"{}\":\n", old_def.unit_path);
 
     print_source_context(module_manager.get_unit(old_def.unit_path).lines(), old_def.line_index, old_def.column);
 
@@ -138,7 +137,7 @@ pub fn tokenizer_error(token: &SourceToken, source: SourceCode, message: &str) -
         Tokenization error on token `{}` at {}:{}:
         {message}
         ",
-        token.unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path, token.string, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index, token.column);
@@ -147,14 +146,14 @@ pub fn tokenizer_error(token: &SourceToken, source: SourceCode, message: &str) -
 }
 
 
-pub fn unresolved_label<'a>(token: &SourceToken, module_manager: &ModuleManager<'a>) -> ! {
+pub fn unresolved_label<'a>(token: &SourceToken<'a>, module_manager: &ModuleManager<'a>) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
         Could not resolve label `{}` at {}:{}:
         
         ",
-        token.unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path, token.string, token.line_number(), token.column
     );
 
     print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
@@ -163,14 +162,14 @@ pub fn unresolved_label<'a>(token: &SourceToken, module_manager: &ModuleManager<
 }
 
 
-pub fn undefined_macro<'a>(token: &SourceToken, module_manager: &ModuleManager, available_macros: impl Iterator<Item = &'a str>) -> ! {
+pub fn undefined_macro<'a>(token: &SourceToken<'a>, module_manager: &ModuleManager<'a>, available_macros: impl Iterator<Item = &'a str>) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
         Undefined macro name `{}` at {}:{}:
         
         ",
-        token.unit_path.display(), token.string, token.line_number(), token.column
+        token.unit_path, token.string, token.line_number(), token.column
     );
 
     print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
@@ -185,13 +184,13 @@ pub fn undefined_macro<'a>(token: &SourceToken, module_manager: &ModuleManager, 
 }
 
 
-pub fn missing_entry_point(unit_path: &Path) -> ! {
+pub fn missing_entry_point(unit_path: UnitPath) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
         Could not find an entry point. An executable must have an entry section named \"{ENTRY_SECTION_NAME}\"
         ",
-        unit_path.display()
+        unit_path
     );
 
     std::process::exit(1);

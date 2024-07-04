@@ -1,7 +1,7 @@
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::io;
+use std::{fmt, io};
 use std::env;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -12,6 +12,29 @@ use rusty_vm_lib::assembly::LIBRARY_ENV_VARIABLE;
 use crate::error;
 use crate::symbol_table::ExportedSymbols;
 use crate::tokenizer::SourceCode;
+
+
+/// A canonicalized absolute path
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+pub struct UnitPath<'a> {
+
+    path: &'a Path
+
+}
+
+impl UnitPath<'_> {
+
+    pub fn as_path<'a>(&'a self) -> &'a Path {
+        self.path
+    }
+
+}
+
+impl fmt::Display for UnitPath<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.path.display())
+    }
+}
 
 
 /// Struct must not implement Clone or Copy
@@ -67,9 +90,13 @@ pub struct ModuleManager<'a> {
 
     // Here a Box is used to allow mutating the `units` HashMap without invalidating references to the AsmUnit
     // The Box itself will change, but not the address it points to
-    units: UnsafeCell<HashMap<&'a Path, Box<AsmUnit<'a>>>>,
-    /// Vector that owns various paths of ASM modules
+    units: UnsafeCell<HashMap<UnitPath<'a>, Box<AsmUnit<'a>>>>,
+
+    /// Vector that owns various paths of ASM modules.
+    /// Having references to the paths stored here is safe because they reference the actual string,
+    /// and not the PathBuf itself. Remember that PathBuf is just a wrapper around a Vec of bytes
     paths: UnsafeCell<Vec<PathBuf>>,
+
     /// Directories to be used when resolving the path of an included ASM module.
     include_paths: Box<[PathBuf]>,
 
@@ -100,55 +127,54 @@ impl<'a> ModuleManager<'a> {
 
     /// Return the absolute include path, if possible
     /// If the path is canonicalized successfully, it's added to the manager's owned paths.
-    pub fn resolve_include_path(&self, caller_directory: Option<&Path>, included_path: &'a Path) -> Result<&'a Path, io::Error> {
+    pub fn resolve_include_path(&self, caller_directory: &Path, included_path: &'a Path) -> Result<UnitPath<'a>, io::Error> {
 
         let paths = unsafe { &mut *self.paths.get() };
 
         // If the path is already absolute, there's no need to resolve it
         if included_path.is_absolute() {
-            return Ok(included_path);
+            return Ok(UnitPath { path: included_path });
         }
 
         // Maybe the path can be canonicalized without further information
         if let Ok(resolved_path) = included_path.canonicalize() {
             paths.push(resolved_path);
-            return Ok(paths.last().unwrap());
+            return Ok(UnitPath { path: paths.last().expect("Just pushed") });
         }
 
         // If the path is relative, check if it's relative to the caller
-        if let Some(caller_directory) = caller_directory {
-            if let Ok(resolved_path) = caller_directory.join(included_path).canonicalize() {
-                paths.push(resolved_path);
-                return Ok(paths.last().unwrap());
-            }
+        if let Ok(resolved_path) = caller_directory.join(included_path).canonicalize() {
+            paths.push(resolved_path);
+            return Ok(UnitPath { path: paths.last().expect("Just pushed") });
         }
 
         // Check if the path is relative to any specified include paths
         for include_path in self.include_paths.iter() {
             if let Ok(resolved_path) = include_path.join(included_path).canonicalize() {
                 paths.push(resolved_path);
-                return Ok(paths.last().unwrap());
+                return Ok(UnitPath { path: paths.last().expect("Just pushed") });
             }
         }
 
         // No valid path was found, the include path could not be resolved
         Err(io::Error::new(
             io::ErrorKind::NotFound, 
-            format!("Could not resolve the path \"{}\" from directory \"{}\".", included_path.display(), caller_directory.unwrap_or(Path::new("")).display()).as_str()
+            format!("Could not resolve the path \"{}\" from directory \"{}\".", included_path.display(), caller_directory.display()).as_str()
         ))
     }
 
 
-    pub fn add_unit(&self, path: &'a Path, unit: AsmUnit<'a>) -> &AsmUnit<'a> {
+    pub fn add_unit(&self, path: UnitPath<'a>, unit: AsmUnit<'a>) -> &AsmUnit<'a> {
 
-        // This is safe because no references to the map or its elements is ever returned
+        // This is safe because no references to the map or its elements is ever returned mutably
         let units = unsafe { &mut *self.units.get() };
 
         let unit_box = Box::new(unit);
         let unit_ref = unit_box.as_ref() as *const AsmUnit;
 
         units.insert(path, unit_box);
-        // Returns a ref to the newly added unit. Since the unit is stored in the heap and is never mutated, its memory address won't change
+
+        // Returns a ref to the newly added unit. Since the unit is stored in the heap and is never moved, its memory address won't change
         // and the reference will be valid for the lifetime of the module manager
         unsafe {
             &*unit_ref as &AsmUnit
@@ -157,32 +183,30 @@ impl<'a> ModuleManager<'a> {
 
 
     /// Get an immutable reference to the assembly unit
-    pub fn get_unit(&self, path: &Path) -> &AsmUnit<'a> {
+    pub fn get_unit(&self, path: UnitPath<'a>) -> &'a AsmUnit<'a> {
         let units = unsafe { &*self.units.get() };
-        units.get(path).expect("Entry should exist")
+        units.get(&path).expect("Entry should exist")
     }
 
 
-    pub fn set_unit_exports(&self, path: &Path, exports: ExportedSymbols<'a>) -> &ExportedSymbols<'a> {
+    pub fn set_unit_exports(&self, path: UnitPath<'a>, exports: ExportedSymbols<'a>) -> &ExportedSymbols<'a> {
         let units = unsafe { &mut *self.units.get() };
-        let unit = units.get_mut(path).expect("Entry should exist");
+        let unit = units.get_mut(&path).expect("Entry should exist");
         unit.exports = exports;
         &unit.exports
     }
 
 
-    pub fn get_unit_exports(&self, path: &Path) -> &ExportedSymbols<'a> {
+    pub fn get_unit_exports(&self, path: UnitPath<'a>) -> &ExportedSymbols<'a> {
         let units = unsafe { &*self.units.get() };
-        let unit = units.get(path).expect("Entry should exist");
+        let unit = units.get(&path).expect("Entry should exist");
         &unit.exports
     }
 
 
-    // TODO: implement a type called AbsPath that can only be obtained through canonicalization of a normal Path.
-    /// Path should be absolute
-    pub fn is_loaded(&self, path: &Path) -> bool {
+    pub fn is_loaded(&self, path: UnitPath<'a>) -> bool {
         let units = unsafe { &*self.units.get() };
-        units.contains_key(path)
+        units.contains_key(&path)
     }
 
 }
