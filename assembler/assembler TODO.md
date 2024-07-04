@@ -2,8 +2,10 @@
 
 ### TODO
 
+- [ ] test multiline strings (probably fails)  
+- [ ] test behavior with circular dependencies  
 - [ ] reimplement pseudo instructions like in-place define data. pseudo instructions could probably be included in the AsmInstructions enums and then evaluated when generating the bytecode  
-- [ ] reimplement a parser for arrays  
+- [ ] reimplement a parser for array literals (static data declaration)  
 - [ ] add the possibility to assemble a file without an entry point  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  

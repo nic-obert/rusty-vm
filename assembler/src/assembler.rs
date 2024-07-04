@@ -950,7 +950,7 @@ pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, s
 
     let asm_unit = module_manager.add_unit(unit_path, AsmUnit::new(raw_source));
 
-    let token_lines = tokenizer::tokenize(&asm_unit.lines, unit_path);
+    let token_lines = tokenizer::tokenize(asm_unit.lines(), unit_path);
 
     // println!("\nTokens:\n");
     // for line in &token_lines {
@@ -970,19 +970,20 @@ pub fn load_unit_asm<'a>(caller_directory: Option<&Path>, unit_path: &'a Path, s
 }
 
 
-pub fn assemble_included_unit<'a>(caller_directory: &Path, unit_path: &'a Path, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> ExportedSymbols<'a> {
+pub fn assemble_included_unit<'a>(caller_directory: &Path, unit_path: &'a Path, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> &'a ExportedSymbols<'a> {
 
     let symbol_table = SymbolTable::new();
 
     let asm = if let Some(asm) = load_unit_asm(Some(caller_directory), unit_path, &symbol_table, &module_manager, bytecode) {
         asm
     } else {
-        return Default::default();
+        return module_manager.get_unit_exports(&unit_path);
     };
 
     generator::generate_bytecode(asm, &symbol_table, module_manager, bytecode);
 
-    symbol_table.export_symbols()
+    let exports = symbol_table.export_symbols();
+    module_manager.set_unit_exports(unit_path, exports)
 }
 
 

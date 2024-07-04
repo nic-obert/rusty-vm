@@ -3,50 +3,60 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::io;
 use std::env;
+use std::pin::Pin;
+use std::ptr::NonNull;
+use std::mem;
 
 use rusty_vm_lib::assembly::LIBRARY_ENV_VARIABLE;
 
 use crate::error;
+use crate::symbol_table::ExportedSymbols;
+use crate::tokenizer::SourceCode;
 
 
 /// Struct must not implement Clone or Copy
-pub struct AsmUnit {
+pub struct AsmUnit<'a> {
 
-    /// The actual "owned" memory address of the source code string
-    raw_source: &'static str,
+    /// The unit's exported symbols
+    /// TODO: this should be an Option
+    pub exports: ExportedSymbols<'a>,
 
-    pub lines: Box<[&'static str]>,
+    /// The actual owned source code string
+    _raw_source: Pin<Box<str>>,
+
+    lines: Box<[NonNull<str>]>
+
 
 }
 
-impl AsmUnit {
+impl AsmUnit<'_> {
 
     pub fn new(raw_source: String) -> Self {
         
-        // The source code lives until the program terminates because it can be referenced anytime for error messages.
+        // The source code lives until the program terminates because it can be referenced anytime for error messages, so it's ok to use a static lifetime.
         // Also, the source code owns the strings of the program.
-        let raw_source = Box::leak(raw_source.into_boxed_str());
+        let raw_source = Box::into_pin(raw_source.into_boxed_str());
 
         let mut lines = Vec::new();
         for line in raw_source.lines() {
-            lines.push( unsafe {
-                std::str::from_utf8_unchecked(line.as_bytes())
-            });
+            lines.push(
+                NonNull::from(line)
+            );
         }
 
         Self {
+            _raw_source: raw_source,
             lines: lines.into_boxed_slice(),
-            raw_source,
+            exports: Default::default()
         }
     }
 
-}
 
-impl Drop for AsmUnit {
-
-    fn drop(&mut self) {
+    pub fn lines(&self) -> SourceCode {
         unsafe {
-            drop(Box::from_raw(self.raw_source as *const str as *mut str));
+            mem::transmute::<&[NonNull<str>], &[&str]>(
+                self.lines.as_ref()
+            )
         }
     }
 
@@ -57,7 +67,7 @@ pub struct ModuleManager<'a> {
 
     // Here a Box is used to allow mutating the `units` HashMap without invalidating references to the AsmUnit
     // The Box itself will change, but not the address it points to
-    units: UnsafeCell<HashMap<&'a Path, Box<AsmUnit>>>,
+    units: UnsafeCell<HashMap<&'a Path, Box<AsmUnit<'a>>>>,
     /// Vector that owns various paths of ASM modules
     paths: UnsafeCell<Vec<PathBuf>>,
     /// Directories to be used when resolving the path of an included ASM module.
@@ -122,11 +132,14 @@ impl<'a> ModuleManager<'a> {
         }
 
         // No valid path was found, the include path could not be resolved
-        Err(io::Error::new(io::ErrorKind::NotFound, format!("Could not resolve the path \"{}\" from directory \"{}\".", included_path.display(), caller_directory.unwrap_or(Path::new("")).display()).as_str()))
+        Err(io::Error::new(
+            io::ErrorKind::NotFound, 
+            format!("Could not resolve the path \"{}\" from directory \"{}\".", included_path.display(), caller_directory.unwrap_or(Path::new("")).display()).as_str()
+        ))
     }
 
 
-    pub fn add_unit(&self, path: &'a Path, unit: AsmUnit) -> &'a AsmUnit {
+    pub fn add_unit(&self, path: &'a Path, unit: AsmUnit<'a>) -> &AsmUnit<'a> {
 
         // This is safe because no references to the map or its elements is ever returned
         let units = unsafe { &mut *self.units.get() };
@@ -144,12 +157,28 @@ impl<'a> ModuleManager<'a> {
 
 
     /// Get an immutable reference to the assembly unit
-    pub fn get_unit(&self, path: &Path) -> &'a AsmUnit {
+    pub fn get_unit(&self, path: &Path) -> &AsmUnit<'a> {
         let units = unsafe { &*self.units.get() };
         units.get(path).expect("Entry should exist")
     }
 
 
+    pub fn set_unit_exports(&self, path: &Path, exports: ExportedSymbols<'a>) -> &ExportedSymbols<'a> {
+        let units = unsafe { &mut *self.units.get() };
+        let unit = units.get_mut(path).expect("Entry should exist");
+        unit.exports = exports;
+        &unit.exports
+    }
+
+
+    pub fn get_unit_exports(&self, path: &Path) -> &ExportedSymbols<'a> {
+        let units = unsafe { &*self.units.get() };
+        let unit = units.get(path).expect("Entry should exist");
+        &unit.exports
+    }
+
+
+    // TODO: implement a type called AbsPath that can only be obtained through canonicalization of a normal Path.
     /// Path should be absolute
     pub fn is_loaded(&self, path: &Path) -> bool {
         let units = unsafe { &*self.units.get() };

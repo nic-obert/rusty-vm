@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
     {
         "type": "lldb",
         "request": "launch",
@@ -29,7 +30,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'assembler'",
+            "name": "Debug assembler",
             "cargo": {
                 "args": [
                     "build",
@@ -42,7 +43,7 @@
                 }
             },
             "args": [
-                "impl/terminal_clicker/main.asm"
+                "impl/test.asm"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -100,7 +101,7 @@
                 }
             },
             "args": [
-                "assembler/impl/seconds_counter.bc",
+                "impl/test.out",
                 "--max-mem", "2048",
             ],
             "cwd": "${workspaceFolder}"

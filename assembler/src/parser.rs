@@ -6,7 +6,7 @@ use crate::tokenizer::{Token, TokenLines, TokenList, TokenValue};
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::mem;
 use std::path::Path;
 use std::rc::Rc;
@@ -19,22 +19,23 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
 
     while let Some(token) = tokens.get(i) {
 
-        // ! is the first token in the line, this is a function macro, not an inline macro
-        if matches!(token.value, TokenValue::Bang) && i != 0 {
+        if matches!(token.value, TokenValue::Equals) {
 
             let macro_name = tokens.get(i+1).unwrap_or_else(
-                || error::parsing_error(&token.source, module_manager, "Missing macro name after `!`.")
+                || error::parsing_error(&token.source, module_manager, "Missing macro name after `=`")
             );
 
             let name = if let TokenValue::Identifier(id) = macro_name.value {
                 id
             } else {
-                error::parsing_error(&macro_name.source, module_manager, "Expected a macro name after `!`.")
+                error::parsing_error(&macro_name.source, module_manager, "Expected a macro name after `=`")
             };
 
             let macro_def = symbol_table.get_inline_macro(name).unwrap_or_else(
-                || error::parsing_error(&macro_name.source, module_manager, "Undefined macro name")
+                || error::undefined_macro(&macro_name.source, module_manager, symbol_table.inline_macros())
             );
+
+            // symbol_table.
 
             // Split the line in two
             let mut after = tokens.split_off(i);
@@ -50,8 +51,8 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
                 A situation like this may occur:
 
                     %- FOO: r1
-                    %- BAR: !FOO 90
-                    mov8 !BAR
+                    %- BAR: =FOO 90
+                    mov8 =BAR
                 
                 Which should expand to
 
@@ -66,7 +67,7 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
 
 
 #[inline]
-fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManager<'a>) -> Box<[AsmOperand<'a>]> {
+fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<'a>) -> Box<[AsmOperand<'a>]> {
 
     let mut operands = Vec::with_capacity(tokens.len());
 
@@ -92,27 +93,6 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
             TokenValue::CurrentPosition => push_op!(AsmValue::CurrentPosition(()), token),
             
             TokenValue::Register(reg) => push_op!(AsmValue::Register(reg), token),
-
-            TokenValue::CurlyOpen => {
-
-                let macro_param_name = tokens.pop_front().unwrap_or_else(
-                    || error::parsing_error(&token.source, module_manager, "Missing macro parameter name after `{`."));
-
-                let symbol_id = if let TokenValue::Identifier(id) = macro_param_name.value {
-                    id
-                } else {
-                    error::parsing_error(&macro_param_name.source, module_manager, "Expected a macro parameter name after `{`.")
-                };
-
-                let closing_curly = tokens.pop_front().unwrap_or_else(
-                    || error::parsing_error(&token.source, module_manager, "Missing closing `}` after macro parameter name."));
-                
-                if !matches!(closing_curly.value, TokenValue::CurlyClose) {
-                    error::parsing_error(&closing_curly.source, module_manager, "Expected a closing `}` after macro parameter name.");
-                }
-
-                push_op!(AsmValue::MacroParameter(symbol_id), token);
-            },
 
             TokenValue::SquareOpen => {
 
@@ -148,10 +128,12 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
                     TokenValue::CurlyClose |
                     TokenValue::StringLiteral(_) |
                     TokenValue::Instruction(_) |
-                    TokenValue::Colon
+                    TokenValue::Colon 
                         => error::parsing_error(&addr_operand.source, module_manager, "Cannot address this token"),
 
-                    TokenValue::Bang => unreachable!("Macros are expanded before the main parsing")
+                    TokenValue::Bang |
+                    TokenValue::Equals 
+                        => unreachable!("Macros are expanded before the main parsing")
                 }
             },
             
@@ -167,7 +149,10 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
             TokenValue::Colon
                 => error::parsing_error(&token.source, module_manager, "Token cannot be used as here."),
             
-            TokenValue::Bang => unreachable!("Macros are expanded before the main parsing"),
+            TokenValue::Bang |
+            TokenValue::Equals |
+            TokenValue::CurlyOpen
+                => unreachable!("Macros are expanded before the main parsing"),
 
         }
 
@@ -178,7 +163,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &'a ModuleManag
 
 
 #[inline]
-fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &'a ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
+fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
 
     macro_rules! check_arg_count {
@@ -230,15 +215,14 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             );
         },
 
-        
-        TokenValue::Bang => todo!(),    
-        
         TokenValue::Instruction(instruction) => {
 
             let node = match AsmInstructionNode::build(instruction, operands) {
+
                 Ok(node) => node,
+
                 Err((faulty_token, hint))
-                    => error::parsing_error(&faulty_token.unwrap_or(main_operator.source), module_manager, &hint),
+                    => error::parsing_error(&faulty_token.unwrap_or(main_operator.source), module_manager, &hint)
             };
             
             nodes.push(AsmNode {
@@ -263,8 +247,10 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         
         TokenValue::Dot |
         TokenValue::InlineMacroDef { .. } |
-        TokenValue::FunctionMacroDef { .. } 
-            => unreachable!() // Handled before as special cases
+        TokenValue::FunctionMacroDef { .. } |
+        TokenValue::Equals |
+        TokenValue::Bang
+            => unreachable!("Should have been handled before as special cases") 
     }
     
 }
@@ -284,9 +270,9 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
             inside delimiters like this:
 
                 %- CONST_ADDRESS: 0xFF89178A
-                mov8 [!CONST_ADDRESS] r1
+                mov8 [=CONST_ADDRESS] r1
 
-            Performing a linear search for ! tokens is faster than using a tree parser, which would have
+            Performing a linear search for `=` tokens is faster than using a tree parser, which would have
             to search each time for the highest priority token inside a linked list.
             Also, since assembly lines are generally pretty short, shifting the elements when expanding the macro
             should not be too costly. This would be totally different in a more complex programming language.
@@ -295,32 +281,38 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 
         if let Some(main_operator) = line.pop_front() {
 
-            // Macro declarations are done first because they require their definitions to be made of Tokens and not AsmOperands
+            // Macros are handled separately because they operate on Tokens, not AsmOperands
 
-            if let TokenValue::InlineMacroDef { export } = main_operator.value {
-                parse_inline_macro(&mut line, &main_operator, module_manager, symbol_table, export);
-                continue;
+            match main_operator.value {
+
+                TokenValue::InlineMacroDef { export } => {
+                    parse_inline_macro_def(&mut line, &main_operator, module_manager, symbol_table, export);
+                },
+
+                TokenValue::FunctionMacroDef { export } => {
+                    parse_function_macro_def(&mut line, &main_operator, module_manager, &mut token_lines, symbol_table, export);
+                },
+
+                TokenValue::Bang => {
+                    expand_function_macro(&mut line, &main_operator, &mut token_lines, module_manager, symbol_table);
+                },
+
+                TokenValue::Dot => {
+                    /*
+                        Handle ASM sections separately
+                        The .include section is special because it only contains strings
+                        Other dedicated sections may be implemented
+                        All other sections are treated as labels
+                    */
+                    parse_section(&mut nodes, &mut line, &main_operator, module_manager, &mut token_lines, symbol_table, bytecode);
+                },
+
+                _ => {
+                    let operands = parse_operands(line, module_manager);
+
+                    parse_line(main_operator, operands, &mut nodes, module_manager, symbol_table);
+                }
             }
-
-            if let TokenValue::FunctionMacroDef { export } = main_operator.value {
-                parse_function_macro(&mut line, &main_operator, module_manager, &mut token_lines, symbol_table, export);
-                continue;
-            }
-
-            /*
-                Handle ASM sections separately
-                The .include section is special because it only contains strings
-                Other dedicated sections may be implemented
-                All other sections are treated as labels
-            */
-            if matches!(main_operator.value, TokenValue::Dot) {
-                parse_section(&mut nodes, &mut line, &main_operator, module_manager, &mut token_lines, symbol_table, bytecode);
-                continue;
-            }
-
-            let operands = parse_operands(line, module_manager);
-
-            parse_line(main_operator, operands, &mut nodes, module_manager, symbol_table);
         }
     }
 
@@ -328,6 +320,7 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 }
 
 
+#[inline]
 fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
     let name_token = line.pop_front().unwrap_or_else(
@@ -393,13 +386,16 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
                         In case the string contained special escape characters, the escaped string would be owned by
                         the token, which will be dropped after parsing.
                     */
-                    Box::new(mem::take(s).into_owned()).leak()
+                    Box::new(mem::take(s).into_owned())
+                        .leak()
                 )
             } else {
                 error::parsing_error(&include_line[0].source, module_manager, "Expected a string literal as include path")
             };
 
-            let exports = assembler::assemble_included_unit(&main_operator.source.unit_path, include_path, module_manager, bytecode);
+            assembler::assemble_included_unit(&main_operator.source.unit_path, include_path, module_manager, bytecode);
+
+            let exports = module_manager.get_unit_exports(include_path);
 
             symbol_table.import_symbols(exports, to_re_export, module_manager);
         }
@@ -408,7 +404,86 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
 }
 
 
-fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
+#[inline]
+fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
+
+    let macro_name_op = line.pop_front().unwrap_or_else(
+        || error::parsing_error(&main_operator.source, module_manager, "Missing macro name after `!`")
+    );
+    let macro_name = if let TokenValue::Identifier(name) = macro_name_op.value {
+        name
+    } else {
+        error::parsing_error(&macro_name_op.source, module_manager, "Expected a macro name after `!`");
+    };
+
+    let macro_def = symbol_table.get_function_macro(macro_name).unwrap_or_else(
+        || error::undefined_macro(&macro_name_op.source, module_manager, symbol_table.function_macros())
+    );
+
+    if line.len() != macro_def.params.len() {
+        error::parsing_error(&main_operator.source, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), line.len()).as_str())
+    }
+
+    let expanded_macro = macro_def.body.iter().map(
+        |original_line| {
+
+            let mut expanded_line = TokenList::with_capacity(original_line.len());
+
+            let mut i = 0;
+            
+            while let Some(token) = original_line.get(i) {
+                
+                // Start of a macro parameter. Syntax: `{param}`
+                if matches!(token.value, TokenValue::CurlyOpen) {
+
+                    i += 1;
+                    let param_name_token = original_line.get(i).unwrap_or_else(
+                        || error::parsing_error(&token.source, module_manager, "Missing macro parameter name after `{` inside macro body")
+                    );
+                    let param_name = if let TokenValue::Identifier(name) = param_name_token.value {
+                        name
+                    } else {
+                        error::parsing_error(&param_name_token.source, module_manager, "Expected a macro parameter name after '{` inside macro body");
+                    };
+
+                    let arg_position = *macro_def.params.get(param_name).unwrap_or_else(
+                        || error::parsing_error(&param_name_token.source, module_manager, "Undefined macro parameter name")
+                    );
+
+                    let substitute_token = &line[arg_position];
+
+                    i += 1;
+                    let closing_curly_token = original_line.get(i).unwrap_or_else(
+                        || error::parsing_error(&token.source, module_manager, "Missing closing `}` after macro parameter name inside macro body")
+                    );
+                    if !matches!(closing_curly_token.value, TokenValue::CurlyClose) {
+                        error::parsing_error(&closing_curly_token.source, module_manager, "Expected closing `}` after macro parameter name inside macro body");
+                    }
+
+                    expanded_line.push_back(substitute_token.clone());
+
+                    i += 1;
+                    continue;
+                }
+
+                // TODO: devise a more efficient way to expand a macro
+                expanded_line.push_back(token.clone());
+                i += 1;
+            }
+
+            expanded_line
+        }
+    );
+
+    // Push the expanded macro in reverse order to preserve line order.
+    for line in expanded_macro.rev() {
+        token_lines.push_front(line);
+    }
+}
+
+
+#[inline]
+fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
         || error::parsing_error(&main_operator.source, module_manager, "Expected a macro name")
@@ -421,16 +496,20 @@ fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Toke
 
     // The rest of the line is the macro parameters, except for the trailing semicolon
 
-    let args = line.drain(..line.len()-1).map(
-        |token| {
-            if let TokenValue::Identifier(name) = token.value {
-                name
-            } else {
-                error::parsing_error(&token.source, module_manager, "Expected an identifier as macro parameter");
-            }
+    let mut params = HashMap::new();
+
+    for (index, param_token) in line.drain(..line.len()-1).enumerate() {
+
+        let param_name = if let TokenValue::Identifier(name) = param_token.value {
+            name
+        } else {
+            error::parsing_error(&param_token.source, module_manager, "Expected an identifier as macro parameter");
+        };
+
+        if let Some(omonym_index) = params.insert(param_name, index) {
+            error::parsing_error(&param_token.source, module_manager, format!("Duplicated parameter name in macro definition. The parameter is mentioned before in position {}", omonym_index+1).as_str());
         }
-        ).collect::<Vec<&str>>()
-        .into_boxed_slice();
+    }
 
     let colon_token = line.get(0).unwrap_or_else(
         || error::parsing_error(&main_operator.source, module_manager, "Expected a trailing colon in macro definition")
@@ -460,8 +539,8 @@ fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Toke
     }
 
     let macro_def = FunctionMacroDef {
-        source: Rc::clone(&main_operator.source),
-        args,
+        source: Rc::clone(&name_token.source),
+        params,
         body: body.into_boxed_slice(),
     };
 
@@ -469,19 +548,27 @@ fn parse_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Toke
 }
 
 
-fn parse_inline_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
+#[inline]
+fn parse_inline_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Expected a macro name")
+        || error::parsing_error(&main_operator.source, module_manager, "Missing macro name in macro declaration")
     );
     let name = if let TokenValue::Identifier(name) = name_token.value {
         name
     } else {
-        error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name");
+        error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name in macro declaration");
     };
 
+    let colon_token = line.pop_front().unwrap_or_else(
+        || error::parsing_error(&name_token.source, module_manager, "Missing `:` after macro name in macro declaration")
+    );
+    if !matches!(colon_token.value, TokenValue::Colon) {
+        error::parsing_error(&colon_token.source, module_manager, "Expected a `:` after macro name in macro declaration");
+    }
+
     let macro_def = InlineMacroDef {
-        source: Rc::clone(&main_operator.source),
+        source: Rc::clone(&name_token.source),
         // The rest of the line is the macro definition
         def: line.drain(..).collect::<Vec<Token>>().into_boxed_slice()
     };

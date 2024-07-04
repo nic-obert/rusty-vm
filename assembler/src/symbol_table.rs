@@ -11,6 +11,7 @@ use crate::module_manager::ModuleManager;
 use crate::tokenizer::SourceToken;
 
 
+#[derive(Debug, Clone)]
 struct LabelExport<'a> {
     name: &'a str,
     def: LabelDef<'a>
@@ -23,6 +24,7 @@ impl<'a> Into<(&'a str, LabelDef<'a>)> for LabelExport<'a> {
 }
 
 
+#[derive(Debug, Clone)]
 struct InlineMacroExport<'a> {
     name: &'a str,
     def: InlineMacroDef<'a>
@@ -34,6 +36,7 @@ impl<'a> Into<(&'a str, InlineMacroDef<'a>)> for InlineMacroExport<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 struct FunctionMacroExport<'a> {
     name: &'a str,
     def: FunctionMacroDef<'a>
@@ -46,7 +49,7 @@ impl<'a> Into<(&'a str, FunctionMacroDef<'a>)> for FunctionMacroExport<'a> {
 }
 
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ExportedSymbols<'a> {
 
     labels: Box<[LabelExport<'a>]>,
@@ -108,7 +111,9 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn import_symbols(&self, imports: ExportedSymbols<'a>, re_export: bool, module_manager: &ModuleManager) {
+    pub fn import_symbols(&self, imports: &ExportedSymbols<'a>, re_export: bool, module_manager: &ModuleManager) {
+
+        // TODO: find a way to avoid cloning each definition for every export. Maybe we could use an Rc<Definition> for this since definitions should be accessible from wherever they are imported.
 
         let labels = unsafe { &mut *self.labels.get() };
         let inline_macros = unsafe { &mut *self.inline_macros.get() };
@@ -133,31 +138,31 @@ impl<'a> SymbolTable<'a> {
         }
 
         labels.reserve(imports.labels.len());
-        for import in imports.labels {
+        for import in &imports.labels {
 
             let new_source = Rc::clone(&import.def.source);
 
-            if let Some(old_def) = labels.insert(import.name, import.def) {
+            if let Some(old_def) = labels.insert(import.name, import.def.clone()) {
                 error::symbol_redeclaration(&old_def.source, &new_source, module_manager, "Imported label conflicts with existing symbol")
             }
         }
 
         inline_macros.reserve(imports.inline_macros.len());
-        for import in imports.inline_macros {
+        for import in &imports.inline_macros {
 
             let new_source = Rc::clone(&import.def.source);
             
-            if let Some(old_def) = inline_macros.insert(import.name, import.def) {
+            if let Some(old_def) = inline_macros.insert(import.name, import.def.clone()) {
                 error::symbol_redeclaration(&old_def.source, &new_source, module_manager, "Imported inline macro conflicts with existing symbol")
             }
         }
 
         function_macros.reserve(imports.function_macros.len());
-        for import in imports.function_macros {
+        for import in &imports.function_macros {
 
             let new_source = Rc::clone(&import.def.source);
 
-            if let Some(old_def) = function_macros.insert(import.name, import.def) {
+            if let Some(old_def) = function_macros.insert(import.name, import.def.clone()) {
                 error::symbol_redeclaration(&old_def.source, &new_source, module_manager, "Imported function macro conflicts with existing symbol")
             }
         }
@@ -289,6 +294,27 @@ impl<'a> SymbolTable<'a> {
         let macros = unsafe { &*self.inline_macros.get() };
 
         macros.get(id)
+    }
+
+
+    pub fn inline_macros(&self) -> impl Iterator<Item = &'a str> {
+        let macros = unsafe { &*self.inline_macros.get() };
+
+        macros.keys().map(|a| *a)
+    }
+
+
+    pub fn get_function_macro(&self, id: &str) -> Option<&FunctionMacroDef<'a>> {
+        let macros = unsafe { &*self.function_macros.get() };
+
+        macros.get(id)
+    }
+
+
+    pub fn function_macros(&self) -> impl Iterator<Item = &'a str> {
+        let macros = unsafe { &*self.function_macros.get() };
+
+        macros.keys().map(|a| *a)
     }
 
 }

@@ -19,7 +19,7 @@ pub fn print_source_context(source: SourceCode, line_index: usize, char_pointer:
     let end_index = min(line_index + SOURCE_CONTEXT_RADIUS as usize + 1, source.len());
 
     let line_number_width = end_index.to_string().len();
-    
+
     // Print the source lines before the highlighted line.
     while index < line_index {
         println!(" {:line_number_width$}  {}", index + 1, source[index]);
@@ -68,7 +68,7 @@ pub fn parsing_error(token: &SourceToken, module_manager: &ModuleManager, messag
     eprintln!("Assembly unit \"{}\"", token.unit_path.display());
     eprintln!("Parsing error at {}:{} on token `{}`:\n{}", token.line_number(), token.column, token.string, message);
 
-    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+    print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
 
     std::process::exit(1);
 }
@@ -101,7 +101,7 @@ pub fn invalid_number_size(token: &SourceToken, module_manager: &ModuleManager, 
         token.unit_path.display(), token.string, token.line_number(), token.column
     );
 
-    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+    print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
 
     std::process::exit(1);
 }
@@ -119,11 +119,11 @@ pub fn symbol_redeclaration(old_def: &SourceToken, new_def: &SourceToken, module
         new_def.unit_path.display(), new_def.string, new_def.line_number(), new_def.column, new_def.unit_path.display()
     );
 
-    print_source_context(&module_manager.get_unit(new_def.unit_path).lines, new_def.line_index, new_def.column);
+    print_source_context(module_manager.get_unit(new_def.unit_path).lines(), new_def.line_index, new_def.column);
 
     println!("\nOld declaration in assembly unit \"{}\":\n", old_def.unit_path.display());
 
-    print_source_context(&module_manager.get_unit(old_def.unit_path).lines, old_def.line_index, old_def.column);
+    print_source_context(module_manager.get_unit(old_def.unit_path).lines(), old_def.line_index, old_def.column);
 
     println!("\n\n{message}\n");
 
@@ -147,7 +147,7 @@ pub fn tokenizer_error(token: &SourceToken, source: SourceCode, message: &str) -
 }
 
 
-pub fn unresolved_label(token: &SourceToken, module_manager: &ModuleManager) -> ! {
+pub fn unresolved_label<'a>(token: &SourceToken, module_manager: &ModuleManager<'a>) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 
@@ -157,7 +157,29 @@ pub fn unresolved_label(token: &SourceToken, module_manager: &ModuleManager) -> 
         token.unit_path.display(), token.string, token.line_number(), token.column
     );
 
-    print_source_context(&module_manager.get_unit(token.unit_path).lines, token.line_index, token.column);
+    print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
+
+    std::process::exit(1);
+}
+
+
+pub fn undefined_macro<'a>(token: &SourceToken, module_manager: &ModuleManager, available_macros: impl Iterator<Item = &'a str>) -> ! {
+    printdoc!("
+        ❌ Error in assembly unit \"{}\"
+
+        Undefined macro name `{}` at {}:{}:
+        
+        ",
+        token.unit_path.display(), token.string, token.line_number(), token.column
+    );
+
+    print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
+
+    println!("\nAvailable inline macros are:");
+
+    for name in available_macros {
+        println!("{name}")
+    }
 
     std::process::exit(1);
 }

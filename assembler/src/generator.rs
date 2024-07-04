@@ -11,7 +11,7 @@ use crate::lang::{AsmNode, AsmNodeValue, AsmValue};
 use crate::tokenizer::SourceToken;
 
 
-pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager, bytecode: &mut ByteCode) {
+pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>, bytecode: &mut ByteCode) {
     
     /// A placeholder for the real address of a label. Used as a placeholder for unresolved labels.
     const LABEL_PLACEHOLDER: [u8; ADDRESS_SIZE] = (0 as Address).to_le_bytes();

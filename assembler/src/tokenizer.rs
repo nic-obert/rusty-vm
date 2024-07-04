@@ -15,7 +15,7 @@ use crate::lang::{AsmInstruction, Number};
 lazy_static! {
 
     static ref TOKEN_REGEX: Regex = Regex::new(
-        r#"(?m)#.*$|'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|0x[a-fA-F\d]+|-?\d+[.]\d*|-?[.]?\d+|%%-|%-|@@|%%|=[_a-zA-Z]\w*|[_a-zA-Z]\w*|\S"#
+        r#"(?m)#.*$|'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|0x[a-fA-F\d]+|-?\d+[.]\d*|-?[.]?\d+|%%-|%-|@@|%%|[_a-zA-Z]\w*|\S"#
     ).expect("Failed to compile regex");
 
     static ref IDENTIFIER_REGEX: Regex = Regex::new(
@@ -32,6 +32,7 @@ pub enum TokenValue<'a> {
     InlineMacroDef { export: bool },
     Endmacro,
     Bang,
+    Equals,
     Colon,
     LabelDef { export: bool },
     Dot,
@@ -180,6 +181,8 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: &'a Path) -> TokenLines<'
                 let token = token_rc.as_ref();
     
                 let token_value = match token.string {
+
+                    "=" => TokenValue::Equals,
 
                     ":" => TokenValue::Colon,
     
