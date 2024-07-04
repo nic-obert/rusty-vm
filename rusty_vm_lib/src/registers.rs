@@ -82,7 +82,7 @@ declare_registers! {
     INPUT input,
     ERROR error,
     PRINT print,
-    INTERRUPT intreg,
+    INTERRUPT int,
 
     STACK_TOP_POINTER stp,
     PROGRAM_COUNTER pc,

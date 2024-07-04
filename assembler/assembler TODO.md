@@ -2,11 +2,10 @@
 
 ### TODO
 
+- [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [ ] test multiline strings (probably fails)  
 - [ ] test behavior with circular dependencies  
-- [ ] reimplement pseudo instructions like in-place define data. pseudo instructions could probably be included in the AsmInstructions enums and then evaluated when generating the bytecode  
 - [ ] reimplement a parser for array literals (static data declaration)  
-- [ ] add the possibility to assemble a file without an entry point  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
 
@@ -15,6 +14,7 @@
 
 ### Done ✓
 
+- [x] reimplement pseudo instructions like in-place define data. pseudo instructions could probably be included in the AsmInstructions enums and then evaluated when generating the bytecode  
 - [x] put all include paths in quotes to make it easier to parse  
 - [x] fix misrepresented float numbers. during tokenization, all numbers are converted to i64. here we need to use a union or an enum to distinguish between u64, i64, and f64  
 - [x] eventually, upgrade the assembler to use a parsing tree to allow for more complex expressions (const expressions, for example)  

@@ -8,7 +8,7 @@ use regex::Regex;
 use rusty_vm_lib::registers::Registers;
 
 use crate::error;
-use crate::lang::{AsmInstruction, Number};
+use crate::lang::{AsmInstruction, Number, PseudoInstructions};
 use crate::module_manager::UnitPath;
 
 
@@ -47,6 +47,7 @@ pub enum TokenValue<'a> {
     Identifier (&'a str),
     StringLiteral (Cow<'a, str>),
     Instruction (AsmInstruction),
+    PseudoInstruction (PseudoInstructions)
 
 }
 
@@ -269,7 +270,10 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
     
                         } else if let Some(register) = Registers::from_name(string) {
                             TokenValue::Register(register)
-    
+                        
+                        } else if let Some(pseudo_instruction) = PseudoInstructions::from_name(string) {
+                            TokenValue::PseudoInstruction(pseudo_instruction)
+
                         } else if string == "endmacro" {
     
                             if let Some(last_token) = current_line.pop_back() {

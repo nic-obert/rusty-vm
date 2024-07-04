@@ -7,7 +7,7 @@ use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 use crate::error;
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
-use crate::lang::{AsmNode, AsmNodeValue, AsmValue};
+use crate::lang::{AsmNode, AsmNodeValue, AsmValue, PseudoInstructionNode};
 use crate::tokenizer::SourceToken;
 
 
@@ -36,6 +36,16 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
         };
     }
 
+    macro_rules! push_sized_number {
+        ($n:expr, $size:expr, $source:expr) => {{
+            if $n.least_bytes_repr() > $size {
+                error::invalid_number_size($source, module_manager, $n.least_bytes_repr(), $size);
+            }
+
+            push_bytes!(&$n.as_bytes()[..$size]);
+        }};
+    }
+
     for node in asm {
 
         match node.value {
@@ -61,15 +71,11 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                         AsmValue::AddressInRegister(reg)
                             => push_byte!(*reg),
 
-                        AsmValue::Number(n) => {
-                            if n.least_bytes_repr() > handled_size {
-                                error::invalid_number_size(&arg.source, module_manager, n.least_bytes_repr(), handled_size);
-                            }
-                
-                            push_bytes!(&n.as_bytes()[..handled_size]);
-                        },
+                        AsmValue::Number(n)
+                            => push_sized_number!(n, handled_size, &arg.source),
 
-                        AsmValue::AddressLiteral(addr) => push_bytes!(addr.as_bytes()),
+                        AsmValue::AddressLiteral(addr)
+                            => push_bytes!(addr.as_bytes()),
 
                         AsmValue::Label(label) | 
                         AsmValue::AddressAtLabel(label)
@@ -82,13 +88,25 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                             }
                         },
 
-                        AsmValue::CurrentPosition(_) => push_bytes!(current_pos!().to_le_bytes()),
-                        
-                        AsmValue::StringLiteral(_) |
-                        AsmValue::MacroParameter(_)
-                            => unreachable!("{:#?}", node)
+                        AsmValue::CurrentPosition(_)
+                            => push_bytes!(current_pos!().to_le_bytes()),
                     }
                 }              
+            },
+
+            AsmNodeValue::PseudoInstruction (instruction) => {
+
+                match instruction {
+
+                    PseudoInstructionNode::DefineNumber { size, data }
+                        => push_sized_number!(data.0, size.0, &data.1),
+
+                    PseudoInstructionNode::DefineString { data }
+                        => push_bytes!(data.0.as_bytes()),
+                    
+                    PseudoInstructionNode::DefineBytes {  } => todo!(),
+
+                }
             }
         }
     }

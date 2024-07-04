@@ -26,8 +26,8 @@ fn main() {
     );
 
     if let Some(extension) = main_path.extension() {
-        if extension != "bc" {
-            error::warn("The input file extension is not \".bc\".");
+        if extension != "out" {
+            error::warn("The input file extension is not \".out\".");
         }
     }
 

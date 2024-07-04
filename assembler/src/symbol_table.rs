@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use std::collections::HashMap;
-use std::cell::{Ref, RefCell, UnsafeCell};
-use std::borrow::Cow;
+use std::cell::UnsafeCell;
 
 use rusty_vm_lib::vm::Address;
 
@@ -59,36 +58,11 @@ pub struct ExportedSymbols<'a> {
 }
 
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SymbolID(pub usize);
-
-#[derive(Debug, Clone, Copy)]
-pub struct StaticID(pub usize);
-
-
-pub enum StaticValue<'a> {
-    StringLiteral(Cow<'a, str>),
-    // TODO: add arrays
-}
-
-impl StaticValue<'_> {
-
-    pub fn as_string<'a>(&'a self) -> &'a str {
-        match self {
-            Self::StringLiteral(s) => s,
-        }
-    }
-
-}
-
-
 pub struct SymbolTable<'a> {
 
     labels: UnsafeCell<HashMap<&'a str, LabelDef<'a>>>,
     inline_macros: UnsafeCell<HashMap<&'a str, InlineMacroDef<'a>>>,
     function_macros: UnsafeCell<HashMap<&'a str, FunctionMacroDef<'a>>>,
-
-    statics: UnsafeCell<Vec<RefCell<StaticValue<'a>>>>,
 
     export_labels: UnsafeCell<Vec<&'a str>>,
     export_inline_macros: UnsafeCell<Vec<&'a str>>,
@@ -101,7 +75,6 @@ impl<'a> SymbolTable<'a> {
     pub fn new() -> Self {
         Self {
             labels: Default::default(),
-            statics: Default::default(),
             inline_macros: Default::default(),
             function_macros: Default::default(),
             export_function_macros: Default::default(),
@@ -210,16 +183,6 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_static(&self, value: StaticValue<'a>) -> StaticID {
-
-        let statics = unsafe { &mut *self.statics.get() };
-
-        let id = statics.len();
-        statics.push(RefCell::new(value));
-        StaticID(id)
-    }
-
-
     pub fn declare_inline_macro(&self, name: &'a str, def: InlineMacroDef<'a>, export: bool) -> Option<InlineMacroDef> {
         let macros = unsafe { &mut *self.inline_macros.get() };
 
@@ -243,13 +206,6 @@ impl<'a> SymbolTable<'a> {
         }
 
         old_def
-    }
-
-    
-    pub fn get_static(&self, id: StaticID) -> &'a StaticValue<'a> {
-        let statics = unsafe { &*self.statics.get() };
-        // Leak is safe because statics never get mutated
-        Ref::leak(statics[id.0].borrow())
     }
 
 

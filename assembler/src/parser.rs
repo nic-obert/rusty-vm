@@ -1,8 +1,8 @@
 use rusty_vm_lib::assembly::ByteCode;
 
 use crate::{assembler, error};
-use crate::lang::{AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, FunctionMacroDef, InlineMacroDef, INCLUDE_SECTION_NAME};
-use crate::tokenizer::{Token, TokenLines, TokenList, TokenValue};
+use crate::lang::{AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, FunctionMacroDef, InlineMacroDef, Number, PseudoInstructionNode, PseudoInstructions, INCLUDE_SECTION_NAME};
+use crate::tokenizer::{SourceToken, Token, TokenLines, TokenList, TokenValue};
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
 
@@ -82,8 +82,6 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 
         match token.value {
             
-            TokenValue::StringLiteral(s) => push_op!(AsmValue::StringLiteral(s), token),
-            
             TokenValue::Number(n) => push_op!(AsmValue::Number(n.clone()), token),
             
             TokenValue::Identifier(id) => push_op!(AsmValue::Label(id), token),
@@ -126,6 +124,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
                     TokenValue::CurlyClose |
                     TokenValue::StringLiteral(_) |
                     TokenValue::Instruction(_) |
+                    TokenValue::PseudoInstruction(_) |
                     TokenValue::Colon 
                         => error::parsing_error(&addr_operand.source, module_manager, "Cannot address this token"),
 
@@ -136,6 +135,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
             },
             
             TokenValue::Instruction(_) |
+            TokenValue::PseudoInstruction(_) |
             TokenValue::Dot |
             TokenValue::Endmacro |
             TokenValue::CurlyClose |
@@ -144,6 +144,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
             TokenValue::FunctionMacroDef { .. } |
             TokenValue::InlineMacroDef { .. } |
             TokenValue::Comma |
+            TokenValue::StringLiteral(_) |
             TokenValue::Colon
                 => error::parsing_error(&token.source, module_manager, "Token cannot be used as here."),
             
@@ -228,6 +229,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
                 value: AsmNodeValue::Instruction(node)
             });
         },
+
         
         TokenValue::CurlyOpen |
         TokenValue::Endmacro |
@@ -244,6 +246,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         => error::parsing_error(&main_operator.source, module_manager, "Token cannot be used as a main operator"),
         
         TokenValue::Dot |
+        TokenValue::PseudoInstruction(_) |
         TokenValue::InlineMacroDef { .. } |
         TokenValue::FunctionMacroDef { .. } |
         TokenValue::Equals |
@@ -284,11 +287,11 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
             match main_operator.value {
 
                 TokenValue::InlineMacroDef { export } => {
-                    parse_inline_macro_def(&mut line, &main_operator, module_manager, symbol_table, export);
+                    parse_inline_macro_def(&mut line, main_operator.source, module_manager, symbol_table, export);
                 },
 
                 TokenValue::FunctionMacroDef { export } => {
-                    parse_function_macro_def(&mut line, &main_operator, module_manager, &mut token_lines, symbol_table, export);
+                    parse_function_macro_def(&mut line, main_operator.source, module_manager, &mut token_lines, symbol_table, export);
                 },
 
                 TokenValue::Bang => {
@@ -297,12 +300,22 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 
                 TokenValue::Dot => {
                     /*
-                        Handle ASM sections separately
+                        Handle ASM sections separately.
                         The .include section is special because it only contains strings
                         Other dedicated sections may be implemented
                         All other sections are treated as labels
                     */
-                    parse_section(&mut nodes, &mut line, &main_operator, module_manager, &mut token_lines, symbol_table, bytecode);
+                    parse_section(&mut nodes, &mut line, main_operator.source, module_manager, &mut token_lines, symbol_table, bytecode);
+                },
+
+                TokenValue::PseudoInstruction(instruction) => {
+                    /*
+                        Handle pseudo instructions separately.
+                        Some pseudo instructions may work with a non-assembly-like syntax,
+                        which would be a waste to include in the generic operand parser since it's only used 
+                        with pseudo instructions
+                    */
+                    parse_pseudo_instruction(instruction, main_operator.source, &mut line, &mut nodes, module_manager);
                 },
 
                 _ => {
@@ -318,10 +331,87 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 }
 
 
-fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
+fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<SourceToken<'a>>, line: &mut TokenList<'a>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &'a ModuleManager<'a>) {
+
+    match instruction {
+
+        PseudoInstructions::DefineNumber => {
+
+            let size_token = line.pop_front().unwrap_or_else(
+                || error::parsing_error(&main_op, module_manager, "Missing number size specifier in static data declaration")
+            );
+            let size = if let TokenValue::Number(n) = size_token.value {
+                n
+            } else {
+                error::parsing_error(&size_token.source, module_manager, "Expected a numeric size specifier in static data declaration");
+            };
+
+            let size = if let Number::UnsignedInt(s) = size {
+                s as usize
+            } else {
+                error::parsing_error(&size_token.source, module_manager, "Data size must be an unsigned integer")
+            };
+
+            let number_token = line.pop_front().unwrap_or_else(
+                || error::parsing_error(&size_token.source, module_manager, "Missing numeric value in static data declaration")
+            );
+            let number = if let TokenValue::Number(n) = number_token.value {
+                n
+            } else {
+                error::parsing_error(&number_token.source, module_manager, "Expected a numeric value in static data declaration");
+            };
+
+            if !line.is_empty() {
+                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
+            }
+
+            nodes.push(AsmNode {
+                source: main_op,
+                value: AsmNodeValue::PseudoInstruction (
+                    PseudoInstructionNode::DefineNumber { 
+                        size: (size, size_token.source), 
+                        data: (number, number_token.source) 
+                    }
+                )
+            });
+        },
+
+        PseudoInstructions::DefineString => {
+
+            let string_token = line.pop_front().unwrap_or_else(
+                || error::parsing_error(&main_op, module_manager, "Missing string data in static data declaration")
+            );
+            let string = if let TokenValue::StringLiteral(s) = string_token.value {
+                s
+            } else {
+                error::parsing_error(&string_token.source, module_manager, "Expected a string literal in static data declaration");
+            };
+
+            if !line.is_empty() {
+                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
+            }
+
+            nodes.push(AsmNode {
+                source: main_op,
+                value: AsmNodeValue::PseudoInstruction (
+                    PseudoInstructionNode::DefineString {
+                        data: (string, string_token.source)
+                    }
+                )
+            });
+        },
+
+        PseudoInstructions::DefineBytes => todo!(),
+
+    }
+
+}
+
+
+fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
     let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Expected a section name")
+        || error::parsing_error(&main_op, module_manager, "Expected a section name")
     );
     let name = if let TokenValue::Identifier(name) = name_token.value {
         name
@@ -330,7 +420,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
     };
 
     let colon_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Expected a trailing colon after section name in section delcaration.")
+        || error::parsing_error(&main_op, module_manager, "Expected a trailing colon after section name in section delcaration.")
     );
     if !matches!(colon_token.value, TokenValue::Colon) {
         error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon after section name in section delcaration.");
@@ -343,7 +433,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
     symbol_table.declare_label(name, name_token.source, false);
 
     nodes.push(AsmNode {
-        source: Rc::clone(&main_operator.source),
+        source: Rc::clone(&main_op),
         value: AsmNodeValue::Label(name)
     });
 
@@ -392,7 +482,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
 
             // Shadow the previous `include_path` to avoid confusion with the variables
             let include_path = module_manager.resolve_include_path(
-                main_operator.source.unit_path.as_path().parent().unwrap_or(Path::new("")),
+                main_op.unit_path.as_path().parent().unwrap_or(Path::new("")),
                 include_path
             )
             .unwrap_or_else(|err| 
@@ -487,10 +577,10 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
 }
 
 
-fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
+fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Expected a macro name")
+        || error::parsing_error(&main_op, module_manager, "Expected a macro name")
     );
     let name = if let TokenValue::Identifier(name) = name_token.value {
         name
@@ -516,7 +606,7 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &
     }
 
     let colon_token = line.get(0).unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Expected a trailing colon in macro definition")
+        || error::parsing_error(&main_op, module_manager, "Expected a trailing colon in macro definition")
     );
     if !matches!(colon_token.value, TokenValue::Colon) {
         error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon in macro definition");
@@ -528,7 +618,7 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &
     loop {
 
         let mut body_line = token_lines.pop_front().unwrap_or_else(
-            || error::parsing_error(&main_operator.source, module_manager, "Missing %endmacro in macro definition")
+            || error::parsing_error(&main_op, module_manager, "Missing %endmacro in macro definition")
         );
 
         /*
@@ -588,10 +678,10 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &
 }
 
 
-fn parse_inline_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
+fn parse_inline_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Missing macro name in macro declaration")
+        || error::parsing_error(&main_op, module_manager, "Missing macro name in macro declaration")
     );
     let name = if let TokenValue::Identifier(name) = name_token.value {
         name

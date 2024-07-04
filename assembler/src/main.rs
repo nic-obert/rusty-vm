@@ -38,7 +38,8 @@ fn main() {
 
     let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths);
  
-    let output_name = args.output.unwrap_or_else(|| args.input_file.with_extension("out") );
+    let output_name = args.output
+        .unwrap_or_else(|| args.input_file.with_extension("out") );
 
     if let Err(err) = files::save_byte_code(byte_code, &output_name) {
         error::io_error(err, "Could not save byte code file.");

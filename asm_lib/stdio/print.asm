@@ -12,9 +12,9 @@
     %% println_char c:
 
         mov1 print {c}
-        intr =PRINT_CHAR
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_CHAR
+        intr
+        !println
 
     %endmacro
 
@@ -22,7 +22,8 @@
     %% print_char c:
 
         mov1 print {c}
-        intr =PRINT_CHAR
+        mov1 int =PRINT_CHAR
+        intr
 
     %endmacro
 
@@ -30,7 +31,8 @@
     %% print_char_reg reg:
 
         mov print {reg}
-        intr =PRINT_CHAR
+        mov1 int =PRINT_CHAR
+        intr
 
     %endmacro
 
@@ -38,9 +40,9 @@
     %% println_char_reg reg:
 
         mov print {reg}
-        intr =PRINT_CHAR
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_CHAR
+        intr
+        !println
 
     %endmacro
 
@@ -48,7 +50,9 @@
     %% print_str s:
 
         mov8 print {s}
-        intr =PRINT_STRING
+        mov1 int =PRINT_STRING
+        intr
+        
     
     %endmacro
 
@@ -56,9 +60,9 @@
     %% println_str s:
 
         mov8 print {s}
-        intr =PRINT_STRING
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_STRING
+        intr
+        !println
 
     %endmacro
 
@@ -67,7 +71,8 @@
 
         mov8 r1 {len}
         mov8 print {addr}
-        intr =PRINT_BYTES
+        mov1 int =PRINT_BYTES
+        intr
 
     %endmacro
 
@@ -76,9 +81,9 @@
 
         mov8 r1 {len}
         mov8 print {addr}
-        intr =PRINT_BYTES
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_BYTES
+        intr
+        !println
 
     %endmacro
 
@@ -86,7 +91,8 @@
     %% print_int i:
 
         mov8 print {i}
-        intr =PRINT_SIGNED
+        mov1 int =PRINT_SIGNED
+        intr
 
     %endmacro
 
@@ -94,9 +100,9 @@
     %% println_int i:
 
         mov8 print {i}
-        intr =PRINT_SIGNED
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_SIGNED
+        intr
+        !println
 
     %endmacro
 
@@ -104,7 +110,8 @@
     %% print_uint i:
 
         mov8 print {i}
-        intr =PRINT_UNSIGNED
+        mov1 int =PRINT_UNSIGNED
+        intr
 
     %endmacro
 
@@ -112,9 +119,9 @@
     %% println_uint i:
 
         mov8 print {i}
-        intr =PRINT_UNSIGNED
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_UNSIGNED
+        intr
+        !println
 
     %endmacro
 
@@ -122,7 +129,8 @@
     %% print_float n:
 
         mov8 print {n}
-        intr =PRINT_FLOAT
+        mov1 int =PRINT_FLOAT
+        intr
     
     %endmacro
 
@@ -130,9 +138,9 @@
     %% println_float n:
 
         mov8 print {n}
-        intr =PRINT_FLOAT
-        mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_FLOAT
+        intr
+        !println
     
     %endmacro
 
@@ -140,14 +148,16 @@
     %% println:
 
         mov1 print 10
-        intr =PRINT_CHAR
+        mov1 int =PRINT_CHAR
+        intr
 
     %endmacro
 
 
     %% flush_stdout:
 
-        intr =FLUSH_STDOUT
+        mov1 int =FLUSH_STDOUT
+        intr
 
     %endmacro
     

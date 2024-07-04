@@ -131,6 +131,7 @@ impl<'a> AsmInstructionNode<'a> {
                                 },
                             )+
 
+                            #[allow(unreachable_patterns)]
                             _ => return Err((
                                 Some(Rc::clone(&arg1.source)),
                                 format!("Wrong first argument type for instruction {:?}: {:?}\nThe first argument is expected to be of type {}", instruction, arg1.value, stringify!($($arg1_type),+))
@@ -166,6 +167,7 @@ impl<'a> AsmInstructionNode<'a> {
                                                 AsmValue::$arg2_type (_) => ByteCodes::$bytecode_two_args,
                                             )+
 
+                                            #[allow(unreachable_patterns)]
                                             _ => unreachable!()
                                         }
                                     )?
@@ -177,6 +179,7 @@ impl<'a> AsmInstructionNode<'a> {
                                 },
                             )+
                             
+                            #[allow(unreachable_patterns)]
                             _ => unreachable!()
                         }
                     )?
@@ -371,7 +374,8 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_REG_FROM_CONST,
                 AddressLiteral = MOVE_INTO_REG_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_REG_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_REG_FROM_CONST
+                CurrentPosition = MOVE_INTO_REG_FROM_CONST,
+                Label = MOVE_INTO_REG_FROM_CONST
             ),
             AddressInRegister (
                 Register = MOVE_INTO_ADDR_IN_REG_FROM_REG,
@@ -379,7 +383,8 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_IN_REG_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_IN_REG_FROM_CONST
+                CurrentPosition = MOVE_INTO_ADDR_IN_REG_FROM_CONST,
+                Label = MOVE_INTO_ADDR_IN_REG_FROM_CONST
             ),
             AddressLiteral (
                 Register = MOVE_INTO_ADDR_LITERAL_FROM_REG,
@@ -387,7 +392,8 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST
+                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
+                Label = MOVE_INTO_ADDR_LITERAL_FROM_CONST
             ),
             AddressAtLabel (
                 Register = MOVE_INTO_ADDR_LITERAL_FROM_REG,
@@ -395,7 +401,8 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST
+                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
+                Label = MOVE_INTO_ADDR_LITERAL_FROM_CONST
             )
         ],
     push size:0 argc:1
@@ -433,7 +440,8 @@ declare_asm_instructions! {
             Number = PUSH_FROM_CONST,
             AddressLiteral = PUSH_FROM_ADDR_LITERAL,
             AddressAtLabel = PUSH_FROM_ADDR_LITERAL,
-            CurrentPosition = PUSH_FROM_CONST
+            CurrentPosition = PUSH_FROM_CONST,
+            Label = PUSH_FROM_CONST
         ],
     pushsp size:0 argc:1
         [
@@ -469,7 +477,8 @@ declare_asm_instructions! {
             AddressInRegister = PUSH_STACK_POINTER_ADDR_IN_REG,
             Number = PUSH_STACK_POINTER_CONST,
             AddressLiteral = PUSH_STACK_POINTER_ADDR_LITERAL,
-            AddressAtLabel = PUSH_STACK_POINTER_ADDR_LITERAL
+            AddressAtLabel = PUSH_STACK_POINTER_ADDR_LITERAL,
+            Label = PUSH_STACK_POINTER_CONST
         ],
     pop1 size:1 argc:1
         [
@@ -716,7 +725,8 @@ declare_asm_instructions! {
                 Number = COMPARE_REG_CONST,
                 AddressLiteral = COMPARE_REG_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_REG_ADDR_LITERAL,
-                CurrentPosition = COMPARE_REG_CONST
+                CurrentPosition = COMPARE_REG_CONST,
+                Label = COMPARE_REG_CONST
             ),
             AddressInRegister (
                 Register = COMPARE_ADDR_IN_REG_REG,
@@ -724,7 +734,8 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_IN_REG_CONST,
                 AddressLiteral = COMPARE_ADDR_IN_REG_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_IN_REG_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_IN_REG_CONST
+                CurrentPosition = COMPARE_ADDR_IN_REG_CONST,
+                Label = COMPARE_ADDR_IN_REG_CONST
             ),
             Number (
                 Register = COMPARE_CONST_REG,
@@ -732,7 +743,8 @@ declare_asm_instructions! {
                 Number = COMPARE_CONST_CONST,
                 AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
-                CurrentPosition = COMPARE_CONST_CONST
+                CurrentPosition = COMPARE_CONST_CONST,
+                Label = COMPARE_CONST_CONST
             ),
             AddressLiteral (
                 Register = COMPARE_ADDR_LITERAL_REG,
@@ -740,7 +752,8 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_LITERAL_CONST,
                 AddressLiteral = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_LITERAL_CONST
+                CurrentPosition = COMPARE_ADDR_LITERAL_CONST,
+                Label = COMPARE_ADDR_LITERAL_CONST
             ),
             AddressAtLabel (
                 Register = COMPARE_ADDR_LITERAL_REG,
@@ -748,7 +761,8 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_LITERAL_CONST,
                 AddressLiteral = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_LITERAL_CONST
+                CurrentPosition = COMPARE_ADDR_LITERAL_CONST,
+                Label = COMPARE_ADDR_LITERAL_CONST
             ),
             CurrentPosition (
                 Register = COMPARE_CONST_REG,
@@ -756,7 +770,17 @@ declare_asm_instructions! {
                 Number = COMPARE_CONST_CONST,
                 AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
-                CurrentPosition = COMPARE_CONST_CONST
+                CurrentPosition = COMPARE_CONST_CONST,
+                Label = COMPARE_CONST_CONST
+            ),
+            Label (
+                Register = COMPARE_CONST_REG,
+                AddressInRegister = COMPARE_CONST_ADDR_IN_REG,
+                Number = COMPARE_CONST_CONST,
+                AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
+                AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
+                CurrentPosition = COMPARE_CONST_CONST,
+                Label = COMPARE_CONST_CONST
             )
         ],
     and size:0 argc:0 = AND,
@@ -772,9 +796,17 @@ declare_asm_instructions! {
 
 
 macro_rules! declare_pseudo_instructions {
-    ($($name:ident $asm_name:ident),+) => {
+(
+    $(
+        $name:ident
+        $asm_name:literal
+        {$(
+            $field:ident: $field_type:ty
+        ),*}
+    ),+
+) => {
         
-/// Pseudo-instructions are assembly-only instructions that get evaluated at compile-time and have effects on the generated output byte code.
+/// Pseudo-instructions are assembler-specific instructions that get evaluated at compile-time and have effects on the generated output byte code.
 /// Each instruction is represented by one byte.
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -784,25 +816,46 @@ pub enum PseudoInstructions {
 
 impl PseudoInstructions {
 
-    pub fn from_string(string: &str) -> Option<Self> {
+    pub fn from_name(string: &str) -> Option<Self> {
         match string {
-            $(stringify!($asm_name) => Some(Self::$name),)+
+            $($asm_name => Some(Self::$name),)+
             _ => None
         }
     }
 
 }
 
+
+#[derive(Debug)]
+pub enum PseudoInstructionNode<'a> {
+
+    $($name { $( $field: ($field_type, Rc<SourceToken<'a>>) ),* }),+
+
+}
+
+
     };
 }
 
 declare_pseudo_instructions! {
 
-    DefineNumber dn,
-    DefineBytes db,
-    DefineString ds
+    DefineNumber "dn" { size: usize, data: Number },
+    DefineBytes "db" {},
+    DefineString "ds" { data: Cow<'a, str> }
 
 }
+
+/*
+    @my_number
+    dn 4 5123
+
+    @my_string
+    ds "Hello World!\n\0"
+
+    @my_bytes
+    db [54, 43, 41, 24, 3]
+
+*/
 
 
 #[derive(Debug, Clone)]
@@ -858,9 +911,6 @@ pub enum AsmValue<'a> {
     AddressAtLabel (&'a str),
     Label (&'a str),
     CurrentPosition (()),
-    StringLiteral (Cow<'a, str>),
-
-    MacroParameter (&'a str),
 
 }
 
@@ -870,15 +920,6 @@ pub struct AsmOperand<'a> {
 
     pub value: AsmValue<'a>,
     pub source: Rc<SourceToken<'a>>
-
-}
-
-
-#[derive(Debug)]
-pub struct AsmLine<'a> {
-
-    pub main_op: Token<'a>,
-    pub operands: Box<[AsmOperand<'a>]>
 
 }
 
@@ -926,6 +967,7 @@ pub struct AsmNode<'a> {
 pub enum AsmNodeValue<'a> {
 
     Instruction (AsmInstructionNode<'a>),
+    PseudoInstruction (PseudoInstructionNode<'a>),
     Label (&'a str),
 
 }
