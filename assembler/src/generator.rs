@@ -43,7 +43,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
             AsmNodeValue::Label(name)
                 => symbol_table.define_label(name, current_pos!()),
             
-            AsmNodeValue::Instruction(instruction) => {
+            AsmNodeValue::Instruction(ref instruction) => {
 
                 let bytecode = instruction.byte_code();
                 push_byte!(bytecode);
@@ -71,7 +71,9 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
                         AsmValue::AddressLiteral(addr) => push_bytes!(addr.as_bytes()),
 
-                        AsmValue::AddressAtLabel(label) => {
+                        AsmValue::Label(label) | 
+                        AsmValue::AddressAtLabel(label)
+                        => {
                             if let Some(label) = symbol_table.get_resolved_label(label) {
                                 push_bytes!(label.to_le_bytes());
                             } else {
@@ -82,10 +84,9 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
                         AsmValue::CurrentPosition(_) => push_bytes!(current_pos!().to_le_bytes()),
                         
-                        AsmValue::Label(_) |
                         AsmValue::StringLiteral(_) |
                         AsmValue::MacroParameter(_)
-                            => unreachable!()
+                            => unreachable!("{:#?}", node)
                     }
                 }              
             }

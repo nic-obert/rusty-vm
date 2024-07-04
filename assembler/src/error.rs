@@ -199,8 +199,9 @@ pub fn missing_entry_point(unit_path: UnitPath) -> ! {
 
 pub fn io_error(error: std::io::Error, hint: &str) -> ! {
     printdoc!("
-        ❌ IO error: {}
-
+        ❌ IO error:
+        {}
+        
         {}
         ",
         error, hint

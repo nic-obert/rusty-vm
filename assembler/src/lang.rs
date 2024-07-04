@@ -69,6 +69,7 @@ impl AsmInstruction {
 
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum AsmInstructionNode<'a> {
 
     $($name (Box<[AsmOperand<'a>]>)),+
@@ -912,6 +913,7 @@ pub struct LabelDef<'a> {
 }
 
 
+#[derive(Debug)]
 pub struct AsmNode<'a> {
 
     pub source: Rc<SourceToken<'a>>,
@@ -920,6 +922,7 @@ pub struct AsmNode<'a> {
 }
 
 
+#[derive(Debug)]
 pub enum AsmNodeValue<'a> {
 
     Instruction (AsmInstructionNode<'a>),

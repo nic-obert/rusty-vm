@@ -7,6 +7,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::mem;
 
+use indoc::formatdoc;
 use rusty_vm_lib::assembly::LIBRARY_ENV_VARIABLE;
 
 use crate::error;
@@ -125,16 +126,11 @@ impl<'a> ModuleManager<'a> {
     }
 
 
-    /// Return the absolute include path, if possible
-    /// If the path is canonicalized successfully, it's added to the manager's owned paths.
+    /// Try to resolve `included_path` from the parent folder `caller_directory`.
+    /// If the path is resolved successfully, it's added to the manager's owned paths.
     pub fn resolve_include_path(&self, caller_directory: &Path, included_path: &'a Path) -> Result<UnitPath<'a>, io::Error> {
 
         let paths = unsafe { &mut *self.paths.get() };
-
-        // If the path is already absolute, there's no need to resolve it
-        if included_path.is_absolute() {
-            return Ok(UnitPath { path: included_path });
-        }
 
         // Maybe the path can be canonicalized without further information
         if let Ok(resolved_path) = included_path.canonicalize() {
@@ -159,7 +155,16 @@ impl<'a> ModuleManager<'a> {
         // No valid path was found, the include path could not be resolved
         Err(io::Error::new(
             io::ErrorKind::NotFound, 
-            format!("Could not resolve the path \"{}\" from directory \"{}\".", included_path.display(), caller_directory.display()).as_str()
+            formatdoc!("
+                Could not resolve the path \"{}\" from directory \"{}\".
+                
+                Include paths are:
+                {}
+                ", 
+                included_path.display(),
+                caller_directory.display(),
+                self.include_paths.iter().fold(String::new(), |acc, path| acc + path.to_string_lossy().as_ref() + "\n")
+            ).as_str()
         ))
     }
 

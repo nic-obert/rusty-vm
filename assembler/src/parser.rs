@@ -12,7 +12,6 @@ use std::path::Path;
 use std::rc::Rc;
 
 
-#[inline]
 fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>) {
 
     let mut i: usize = 0;
@@ -66,7 +65,6 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
 }
 
 
-#[inline]
 fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<'a>) -> Box<[AsmOperand<'a>]> {
 
     let mut operands = Vec::with_capacity(tokens.len());
@@ -162,7 +160,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 }
 
 
-#[inline]
+
 fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
 
@@ -320,7 +318,6 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 }
 
 
-#[inline]
 fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
     let name_token = line.pop_front().unwrap_or_else(
@@ -394,10 +391,12 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
             };
 
             // Shadow the previous `include_path` to avoid confusion with the variables
-            let include_path = module_manager.resolve_include_path(main_operator.source.unit_path.as_path(), include_path)
-                .unwrap_or_else(|err| 
-                    error::io_error(err, format!("Failed to resolve path \"{}\"", include_path.display()).as_str()
-                )
+            let include_path = module_manager.resolve_include_path(
+                main_operator.source.unit_path.as_path().parent().unwrap_or(Path::new("")),
+                include_path
+            )
+            .unwrap_or_else(|err| 
+                error::io_error(err, format!("Failed to resolve path \"{}\"", include_path.display()).as_str())
             );
 
             assembler::assemble_included_unit(include_path, module_manager, bytecode);
@@ -411,7 +410,6 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
 }
 
 
-#[inline]
 fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
     let macro_name_op = line.pop_front().unwrap_or_else(
@@ -489,7 +487,6 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
 }
 
 
-#[inline]
 fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
@@ -534,10 +531,46 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &
             || error::parsing_error(&main_operator.source, module_manager, "Missing %endmacro in macro definition")
         );
 
-        if let Some(token) = body_line.front() {
-            if matches!(token.value, TokenValue::Endmacro) {
-                break;
-            }
+        /*
+            TODO: this may also be true for function macros inside other macros
+            TODO: this may also be true for inline macros inside other inline macros
+
+            The function macro body may contain some inline macros that are not exported.
+            Consider the following example:
+
+            foo.asm
+            `
+                %- SOME_INLINE_MACRO: 43
+
+                %%- EXPORTED_FUNCTION_MACRO: 
+
+                    mov1 r1 =SOME_INLINE_MACRO
+
+                %endmacro
+            `
+
+            bar.asm
+            `
+                .include:
+
+                    "foo.asm"
+
+                .text:
+
+                    !EXPORTED_FUNCTION_MACRO <--- issue
+            `
+
+            The issue is that `EXPORTED_FUNCTION_MACRO` gets exported by `foo.asm`
+            and into `bar.asm`, but `SOME_INLINE_MACRO` does not.
+            When `bar.asm` tries to invoke the imported function macro, the expansion is triggered.
+            However, after expansion, `bar.asm` will have to resolve the inline macro `SOME_INLINE_MACRO`,
+            which is actually defined inside `foo.asm` and is private.
+            For this reason, inline macros must be readily expanded when parsing the function macro definition.
+        */
+        expand_inline_macros(&mut body_line, symbol_table, module_manager);
+
+        if let Some(Token { value: TokenValue::Endmacro, .. }) = body_line.front() {
+            break;
         }
 
         body.push(
@@ -555,7 +588,6 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &
 }
 
 
-#[inline]
 fn parse_inline_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
