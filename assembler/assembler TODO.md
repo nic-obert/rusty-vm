@@ -2,6 +2,7 @@
 
 ### TODO
 
+- [ ] implement "[$]", see todo!() in parser.rs  
 - [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [ ] test multiline strings (probably fails)  
 - [ ] test behavior with circular dependencies  
@@ -14,6 +15,7 @@
 
 ### Done ✓
 
+- [x] Allow macro arguments to be grouped together "!println_int [ADDR]" should group [ADDR] together instead of treating each token as a separate argument  
 - [x] reimplement pseudo instructions like in-place define data. pseudo instructions could probably be included in the AsmInstructions enums and then evaluated when generating the bytecode  
 - [x] put all include paths in quotes to make it easier to parse  
 - [x] fix misrepresented float numbers. during tokenization, all numbers are converted to i64. here we need to use a union or an enum to distinguish between u64, i64, and f64  

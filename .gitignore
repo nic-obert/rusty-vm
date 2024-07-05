@@ -1,9 +1,5 @@
-__pycache__
-*.pyc
-*.bc
-*.dis
-target
 *.out
 *.test
 *.disk
-vm/test
+target
+*.log

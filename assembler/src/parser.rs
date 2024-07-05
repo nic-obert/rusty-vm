@@ -104,7 +104,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 
                 match addr_operand.value {
                     
-                    TokenValue::CurrentPosition => push_op!(AsmValue::CurrentPosition(()), token),
+                    TokenValue::CurrentPosition => todo!("[$] should be allowed. Maybe we could make so that the $ symbol is a special label that always refers to the current position"),
 
                     TokenValue::Register(reg) => push_op!(AsmValue::AddressInRegister(reg), token),
 
@@ -408,7 +408,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 }
 
 
-fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
+fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
     let name_token = line.pop_front().unwrap_or_else(
         || error::parsing_error(&main_op, module_manager, "Expected a section name")
@@ -500,14 +500,87 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut VecDeque<Token<'a>
 }
 
 
-fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Token<'a>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
+type MacroArgGroup<'a> = Box<[*const Token<'a>]>;
+
+
+fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
+
+    // Set initial capacity to avoid reallocations.
+    // If the line contains only one-token-groups, `args.len()` is perfect.
+    // If the line contains one or more mutli-token-groups, `args.len()` allocates slightly more than necessary.
+    let mut groups: Vec<MacroArgGroup> = Vec::with_capacity(args.len());
+
+    let mut iter = args.iter();
+
+    while let Some(token) = iter.next() {
+
+        match token.value {
+            
+            TokenValue::SquareOpen => {
+                /*
+                    If the square brackets enclose some tokens, handle the whole brackets and content as a single arg group:
+                    `
+                        !println_int [ADDR]       
+                    `
+                    In other cases, push each token as a separate arg group:
+                    `
+                        !println_int [42 92
+                        !println_int [
+                        !println_int [[
+                    `
+                    The latter examples are weird and don't reflect any real-world application, but it's syntactically allowed.
+                    It's up to the programmer to provide the correct macro arguments
+                */
+
+                let mut group = vec![token as *const Token];
+
+                while let Some(inner) = iter.next() {
+
+                    group.push(inner);
+
+                    if matches!(inner.value, TokenValue::SquareClose) {
+                        break;
+                    }
+                }
+
+                if let TokenValue::SquareClose = unsafe { 
+                                                    &**group.last()
+                                                        .expect("Always has at least one element (the opening `[` token)")
+                                                }.value
+                {
+                    // The arg group is a token list enclosed in square brackets
+                    groups.push(MacroArgGroup::from(group));
+                } else {
+                    /*
+                        Note that pushing the so-far-seen tokens this way is not valid if tokens other than `[` are
+                        handled as special tokens because they may lead a token group.
+                    */
+                    groups.extend(
+                        group.iter().map(
+                            |token| MacroArgGroup::from([*token])
+                        )
+                    );
+                }
+            },
+            
+            // Inline macros are expanded before the operators are evaluated
+            TokenValue::Equals |
+            _ => groups.push(MacroArgGroup::from([token as *const Token]))
+
+        }
+
+    }
+
+    groups.into_boxed_slice()
+}
+
+
+fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_operator: &Token<'a>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
     let macro_name_op = line.pop_front().unwrap_or_else(
         || error::parsing_error(&main_operator.source, module_manager, "Missing macro name after `!`")
     );
-    let macro_name = if let TokenValue::Identifier(name) = macro_name_op.value {
-        name
-    } else {
+    let TokenValue::Identifier(macro_name) = macro_name_op.value else {
         error::parsing_error(&macro_name_op.source, module_manager, "Expected a macro name after `!`");
     };
 
@@ -515,13 +588,16 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
         || error::undefined_macro(&macro_name_op.source, module_manager, symbol_table.function_macros())
     );
 
-    if line.len() != macro_def.params.len() {
-        error::parsing_error(&main_operator.source, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), line.len()).as_str())
+    let args = group_macro_args(&line);
+
+    if args.len() != macro_def.params.len() {
+        error::parsing_error(&main_operator.source, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), args.len()).as_str())
     }
 
     let expanded_macro = macro_def.body.iter().map(
         |original_line| {
 
+            // Setting the starting capacity to the original line's capacity avoids reallocations if the line doesn't contain macro arguments
             let mut expanded_line = TokenList::with_capacity(original_line.len());
 
             let mut i = 0;
@@ -535,17 +611,13 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
                     let param_name_token = original_line.get(i).unwrap_or_else(
                         || error::parsing_error(&token.source, module_manager, "Missing macro parameter name after `{` inside macro body")
                     );
-                    let param_name = if let TokenValue::Identifier(name) = param_name_token.value {
-                        name
-                    } else {
+                    let TokenValue::Identifier(param_name) = param_name_token.value else {
                         error::parsing_error(&param_name_token.source, module_manager, "Expected a macro parameter name after '{` inside macro body");
                     };
 
                     let arg_position = *macro_def.params.get(param_name).unwrap_or_else(
                         || error::parsing_error(&param_name_token.source, module_manager, "Undefined macro parameter name")
                     );
-
-                    let substitute_token = &line[arg_position];
 
                     i += 1;
                     let closing_curly_token = original_line.get(i).unwrap_or_else(
@@ -555,7 +627,9 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
                         error::parsing_error(&closing_curly_token.source, module_manager, "Expected closing `}` after macro parameter name inside macro body");
                     }
 
-                    expanded_line.push_back(substitute_token.clone());
+                    expanded_line.extend(
+                        args[arg_position].iter().map(|&token| unsafe { &*token }.clone() )
+                    );
 
                     i += 1;
                     continue;
@@ -577,14 +651,12 @@ fn expand_function_macro<'a>(line: &mut VecDeque<Token<'a>>, main_operator: &Tok
 }
 
 
-fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
+fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
         || error::parsing_error(&main_op, module_manager, "Expected a macro name")
     );
-    let name = if let TokenValue::Identifier(name) = name_token.value {
-        name
-    } else {
+    let TokenValue::Identifier(name) = name_token.value else {
         error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name");
     };
 
@@ -594,9 +666,7 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<Sour
 
     for (index, param_token) in line.drain(..line.len()-1).enumerate() {
 
-        let param_name = if let TokenValue::Identifier(name) = param_token.value {
-            name
-        } else {
+        let TokenValue::Identifier(param_name) = param_token.value else {
             error::parsing_error(&param_token.source, module_manager, "Expected an identifier as macro parameter");
         };
 
@@ -678,14 +748,12 @@ fn parse_function_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<Sour
 }
 
 
-fn parse_inline_macro_def<'a>(line: &mut VecDeque<Token<'a>>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
+fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
     
     let name_token = line.pop_front().unwrap_or_else(
         || error::parsing_error(&main_op, module_manager, "Missing macro name in macro declaration")
     );
-    let name = if let TokenValue::Identifier(name) = name_token.value {
-        name
-    } else {
+    let TokenValue::Identifier(name) = name_token.value else {
         error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name in macro declaration");
     };
 

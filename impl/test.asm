@@ -10,6 +10,9 @@
     @ERROR_POW
     ds "Invalid input for powi function.\0"
 
+    @TEST_NUM
+    dn 8 80
+
 
 .text:
 
@@ -17,5 +20,6 @@
 
 
     !println_str ERROR_POW
+    !println_int [TEST_NUM]
 
 
