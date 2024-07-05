@@ -2,7 +2,8 @@
 
 ### TODO
 
-- [ ] implement "[$]", see todo!() in parser.rs  
+- [ ] chech validity of specified size in dn  
+- [ ] update documentation  
 - [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [ ] test multiline strings (probably fails)  
 - [ ] test behavior with circular dependencies  
@@ -15,6 +16,7 @@
 
 ### Done ✓
 
+- [x] implement "[$]", see todo!() in parser.rs  
 - [x] Allow macro arguments to be grouped together "!println_int [ADDR]" should group [ADDR] together instead of treating each token as a separate argument  
 - [x] reimplement pseudo instructions like in-place define data. pseudo instructions could probably be included in the AsmInstructions enums and then evaluated when generating the bytecode  
 - [x] put all include paths in quotes to make it easier to parse  

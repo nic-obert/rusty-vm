@@ -7,8 +7,8 @@
 
 .data:
 
-    @ERROR_POW
-    ds "Invalid input for powi function.\0"
+    @MSG
+    ds "Current position: \0"
 
     @TEST_NUM
     dn 8 80
@@ -19,7 +19,17 @@
 @start
 
 
-    !println_str ERROR_POW
-    !println_int [TEST_NUM]
+    !print_str MSG
+
+    jmp after
+    dn 8 12
+    @after
+
+    mov8 r1 $
+    #!println_uint [r1]
+
+    mov8 print r1
+    mov1 int =PRINT_UNSIGNED
+    intr
 
 

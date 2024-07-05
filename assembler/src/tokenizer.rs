@@ -8,7 +8,7 @@ use regex::Regex;
 use rusty_vm_lib::registers::Registers;
 
 use crate::error;
-use crate::lang::{AsmInstruction, Number, PseudoInstructions};
+use crate::lang::{AsmInstruction, Number, PseudoInstructions, CURRENT_POSITION_TOKEN};
 use crate::module_manager::UnitPath;
 
 
@@ -41,7 +41,6 @@ pub enum TokenValue<'a> {
     SquareClose,
     CurlyOpen,
     CurlyClose,
-    CurrentPosition,
     Register (Registers),
     Number (Number),
     Identifier (&'a str),
@@ -193,7 +192,7 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
 
                     "." => TokenValue::Dot,
     
-                    "$" => TokenValue::CurrentPosition,
+                    CURRENT_POSITION_TOKEN => TokenValue::Identifier (CURRENT_POSITION_TOKEN),
     
                     "%-" => TokenValue::InlineMacroDef { export: false },
                     "%%-" => TokenValue::InlineMacroDef { export: true },

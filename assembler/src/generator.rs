@@ -7,7 +7,7 @@ use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 use crate::error;
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
-use crate::lang::{AsmNode, AsmNodeValue, AsmValue, PseudoInstructionNode};
+use crate::lang::{AsmNode, AsmNodeValue, AsmValue, PseudoInstructionNode, CURRENT_POSITION_TOKEN};
 use crate::tokenizer::SourceToken;
 
 
@@ -55,8 +55,8 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
             
             AsmNodeValue::Instruction(ref instruction) => {
 
-                let bytecode = instruction.byte_code();
-                push_byte!(bytecode);
+                let instruction_code = instruction.byte_code();
+                push_byte!(instruction_code);
 
                 let handled_size = instruction.handled_size();
                 if handled_size != 0 {
@@ -82,14 +82,16 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                         => {
                             if let Some(label) = symbol_table.get_resolved_label(label) {
                                 push_bytes!(label.to_le_bytes());
+
+                            } else if *label == CURRENT_POSITION_TOKEN {
+                                println!("Pushing current position: {}", bytecode.len());
+                                push_bytes!(current_pos!().to_le_bytes())
+
                             } else {
                                 unresolved_labels.push((label, current_pos!(), Rc::clone(&arg.source)));
                                 push_bytes!(LABEL_PLACEHOLDER);
                             }
-                        },
-
-                        AsmValue::CurrentPosition(_)
-                            => push_bytes!(current_pos!().to_le_bytes()),
+                        }
                     }
                 }              
             },

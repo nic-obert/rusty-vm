@@ -237,12 +237,11 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    /// Assumes the label is present in the table
     pub fn get_resolved_label(&self, name: &str) -> Option<Address> {
 
         let labels = unsafe { &*self.labels.get() };
 
-        labels.get(name).unwrap().value
+        labels.get(name)?.value
     }
 
 

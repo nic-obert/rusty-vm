@@ -86,8 +86,6 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
             
             TokenValue::Identifier(id) => push_op!(AsmValue::Label(id), token),
             
-            TokenValue::CurrentPosition => push_op!(AsmValue::CurrentPosition(()), token),
-            
             TokenValue::Register(reg) => push_op!(AsmValue::Register(reg), token),
 
             TokenValue::SquareOpen => {
@@ -104,8 +102,6 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 
                 match addr_operand.value {
                     
-                    TokenValue::CurrentPosition => todo!("[$] should be allowed. Maybe we could make so that the $ symbol is a special label that always refers to the current position"),
-
                     TokenValue::Register(reg) => push_op!(AsmValue::AddressInRegister(reg), token),
 
                     TokenValue::Number(n) => push_op!(AsmValue::AddressLiteral(n), token),
@@ -234,7 +230,6 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         TokenValue::CurlyOpen |
         TokenValue::Endmacro |
         TokenValue::Number(_) |
-        TokenValue::CurrentPosition |
         TokenValue::SquareOpen |
         TokenValue::SquareClose |
         TokenValue::Comma |

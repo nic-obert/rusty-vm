@@ -13,6 +13,7 @@ use crate::tokenizer::{SourceToken, Token};
 
 pub const ENTRY_SECTION_NAME: &'static str = "text";
 pub const INCLUDE_SECTION_NAME: &'static str = "include";
+pub const CURRENT_POSITION_TOKEN: &'static str = "$";
 
 
 macro_rules! declare_asm_instructions {
@@ -374,7 +375,6 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_REG_FROM_CONST,
                 AddressLiteral = MOVE_INTO_REG_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_REG_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_REG_FROM_CONST,
                 Label = MOVE_INTO_REG_FROM_CONST
             ),
             AddressInRegister (
@@ -383,7 +383,6 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_IN_REG_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_IN_REG_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_IN_REG_FROM_CONST,
                 Label = MOVE_INTO_ADDR_IN_REG_FROM_CONST
             ),
             AddressLiteral (
@@ -392,7 +391,6 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 Label = MOVE_INTO_ADDR_LITERAL_FROM_CONST
             ),
             AddressAtLabel (
@@ -401,7 +399,6 @@ declare_asm_instructions! {
                 Number = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 AddressLiteral = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
                 AddressAtLabel = MOVE_INTO_ADDR_LITERAL_FROM_ADDR_LITERAL,
-                CurrentPosition = MOVE_INTO_ADDR_LITERAL_FROM_CONST,
                 Label = MOVE_INTO_ADDR_LITERAL_FROM_CONST
             )
         ],
@@ -440,7 +437,6 @@ declare_asm_instructions! {
             Number = PUSH_FROM_CONST,
             AddressLiteral = PUSH_FROM_ADDR_LITERAL,
             AddressAtLabel = PUSH_FROM_ADDR_LITERAL,
-            CurrentPosition = PUSH_FROM_CONST,
             Label = PUSH_FROM_CONST
         ],
     pushsp size:0 argc:1
@@ -725,7 +721,6 @@ declare_asm_instructions! {
                 Number = COMPARE_REG_CONST,
                 AddressLiteral = COMPARE_REG_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_REG_ADDR_LITERAL,
-                CurrentPosition = COMPARE_REG_CONST,
                 Label = COMPARE_REG_CONST
             ),
             AddressInRegister (
@@ -734,7 +729,6 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_IN_REG_CONST,
                 AddressLiteral = COMPARE_ADDR_IN_REG_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_IN_REG_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_IN_REG_CONST,
                 Label = COMPARE_ADDR_IN_REG_CONST
             ),
             Number (
@@ -743,7 +737,6 @@ declare_asm_instructions! {
                 Number = COMPARE_CONST_CONST,
                 AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
-                CurrentPosition = COMPARE_CONST_CONST,
                 Label = COMPARE_CONST_CONST
             ),
             AddressLiteral (
@@ -752,7 +745,6 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_LITERAL_CONST,
                 AddressLiteral = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_LITERAL_CONST,
                 Label = COMPARE_ADDR_LITERAL_CONST
             ),
             AddressAtLabel (
@@ -761,17 +753,7 @@ declare_asm_instructions! {
                 Number = COMPARE_ADDR_LITERAL_CONST,
                 AddressLiteral = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_ADDR_LITERAL_ADDR_LITERAL,
-                CurrentPosition = COMPARE_ADDR_LITERAL_CONST,
                 Label = COMPARE_ADDR_LITERAL_CONST
-            ),
-            CurrentPosition (
-                Register = COMPARE_CONST_REG,
-                AddressInRegister = COMPARE_CONST_ADDR_IN_REG,
-                Number = COMPARE_CONST_CONST,
-                AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
-                AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
-                CurrentPosition = COMPARE_CONST_CONST,
-                Label = COMPARE_CONST_CONST
             ),
             Label (
                 Register = COMPARE_CONST_REG,
@@ -779,7 +761,6 @@ declare_asm_instructions! {
                 Number = COMPARE_CONST_CONST,
                 AddressLiteral = COMPARE_CONST_ADDR_LITERAL,
                 AddressAtLabel = COMPARE_CONST_ADDR_LITERAL,
-                CurrentPosition = COMPARE_CONST_CONST,
                 Label = COMPARE_CONST_CONST
             )
         ],
@@ -910,7 +891,6 @@ pub enum AsmValue<'a> {
     AddressLiteral (Number),
     AddressAtLabel (&'a str),
     Label (&'a str),
-    CurrentPosition (()),
 
 }
 
