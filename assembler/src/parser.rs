@@ -335,17 +335,17 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             let size_token = line.pop_front().unwrap_or_else(
                 || error::parsing_error(&main_op, module_manager, "Missing number size specifier in static data declaration")
             );
-            let size = if let TokenValue::Number(n) = size_token.value {
-                n
-            } else {
+            let TokenValue::Number(size) = size_token.value else {
                 error::parsing_error(&size_token.source, module_manager, "Expected a numeric size specifier in static data declaration");
             };
 
-            let size = if let Number::UnsignedInt(s) = size {
-                s as usize
-            } else {
+            let Number::UnsignedInt(size) = size else {
                 error::parsing_error(&size_token.source, module_manager, "Data size must be an unsigned integer")
             };
+
+            if !matches!(size, 1 | 2 | 4 | 8) {
+                error::parsing_error(&size_token.source, module_manager, "Specified number size is expected to be a value among 1, 2, 4, 8");
+            }
 
             let number_token = line.pop_front().unwrap_or_else(
                 || error::parsing_error(&size_token.source, module_manager, "Missing numeric value in static data declaration")
@@ -364,7 +364,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                 source: main_op,
                 value: AsmNodeValue::PseudoInstruction (
                     PseudoInstructionNode::DefineNumber { 
-                        size: (size, size_token.source), 
+                        size: (size as u8, size_token.source), 
                         data: (number, number_token.source) 
                     }
                 )

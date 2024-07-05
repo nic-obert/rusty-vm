@@ -101,7 +101,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                 match instruction {
 
                     PseudoInstructionNode::DefineNumber { size, data }
-                        => push_sized_number!(data.0, size.0, &data.1),
+                        => push_sized_number!(data.0, size.0 as usize, &data.1),
 
                     PseudoInstructionNode::DefineString { data }
                         => push_bytes!(data.0.as_bytes()),

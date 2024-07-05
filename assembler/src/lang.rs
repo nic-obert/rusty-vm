@@ -820,7 +820,7 @@ pub enum PseudoInstructionNode<'a> {
 
 declare_pseudo_instructions! {
 
-    DefineNumber "dn" { size: usize, data: Number },
+    DefineNumber "dn" { size: u8, data: Number },
     DefineBytes "db" {},
     DefineString "ds" { data: Cow<'a, str> }
 
