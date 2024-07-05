@@ -168,6 +168,7 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
                 let string = mat.as_str();
 
                 if string.starts_with('#') {
+                    // Ignore the rest of the line after #
                     break;
                 }
 
@@ -210,48 +211,52 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
     
                     "," => TokenValue::Comma,
     
-                    string if string.starts_with("0x") => {
+                    mat if mat.starts_with("0x") => {
                         TokenValue::Number(Number::UnsignedInt(
-                            u64::from_str_radix(&string[2..], 16)
+                            u64::from_str_radix(&mat[2..], 16)
                                 .unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str()))
                         ))
                     },
 
-                    string if string.starts_with("0b") => {
+                    mat if mat.starts_with("0b") => {
                         TokenValue::Number(Number::UnsignedInt(
-                            u64::from_str_radix(&string[2..], 2)
+                            u64::from_str_radix(&mat[2..], 2)
                                 .unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str()))
                         ))
                     },
     
-                    string if string.starts_with(is_decimal_numeric) => {
-                        TokenValue::Number(if string.contains('.') {
-                            Number::Float(string.parse::<f64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
-                        } else if string.starts_with('-') {
-                            Number::SignedInt(string.parse::<i64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                    mat if mat.starts_with(is_decimal_numeric) => {
+                        TokenValue::Number(if mat.contains('.') {
+                            Number::Float(mat.parse::<f64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                        } else if mat.starts_with('-') {
+                            Number::SignedInt(mat.parse::<i64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
                         } else {
-                            Number::UnsignedInt(string.parse::<u64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
+                            Number::UnsignedInt(mat.parse::<u64>().unwrap_or_else(|err| error::invalid_number_format(&token, source, err.to_string().as_str())))
                         })
                     },
     
-                    string if string.starts_with('"') => {
+                    mat if mat.starts_with('"') => {
     
-                        if !string.ends_with('"') {
+                        // 1 is the length of the match if only a `"` character is present.
+                        // The regex ensures that unclosed quotes are not considered string tokens.
+                        if mat.len() == 1 {
                             error::tokenizer_error(&token, source, "Unterminated string literal.");
                         }
     
-                        let string = escape_string(string, &token, source);
+                        let string = escape_string(mat, &token, source);
     
                         TokenValue::StringLiteral(string)
                     },
             
-                    string if string.starts_with('\'') => {
+                    mat if mat.starts_with('\'') => {
     
-                        if !string.ends_with('\'') {
+                        // 1 is the length of the match if only a `'` character is present
+                        // The regex ensures that unclosed quotes are not considered string tokens.
+                        if mat.len() == 1 {
                             error::tokenizer_error(&token, source, "Unterminated character literal.");
                         }
     
-                        let escaped_string = escape_string(string, &token, source);
+                        let escaped_string = escape_string(mat, &token, source);
     
                         if escaped_string.len() != 1 {
                             error::tokenizer_error(&token, source, format!("Invalid character literal. A character literal can only contain one character, but {} were found.", escaped_string.len()).as_str());
@@ -262,18 +267,18 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
                         TokenValue::Number(Number::UnsignedInt(c as u64))
                     },
     
-                    string => {
+                    mat => {
                         
-                        if let Some(instruction) = AsmInstruction::from_name(string) {
+                        if let Some(instruction) = AsmInstruction::from_name(mat) {
                             TokenValue::Instruction(instruction)
     
-                        } else if let Some(register) = Registers::from_name(string) {
+                        } else if let Some(register) = Registers::from_name(mat) {
                             TokenValue::Register(register)
                         
-                        } else if let Some(pseudo_instruction) = PseudoInstructions::from_name(string) {
+                        } else if let Some(pseudo_instruction) = PseudoInstructions::from_name(mat) {
                             TokenValue::PseudoInstruction(pseudo_instruction)
 
-                        } else if string == "endmacro" {
+                        } else if mat == "endmacro" {
     
                             if let Some(last_token) = current_line.pop_back() {
                                 if !matches!(last_token.value, TokenValue::FunctionMacroDef {..}) {
@@ -285,8 +290,8 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
     
                             TokenValue::Endmacro
     
-                        } else if IDENTIFIER_REGEX.is_match(string) {
-                            TokenValue::Identifier(string)
+                        } else if IDENTIFIER_REGEX.is_match(mat) {
+                            TokenValue::Identifier(mat)
     
                         } else {
                             error::tokenizer_error(&token, source, "Invalid token.")

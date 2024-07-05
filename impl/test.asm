@@ -8,7 +8,9 @@
 .data:
 
     @MSG
-    ds "Current position: \0"
+    ds 'Current position: 
+    is not me
+    but mine is bigger\0"
 
     @TEST_NUM
     dn 8 80

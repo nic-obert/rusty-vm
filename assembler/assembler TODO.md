@@ -4,7 +4,6 @@
 
 - [ ] update documentation  
 - [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
-- [ ] test multiline strings (probably fails)  
 - [ ] test behavior with circular dependencies  
 - [ ] reimplement a parser for array literals (static data declaration)  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
@@ -15,6 +14,7 @@
 
 ### Done ✓
 
+- [x] test multiline strings (probably fails)  
 - [x] chech validity of specified size in dn  
 - [x] implement "[$]", see todo!() in parser.rs  
 - [x] Allow macro arguments to be grouped together "!println_int [ADDR]" should group [ADDR] together instead of treating each token as a separate argument  
