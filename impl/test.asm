@@ -1,15 +1,19 @@
 
 .include:
 
-    "foo.asm"
     "stdio.asm"
 
+.data:
+
+    %- foo: &
+
+    @=foo
+    ds "Hello\0"
+
+    @test
+    ds "test\0"
+
 .text:
-
-    %-ZERO: 10
-    %-r1_zero: r1 =ZERO
-
-    mov1 =r1_zero
-
-    !println_uint r1
-
+    
+    !println_str test
+    !println_str =foo

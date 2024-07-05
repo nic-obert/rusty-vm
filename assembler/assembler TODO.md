@@ -2,7 +2,6 @@
 
 ### TODO
 
-- [ ] test unique symbol &  
 - [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [ ] implement a parser for complex array literals in static data declaration. Complex array literals may contain nested arrays, sized numbers, etc  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
@@ -13,6 +12,7 @@
 
 ### Done ✓
 
+- [x] test unique symbol &  
 - [x] update documentation  
 - [x] test behavior with circular dependencies  
 - [x] test multiline strings (probably fails)  
