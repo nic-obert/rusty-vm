@@ -1,12 +1,12 @@
-# Rusty Assembler
+# Assembler
 
-- [Rusty Assembler](#rusty-assembler)
+- [Assembler](#assembler)
   - [Introduction](#introduction)
   - [Basic usage](#basic-usage)
 
 ## Introduction
 
-This is a simple assembler for the Rusty Virtual Machine. It's designed to be simple to use and easy to understand, yet powerful enough to write complex programs.
+This is an assembler for the Rusty Virtual Machine. It's designed to be simple to use and easy to understand, yet powerful enough to write complex programs.
 
 ## Basic usage
 
@@ -22,11 +22,11 @@ For full usage instructions, run with the `--help` flag.
 
 ### $: current address
 
-The `$` symbol represents the current address in the binary as it's being assembled.  
+The `$` symbol is a special label that represents the current address in the binary as it's being assembled.  
 The assembler will replace every `$` symbol with the literal current address at the time of the assembly.  
 Note that `$` has no knowledge of runtime stack pointers, so it's undefined behavior to use it inside procedures.
 
-```py
+```bash
 mov1 r1 $
 ```
 
@@ -34,7 +34,7 @@ mov1 r1 $
 
 The `&` symbol represents a unique symbol that will be replaced with a unique text string at the time of the assembly.
 
-```py
+```bash
 # Define a unique label
 @&
 ```
@@ -45,7 +45,7 @@ The `&` symbol represents a unique symbol that will be replaced with a unique te
 Address literals are used to specify a memory address in the binary.
 Address lierals are 8-byte unsigned integers enclosed in square brackets.
 
-```py
+```bash
 mov1 r1 [1234]
 ```
 
@@ -54,7 +54,7 @@ mov1 r1 [1234]
 A label is a compile time symbol that represents a memory address in the binary. Labels are declared in the assembly code using the `@` symbol. To export a label, prefix it with `@@` instead.  
 Label names can only contain alphabetic characters and underscores. Also, they must not overwrite any of the reserved assembly instructions or registers.
 
-```py
+```bash
 # Regular label
 @my_label
 
@@ -62,108 +62,134 @@ Label names can only contain alphabetic characters and underscores. Also, they m
 @@my_exported_label
 ```
 
-### Macros
+### Sections
 
-A macro is a compile time symbol that represents a set of assembly instructions. Macros are declared in the assembly code by prefixing them with the `%` symbol and called by prefixing them with the `!` symbol.  
-Macros can only be declared and reference in the `.text:` section of the assembly code. A macro must be declared before it's used.  
-Macros work internally by replacing every reference to them in the source code with the actual instructions they represent.  
-Note that you cannot declare a macro inside another macro.
+A section is a distinct of the assembly program, identified by a label that points to the start of the section.
 
-```py
-.text:
-
-  # Defining a macro
-  %my_macro:
-
-    mov1 r1 1
-    mov1 r2 2
-    mov1 r3 3
-
-  # End of macro definition
-  %endmacro
-
-  mov1 r4 4
-  mov1 r5 5
-  mov1 r6 6
-
-  # Using a macro
-  !my_macro
+```bash
+.my_section:
+  # The assembly code here is inside of the .my_section section
 ```
 
-Macros may accept a number of space-separated positional arguments, specified after the macro name.  
-The arguments are referenced in the macro body by enclosing their name in curly brackets: `{arg_name}`.
+Some section names are reserved for specific functions:
 
-```py
-.text:
+#### .text section
 
-  # Defining a macro with arguments
-  %my_macro arg1 arg2:
+The `.text` section is treated as the entry point of the program. This means that the label `text` points to the first byte that will be executed by the VM.
 
-    mov1 r1 {arg1}
-    mov1 r2 {arg2}
+#### .include section
 
-  # End of macro definition
-  %endmacro
+The `.include` section is used to include other assembly units and uses a special syntax.  
+The paths of the units to include are speficied as a string literal, optionally preceded by a `@@` token to re-export the included unit's contents.
 
-  # Using a macro with arguments
-  !my_macro 1 2
+```bash
+.include:
+
+  # Include the `archlib.asm` file
+  "archlib.asm"
+
+  # Include the `stdio.asm` file and re-export its contents
+  @@ "stdio.asm"
 ```
 
-To export a macro, prefix it with a double `%` instead.
+Re-exporting symbols works as follows:
+- unit `foo.asm` exports a `@@foo` label
+- unit `bar.asm` includes and re-exports `foo.asm` via `@@ "foo.asm"`
+- unit `foobar.asm` includes `bar.asm` and has access to the `foo` label
 
-```py
-.text:
+The assembly unit path resolution works as follows:
+1. If the provided path is absolute, stop searching.
+2. Check if the provided path is relative to the current working directory.
+3. Check if the provided path is relative to any specified include paths.
 
-  # Exporting a macro
-  %%my_macro:
+Include paths are directories where the assembler searches for included units. Include paths can be specified through the `-L` option or via the `RUSTYVM_ASM_LIB` environment variable.
 
-    mov1 r1 1
-    mov1 r2 2
-    mov1 r3 3
+### Function-like macros
 
-  # End of macro definition
-  %endmacro
+A function-like macro is a parametrized compile-time metaprogramming tool that allows you to generate assembly code in-place.
+Function-like macros are declared thorugh the `%` prefix and invoked via the `!` operator.  
+Macros work internally by replacing every invocation with the expanded macro body.
 
-  # Using an exported macro
-  !my_macro
+```bash
+# Defining a macro
+%my_macro:
+
+  mov1 r1 1
+  mov1 r2 2
+  mov1 r3 3
+
+# End of macro definition
+%endmacro
+
+# Invoking a macro
+!my_macro
 ```
 
-### Constant macros
+Macros may accept a number of positional parameters, specified after the macro name.  
+The parameters are referenced in the macro body by enclosing their name in curly brackets: `{arg_name}`.
 
-Constant macros are compile-time symbols that represent text to be inserted in the source code. Constant macros are declared in the assembly code by prefixing them with the `%-` symbol.
-Constant macros can only be declared and referenced in the `.text:` section of the assembly code. A constant macro must be declared before it's used.  
-Constant macros don't accept arguments.  
-To use a constant macro, prefix its reference with the `=` symbol.  
+```bash
+# Defining a macro with arguments
+%my_macro arg1 arg2:
 
-```py
-.text:
+  mov1 r1 {arg1}
+  mov1 r2 {arg2}
 
-  # Defining a constant macro
-  %-ZERO: 0
+# End of macro definition
+%endmacro
 
-  # Using a constant macro
-  mov1 r1 =ZERO
+# Using a macro with arguments
+!my_macro 1 2
 ```
 
-To export a constant macro, prefix it with `%%-` instead.
+To export a macro, prefix it with a double `%%` instead.
 
-```py
-.text:
+```bash
+# Exporting a macro
+%%my_macro:
 
-  # Exporting a constant macro
-  %%-ZERO: 0
+  mov1 r1 1
+  mov1 r2 2
+  mov1 r3 3
 
-  # Using an exported constant macro
-  mov1 r1 =ZERO
+# End of macro definition
+%endmacro
 ```
 
-Constant macros are useful to define constants that are not supported by the assembly language. Moreover, constant macros aren't compiled into the binary, so they don't take up any static data space.
+### Inline macros
+
+Inline macros are a non-parametrized compile-time metaprogramming tool that allows you to paste a stream of tokens in-place.  
+Inline macros are declared in the assembly code through the `%-` prefix.
+To expand a constant macro, prefix it with the `=` symbol.  
+
+```bash
+# Defining an inline macro
+%-ZERO: 0
+
+# Expanding an inline macro
+mov1 r1 =ZERO
+
+# Note that inline macros can be recursively expanded
+%-r1_zero: r1 =ZERO
+
+# This expands to `mov1 r1 0`
+mov1 =r1_zero 
+```
+
+To export an inline macro, prefix it with `%%-` instead.
+
+```bash
+# Exporting an inline macro
+%%-ZERO: 0
+```
+
+Inline macros are useful to define compile-time constants and they don't take up program space, unlike static data.  
 
 ## Assembly instructions
 
-Every assembly intruction can be represented as a 1-byte integer code, internally identifie with the `ByteCodes` enum, that identifies a set of operations to be performed by the virtual machine. The precise machine instruction it gets traslated to depends on its arguments.
+Every assembly intruction can be represented as a 1-byte integer code.
 
-The first operand is treated as the destination by the processor, whereas the second operand is treated as the source.
+By convention, move-like operations treat the first argument as the destination and the second argument as the source.
 
 ### Arithmetical instructions
 
@@ -201,21 +227,29 @@ The first operand is treated as the destination by the processor, whereas the se
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
 | `mov a b`   | Copy the second register `b` value into the first register `a`. |
-| `mov1 a b`  | Copy 1 byte from `b` into the location `a`. |
-| `mov2 a b`  | Copy 2 bytes from `b` into the location `a`. |
-| `mov4 a b`  | Copy 4 bytes from `b` into the location `a`. |
-| `mov8 a b`  | Copy 8 bytes from `b` into the location `a`. |
+| `mov1 a b`  | Copy 1 byte from `b` into `a`. |
+| `mov2 a b`  | Copy 2 bytes from `b` into `a`. |
+| `mov4 a b`  | Copy 4 bytes from `b` into `a`. |
+| `mov8 a b`  | Copy 8 bytes from `b` into `a`. |
 | `push a`    | Push the value stored in the specified register `a` onto the stack. |
 | `push1 a`   | Push 1 bytes from `a` onto the stack. |
 | `push2 a`   | Push 2 bytes from `a` onto the stack. |
 | `push4 a`   | Push 4 bytes from `a` onto the stack. |
 | `push8 a`   | Push 8 bytes from `a` onto the stack. |
 | `pushsp a`  | Increase the stack pointer by `a`. |
+| `pushsp1 a` | Increase the stack pointer by the 1-byte value `a`. |
+| `pushsp2 a` | Increase the stack pointer by the 2-byte value `a`. |
+| `pushsp4 a` | Increase the stack pointer by the 4-byte value `a`. |
+| `pushsp1 a` | Increase the stack pointer by the 8-byte value `a`. |
 | `pop1 a`    | Pop 1 byte from the top of the stack and store it at `a`. |
 | `pop2 a`    | Pop 2 bytes from the top of the stack and store it at `a`. |
 | `pop4 a`    | Pop 4 bytes from the top of the stack and store it at `a`. |
 | `pop8 a`    | Pop 8 bytes from the top of the stack and store it at `a`. |
 | `popsp a`   | Decrease the stack pointer by `a`. |
+| `popsp1 a`  | Decrease the stack pointer by the 1-byte value `a`. |
+| `popsp2 a`  | Decrease the stack pointer by the 2-byte value `a`. |
+| `popsp4 a`  | Decrease the stack pointer by the 4-byte value `a`. |
+| `popsp8 a`  | Decrease the stack pointer by the 8-byte value `a`. |
 
 ### Flow control instructions
 
@@ -262,7 +296,7 @@ The first operand is treated as the destination by the processor, whereas the se
 
 | Instruction | Description                                                                 |
 | ----------- | ----------------------------------------------------------------------------------- |
-| `intr a`    | Trigger the interrupt with the specified interrupt code `a`. |
+| `intr`      | Trigger the interrupt with the interrupt code speficied in the `int` register. |
 | `exit`      | Exit the program with the exit code stored in the `exit` register. |
 
 ### Interrupts
@@ -279,60 +313,13 @@ Interrupts are defined in the [`archlib.asm`](../asm_lib/archlib.asm) library fi
 | `INPUT_SIGNED`  | Get the next signed integer input from the console and store it in the `input` register. |
 | `INPUT_UNSIGNED`  | Get the next unsigned integer input from the console and store it in the `input` register. |
 | `INPUT_STRING`  | Get the next string input from the console and allocate it on the heap. Store its address in the `input` register and its length in the `r1` register. The returned string is not to be considered null-terminated.<br>If the input is not a valid string, set `error` register to `INVALID_INPUT`.<br>If the EOF is encountered, set `error` register to `END_OF_FILE`.<br>If another error is encountered, set `error` register to `GENERIC_ERROR`.<br>If no error is encountered, set `error` register to `NO_ERROR`. |
-| `RAND`          | Generate a random 8-byte number and store it in the `r1` register. |
+| `RANDOM`          | Generate a random 8-byte number and store it in the `r1` register. |
 | `HOST_TIME_NANOS` | Get the current host system time in nanoseconds and store it in the `r1` register. |
 | `ELAPSED_TIME_NANOS` | Get the elapsed time since the program started in nanoseconds and store it in the `r1` register. |
 | `DISK_READ`     | Read `r3` bytes from local storage at the address specified in `r1` and store them at the address specified in `r2`. If the read fails, set the `error` register. |
 | `DISK_WRITE`    | Write `r3` bytes from the address specified in `r2` to local storage at the address specified in `r1`. If the write fails, set the `error` register. |
-
-## Assembly unit sections
-
-### Data section
-
-The data section contains static data that can be accessed by the program.
-The data section is declared in the assembly code using the `.data:` diretive.  
-A static data declaration is composed of a label, a data type, and a value.
-
-```asm
-.data:
-  my_string string "Hello, world!"
-  my_char char 'a'
-  number i4 42
-```
-
-Available data types are:
-
-- `string`: a string literal
-- `char`: a character literal
-- `i1`: a signed 1-byte integer
-- `i2`: a signed 2-byte integer
-- `i4`: a signed 4-byte integer
-- `i8`: a signed 8-byte integer
-- `u1`: an unsigned 1-byte integer
-- `u2`: an unsigned 2-byte integer
-- `u4`: an unsigned 4-byte integer
-- `u8`: an unsigned 8-byte integer
-
-### Text section
-
-The text section contains the bytecode instructions that will be executed by the virtual machine.
-
-### Include section
-
-The include section, declared with the `.include:` directive, is used to include other assembly files in the current assembly file. Assembly units are included in the order they are declared. Any assembly unit will be included only once in the final binary program.  
-Assembly units to include are searched for in the same directory as the current assembly file.
-
-```asm
-.include:
-  my_file.asm
-```
-
-To re-export an included assembly unit, prefix it with `@@` upon inclusion.
-
-```asm
-.include:
-  @@my_file.asm
-```
+| `FLUSH_STDOUT`  | Flush the stdout buffer. |
+... more to be implemented
 
 ## Errors and error codes
 
@@ -341,12 +328,20 @@ An error code is represented as a 1-byte unsigned integer.
 
 | Error Code      |Description                                                                 |
 | ----------      | ----------------------------------------------------------------------------------- |
-| `NO_ERROR`      | No error occurred. |
-| `END_OF_FILE`   | End of file reached while reading input. |
-| `INVALID_INPUT` | The input from the console was not a valid integer. |
-| `ZERO_DIVISION` | A division by zero occurred. |
-| `STACK_OVERFLOW` | The stack overflowed. |
-| `OUT_OF_BOUNDS` | An out of bounds memory access occurred. |
+| `NO_ERROR`          | No error occurred. |
+| `END_OF_FILE`       | End of file reached while reading input. |
+| `INVALID_INPUT`     | The input from the console was not a valid integer. |
+| `ZERO_DIVISION`     | A division by zero occurred. |
+| `STACK_OVERFLOW`    | The stack overflowed. |
+| `OUT_OF_BOUNDS`     | An out of bounds memory access occurred. |
 | `UNALIGNED_ADDRESS` | An unaligned memory access occurred. |
 | `PERMISSION_DENIED` | A permission denied error occurred. |
-| `GENERIC_ERROR` | A generic error occurred. |
+| `TIMED_OUT`         | An operation timed out. |
+| `NOT_FOUNT`         | A resource was not found. |
+| `ALREADY_EXISTS`    | A resource already exists. |
+| `INVALID_DATA`      | Provided data is invalid. |
+| `INTERRUPTED`       | The process was interrupted. |
+| `OUT_OF_MEMORY`     | The VM memory is either full or not enough to perform an operation. |
+| `WRITE_ZERO`        | The last IO operation write 0 bytes. |
+| `MODULE_UNAVAILABLE`| The specified VM module is not available in the current context. |
+| `GENERIC_ERROR`     | A generic error occurred. |
