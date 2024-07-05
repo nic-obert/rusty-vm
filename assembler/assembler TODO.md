@@ -4,7 +4,6 @@
 
 - [ ] update documentation  
 - [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
-- [ ] test behavior with circular dependencies  
 - [ ] implement a parser for complex array literals in static data declaration. Complex array literals may contain nested arrays, sized numbers, etc  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
@@ -14,6 +13,7 @@
 
 ### Done ✓
 
+- [x] test behavior with circular dependencies  
 - [x] test multiline strings (probably fails)  
 - [x] chech validity of specified size in dn  
 - [x] implement "[$]", see todo!() in parser.rs  

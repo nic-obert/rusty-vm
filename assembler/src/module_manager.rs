@@ -188,8 +188,15 @@ impl<'a> ModuleManager<'a> {
 
 
     /// Get an immutable reference to the assembly unit
-    pub fn get_unit(&self, path: UnitPath<'a>) -> &'a AsmUnit<'a> {
+    pub fn get_unit(&self, path: UnitPath) -> &AsmUnit<'a> {
         let units = unsafe { &*self.units.get() };
+
+        // Cast away lifetime. The compiler does not recognize that `path` does 
+        // indeed live long enough and that the returned value does not borrow from `path`
+        let path = unsafe {
+            mem::transmute::<UnitPath, UnitPath>(path)
+        };
+
         units.get(&path).expect("Entry should exist")
     }
 

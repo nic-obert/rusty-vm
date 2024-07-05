@@ -11,7 +11,7 @@ use crate::lang::ENTRY_SECTION_NAME;
 pub fn print_source_context(source: SourceCode, line_index: usize, char_pointer: usize) {
 
     /// Number of lines of source code to include before and after the highlighted line in error messages
-    const SOURCE_CONTEXT_RADIUS: u8 = 3;
+    const SOURCE_CONTEXT_RADIUS: u8 = 5;
 
     // Calculate the beginning of the context. Saturating subtraction is used interpret underflow as 0.
     let mut index = line_index.saturating_sub(SOURCE_CONTEXT_RADIUS as usize);
@@ -106,7 +106,7 @@ pub fn invalid_number_size<'a>(token: &SourceToken<'a>, module_manager: &ModuleM
 }
 
 
-pub fn symbol_redeclaration<'a>(old_def: &SourceToken<'a>, new_def: &SourceToken<'a>, module_manager: &ModuleManager<'a>, message: &str) -> ! {
+pub fn symbol_redeclaration(old_def: &SourceToken, new_def: &SourceToken, module_manager: &ModuleManager, message: &str) -> ! {
     printdoc!("
         ❌ Error in assembly unit \"{}\"
 

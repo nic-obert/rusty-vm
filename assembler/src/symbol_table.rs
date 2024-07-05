@@ -183,7 +183,7 @@ impl<'a> SymbolTable<'a> {
     }
 
 
-    pub fn declare_inline_macro(&self, name: &'a str, def: InlineMacroDef<'a>, export: bool) -> Option<InlineMacroDef> {
+    pub fn declare_inline_macro(&self, name: &'a str, def: InlineMacroDef<'a>, export: bool) -> Result<(), InlineMacroDef> {
         let macros = unsafe { &mut *self.inline_macros.get() };
 
         let old_def = macros.insert(name, def);
@@ -192,11 +192,15 @@ impl<'a> SymbolTable<'a> {
             unsafe { &mut *self.export_inline_macros.get() }.push(name);
         }
 
-        old_def
+        if let Some(old_def) = old_def {
+            Err(old_def)
+        } else {
+            Ok(())
+        }
     }
 
 
-    pub fn declare_function_macro(&self, name: &'a str, def: FunctionMacroDef<'a>, export: bool) -> Option<FunctionMacroDef> {
+    pub fn declare_function_macro(&self, name: &'a str, def: FunctionMacroDef<'a>, export: bool) -> Result<(), FunctionMacroDef> {
         let macros = unsafe { &mut *self.function_macros.get() };
 
         let old_def = macros.insert(name, def);
@@ -205,11 +209,15 @@ impl<'a> SymbolTable<'a> {
             unsafe { &mut *self.export_function_macros.get() }.push(name);
         }
 
-        old_def
+        if let Some(old_def) = old_def {
+            Err(old_def)
+        } else {
+            Ok(())
+        }
     }
 
 
-    pub fn declare_label(&self, name: &'a str, def: Rc<SourceToken<'a>>, export: bool) -> Option<LabelDef> {
+    pub fn declare_label(&self, name: &'a str, def: Rc<SourceToken<'a>>, export: bool) -> Result<(), LabelDef> {
 
         let labels = unsafe { &mut *self.labels.get() };
 
@@ -222,7 +230,11 @@ impl<'a> SymbolTable<'a> {
             unsafe { &mut *self.export_labels.get() }.push(name);
         }
 
-        old_def
+        if let Some(old_def) = old_def {
+            Err(old_def)
+        } else {
+            Ok(())
+        }
     }
 
 

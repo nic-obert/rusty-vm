@@ -307,7 +307,11 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
                 
             }
 
-            Some(current_line)
+            if current_line.is_empty() {
+                None
+            } else {
+                Some(current_line)
+            }
         }
     ).collect::<TokenLines>()
 }

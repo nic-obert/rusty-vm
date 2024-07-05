@@ -2,6 +2,8 @@
 #![feature(os_str_display)]
 #![feature(cell_leak)]
 
+#![deny(unused_must_use)]
+
 mod assembler;
 mod files;
 mod tokenizer;

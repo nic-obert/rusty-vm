@@ -160,43 +160,19 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 
 fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
-
-    macro_rules! check_arg_count {
-
-        ($required:expr) => {
-            if operands.len() != $required {
-                error::parsing_error(&main_operator.source, module_manager, format!("Operator expects exactly {} arguments, but {} were given.", $required, operands.len()).as_str())
-            }
-        };
-
-        ($required:expr, $operands:ident) => {
-            if $operands.len() != $required {
-                error::parsing_error(&main_operator.source, module_manager, format!("Operator expects exactly {} arguments, but {} were given.", $required, $operands.len()).as_str())
-            }
-        }
-    }
-
-    macro_rules! parse_label {
-        ($position:literal) => {{
-
-            let op = &operands[$position];
-
-            if let AsmValue::Label(s) = op.value {
-                s
-            } else {
-                error::parsing_error(&op.source, module_manager, format!("Operator `{}` expects an identifier argument", main_operator.source.string).as_str())
-            }
-        }};
-    }
-
-
     match main_operator.value {
 
         TokenValue::LabelDef { export } => {
 
-            check_arg_count!(1);
+            if operands.len() != 1 {
+                error::parsing_error(&main_operator.source, module_manager, format!("Label declaration expects exactly one identifier argument, but {} were given.", operands.len()).as_str())
+            }
 
-            let label = parse_label!(0);
+            let label_op = &operands[0];
+
+            let AsmValue::Label(label) = label_op.value else {
+                error::parsing_error(&label_op.source, module_manager, format!("Operator `{}` expects an identifier argument", main_operator.source.string).as_str())
+            };
             
             nodes.push(AsmNode {
                 source: Rc::clone(&main_operator.source),
@@ -205,8 +181,11 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
 
             symbol_table.declare_label(
                 label, 
-                main_operator.source, 
+                Rc::clone(&label_op.source), 
                 export
+            )
+            .err().map(
+                |old_def| error::symbol_redeclaration(&old_def.source, &label_op.source, module_manager, "Label already declared")
             );
         },
 
@@ -226,7 +205,6 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             });
         },
 
-        
         TokenValue::CurlyOpen |
         TokenValue::Endmacro |
         TokenValue::Number(_) |
@@ -238,7 +216,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         TokenValue::Identifier(_) |
         TokenValue::StringLiteral(_) |
         TokenValue::Colon
-        => error::parsing_error(&main_operator.source, module_manager, "Token cannot be used as a main operator"),
+            => error::parsing_error(&main_operator.source, module_manager, "Token cannot be used as a main operator"),
         
         TokenValue::Dot |
         TokenValue::PseudoInstruction(_) |
@@ -488,7 +466,14 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
     }
 
     // Declare the section label so that it can be used. Section labels are not exportable.
-    symbol_table.declare_label(name, name_token.source, false);
+    symbol_table.declare_label(
+        name, 
+        Rc::clone(&name_token.source),
+        false
+    )
+    .err().map(
+        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Label already declared")
+    );
 
     nodes.push(AsmNode {
         source: Rc::clone(&main_op),
@@ -499,11 +484,18 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
 
         // Each line in the .include section is a string path to include
         while let Some(mut include_line) = token_lines.pop_front() {
+            
+            // Assume the line cannot be empty because macros aren't expanded in the .include section and empty lines are discarded by the tokenizer.
+            if let Token { value: TokenValue::Dot, .. } = include_line.front().unwrap() {
+                /*
+                    Start of another section.
+                    This self-call does not cause the parser to recursively parse the whole
+                    ASM unit because this function calls itself only if the current section is the include section.
+                    Note that there cannot be multiple include sections in the same ASM unit.
+                */
+                let Token { source, .. } = include_line.pop_front().unwrap(); // To satisfy the borrow checker
+                parse_section(nodes, &mut include_line, source, module_manager, token_lines, symbol_table, bytecode);
 
-            // Assume the line cannot be empty because macros aren't expanded in the .include section and empty lines are ignored.
-
-            if matches!(include_line.front().unwrap().value, TokenValue::Dot) {
-                // Start of another section
                 break;
             }
 
@@ -802,7 +794,14 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
         body: body.into_boxed_slice(),
     };
 
-    symbol_table.declare_function_macro(name, macro_def, export);
+    symbol_table.declare_function_macro(
+        name,
+        macro_def,
+        export
+    )
+    .err().map(
+        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Function macro name already declared")
+    );
 }
 
 
@@ -828,6 +827,13 @@ fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<
         def: line.drain(..).collect::<Vec<Token>>().into_boxed_slice()
     };
 
-    symbol_table.declare_inline_macro(name, macro_def, export);
+    symbol_table.declare_inline_macro(
+        name,
+        macro_def,
+        export
+    )
+    .err().map(
+        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Inline macro name already declared")
+    );
 }
 
