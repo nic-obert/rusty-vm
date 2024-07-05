@@ -331,6 +331,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
     match instruction {
 
         PseudoInstructions::DefineNumber => {
+            // dn <size> <number>
 
             let size_token = line.pop_front().unwrap_or_else(
                 || error::parsing_error(&main_op, module_manager, "Missing number size specifier in static data declaration")
@@ -372,6 +373,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
         },
 
         PseudoInstructions::DefineString => {
+            // ds <string>
 
             let string_token = line.pop_front().unwrap_or_else(
                 || error::parsing_error(&main_op, module_manager, "Missing string data in static data declaration")
@@ -396,7 +398,68 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             });
         },
 
-        PseudoInstructions::DefineBytes => todo!(),
+        PseudoInstructions::DefineBytes => {
+            // db <byte array>
+
+            let open_square_token = line.pop_front().unwrap_or_else(
+                || error::parsing_error(&main_op, module_manager, "Missing byte array in static data declaration")
+            );
+            if !matches!(open_square_token.value, TokenValue::SquareOpen) {
+                error::parsing_error(&open_square_token.source, module_manager, "Expected a byte array in static data declaration");
+            }
+
+            /*
+                The syntax of a byte array is as follows:
+                `
+                    [43 54 0 1]
+                `
+                The -1 is because we don't count the closing square bracket in the
+                number of array elements. 
+                Note that the opening square bracket has already been popped.
+            */
+            let mut bytes: Vec<u8> = Vec::with_capacity(line.len() - 1);
+
+            loop {
+
+                let token = line.pop_front().unwrap_or_else(
+                    || error::parsing_error(&open_square_token.source, module_manager, "Unterminated byte array in static data declaration")
+                );
+
+                match token.value {
+                    
+                    TokenValue::Number(number) => {
+
+                        let Number::UnsignedInt(value) = number else {
+                            error::parsing_error(&token.source, module_manager, "Expected an unsigned integer as element of a byte array")
+                        };
+
+                        if value > u8::MAX as u64 {
+                            error::invalid_number_size(&token.source, module_manager, number.least_bytes_repr(), mem::size_of::<u8>());
+                        }
+
+                        bytes.push(value as u8);
+                    },
+
+                    TokenValue::SquareClose
+                        => break,
+
+                    _ => error::parsing_error(&token.source, module_manager, "Unexpected token in byte array")
+                }
+            }
+
+            if !line.is_empty() {
+                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
+            }
+
+            nodes.push(AsmNode {
+                source: main_op,
+                value: AsmNodeValue::PseudoInstruction (
+                    PseudoInstructionNode::DefineBytes {
+                        data: (bytes.into_boxed_slice(), open_square_token.source)
+                    }
+                )
+            });
+        },
 
     }
 

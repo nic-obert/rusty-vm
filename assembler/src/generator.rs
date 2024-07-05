@@ -106,7 +106,8 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                     PseudoInstructionNode::DefineString { data }
                         => push_bytes!(data.0.as_bytes()),
                     
-                    PseudoInstructionNode::DefineBytes {  } => todo!(),
+                    PseudoInstructionNode::DefineBytes { data }
+                        => push_bytes!(data.0)
 
                 }
             }

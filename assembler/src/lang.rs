@@ -821,22 +821,10 @@ pub enum PseudoInstructionNode<'a> {
 declare_pseudo_instructions! {
 
     DefineNumber "dn" { size: u8, data: Number },
-    DefineBytes "db" {},
+    DefineBytes "db" { data: Box<[u8]> },
     DefineString "ds" { data: Cow<'a, str> }
 
 }
-
-/*
-    @my_number
-    dn 4 5123
-
-    @my_string
-    ds "Hello World!\n\0"
-
-    @my_bytes
-    db [54, 43, 41, 24, 3]
-
-*/
 
 
 #[derive(Debug, Clone)]
