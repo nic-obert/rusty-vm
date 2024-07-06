@@ -820,11 +820,18 @@ pub enum PseudoInstructionNode<'a> {
 
 declare_pseudo_instructions! {
 
-    DefineNumber "dn" { size: u8, data: Number },
-    DefineBytes "db" { data: Box<[u8]> },
-    DefineString "ds" { data: Cow<'a, str> }
+    DefineNumber "dn"         { size: u8, data: Number },
+    DefineBytes  "db"         { data: Box<[u8]> },
+    DefineString "ds"         { data: Cow<'a, str> },
+    OffsetFrom   "offsetfrom" { data: &'a str }
 
 }
+
+/*
+    ds "my string"
+    @string_length
+    offsetfrom label
+*/
 
 
 #[derive(Debug, Clone)]

@@ -24,9 +24,7 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
                 || error::parsing_error(&token.source, module_manager, "Missing macro name after `=`")
             );
 
-            let name = if let TokenValue::Identifier(id) = macro_name.value {
-                id
-            } else {
+            let TokenValue::Identifier(name) = macro_name.value else {
                 error::parsing_error(&macro_name.source, module_manager, "Expected a macro name after `=`")
             };
 
@@ -268,7 +266,7 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
                 },
 
                 TokenValue::Bang => {
-                    expand_function_macro(&mut line, &main_operator, &mut token_lines, module_manager, symbol_table);
+                    expand_function_macro(&mut line, main_operator.source, &mut token_lines, module_manager, symbol_table);
                 },
 
                 TokenValue::Dot => {
@@ -304,19 +302,66 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 }
 
 
+macro_rules! declare_parsing_utils {
+    ($module_manager:ident, $line:ident, $main_op:ident) => {
+
+        macro_rules! pop_next {
+
+            (let $token_symbol:ident => $missing_err:expr, let $required_pat:pat => $wrong_type_err:expr) => {
+    
+                pop_next!(
+                    let $token_symbol => $missing_err
+                );
+                
+                let $required_pat = $token_symbol.value else {
+                    error::parsing_error(&$token_symbol.source, $module_manager, $wrong_type_err);
+                };
+    
+            };
+    
+            (let $token_symbol:ident => $missing_err:expr) => {
+    
+                let $token_symbol = $line.pop_front().unwrap_or_else(
+                    || error::parsing_error(&$main_op, $module_manager, $missing_err)
+                );
+            };
+        }
+
+        macro_rules! assert_empty_line {
+            () => {
+                if !$line.is_empty() {
+                    error::parsing_error(&$line[0].source, $module_manager, "Unexpected token")
+                }
+            };
+        }
+    };
+}
+
+
 fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<SourceToken<'a>>, line: &mut TokenList<'a>, nodes: &mut Vec<AsmNode<'a>>, module_manager: &'a ModuleManager<'a>) {
+
+    declare_parsing_utils!(module_manager, line, main_op);
+
+    macro_rules! push_pseudo {
+        ($pi:expr) => {
+            nodes.push(AsmNode {
+                source: main_op,
+                value: AsmNodeValue::PseudoInstruction (
+                    $pi
+                )
+            });
+        };
+    }
 
     match instruction {
 
         PseudoInstructions::DefineNumber => {
             // dn <size> <number>
 
-            let size_token = line.pop_front().unwrap_or_else(
-                || error::parsing_error(&main_op, module_manager, "Missing number size specifier in static data declaration")
+            pop_next!(
+                let size_token => "Missing number size specifier in static data declaration",
+                let TokenValue::Number(size) => "Expected a numeric size specifier in static data declaration"
             );
-            let TokenValue::Number(size) = size_token.value else {
-                error::parsing_error(&size_token.source, module_manager, "Expected a numeric size specifier in static data declaration");
-            };
 
             let Number::UnsignedInt(size) = size else {
                 error::parsing_error(&size_token.source, module_manager, "Data size must be an unsigned integer")
@@ -326,65 +371,41 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                 error::parsing_error(&size_token.source, module_manager, "Specified number size is expected to be a value among 1, 2, 4, 8");
             }
 
-            let number_token = line.pop_front().unwrap_or_else(
-                || error::parsing_error(&size_token.source, module_manager, "Missing numeric value in static data declaration")
+            pop_next!(
+                let number_token => "Missing numeric value in static data declaration",
+                let TokenValue::Number(number) => "Expected a numeric value in static data declaration"
             );
-            let number = if let TokenValue::Number(n) = number_token.value {
-                n
-            } else {
-                error::parsing_error(&number_token.source, module_manager, "Expected a numeric value in static data declaration");
-            };
 
-            if !line.is_empty() {
-                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
-            }
+            assert_empty_line!();
 
-            nodes.push(AsmNode {
-                source: main_op,
-                value: AsmNodeValue::PseudoInstruction (
-                    PseudoInstructionNode::DefineNumber { 
-                        size: (size as u8, size_token.source), 
-                        data: (number, number_token.source) 
-                    }
-                )
+            push_pseudo!(PseudoInstructionNode::DefineNumber { 
+                size: (size as u8, size_token.source), 
+                data: (number, number_token.source) 
             });
         },
 
         PseudoInstructions::DefineString => {
             // ds <string>
 
-            let string_token = line.pop_front().unwrap_or_else(
-                || error::parsing_error(&main_op, module_manager, "Missing string data in static data declaration")
+            pop_next!(
+                let string_token => "Missing string data in static data declaration",
+                let TokenValue::StringLiteral(string) => "Expected a string literal in static data declaration"
             );
-            let string = if let TokenValue::StringLiteral(s) = string_token.value {
-                s
-            } else {
-                error::parsing_error(&string_token.source, module_manager, "Expected a string literal in static data declaration");
-            };
 
-            if !line.is_empty() {
-                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
-            }
+            assert_empty_line!();
 
-            nodes.push(AsmNode {
-                source: main_op,
-                value: AsmNodeValue::PseudoInstruction (
-                    PseudoInstructionNode::DefineString {
-                        data: (string, string_token.source)
-                    }
-                )
+            push_pseudo!(PseudoInstructionNode::DefineString {
+                data: (string, string_token.source)
             });
         },
 
         PseudoInstructions::DefineBytes => {
             // db <byte array>
 
-            let open_square_token = line.pop_front().unwrap_or_else(
-                || error::parsing_error(&main_op, module_manager, "Missing byte array in static data declaration")
+            pop_next!(
+                let open_square_token => "Missing byte array in static data declaration",
+                let TokenValue::SquareOpen => "Expected a byte array in static data declaration"
             );
-            if !matches!(open_square_token.value, TokenValue::SquareOpen) {
-                error::parsing_error(&open_square_token.source, module_manager, "Expected a byte array in static data declaration");
-            }
 
             /*
                 The syntax of a byte array is as follows:
@@ -399,8 +420,8 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
             loop {
 
-                let token = line.pop_front().unwrap_or_else(
-                    || error::parsing_error(&open_square_token.source, module_manager, "Unterminated byte array in static data declaration")
+                pop_next!(
+                    let token => "Unterminated byte array in static data declaration"
                 );
 
                 match token.value {
@@ -425,19 +446,17 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                 }
             }
 
-            if !line.is_empty() {
-                error::parsing_error(&line[0].source, module_manager, "Unexpected token in static data declaration")
-            }
+            assert_empty_line!();
 
-            nodes.push(AsmNode {
-                source: main_op,
-                value: AsmNodeValue::PseudoInstruction (
-                    PseudoInstructionNode::DefineBytes {
-                        data: (bytes.into_boxed_slice(), open_square_token.source)
-                    }
-                )
+            push_pseudo!(PseudoInstructionNode::DefineBytes {
+                data: (bytes.into_boxed_slice(), open_square_token.source)
             });
         },
+
+        PseudoInstructions::OffsetFrom => {
+            // offsetfrom <label>
+            todo!()
+        }
 
     }
 
@@ -446,24 +465,19 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
 fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
-    let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_op, module_manager, "Expected a section name")
-    );
-    let name = if let TokenValue::Identifier(name) = name_token.value {
-        name
-    } else {
-        error::parsing_error(&name_token.source, module_manager, "Expected an identifier as section name");
-    };
+    declare_parsing_utils!(module_manager, line, main_op);
 
-    let colon_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_op, module_manager, "Expected a trailing colon after section name in section delcaration.")
+    pop_next!(
+        let name_token => "Missing section name",
+        let TokenValue::Identifier(name) => "Expected an identifier as section name"
     );
-    if !matches!(colon_token.value, TokenValue::Colon) {
-        error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon after section name in section delcaration.");
-    }
-    if !line.is_empty() {
-        error::parsing_error(&line.pop_front().unwrap().source, module_manager, "Unexpected token after section declaration. A section delcaration must end with a colon.");
-    }
+
+    pop_next!(
+        let colon_token => "Expected a trailing colon after section name in section delcaration.",
+        let TokenValue::Colon => "Expected a trailing colon after section name in section delcaration."
+    );
+    
+    assert_empty_line!();
 
     // Declare the section label so that it can be used. Section labels are not exportable.
     symbol_table.declare_label(
@@ -625,14 +639,14 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
 }
 
 
-fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_operator: &Token<'a>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
+fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, token_lines: &mut TokenLines<'a>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>) {
 
-    let macro_name_op = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_operator.source, module_manager, "Missing macro name after `!`")
+    declare_parsing_utils!(module_manager, line, main_op);
+
+    pop_next!(
+        let macro_name_op => "Missing macro name after `!`",
+        let TokenValue::Identifier(macro_name) => "Expected an identifier as macro name after `!`"
     );
-    let TokenValue::Identifier(macro_name) = macro_name_op.value else {
-        error::parsing_error(&macro_name_op.source, module_manager, "Expected a macro name after `!`");
-    };
 
     let macro_def = symbol_table.get_function_macro(macro_name).unwrap_or_else(
         || error::undefined_macro(&macro_name_op.source, module_manager, symbol_table.function_macros())
@@ -641,7 +655,7 @@ fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_operator: &Token<'a>
     let args = group_macro_args(&line);
 
     if args.len() != macro_def.params.len() {
-        error::parsing_error(&main_operator.source, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), args.len()).as_str())
+        error::parsing_error(&main_op, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), args.len()).as_str())
     }
 
     let expanded_macro = macro_def.body.iter().map(
@@ -703,12 +717,12 @@ fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_operator: &Token<'a>
 
 fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
     
-    let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_op, module_manager, "Expected a macro name")
+    declare_parsing_utils!(module_manager, line, main_op);
+
+    pop_next!(
+        let name_token => "Expected a macro name",
+        let TokenValue::Identifier(name) => "Expected an identifier as macro name"
     );
-    let TokenValue::Identifier(name) = name_token.value else {
-        error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name");
-    };
 
     // The rest of the line is the macro parameters, except for the trailing semicolon
 
@@ -725,12 +739,12 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
         }
     }
 
-    let colon_token = line.get(0).unwrap_or_else(
-        || error::parsing_error(&main_op, module_manager, "Expected a trailing colon in macro definition")
+    pop_next!(
+        let colon_token => "Expected a trailing colon in macro definition",
+        let TokenValue::Colon => "Expected a trailing colon in macro definition"
     );
-    if !matches!(colon_token.value, TokenValue::Colon) {
-        error::parsing_error(&colon_token.source, module_manager, "Expected a trailing colon in macro definition");
-    }
+
+    assert_empty_line!();
 
     // The next lines until %endmacro are the body
 
@@ -807,19 +821,17 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
 
 fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
     
-    let name_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&main_op, module_manager, "Missing macro name in macro declaration")
-    );
-    let TokenValue::Identifier(name) = name_token.value else {
-        error::parsing_error(&name_token.source, module_manager, "Expected an identifier as macro name in macro declaration");
-    };
+    declare_parsing_utils!(module_manager, line, main_op);
 
-    let colon_token = line.pop_front().unwrap_or_else(
-        || error::parsing_error(&name_token.source, module_manager, "Missing `:` after macro name in macro declaration")
+    pop_next!(
+        let name_token => "Missing macro name in macro declaration",
+        let TokenValue::Identifier(name) => "Expected an identifier as macro name in macro declaration"
     );
-    if !matches!(colon_token.value, TokenValue::Colon) {
-        error::parsing_error(&colon_token.source, module_manager, "Expected a `:` after macro name in macro declaration");
-    }
+    
+    pop_next!(
+        let colon_token => "Missing a colon `:` after macro name in macro declaration",
+        let TokenValue::Colon => "Expected a colon `:` after macro name in macro declaration"
+    );
 
     let macro_def = InlineMacroDef {
         source: Rc::clone(&name_token.source),
