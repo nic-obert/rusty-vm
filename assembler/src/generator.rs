@@ -109,7 +109,14 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                     PseudoInstructionNode::DefineBytes { data }
                         => push_bytes!(data.0),
 
-                    PseudoInstructionNode::OffsetFrom { data } => todo!()
+                    PseudoInstructionNode::OffsetFrom { data } => {
+
+                        let label_addr = symbol_table.get_resolved_label(data.0).unwrap_or_else(
+                            || error::unresolved_label(&data.1, module_manager)
+                        );
+
+                        push_bytes!((current_pos!() - label_addr).to_le_bytes());
+                    },
 
                 }
             }

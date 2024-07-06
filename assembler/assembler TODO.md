@@ -10,10 +10,10 @@
 
 ### In Progress
 
-- [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 
 ### Done ✓
 
+- [x] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [x] test unique symbol &  
 - [x] update documentation  
 - [x] test behavior with circular dependencies  

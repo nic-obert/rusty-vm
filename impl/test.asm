@@ -1,9 +1,16 @@
 .include:
 
-    "foo.asm"
     "stdio.asm"
 
 
+.data:
+
+    @strlen
+    offsetfrom str
+    @str
+    ds "hello"
+
 .text:
     
-    !pub_macro 10
+    !println_bytes str strlen
+    !println_uint strlen

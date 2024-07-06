@@ -3,6 +3,27 @@
 - [Assembler](#assembler)
   - [Introduction](#introduction)
   - [Basic usage](#basic-usage)
+  - [Assembly language](#assembly-language)
+    - [$: current address](#-current-address)
+    - [\&: unique symbol](#-unique-symbol)
+    - [Address literals](#address-literals)
+    - [Labels](#labels)
+    - [Sections](#sections)
+      - [.text section](#text-section)
+      - [.include section](#include-section)
+    - [Function-like macros](#function-like-macros)
+    - [Inline macros](#inline-macros)
+  - [Assembly instructions](#assembly-instructions)
+    - [Arithmetical instructions](#arithmetical-instructions)
+    - [No operation instructions](#no-operation-instructions)
+    - [Memory instructions](#memory-instructions)
+    - [Flow control instructions](#flow-control-instructions)
+    - [Comparison instructions](#comparison-instructions)
+    - [Logical bitwise instructions](#logical-bitwise-instructions)
+    - [Special intructions](#special-intructions)
+    - [Interrupts](#interrupts)
+    - [Pseudo instructions](#pseudo-instructions)
+  - [Errors and error codes](#errors-and-error-codes)
 
 ## Introduction
 
@@ -18,7 +39,7 @@ To assemble a file:
 
 For full usage instructions, run with the `--help` flag.
 
-## Assembly operators and symbols
+## Assembly language
 
 ### $: current address
 
@@ -321,13 +342,26 @@ Interrupts are defined in the [`archlib.asm`](../asm_lib/archlib.asm) library fi
 | `FLUSH_STDOUT`  | Flush the stdout buffer. |
 ... more to be implemented
 
+### Pseudo instructions
+
+Pseudo instructions are compile-time operators that affect the generated binary.
+
+| Instruction                   | Description |
+| ----------------------------- | ----------- |
+| "dn \<n> \<number>    | Define number. Insert an `n`-byte number in-place into the binary. Note that the only allowed sizes are 1, 2, 4, and 8. |
+| "db \<bytearray>"     | Define bytes. Insert a byte array in-place into the binary. |
+| "ds \<string>"        | Define string. Insert a string in-place into the binary. Note that the assembler does not automatically a null-termination byte to string literals, so it's up to the programmer to correctly terminate the string according to the program needs. |
+| "offsetfrom \<label>" | Offset from label. Calculate the memory offset in bytes between the current position and `label`, and insert the result in-place into the binary. Note that the resulting offset is an 8-byte unsigned integer and `label` must be defined prior to this instruction. |
+
+
+
 ## Errors and error codes
 
 When the virtual machine encounters an error, it will set the `error` register to a specific error code. It's the programmer's responsibility to check the `error` register after fallible operations and handle eventual errors.  
 An error code is represented as a 1-byte unsigned integer.
 
-| Error Code      |Description                                                                 |
-| ----------      | ----------------------------------------------------------------------------------- |
+| Error Code          | Description                                                                 |
+| ----------          | ----------------------------------------------------------------------------------- |
 | `NO_ERROR`          | No error occurred. |
 | `END_OF_FILE`       | End of file reached while reading input. |
 | `INVALID_INPUT`     | The input from the console was not a valid integer. |

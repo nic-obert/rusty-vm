@@ -827,12 +827,6 @@ declare_pseudo_instructions! {
 
 }
 
-/*
-    ds "my string"
-    @string_length
-    offsetfrom label
-*/
-
 
 #[derive(Debug, Clone)]
 pub enum Number {

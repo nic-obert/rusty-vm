@@ -456,7 +456,17 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
         PseudoInstructions::OffsetFrom => {
             // offsetfrom <label>
-            todo!()
+            
+            pop_next!(
+                let label_token => "Missing label name",
+                let TokenValue::Identifier(label) => "Expected an identifier as label name"
+            );
+
+            assert_empty_line!();
+
+            push_pseudo!(PseudoInstructionNode::OffsetFrom {
+                data: (label, label_token.source)
+            });
         }
 
     }
