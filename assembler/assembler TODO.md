@@ -2,14 +2,15 @@
 
 ### TODO
 
+- [ ] eventually, allow using unexported macros inside exported macros when called from a foreign unit  
 - [ ] create a test script or rust tests to ensure correct behavior of the assembler  
-- [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [ ] implement a parser for complex array literals in static data declaration. Complex array literals may contain nested arrays, sized numbers, etc  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
-- [ ] add compiletime arithmetics in the data section (maybe allow const arithmetic inside {})  
+- [ ] eventually, add compiletime arithmetics like "1+1"  
 
 ### In Progress
 
+- [ ] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 
 ### Done ✓
 

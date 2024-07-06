@@ -174,7 +174,7 @@ pub fn undefined_macro<'a>(token: &SourceToken<'a>, module_manager: &ModuleManag
 
     print_source_context(module_manager.get_unit(token.unit_path).lines(), token.line_index, token.column);
 
-    println!("\nAvailable inline macros are:");
+    println!("\nAvailable macros are:");
 
     for name in available_macros {
         println!("{name}")

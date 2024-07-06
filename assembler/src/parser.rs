@@ -12,6 +12,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 
+/// Recursively expand inline macros in the given token line
 fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>) {
 
     let mut i: usize = 0;
@@ -31,8 +32,6 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
             let macro_def = symbol_table.get_inline_macro(name).unwrap_or_else(
                 || error::undefined_macro(&macro_name.source, module_manager, symbol_table.inline_macros())
             );
-
-            // symbol_table.
 
             // Split the line in two
             let mut after = tokens.split_off(i);
@@ -303,6 +302,7 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 
 
 macro_rules! declare_parsing_utils {
+    
     ($module_manager:ident, $line:ident, $main_op:ident) => {
 
         macro_rules! pop_next {
@@ -327,6 +327,7 @@ macro_rules! declare_parsing_utils {
             };
         }
 
+        #[allow(unused_macros)]
         macro_rules! assert_empty_line {
             () => {
                 if !$line.is_empty() {
@@ -756,9 +757,6 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
         );
 
         /*
-            TODO: this may also be true for function macros inside other macros
-            TODO: this may also be true for inline macros inside other inline macros
-
             The function macro body may contain some inline macros that are not exported.
             Consider the following example:
 
