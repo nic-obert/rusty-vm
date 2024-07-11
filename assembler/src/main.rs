@@ -5,7 +5,6 @@
 #![deny(unused_must_use)]
 
 mod assembler;
-mod files;
 mod tokenizer;
 mod error;
 mod cli_parser;
@@ -15,7 +14,10 @@ mod lang;
 mod parser;
 mod generator;
 
-use std::{env, path::Path};
+use std::path::Path;
+use std::fs;
+use std::env;
+
 use clap::Parser;
 
 use crate::cli_parser::CliParser;
@@ -43,7 +45,7 @@ fn main() {
     let output_name = args.output
         .unwrap_or_else(|| args.input_file.with_extension("out") );
 
-    if let Err(err) = files::save_byte_code(byte_code, &output_name) {
+    if let Err(err) = fs::write(output_name, byte_code) {
         error::io_error(err, "Could not save byte code file.");
     }
 
