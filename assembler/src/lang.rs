@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashMap;
 use std::{borrow::Cow, mem};
 use std::rc::Rc;
@@ -820,11 +821,166 @@ pub enum PseudoInstructionNode<'a> {
 
 declare_pseudo_instructions! {
 
-    DefineNumber "dn"         { size: u8, data: Number },
-    DefineBytes  "db"         { data: Box<[u8]> },
-    DefineString "ds"         { data: Cow<'a, str> },
-    OffsetFrom   "offsetfrom" { data: &'a str }
+    DefineNumber "dn"         { size: NumberSize, number: Number },
+    DefineBytes  "db"         { bytes: Box<[u8]> },
+    DefineString "ds"         { string: Cow<'a, str> },
+    DefineArray  "da"         { array: ArrayData },
+    OffsetFrom   "offsetfrom" { label: &'a str }
 
+}
+
+
+/// Represents the number of bytes needed to represent a number
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+// These variants are never directly constructed, but they are created as the result of a transmute
+#[allow(dead_code)]
+pub enum NumberSize {
+
+    B1 = 1,
+    B2 = 2,
+    B4 = 4,
+    B8 = 8
+
+}
+
+impl NumberSize {
+
+    pub fn new(n: u64) -> Option<Self> {
+        match n {
+
+            1 | 2 | 4 | 8
+            => Some( unsafe {
+                mem::transmute::<u8, Self>(n as u8)
+            }),
+                    
+            _ => None
+        }
+    }
+
+
+    pub fn as_usize(self) -> usize {
+        self as usize
+    }
+
+}
+
+
+/// It's the programmer's responsibility to correctly instantiate the struct with matching array data and element type
+#[derive(Debug)]
+pub struct ArrayData {
+
+    pub array: Box<[PrimitiveData]>,
+    pub element_type: DataType
+
+}
+
+impl ArrayData {
+
+    pub fn to_le_bytes(&self) -> Box<[u8]> {
+        // Assume the array elements and data type match
+        
+        let size = self.element_type.size()*self.array.len();
+        let mut bytes = Vec::with_capacity(size);
+
+        self.append_bytes_to(&mut bytes);
+
+        bytes.into_boxed_slice()
+    }
+
+
+    fn append_bytes_to(&self, buf: &mut Vec<u8>) {
+
+        for elem in &self.array {
+
+            match elem {
+
+                PrimitiveData::Number(number)
+                => buf.extend(
+                    &number.as_bytes()[..self.element_type.size()]
+                ),
+
+                PrimitiveData::Array(array)
+                    => array.append_bytes_to(buf)
+            }
+
+        }
+    }
+
+}
+
+
+#[derive(Debug)]
+pub enum PrimitiveData {
+
+    Number (Number),
+    Array (ArrayData)
+
+}
+
+
+#[derive(Debug, Clone)]
+pub enum DataType {
+
+    Int { size: NumberSize },
+    Uint { size: NumberSize },
+    Float { size: NumberSize },
+    Array { element_type: Box<DataType>, len: usize }
+
+}
+
+impl DataType {
+
+    pub fn size(&self) -> usize {
+        match self {
+
+            DataType::Int { size } |
+            DataType::Uint { size } |
+            DataType::Float { size }
+                => size.as_usize(),
+
+            DataType::Array { element_type, len }
+                => element_type.size() * len
+        }
+    }
+
+
+    pub fn from_name_not_array(name: &str) -> Option<Self> {
+        match name {
+
+            "u8" => Some(DataType::Uint { size: NumberSize::B1 }),
+            "u16" => Some(DataType::Uint { size: NumberSize::B2 }),
+            "u32" => Some(DataType::Uint { size: NumberSize::B4 }),
+            "u64" => Some(DataType::Uint { size: NumberSize::B8 }),
+            "i8" => Some(DataType::Int { size: NumberSize::B1 }),
+            "i16" => Some(DataType::Int { size: NumberSize::B2 }),
+            "i32" => Some(DataType::Int { size: NumberSize::B4 }),
+            "i64" => Some(DataType::Int { size: NumberSize::B8 }),
+            "f64" => Some(DataType::Float { size: NumberSize::B8 }),
+
+            _ => None
+        }
+    }
+
+}
+
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+
+            Self::Int { size }
+                => write!(f, "i{}", size.as_usize()),
+
+            Self::Uint { size }
+                => write!(f, "u{}", size.as_usize()),
+
+            Self::Float { size }
+                => write!(f, "f{}", size.as_usize()),
+
+            Self::Array { element_type, len }
+                => write!(f, "[{}: {}]", element_type, len)
+        }
+    }
 }
 
 
@@ -852,7 +1008,7 @@ impl Number {
     /// The returned number is always a power of 2 (including 1 as in 2^0=1)
     pub fn least_bytes_repr(&self) -> usize {
         match self {
-            Number::SignedInt(_) => 8, // Conservative approach
+            Number::SignedInt(_) => 8, // Conservative approach.
             Number::Float(_) => 8, // Conservative approach
             Number::UnsignedInt(n) => { // Not very elegant, but it works
                 if *n <= u8::MAX as u64 {

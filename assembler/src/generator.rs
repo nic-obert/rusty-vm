@@ -100,23 +100,27 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
                 match instruction {
 
-                    PseudoInstructionNode::DefineNumber { size, data }
-                        => push_sized_number!(data.0, size.0 as usize, &data.1),
+                    PseudoInstructionNode::DefineNumber { size, number }
+                        // The number size hasn't been checked, do it now
+                        => push_sized_number!(number.0, size.0 as usize, &number.1),
 
-                    PseudoInstructionNode::DefineString { data }
-                        => push_bytes!(data.0.as_bytes()),
+                    PseudoInstructionNode::DefineString { string }
+                        => push_bytes!(string.0.as_bytes()),
                     
-                    PseudoInstructionNode::DefineBytes { data }
-                        => push_bytes!(data.0),
+                    PseudoInstructionNode::DefineBytes { bytes }
+                        => push_bytes!(bytes.0),
 
-                    PseudoInstructionNode::OffsetFrom { data } => {
+                    PseudoInstructionNode::OffsetFrom { label } => {
 
-                        let label_addr = symbol_table.get_resolved_label(data.0).unwrap_or_else(
-                            || error::unresolved_label(&data.1, module_manager)
+                        let label_addr = symbol_table.get_resolved_label(label.0).unwrap_or_else(
+                            || error::unresolved_label(&label.1, module_manager)
                         );
 
                         push_bytes!((current_pos!() - label_addr).to_le_bytes());
                     },
+
+                    PseudoInstructionNode::DefineArray { array }
+                        => push_bytes!(array.0.to_le_bytes())
 
                 }
             }

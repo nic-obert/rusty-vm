@@ -2,9 +2,10 @@
 
 ### TODO
 
+- [ ] add signed integer smaller than 8 bytes  
+- [ ] add 32-bit floats  
 - [ ] eventually, allow using unexported macros inside exported macros when called from a foreign unit  
 - [ ] create a test script or rust tests to ensure correct behavior of the assembler  
-- [ ] implement a parser for complex array literals in static data declaration. Complex array literals may contain nested arrays, sized numbers, etc  
 - [ ] add optional debug information in compiled binaries with -d assembler flag (and -d flag also in the vm to execute debug builds)  
 - [ ] eventually, add compiletime arithmetics like "1+1"  
 
@@ -13,6 +14,7 @@
 
 ### Done ✓
 
+- [x] implement a parser for complex array literals in static data declaration. Complex array literals may contain nested arrays, sized numbers, etc  
 - [x] add a pseudo instruction that perform constant arithmetics (or gives you the offset from a specific label to know the size of static data)  
 - [x] test unique symbol &  
 - [x] update documentation  

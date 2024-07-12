@@ -1,7 +1,7 @@
 use rusty_vm_lib::assembly::ByteCode;
 
 use crate::{assembler, error};
-use crate::lang::{AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, FunctionMacroDef, InlineMacroDef, Number, PseudoInstructionNode, PseudoInstructions, INCLUDE_SECTION_NAME};
+use crate::lang::{ArrayData, AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, DataType, FunctionMacroDef, InlineMacroDef, Number, NumberSize, PrimitiveData, PseudoInstructionNode, PseudoInstructions, INCLUDE_SECTION_NAME};
 use crate::tokenizer::{SourceToken, Token, TokenLines, TokenList, TokenValue};
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
@@ -361,16 +361,12 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
             pop_next!(
                 let size_token => "Missing number size specifier in static data declaration",
-                let TokenValue::Number(size) => "Expected a numeric size specifier in static data declaration"
+                let TokenValue::Number(Number::UnsignedInt(size)) => "Expected an unsigned integer as size specifier in static data declaration"
             );
 
-            let Number::UnsignedInt(size) = size else {
-                error::parsing_error(&size_token.source, module_manager, "Data size must be an unsigned integer")
+            let Some(size) = NumberSize::new(size) else {
+                error::parsing_error(&size_token.source, module_manager, "Invalid number size. The specified number size is expected to be an unsigned integer value among 1, 2, 4, 8");
             };
-
-            if !matches!(size, 1 | 2 | 4 | 8) {
-                error::parsing_error(&size_token.source, module_manager, "Specified number size is expected to be a value among 1, 2, 4, 8");
-            }
 
             pop_next!(
                 let number_token => "Missing numeric value in static data declaration",
@@ -379,9 +375,11 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
             assert_empty_line!();
 
+            // The number size will be checked later, at code generation
+
             push_pseudo!(PseudoInstructionNode::DefineNumber { 
-                size: (size as u8, size_token.source), 
-                data: (number, number_token.source) 
+                size: (size, size_token.source), 
+                number: (number, number_token.source) 
             });
         },
 
@@ -396,7 +394,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             assert_empty_line!();
 
             push_pseudo!(PseudoInstructionNode::DefineString {
-                data: (string, string_token.source)
+                string: (string, string_token.source)
             });
         },
 
@@ -450,7 +448,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             assert_empty_line!();
 
             push_pseudo!(PseudoInstructionNode::DefineBytes {
-                data: (bytes.into_boxed_slice(), open_square_token.source)
+                bytes: (bytes.into_boxed_slice(), open_square_token.source)
             });
         },
 
@@ -465,12 +463,212 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             assert_empty_line!();
 
             push_pseudo!(PseudoInstructionNode::OffsetFrom {
-                data: (label, label_token.source)
+                label: (label, label_token.source)
+            });
+        },
+
+        PseudoInstructions::DefineArray => {
+            /*
+                da <element type> <array>
+
+                da u8 [1,2,3,4]
+                da i32 [-3, 89, 1000, -1]
+                da [i32: 2] [ [1,2], [3,4], [5,6], [7,8] ]
+            */
+
+            let element_type = parse_data_type(&main_op, line, module_manager);
+            
+            let array = parse_array_literal(element_type.0, &main_op, None, None, line, module_manager);
+
+            assert_empty_line!();
+
+            push_pseudo!(PseudoInstructionNode::DefineArray {
+                array
             });
         }
 
     }
 
+}
+
+
+fn parse_array_literal<'a>(element_type: DataType, main_op: &SourceToken<'a>, opening_delimiter: Option<Rc<SourceToken<'a>>>, expected_len: Option<usize>, line: &mut TokenList<'a>, module_manager: &'a ModuleManager<'a>) -> (ArrayData, Rc<SourceToken<'a>>) {
+    declare_parsing_utils!(module_manager, line, main_op);
+
+    let opening_delimiter = {
+        if let Some(opening_delimiter) = opening_delimiter {
+            opening_delimiter
+        } else {
+            pop_next!(
+                let open_square => "Missing array literal",
+                let TokenValue::SquareOpen => "Expected opening `[`"
+            );
+            open_square.source
+        }
+    };
+
+    let mut array_elements = Vec::with_capacity(expected_len.unwrap_or_default());
+
+    let mut needs_comma = false;
+    
+    loop {
+
+        pop_next!(
+            let token => "Missing literal value"
+        );
+
+        match token.value {
+
+            TokenValue::SquareClose => break,
+
+            TokenValue::SquareOpen => {
+
+                if needs_comma {
+                    error::parsing_error(&token.source, module_manager, "Expected a comma");
+                }
+
+                let DataType::Array { element_type: ref inner_elem_type, len } = element_type else {
+                    error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}, got an array").as_str())
+                };
+                
+                let inner_array = parse_array_literal(*inner_elem_type.clone(), main_op, Some(token.source), Some(len), line, module_manager);
+
+                array_elements.push(PrimitiveData::Array(inner_array.0));
+
+                needs_comma = true;
+            },
+
+            TokenValue::Number(n) => {
+
+                if needs_comma {
+                    error::parsing_error(&token.source, module_manager, "Expected a comma");
+                }
+
+                // Check if the number is of the correct type
+                // This ugly approach is fine, a good conversion table would be a bit overkill
+                match element_type {
+
+                    DataType::Int { size } => {
+
+                        match n {
+                            Number::SignedInt(_) => (),
+
+                            Number::UnsignedInt(u) => {
+                                if u > i64::MAX as u64 {
+                                    error::parsing_error(&token.source, module_manager, format!("Integr too large to fit into a {element_type} type").as_str())
+                                }
+                            },
+
+                            Number::Float(_)
+                                => error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}, got a float").as_str())
+                        }
+
+                        if n.least_bytes_repr() > size.as_usize() {
+                            error::invalid_number_size(&token.source, module_manager, n.least_bytes_repr(), size.as_usize());
+                        }
+                    },
+
+                    DataType::Uint { size } => {
+
+                        if !matches!(n, Number::UnsignedInt(_)) {
+                            error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}").as_str()); // Kinda lazy error message, though
+                        }
+
+                        if n.least_bytes_repr() > size.as_usize() {
+                            error::invalid_number_size(&token.source, module_manager, n.least_bytes_repr(), size.as_usize());
+                        }
+                    },
+
+                    DataType::Float { size } => {
+
+                        if !matches!(n, Number::Float(_)) {
+                            error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}").as_str()); // Kinda lazy error message, though
+                        }
+
+                        if n.least_bytes_repr() > size.as_usize() {
+                            error::invalid_number_size(&token.source, module_manager, n.least_bytes_repr(), size.as_usize());
+                        }
+                    },
+
+                    DataType::Array { .. }
+                        => error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}, got an array").as_str())
+                }
+
+                array_elements.push(PrimitiveData::Number(n));
+
+                needs_comma = true;
+            },
+
+            TokenValue::Comma => {
+                if !needs_comma {
+                    error::parsing_error(&token.source, module_manager, "Unexpected comma");
+                }
+                needs_comma = false;
+            },
+
+            _ => error::parsing_error(&token.source, module_manager, "Unexpected token in array literal declaration")
+        }
+
+    }
+
+    (
+        ArrayData {
+            array: array_elements.into_boxed_slice(),
+            element_type
+        },
+        opening_delimiter
+    )
+}
+
+
+fn parse_data_type<'a>(main_op: &SourceToken<'a>, line: &mut TokenList<'a>, module_manager: &'a ModuleManager<'a>) -> (DataType, Rc<SourceToken<'a>>) {
+    declare_parsing_utils!(module_manager, line, main_op);
+
+    pop_next!(
+        let dt_token => "Missing data dype"
+    );
+    
+    let data_type = match dt_token.value {
+    
+        TokenValue::Identifier(name) => {
+            DataType::from_name_not_array(name).unwrap_or_else(
+                || error::parsing_error(&dt_token.source, module_manager, "Invalid data type name")
+            )
+        },
+
+        TokenValue::SquareOpen => {
+            // This is an array
+
+            let element_type = parse_data_type(main_op, line, module_manager);
+
+            pop_next!(
+                let colon_token => "Missing colon",
+                let TokenValue::Colon => "Expected a colon to specify the array length"
+            );
+
+            pop_next!(
+                let len_token => "Missing array length",
+                let TokenValue::Number(Number::UnsignedInt(len)) => "Expected an unsigned integer as array length specifier"
+            );
+
+            pop_next!(
+                let closing_square => "Missing closing `]`",
+                let TokenValue::SquareClose => "Expected closing `]`"
+            );
+
+            DataType::Array {
+                element_type: Box::new(element_type.0),
+                len: len as usize
+            }
+        },
+
+        _ => error::parsing_error(&dt_token.source, module_manager, "Invalid data dype")
+    };
+
+    (
+        data_type,
+        dt_token.source
+    )
 }
 
 

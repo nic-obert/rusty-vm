@@ -1,7 +1,8 @@
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::{fmt, io};
+use std::io;
+use std::fmt;
 use std::env;
 use std::pin::Pin;
 use std::ptr::NonNull;

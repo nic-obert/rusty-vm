@@ -5,12 +5,10 @@
 
 .data:
 
-    @strlen
-    offsetfrom str
-    @str
-    ds "hello"
+    @foo
+    da [u8:1] [ [107], [98], [105], [105], [110], [0] ]
 
 .text:
-    
-    !println_bytes str strlen
-    !println_uint strlen
+
+    !println_str foo
+

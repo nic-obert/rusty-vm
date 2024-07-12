@@ -23,6 +23,7 @@
     - [Special intructions](#special-intructions)
     - [Interrupts](#interrupts)
     - [Pseudo instructions](#pseudo-instructions)
+      - [Array data types](#array-data-types)
   - [Errors and error codes](#errors-and-error-codes)
 
 ## Introduction
@@ -348,12 +349,26 @@ Pseudo instructions are compile-time operators that affect the generated binary.
 
 | Instruction                   | Description |
 | ----------------------------- | ----------- |
-| "dn \<n> \<number>    | Define number. Insert an `n`-byte number in-place into the binary. Note that the only allowed sizes are 1, 2, 4, and 8. |
-| "db \<bytearray>"     | Define bytes. Insert a byte array in-place into the binary. |
-| "ds \<string>"        | Define string. Insert a string in-place into the binary. Note that the assembler does not automatically a null-termination byte to string literals, so it's up to the programmer to correctly terminate the string according to the program needs. |
-| "offsetfrom \<label>" | Offset from label. Calculate the memory offset in bytes between the current position and `label`, and insert the result in-place into the binary. Note that the resulting offset is an 8-byte unsigned integer and `label` must be defined prior to this instruction. |
+| `dn <n> <number>`    | Define number. Insert an `n`-byte number in-place into the binary. Note that the only allowed sizes are 1, 2, 4, and 8. |
+| `ds <string>`        | Define string. Insert a string in-place into the binary. Note that the assembler does not automatically a null-termination byte to string literals, so it's up to the programmer to correctly terminate the string according to the program needs. |
+| `db <byte array>`    | Define bytes. Insert a byte array in-place into the binary. This is a shorthand form for `da u8 \<byte array>`. See the [Array data types](#Array-data-types) section. |
+| `da <element type> <array>` | Define array. Insert an array in-place into the binary. |
+| `offsetfrom <label>` | Offset from label. Calculate the memory offset in bytes between the current position and `label`, and insert the result in-place into the binary. Note that the resulting offset is an 8-byte unsigned integer and `label` must be defined prior to this instruction. |
 
+#### Array data types
 
+| Data type | Description |
+| ---- | --- |
+| `u8` | 1-byte unsigned integer |
+| `u16` | 2-bytes unsigned integer |
+| `u32` | 4-bytes unsigned integer |
+| `u64` | 8-bytes unsigned integer |
+| `i8` | 1-byte signed integer | 
+| `i16` | 2-bytes signed integer |
+| `i32` | 4-bytes signed integer |
+| `i64` | 8-bytes signed integr |
+| `f64` | 8-bytes float |
+| `[<element type> : <length>]` | Array of `element type` with `length` elements. Example: `[i32:3]` is an array of 3 `i32` values. |
 
 ## Errors and error codes
 
