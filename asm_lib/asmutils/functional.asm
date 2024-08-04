@@ -11,6 +11,7 @@
 
     # Set the start of the function stack.
     # This macro should be called as the first instruction of a function to avoid changing the stack pointer.
+    # This macro is required to use the `load_arg*` macros
     #
     %% set_fstart:
 

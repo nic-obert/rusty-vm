@@ -47,7 +47,7 @@
         @ loop
 
             # Check if all bytes have been copied
-            cmp1 =num 0
+            cmp8 =num 0
             jmpz endloop
 
             # Copy the byte
@@ -63,7 +63,6 @@
             jmp loop
 
         @ endloop
-
 
         # Restore previous register states
         !restore_reg_state r3

@@ -13,4 +13,5 @@
     @@ "string/memmove.asm"
     @@ "string/memswap.asm"
     @@ "string/str_from_int.asm"
+    @@ "string/memset.asm"
 

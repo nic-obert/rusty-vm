@@ -13,11 +13,19 @@
     "stdlib/ascii_to_digit.asm"
     "errors.asm"
     "math/to_signed.asm"
+    "asmutils/functional.asm"
 
 
 .text:
 
 @@ ascii_to_int
+
+    !save_reg_state r2
+    !save_reg_state r3
+    !save_reg_state r4
+    !save_reg_state r7
+    !save_reg_state r8
+
 
     # Move char*
     mov r3 r1
@@ -116,6 +124,13 @@
         !to_signed r1
     
     @ sign_is_positive
+
+
+    !restore_reg_state r8
+    !restore_reg_state r7
+    !restore_reg_state r4
+    !restore_reg_state r3
+    !restore_reg_state r2
 
     ret
 
