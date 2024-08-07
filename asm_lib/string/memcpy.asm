@@ -32,13 +32,13 @@
 
         !set_fstart
 
-        !save_reg_state r1
-        !save_reg_state r2
         !save_reg_state r3
+        !save_reg_state r4
+        !save_reg_state r5
 
-        %- src: r1
-        %- dest: r2
-        %- num: r3
+        %- src: r3
+        %- dest: r4
+        %- num: r5
 
         !load_arg8 8 =num
         !load_arg8 16 =dest
@@ -65,9 +65,9 @@
         @ endloop
 
         # Restore previous register states
+        !restore_reg_state r5
+        !restore_reg_state r4
         !restore_reg_state r3
-        !restore_reg_state r2
-        !restore_reg_state r1
 
         ret
 

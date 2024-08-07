@@ -14,9 +14,9 @@
 
 .text:
 
-    !memset array1 0 4
+    !memcpy array1 array2 4
 
-    mov8 r1 array1
+    mov8 r1 array2
     mov1 r3 4
     @loop
     
