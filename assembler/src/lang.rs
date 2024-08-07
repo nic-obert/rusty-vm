@@ -1087,8 +1087,6 @@ pub struct LabelDef<'a> {
 #[derive(Debug)]
 pub struct AsmNode<'a> {
 
-    // TODO: remove this field 
-    pub source: Rc<SourceToken<'a>>,
     pub value: AsmNodeValue<'a>
 
 }

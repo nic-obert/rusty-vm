@@ -172,7 +172,6 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             };
             
             nodes.push(AsmNode {
-                source: Rc::clone(&main_operator.source),
                 value: AsmNodeValue::Label(label)
             });
 
@@ -197,7 +196,6 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             };
             
             nodes.push(AsmNode {
-                source: main_operator.source,
                 value: AsmNodeValue::Instruction(node)
             });
         },
@@ -346,7 +344,6 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
     macro_rules! push_pseudo {
         ($pi:expr) => {
             nodes.push(AsmNode {
-                source: main_op,
                 value: AsmNodeValue::PseudoInstruction (
                     $pi
                 )
@@ -716,7 +713,6 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
     );
 
     nodes.push(AsmNode {
-        source: Rc::clone(&main_op),
         value: AsmNodeValue::Label(name)
     });
 
