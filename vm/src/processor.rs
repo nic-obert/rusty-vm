@@ -1,6 +1,7 @@
 #![allow(clippy::no_effect)]
 
 
+use std::cmp::min;
 use std::io::{Read, Write};
 use std::io;
 use std::path::PathBuf;
@@ -444,7 +445,7 @@ impl Processor {
 
         println!("Running VM in interactive mode");
         println!("Byte code size is {} bytes", byte_code_size);
-        println!("Start address is: {:#X}", self.registers.pc());
+        println!("Start address is: {}", self.registers.pc());
         println!();
 
         let mut last_instruction_pc: Address = self.registers.pc();
@@ -467,13 +468,15 @@ impl Processor {
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
-            let stack_top = self.memory.get_stack_base() - self.registers.get(Registers::STACK_TOP_POINTER) as Address;
-            let top_bound = stack_top.saturating_sub(MAX_STACK_VIEW_RANGE);
-            let base_bound = stack_top;
+            // let stack_top = self.memory.get_stack_base() - self.registers.get(Registers::STACK_TOP_POINTER) as Address;
+            // let top_bound = stack_top.saturating_sub(MAX_STACK_VIEW_RANGE);
+            // let base_bound = stack_top;
+            
+            let upper_bound = min(self.registers.stack_top() + MAX_STACK_VIEW_RANGE, self.memory.get_stack_base());
 
             println!(
-                "Stack: {:#X} {:?} {:#X}",
-                top_bound, &self.memory.get_raw()[top_bound .. base_bound], stack_top
+                "Stack: {} {:?} {}",
+                self.registers.stack_top(), &self.memory.get_raw()[self.registers.stack_top() .. upper_bound], upper_bound
             );
 
             io::stdin().read_line(&mut String::new()).unwrap();

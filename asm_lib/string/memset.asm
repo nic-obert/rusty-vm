@@ -2,7 +2,6 @@
 .include:
 
     "asmutils/functional.asm"
-    "stdio.asm"
 
 
 .text:
@@ -16,13 +15,9 @@
     #
     %% memset buf byte size:
 
-        !println_uint stp
-
         push8 {size}
         push1 {byte}
         push8 {buf}
-
-        !println_uint stp
 
         call memset
 
@@ -33,55 +28,37 @@
 
     @@ memset
 
-        #!set_fstart
+        !set_fstart
 
-        !println_uint stp
+        !save_reg_state r3
+        !save_reg_state r4
+        !save_reg_state r5
 
-        #!save_reg_state r3
-        #!save_reg_state r4
-        #!save_reg_state r5
-
-        %- dest: r3
+        %- buf: r3
         %- count: r4
         %- byte: r5
 
-        pop8 r8
-
-        !println_uint r8
-
-        !println_uint stp
-
-        #!load_arg8 8 =dest
-        #!load_arg1 9 =byte
-        #!load_arg8 17 =count
-
-        pop8 =dest
-        pop1 =byte
-        pop8 =count
-
-        !println_uint =dest
-        !println_uint =byte
-        !println_uint =count
+        !load_arg8 8 =buf
+        !load_arg1 16 =byte
+        !load_arg8 17 =count
 
         @loop
 
             cmp8 =count 0
             jmpz endloop
 
-            mov1 [=dest] =byte
+            mov1 [=buf] =byte
 
-            inc =dest
+            inc =buf
             dec =count
 
             jmp loop
 
         @endloop
 
-        #!restore_reg_state r5
-        #!restore_reg_state r4
-        #!restore_reg_state r3
-
-        push r8
+        !restore_reg_state r5
+        !restore_reg_state r4
+        !restore_reg_state r3
 
         ret
 
