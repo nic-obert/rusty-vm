@@ -188,7 +188,7 @@ impl Processor {
     fn get_next_address(&mut self) -> Address {
         let pc = self.registers.pc();
         self.registers.inc_pc(ADDRESS_SIZE);
-        bytes_as_address(self.memory.get_bytes(pc, ADDRESS_SIZE))
+        self.memory.read::<Address>(pc)
     }
 
 
