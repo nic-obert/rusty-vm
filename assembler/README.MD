@@ -354,6 +354,7 @@ Pseudo instructions are compile-time operators that affect the generated binary.
 | `db <byte array>`    | Define bytes. Insert a byte array in-place into the binary. This is a shorthand form for `da u8 \<byte array>`. See the [Array data types](#Array-data-types) section. |
 | `da <element type> <array>` | Define array. Insert an array in-place into the binary. |
 | `offsetfrom <label>` | Offset from label. Calculate the memory offset in bytes between the current position and `label`, and insert the result in-place into the binary. Note that the resulting offset is an 8-byte unsigned integer and `label` must be defined prior to this instruction. |
+| `printstr <string>` | Print a string literal declared in-place in the byte code. This instruction is equivalent to defining a string literal in-place and printing it. Note that the string does not need to be null-terminated. This instruction is useful for debugging purposes. |
 
 #### Array data types
 

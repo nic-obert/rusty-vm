@@ -485,6 +485,23 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             push_pseudo!(PseudoInstructionNode::DefineArray {
                 array
             });
+        },
+        
+        PseudoInstructions::PrintString => {
+            /*
+                printstr <string literal>
+            */
+
+            pop_next!(
+                let string_token => "Missing string data",
+                let TokenValue::StringLiteral(string) => "Expected a string literal"
+            );
+
+            assert_empty_line!();
+
+            push_pseudo!(PseudoInstructionNode::PrintString {
+                string: (string, string_token.source)
+            });
         }
 
     }
@@ -759,7 +776,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
                 include_path
             )
             .unwrap_or_else(|err| 
-                error::io_error(err, format!("Failed to resolve path \"{}\"", include_path.display()).as_str())
+                error::io_error(err, Some(main_op.unit_path), format!("Failed to resolve path \"{}\"", include_path.display()).as_str())
             );
 
             assembler::assemble_included_unit(include_path, module_manager, bytecode);

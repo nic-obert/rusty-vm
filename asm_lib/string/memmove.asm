@@ -21,11 +21,11 @@
 
         push8 {src}
         push8 {dest}
-        push8 (num)
+        push8 {num}
 
         call memmove
 
-        popsp 24
+        popsp1 24
 
     %endmacro
 

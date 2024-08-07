@@ -513,6 +513,7 @@ declare_asm_instructions! {
         [
             Register = POP_STACK_POINTER_REG,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
+            Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
             AddressAtLabel = POP_STACK_POINTER_ADDR_LITERAL
         ],
@@ -520,6 +521,7 @@ declare_asm_instructions! {
         [
             Register = POP_STACK_POINTER_REG,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
+            Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
             AddressAtLabel = POP_STACK_POINTER_ADDR_LITERAL
         ],
@@ -527,6 +529,7 @@ declare_asm_instructions! {
         [
             Register = POP_STACK_POINTER_REG,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
+            Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
             AddressAtLabel = POP_STACK_POINTER_ADDR_LITERAL
         ],
@@ -534,6 +537,7 @@ declare_asm_instructions! {
         [
             Register = POP_STACK_POINTER_REG,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
+            Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
             AddressAtLabel = POP_STACK_POINTER_ADDR_LITERAL
         ],
@@ -825,7 +829,8 @@ declare_pseudo_instructions! {
     DefineBytes  "db"         { bytes: Box<[u8]> },
     DefineString "ds"         { string: Cow<'a, str> },
     DefineArray  "da"         { array: ArrayData },
-    OffsetFrom   "offsetfrom" { label: &'a str }
+    OffsetFrom   "offsetfrom" { label: &'a str },
+    PrintString  "printstr"   { string: Cow<'a, str> }
 
 }
 
@@ -1082,6 +1087,7 @@ pub struct LabelDef<'a> {
 #[derive(Debug)]
 pub struct AsmNode<'a> {
 
+    // TODO: remove this field 
     pub source: Rc<SourceToken<'a>>,
     pub value: AsmNodeValue<'a>
 

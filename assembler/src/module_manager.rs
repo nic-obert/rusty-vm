@@ -111,7 +111,7 @@ impl<'a> ModuleManager<'a> {
         if let Some(env_include_paths) = env::var_os(LIBRARY_ENV_VARIABLE) {
             
             let env_include_paths = env_include_paths.as_os_str().to_str()
-                .unwrap_or_else(|| error::io_error(io::Error::new(io::ErrorKind::InvalidFilename, format!("Invalid unicode in environment variable {}: \"{}\"", LIBRARY_ENV_VARIABLE, env_include_paths.display()).as_str()), "Could not parse include library path environment variable."));
+                .unwrap_or_else(|| error::io_error(io::Error::new(io::ErrorKind::InvalidFilename, format!("Invalid unicode in environment variable {}: \"{}\"", LIBRARY_ENV_VARIABLE, env_include_paths.display()).as_str()), None, "Could not parse include library path environment variable."));
 
             for include_path in env_include_paths.split(':') {
                 // Cloning here is acceptable since this is a one-time operation done at startup.

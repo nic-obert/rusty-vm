@@ -11,7 +11,7 @@
 
     "ctype.asm"
     "stdlib/ascii_to_digit.asm"
-    "errors.asm"
+    "archlib.asm"
     "math/to_signed.asm"
     "asmutils/functional.asm"
 

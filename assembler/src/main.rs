@@ -28,7 +28,7 @@ fn main() {
     let args = CliParser::parse();
 
     let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
-        |err| error::io_error(err, format!("Failed to canonicalize path \"{}\"", args.input_file.display()).as_str())
+        |err| error::io_error(err, None, format!("Failed to canonicalize path \"{}\"", args.input_file.display()).as_str())
     );
 
     if let Some(extension) = main_path.extension() {
@@ -38,7 +38,7 @@ fn main() {
     }
 
     let cwd = env::current_dir()
-        .unwrap_or_else( |err| error::io_error(err, "Failed to resolve current directory path."));
+        .unwrap_or_else( |err| error::io_error(err, None, "Failed to resolve current directory path."));
 
     let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths);
  
@@ -46,7 +46,7 @@ fn main() {
         .unwrap_or_else(|| args.input_file.with_extension("out") );
 
     if let Err(err) = fs::write(output_name, byte_code) {
-        error::io_error(err, "Could not save byte code file.");
+        error::io_error(err, None, "Could not save byte code file.");
     }
 
 }

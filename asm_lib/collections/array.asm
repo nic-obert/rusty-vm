@@ -40,7 +40,7 @@
     %% array_get_total_size array:
 
         !array_get_data_size {array}
-        mov8 r2 =ARRAY_ELEMENTS_OFFSET
+        mov8 r2 =ARRAY_DATA_OFFSET
         iadd
 
     %endmacro
@@ -122,7 +122,7 @@
     
         call array_get_ptr
 
-        
+
 
         ret
 

@@ -5,18 +5,18 @@
 
 .text:
 
-    @@ is_space
+    @@ is_blank
 
         cmp1 r1 ' '
-        jmpz char_is_space
+        jmpz char_is_blank
 
         cmp1 r1 '\t'
-        jmpz char_is_space
+        jmpz char_is_blank
 
         mov1 r1 0
         ret
 
-    @ char_is_space
+    @ char_is_blank
 
         mov1 r1 1
         ret

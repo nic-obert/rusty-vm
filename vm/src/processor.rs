@@ -57,10 +57,6 @@ pub struct Processor {
     pub memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
-    /// The program counter of the last instruction executed in interactive mode.
-    /// 
-    /// This is only used in interactive mode
-    interactive_last_instruction_pc: Address,
     modules: CPUModules,
 
 }
@@ -105,7 +101,6 @@ impl Processor {
             // Initialize temporarily, will be reinitialized in `execute`
             start_time: SystemTime::now(),
             quiet_exit,
-            interactive_last_instruction_pc: 0,
             modules: CPUModules::new(
                 storage,
                 Terminal::new(),
@@ -452,17 +447,19 @@ impl Processor {
         println!("Start address is: {:#X}", self.registers.pc());
         println!();
 
+        let mut last_instruction_pc: Address = self.registers.pc();
+
         loop {
 
             let previous_args = self.memory.get_bytes(
-                self.interactive_last_instruction_pc,
-                self.registers.pc().saturating_sub(self.interactive_last_instruction_pc)
+                last_instruction_pc,
+                self.registers.pc().saturating_sub(last_instruction_pc)
             );
             println!("Previous args: {:?}", previous_args);
 
             let opcode = ByteCodes::from(self.get_next_byte());
 
-            self.interactive_last_instruction_pc = self.registers.pc();
+            last_instruction_pc = self.registers.pc();
 
             println!();
 

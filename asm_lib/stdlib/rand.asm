@@ -16,7 +16,8 @@
     #
     %% rand:
 
-        intr =RANDOM
+        mov1 int =RANDOM
+        intr
     
     %endmacro
 

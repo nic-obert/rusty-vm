@@ -20,7 +20,7 @@ pub fn load_unit_asm<'a>(unit_path: UnitPath<'a>, symbol_table: &SymbolTable<'a>
     }
 
     let raw_source = fs::read_to_string(unit_path.as_path())
-        .unwrap_or_else(|err| error::io_error(err, format!("Could not load file \"{}\"", unit_path).as_str()));
+        .unwrap_or_else(|err| error::io_error(err, None, format!("Could not load file \"{}\"", unit_path).as_str()));
 
     let asm_unit = module_manager.add_unit(unit_path, AsmUnit::new(raw_source));
 
@@ -69,7 +69,7 @@ pub fn assemble_all(caller_directory: &Path, unit_path: &Path, include_paths: Ve
     // Shadow the previous `unit_path` to avoid confusion with the variables
     let unit_path = module_manager.resolve_include_path(caller_directory, unit_path)
         .unwrap_or_else(|err| 
-            error::io_error(err, format!("Failed to resolve path \"{}\"", unit_path.display()).as_str()
+            error::io_error(err, None, format!("Failed to resolve path \"{}\"", unit_path.display()).as_str()
         )
     );
 

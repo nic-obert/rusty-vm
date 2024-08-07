@@ -197,14 +197,14 @@ pub fn missing_entry_point(unit_path: UnitPath) -> ! {
 }
 
 
-pub fn io_error(error: std::io::Error, hint: &str) -> ! {
+pub fn io_error(error: std::io::Error, origin: Option<UnitPath>, hint: &str) -> ! {
     printdoc!("
-        ❌ IO error:
+        ❌ IO error{}:
         {}
         
         {}
         ",
-        error, hint
+        origin.map(|origin| format!(" originated in assembly unit \"{}\"", origin)).unwrap_or("".to_owned()), error, hint
     );
 
     std::process::exit(1);

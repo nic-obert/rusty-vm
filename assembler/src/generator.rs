@@ -2,7 +2,10 @@
 use std::rc::Rc;
 
 use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::byte_code::ByteCodes;
+use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rusty_vm_lib::interrupts::Interrupts;
 
 use crate::error;
 use crate::symbol_table::SymbolTable;
@@ -120,7 +123,42 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                     },
 
                     PseudoInstructionNode::DefineArray { array }
-                        => push_bytes!(array.0.to_le_bytes())
+                        => push_bytes!(array.0.to_le_bytes()),
+
+                    PseudoInstructionNode::PrintString { string } => {
+                        
+                        // jmp <after the string>
+                        push_byte!(ByteCodes::JUMP);
+                        let after = current_pos!() + string.0.len() + ADDRESS_SIZE;
+                        push_bytes!(after.to_le_bytes());
+
+                        // @str_addr
+                        let str_addr = current_pos!();
+
+                        // db <string bytes>
+                        push_bytes!(string.0.as_bytes());
+
+                        // mov8 print str_addr
+                        push_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        push_byte!(8);
+                        push_byte!(Registers::PRINT);
+                        push_bytes!(str_addr.to_le_bytes());
+
+                        // mov8 r1 <string length>
+                        push_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        push_byte!(8);
+                        push_byte!(Registers::R1);
+                        push_bytes!(string.0.len().to_le_bytes());
+
+                        // mov1 int =PRINT_BYTES
+                        push_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        push_byte!(1);
+                        push_byte!(Registers::INTERRUPT);
+                        push_byte!(Interrupts::PrintBytes);
+
+                        // intr
+                        push_byte!(ByteCodes::INTERRUPT);
+                    },
 
                 }
             }

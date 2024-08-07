@@ -1,5 +1,9 @@
 # strlen
 
+.include:
+
+    "asmutils/functional.asm"
+
 
 .text:
 

@@ -7,8 +7,8 @@
 
 .include:
 
-    "errors.asm"
     "asmutils/functional.asm"
+    "archlib.asm"
 
 
 .text:
