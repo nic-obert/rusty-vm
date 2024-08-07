@@ -10,7 +10,6 @@
 
 ### In Progress
 
-- [ ] Write an asm library to allocate memory like malloc/free  
 
 ### Done ✓
 

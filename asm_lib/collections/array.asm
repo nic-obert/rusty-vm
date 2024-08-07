@@ -109,20 +109,3 @@
         ret
 
 
-    # Get the element of the array at the given index
-    #
-    # Args:
-    #   - r1: array pointer (8 bytes)
-    #   - r2: element index (8 bytes)
-    #
-    # Return:
-    #   stack: element (size of element)
-    #
-    @@ array_get
-    
-        call array_get_ptr
-
-
-
-        ret
-
