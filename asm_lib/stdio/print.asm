@@ -5,6 +5,7 @@
 .include:
 
     "archlib.asm"
+    "asmutils/functional.asm"
 
 
 .text:
@@ -69,21 +70,29 @@
 
     %% print_bytes addr len:
 
+        !save_reg_state r1
+
         mov8 r1 {len}
         mov8 print {addr}
         mov1 int =PRINT_BYTES
         intr
+
+        !restore_reg_state r1
 
     %endmacro
 
 
     %% println_bytes addr len:
 
+        !save_reg_state r1
+
         mov8 r1 {len}
         mov8 print {addr}
         mov1 int =PRINT_BYTES
         intr
         !println
+
+        !restore_reg_state r1
 
     %endmacro
 
