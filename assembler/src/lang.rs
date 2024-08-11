@@ -511,7 +511,7 @@ declare_asm_instructions! {
         ],
     popsp1 size:1 argc:1
         [
-            Register = POP_STACK_POINTER_REG,
+            Register = POP_STACK_POINTER_REG_SIZED,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
             Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
@@ -519,7 +519,7 @@ declare_asm_instructions! {
         ],
     popsp2 size:2 argc:1
         [
-            Register = POP_STACK_POINTER_REG,
+            Register = POP_STACK_POINTER_REG_SIZED,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
             Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
@@ -527,7 +527,7 @@ declare_asm_instructions! {
         ],
     popsp4 size:4 argc:1
         [
-            Register = POP_STACK_POINTER_REG,
+            Register = POP_STACK_POINTER_REG_SIZED,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
             Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,
@@ -535,7 +535,7 @@ declare_asm_instructions! {
         ],
     popsp8 size:8 argc:1
         [
-            Register = POP_STACK_POINTER_REG,
+            Register = POP_STACK_POINTER_REG_SIZED,
             AddressInRegister = POP_STACK_POINTER_ADDR_IN_REG,
             Number = POP_STACK_POINTER_CONST,
             AddressLiteral = POP_STACK_POINTER_ADDR_LITERAL,

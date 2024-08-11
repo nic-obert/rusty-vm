@@ -1,4 +1,15 @@
 
+# To create a complex allocator, it would be nice to build it from the ground up through simpler steps.
+# A buddy allocator is a good option.
+# The buddy allocator may use a tree (probably a binary tree) internally
+# Such a binary tree would need an allocator of its own. 
+# Since the binary tree is comprised of simple nodes, a fixed-size allocator or a slab allocator may be used
+# to implement tree. 
+# However, the allocator would be better implemented not in assembly, but in a higher-level language like oxide
+# This means that I should finish the oxide compiler and get it to a working state as soon as possible
+# Coding an allocator in assembly is too much prone to errors and would be quite frustrating
+
+
 .include:
 
     "stdlib/exit.asm"

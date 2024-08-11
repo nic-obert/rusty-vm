@@ -7,6 +7,7 @@ use std::mem;
 
 pub type Address = usize;
 pub const ADDRESS_SIZE: usize = mem::size_of::<Address>();
+pub const HANDLED_SIZE_SPECIFIER: usize = 1;
 
 
 macro_rules! declare_errors {

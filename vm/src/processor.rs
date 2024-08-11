@@ -1015,6 +1015,14 @@ impl Processor {
                 self.pop_stack_pointer(offset as usize);
             },
             
+            ByteCodes::POP_STACK_POINTER_REG_SIZED => {
+                let size = self.get_next_byte();
+                let reg = Registers::from(self.get_next_byte());
+                let offset = self.registers.get_masked(reg, size);
+
+                self.pop_stack_pointer(offset as usize);
+            }
+
             ByteCodes::POP_STACK_POINTER_ADDR_IN_REG => {
                 let size = self.get_next_byte();
 
