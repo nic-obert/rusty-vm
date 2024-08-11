@@ -26,6 +26,9 @@ impl ByteCodes {
     }
 
 
+    /// Get the size in bytes of the arguments that the instruction requires.
+    /// Some instructions require a variable number of bytes as arguments determined by the handled size specifier byte.
+    /// For this reason, this function fails if the input arguments are malformed.
     pub fn args_size(&self, bytecode_after: &[u8]) -> Result<usize, ()> {
         match self {
             $(Self::$name => Ok(

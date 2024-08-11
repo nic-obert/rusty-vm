@@ -61,6 +61,9 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                 let instruction_code = instruction.byte_code();
                 push_byte!(instruction_code);
 
+                #[cfg(debug_assertions)]
+                let args_start = current_pos!();
+
                 let handled_size = instruction.handled_size();
                 if handled_size != 0 {
                     push_byte!(handled_size);
@@ -96,7 +99,16 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                             }
                         }
                     }
-                }              
+                }   
+
+                // Check that the size of the arguments is coherent
+                if cfg!(debug_assertions) {
+                    let args_size = current_pos!() - args_start;
+                    let expected_args_size = instruction_code.args_size(&bytecode)
+                        .expect("Arguments should be correctly formed");
+                    assert_eq!(args_size, expected_args_size);
+                }
+
             },
 
             AsmNodeValue::PseudoInstruction (instruction) => {
