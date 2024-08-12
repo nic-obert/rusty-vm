@@ -2,8 +2,7 @@
 
 ### TODO
 
-- [ ] build a byte code inspector (maybe extension for vscode or standalone program)  
-- [ ] update the disassembler (when the vm and assembler become more stable)  
+- [ ] build a byte code inspector and disassembler (maybe extension for vscode or standalone program). It must be flexible because a strict disassembler wouldn't be able to handle static data declarations inside the binary (how is it supposed to know it's static data instead of an instruction?. I've tried with debug-specific marker instructions, but they would alter the behavior of debug assemblies wth respect to release builds)  
 
 ### In Progress
 
