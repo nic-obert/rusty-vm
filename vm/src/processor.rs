@@ -58,7 +58,7 @@ unsafe fn bytes_as_address(bytes: &[Byte]) -> Address {
 pub struct Processor {
 
     registers: CPURegisters,
-    pub memory: Memory,
+    pub(super) memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
     modules: CPUModules,
