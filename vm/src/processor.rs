@@ -197,6 +197,7 @@ impl Processor {
 
     /// Increment the `size`-sized value at the given address
     fn increment_bytes(&mut self, address: Address, size: Byte) {
+
         let bytes = self.memory.get_bytes_mut(address, size as usize);
 
         let (result, carry) = match size {
@@ -272,6 +273,7 @@ impl Processor {
     
     /// Decrement the `size`-sized value at the given address
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
+
         let bytes = self.memory.get_bytes_mut(address, size as usize);
 
         let (result, carry) = match size {
@@ -1607,6 +1609,10 @@ impl Processor {
                 
                 std::process::exit(exit_code as i32);
             },
+
+            ByteCodes::DEBUG_STATIC_DATA => {
+                todo!()
+            }
         }
     }
 

@@ -21,6 +21,35 @@ pub const INCLUDE_SECTION_NAME: &'static str = "include";
 pub const CURRENT_POSITION_TOKEN: &'static str = "$";
 
 
+macro_rules! asm_arg_size {
+    
+    (Register, $_handled_size:ident) => {
+        REGISTER_ID_SIZE
+    };
+
+    (AddressInRegister, $_handled_size:ident) => {
+        REGISTER_ID_SIZE
+    };
+
+    (Number, $handled_size:ident) => {
+        $handled_size
+    };
+
+
+    (AddressLiteral, $_handled_size:ident) => {
+        ADDRESS_SIZE
+    };
+    
+    (AddressAtLabel, $_handled_size:ident) => {
+        ADDRESS_SIZE
+    };
+
+    (Label, $_handled_size:ident) => {
+        ADDRESS_SIZE
+    };
+}
+
+
 const DO_INCREASE_I: () = ();
 
 
@@ -272,11 +301,14 @@ impl<'a> AsmInstructionNode<'a> {
 }
 
 
+/// Return the arguments to the operation.
+/// The Ok return value is a tuple containing the actual handled size and a list of asm arguments
 pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Result<(usize, Box<[AsmValue<'static>]>), String> {
 
     let mut i = 0;
 
     Ok(match instruction {
+        // For every opcode
         $(
 
             // At least one arg is expected
@@ -352,8 +384,81 @@ pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Res
                 ByteCodes::$bytecode_no_args => (0, Box::new([])),
             )?
         )+
+
+        ByteCodes::DEBUG_STATIC_DATA => todo!()
     })
 
+}
+
+
+pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Result<usize, ()> {
+
+    Ok(match instruction {
+        // For every opcode
+        $(
+
+            // At least one arg
+            $(
+
+                // For every first arg
+                $(
+
+                    // Two args
+                    $(
+
+                        // For every second arg
+                        $(
+                            #[allow(unreachable_patterns)]
+                            ByteCodes::$bytecode_two_args => {
+
+                                #[allow(unused_variables)]
+                                let (base_arg_size, actual_handled_size) = if $handled_size > 0 {
+                                    (
+                                        HANDLED_SIZE_SPECIFIER,
+                                        *bytecode_after.get(0).ok_or(())? as usize
+                                    )
+                                } else {
+                                    (0, 0)
+                                };
+
+                                base_arg_size
+                                + asm_arg_size!($arg1_type, actual_handled_size)
+                                + asm_arg_size!($arg2_type, actual_handled_size)
+                            }
+                        ),+
+                    )?
+
+                    // Only one arg
+                    $(
+                        #[allow(unreachable_patterns)]
+                        ByteCodes::$bytecode_one_arg => {
+
+                            #[allow(unused_variables)]
+                            let (base_arg_size, actual_handled_size) = if $handled_size > 0 {
+                                (
+                                    HANDLED_SIZE_SPECIFIER,
+                                    *bytecode_after.get(0).ok_or(())? as usize
+                                )
+                            } else {
+                                (0, 0)
+                            };
+    
+                            base_arg_size
+                            + asm_arg_size!($arg1_type, actual_handled_size)
+                        }
+                    )?
+
+                ),+
+
+            )?
+
+            // No args
+            $(ByteCodes::$bytecode_no_args => 0,)?
+
+        )+
+
+        ByteCodes::DEBUG_STATIC_DATA => todo!()
+    })
 }
 
 
