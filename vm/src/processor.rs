@@ -44,13 +44,14 @@ fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
 }
 
 
-// TODO: make this function faster (and unsafe)
 /// Interprets the given bytes as an address
 /// 
 /// The byte array must be 8 bytes long
 #[inline]
-fn bytes_as_address(bytes: &[Byte]) -> Address {
-    Address::from_le_bytes(bytes.try_into().unwrap())
+unsafe fn bytes_as_address(bytes: &[Byte]) -> Address {
+    Address::from_le_bytes(
+        (bytes.as_ptr() as *const [Byte; ADDRESS_SIZE]).read()
+    )
 }
 
 
@@ -122,7 +123,7 @@ impl Processor {
             error::error(format!("Bytecode is too small to contain a start address: minimum required size is {} bytes, got {}", ADDRESS_SIZE, byte_code.len()).as_str());
         }
 
-        let program_start: Address = bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]);
+        let program_start: Address = unsafe { bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]) };
         self.registers.set(Registers::PROGRAM_COUNTER, program_start as u64);
 
         // Initialize the stack pointer to the end of the memory. The stack grows downwards
@@ -1054,10 +1055,6 @@ impl Processor {
                 self.pop_stack_pointer(offset as usize);
             },
             
-            ByteCodes::LABEL => {
-                unreachable!() // TODO: maybe this should be removed then
-            },
-            
             ByteCodes::JUMP => {
                 let addr = self.get_next_address();
                 self.jump_to(addr);
@@ -1173,9 +1170,9 @@ impl Processor {
             
             ByteCodes::RETURN => {
                 // Get the return address from the stack
-                let return_address = bytes_as_address(
+                let return_address = unsafe { bytes_as_address(
                     self.pop_stack_bytes(ADDRESS_SIZE)
-                );
+                ) };
 
                 // Jump to the return address
                 self.jump_to(return_address);

@@ -352,8 +352,6 @@ pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Res
                 ByteCodes::$bytecode_no_args => (0, Box::new([])),
             )?
         )+
-
-        ByteCodes::LABEL => unreachable!() // TODO: this should be removed eventually
     })
 
 }
