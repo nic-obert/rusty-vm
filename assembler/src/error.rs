@@ -3,9 +3,12 @@ use std::cmp::min;
 use indoc::{printdoc, formatdoc};
 use colored::Colorize;
 
-use crate::module_manager::{ModuleManager, UnitPath};
-use crate::tokenizer::{SourceCode, SourceToken};
-use crate::lang::ENTRY_SECTION_NAME;
+use rusty_vm_lib::assembly::{ENTRY_SECTION_NAME, SourceToken};
+
+use crate::module_manager::ModuleManager;
+use crate::tokenizer::SourceCode;
+
+use rusty_vm_lib::assembly::UnitPath;
 
 
 pub fn print_source_context(source: SourceCode, line_index: usize, char_pointer: usize) {

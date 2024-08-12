@@ -3,13 +3,12 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use lazy_static::lazy_static;
-
 use regex::Regex;
+
 use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::assembly::{AsmInstruction, Number, PseudoInstructions, SourceToken, UnitPath, CURRENT_POSITION_TOKEN};
 
 use crate::error;
-use crate::lang::{AsmInstruction, Number, PseudoInstructions, CURRENT_POSITION_TOKEN};
-use crate::module_manager::UnitPath;
 
 
 lazy_static! {
@@ -47,26 +46,6 @@ pub enum TokenValue<'a> {
     StringLiteral (Cow<'a, str>),
     Instruction (AsmInstruction),
     PseudoInstruction (PseudoInstructions)
-
-}
-
-
-#[derive(Debug)]
-pub struct SourceToken<'a> {
-
-    pub string: &'a str,
-    pub line_index: usize,
-    pub column: usize,
-    pub unit_path: UnitPath<'a>
-
-}
-
-impl SourceToken<'_> {
-
-    #[inline]
-    pub fn line_number(&self) -> usize {
-        self.line_index + 1
-    }
 
 }
 

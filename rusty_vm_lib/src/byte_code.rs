@@ -1,8 +1,7 @@
 use std::mem;
 use std::fmt;
 
-use crate::registers::REGISTER_ID_SIZE;
-use crate::vm::{ADDRESS_SIZE, HANDLED_SIZE_SPECIFIER};
+use crate::vm::{ADDRESS_SIZE, HANDLED_SIZE_SPECIFIER, REGISTER_ID_SIZE};
 
 
 macro_rules! declare_bytecodes {

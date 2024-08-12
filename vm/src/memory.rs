@@ -22,13 +22,13 @@ impl Memory {
 
 
     /// Get the start address of the stack, which is the end of the memory
-    pub fn get_stack_base(&self) -> Address {
+    pub const fn get_stack_base(&self) -> Address {
         self.memory.len()
     }
 
 
     /// Get a reference to the raw memory, unadviced
-    pub fn get_raw(&self) -> &[Byte] {
+    pub const fn get_raw(&self) -> &[Byte] {
         &self.memory
     }
 
@@ -53,7 +53,7 @@ impl Memory {
     }
 
 
-    pub fn get_byte(&self, address: Address) -> Byte {
+    pub const fn get_byte(&self, address: Address) -> Byte {
         self.memory[address]
     }
 

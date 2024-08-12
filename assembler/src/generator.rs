@@ -1,7 +1,7 @@
 
 use std::rc::Rc;
 
-use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::assembly::{ByteCode, SourceToken, AsmValue, CURRENT_POSITION_TOKEN, PseudoInstructionNode};
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
@@ -10,8 +10,7 @@ use rusty_vm_lib::interrupts::Interrupts;
 use crate::error;
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
-use crate::lang::{AsmNode, AsmNodeValue, AsmValue, PseudoInstructionNode, CURRENT_POSITION_TOKEN};
-use crate::tokenizer::SourceToken;
+use crate::lang::{AsmNode, AsmNodeValue};
 
 
 pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>, bytecode: &mut ByteCode) {
@@ -104,9 +103,9 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                 // Check that the size of the arguments is coherent
                 if cfg!(debug_assertions) {
                     let args_size = current_pos!() - args_start;
-                    let expected_args_size = instruction_code.args_size(&bytecode)
+                    let expected_args_size = instruction_code.args_size(&bytecode[args_start..])
                         .expect("Arguments should be correctly formed");
-                    assert_eq!(args_size, expected_args_size);
+                    assert_eq!(args_size, expected_args_size, "Instruction node {:#?} that corresponds to opcode {instruction_code} was expected to have arguments of size {expected_args_size} bytes, but got {args_size} bytes", node);
                 }
 
             },

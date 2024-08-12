@@ -1,8 +1,8 @@
-use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::assembly::{ArrayData, AsmInstructionNode, AsmOperand, AsmValue, ByteCode, DataType, Number, NumberSize, PrimitiveData, PseudoInstructionNode, PseudoInstructions, SourceToken, INCLUDE_SECTION_NAME};
 
+use crate::lang::{AsmNode, AsmNodeValue, FunctionMacroDef, InlineMacroDef};
 use crate::{assembler, error};
-use crate::lang::{ArrayData, AsmInstructionNode, AsmNode, AsmNodeValue, AsmOperand, AsmValue, DataType, FunctionMacroDef, InlineMacroDef, Number, NumberSize, PrimitiveData, PseudoInstructionNode, PseudoInstructions, INCLUDE_SECTION_NAME};
-use crate::tokenizer::{SourceToken, Token, TokenLines, TokenList, TokenValue};
+use crate::tokenizer::{Token, TokenLines, TokenList, TokenValue};
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
 
@@ -172,7 +172,8 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             };
             
             nodes.push(AsmNode {
-                value: AsmNodeValue::Label(label)
+                value: AsmNodeValue::Label(label),
+                source: main_operator.source
             });
 
             symbol_table.declare_label(
@@ -196,7 +197,8 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             };
             
             nodes.push(AsmNode {
-                value: AsmNodeValue::Instruction(node)
+                value: AsmNodeValue::Instruction(node),
+                source: main_operator.source
             });
         },
 
@@ -346,7 +348,8 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             nodes.push(AsmNode {
                 value: AsmNodeValue::PseudoInstruction (
                     $pi
-                )
+                ),
+                source: main_op
             });
         };
     }
@@ -713,7 +716,8 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
     );
 
     nodes.push(AsmNode {
-        value: AsmNodeValue::Label(name)
+        value: AsmNodeValue::Label(name),
+        source: Rc::clone(&main_op)
     });
 
     if name == INCLUDE_SECTION_NAME {

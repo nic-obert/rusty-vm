@@ -1,6 +1,5 @@
 #![allow(clippy::no_effect)]
 
-
 use std::cmp::min;
 use std::io::{Read, Write};
 use std::io;
@@ -8,15 +7,18 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 
+use rusty_vm_lib::assembly;
 use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 use rusty_vm_lib::interrupts::Interrupts;
 
+
+
 use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
-use crate::error;
+use crate::error::{self, error};
 use crate::modules::CPUModules;
 use crate::register::CPURegisters;
 use crate::storage::Storage;
@@ -448,23 +450,23 @@ impl Processor {
         println!("Start address is: {}", self.registers.pc());
         println!();
 
-        let mut last_instruction_pc: Address = self.registers.pc();
-
         loop {
 
-            let previous_args = self.memory.get_bytes(
-                last_instruction_pc,
-                self.registers.pc().saturating_sub(last_instruction_pc)
-            );
-            println!("Previous args: {:?}", previous_args);
-
             let opcode = ByteCodes::from(self.get_next_byte());
+            
+            println!();
+            
+            println!("PC: {}, opcode: {}", self.registers.pc(), opcode);
 
-            last_instruction_pc = self.registers.pc();
+            let (handled_size, args) = assembly::parse_bytecode_args(opcode, &self.memory.get_raw()[self.registers.pc()..])
+                .unwrap_or_else(|err| error(format!("Could not parse arguments for opcode {opcode}:\n{err}").as_str()));
 
+            print!("Instruction args (handled size {handled_size}): ");
+            for arg in args {
+                print!("{} ", arg);
+            }
             println!();
 
-            println!("PC: {}, opcode: {}", self.registers.pc(), opcode);
             println!("Registers: {}", self.display_registers());
 
             const MAX_STACK_VIEW_RANGE: usize = 32;
