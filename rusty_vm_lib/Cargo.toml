@@ -2,3 +2,6 @@
 name = "rusty_vm_lib"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+static_assertions = "1.1.0"

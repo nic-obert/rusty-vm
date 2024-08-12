@@ -2,41 +2,17 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::io;
-use std::fmt;
 use std::env;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::mem;
 
 use indoc::formatdoc;
-use rusty_vm_lib::assembly::LIBRARY_ENV_VARIABLE;
+use rusty_vm_lib::assembly::{LIBRARY_ENV_VARIABLE, UnitPath};
 
 use crate::error;
 use crate::symbol_table::ExportedSymbols;
 use crate::tokenizer::SourceCode;
-
-
-/// A canonicalized absolute path
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
-pub struct UnitPath<'a> {
-
-    path: &'a Path
-
-}
-
-impl UnitPath<'_> {
-
-    pub fn as_path<'a>(&'a self) -> &'a Path {
-        self.path
-    }
-
-}
-
-impl fmt::Display for UnitPath<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.path.display())
-    }
-}
 
 
 /// Struct must not implement Clone or Copy
@@ -136,20 +112,20 @@ impl<'a> ModuleManager<'a> {
         // Maybe the path can be canonicalized without further information
         if let Ok(resolved_path) = included_path.canonicalize() {
             paths.push(resolved_path);
-            return Ok(UnitPath { path: paths.last().expect("Just pushed") });
+            return Ok(UnitPath::new_canonicalized(paths.last().expect("Just pushed")));
         }
 
         // If the path is relative, check if it's relative to the caller
         if let Ok(resolved_path) = caller_directory.join(included_path).canonicalize() {
             paths.push(resolved_path);
-            return Ok(UnitPath { path: paths.last().expect("Just pushed") });
+            return Ok(UnitPath::new_canonicalized(paths.last().expect("Just pushed")));
         }
 
         // Check if the path is relative to any specified include paths
         for include_path in self.include_paths.iter() {
             if let Ok(resolved_path) = include_path.join(included_path).canonicalize() {
                 paths.push(resolved_path);
-                return Ok(UnitPath { path: paths.last().expect("Just pushed") });
+                return Ok(UnitPath::new_canonicalized(paths.last().expect("Just pushed")));
             }
         }
 

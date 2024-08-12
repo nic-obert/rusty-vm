@@ -1,10 +1,10 @@
-use rusty_vm_lib::assembly::ByteCode;
+use rusty_vm_lib::assembly::{ByteCode, UnitPath, ENTRY_SECTION_NAME};
 use rusty_vm_lib::byte_code::ByteCodes;
 
 use crate::generator::generate_bytecode;
-use crate::lang::{AsmNode, ENTRY_SECTION_NAME};
+use crate::lang::AsmNode;
 use crate::{error, generator, parser, tokenizer};
-use crate::module_manager::{AsmUnit, ModuleManager, UnitPath};
+use crate::module_manager::{AsmUnit, ModuleManager};
 use crate::symbol_table::{ExportedSymbols, SymbolTable};
 
 use std::fs;

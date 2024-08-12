@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use std::cell::UnsafeCell;
 
 use rusty_vm_lib::vm::Address;
+use rusty_vm_lib::assembly::SourceToken;
 
 use crate::error;
 use crate::lang::{FunctionMacroDef, InlineMacroDef, LabelDef};
 use crate::module_manager::ModuleManager;
-use crate::tokenizer::SourceToken;
 
 
 #[derive(Debug, Clone)]
