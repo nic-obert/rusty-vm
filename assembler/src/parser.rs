@@ -227,7 +227,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
 }
 
 
-pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode, debug: bool) -> Box<[AsmNode<'a>]> {
+pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> Box<[AsmNode<'a>]> {
 
     // A good estimate for the number of nodes is the number of assembly lines. This is because an assembly line 
     // usually translates to a single instruction. This should avoid reallocations in most cases.
@@ -275,7 +275,7 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
                         Other dedicated sections may be implemented
                         All other sections are treated as labels
                     */
-                    parse_section(&mut nodes, &mut line, main_operator.source, module_manager, &mut token_lines, symbol_table, bytecode, debug);
+                    parse_section(&mut nodes, &mut line, main_operator.source, module_manager, &mut token_lines, symbol_table, bytecode);
                 },
 
                 TokenValue::PseudoInstruction(instruction) => {
@@ -689,7 +689,7 @@ fn parse_data_type<'a>(main_op: &SourceToken<'a>, line: &mut TokenList<'a>, modu
 }
 
 
-fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode, debug: bool) {
+fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
     
     declare_parsing_utils!(module_manager, line, main_op);
 
@@ -734,7 +734,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
                     Note that there cannot be multiple include sections in the same ASM unit.
                 */
                 let Token { source, .. } = include_line.pop_front().unwrap(); // To satisfy the borrow checker
-                parse_section(nodes, &mut include_line, source, module_manager, token_lines, symbol_table, bytecode, debug);
+                parse_section(nodes, &mut include_line, source, module_manager, token_lines, symbol_table, bytecode);
 
                 break;
             }
@@ -779,7 +779,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
                 error::io_error(err, Some(main_op.unit_path), format!("Failed to resolve path \"{}\"", include_path.display()).as_str())
             );
 
-            assembler::assemble_included_unit(include_path, module_manager, bytecode, debug);
+            assembler::assemble_included_unit(include_path, module_manager, bytecode);
 
             let exports = module_manager.get_unit_exports(include_path);
 

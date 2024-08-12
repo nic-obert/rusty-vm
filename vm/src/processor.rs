@@ -1609,10 +1609,6 @@ impl Processor {
                 
                 std::process::exit(exit_code as i32);
             },
-
-            ByteCodes::DEBUG_STATIC_DATA => {
-                todo!()
-            }
         }
     }
 

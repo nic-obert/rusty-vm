@@ -132,9 +132,7 @@ declare_bytecodes! {
 
     INTERRUPT,
 
-    EXIT,
-
-    DEBUG_STATIC_DATA
+    EXIT
 
 }
 

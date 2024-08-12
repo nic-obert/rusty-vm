@@ -40,7 +40,7 @@ fn main() {
     let cwd = env::current_dir()
         .unwrap_or_else( |err| error::io_error(err, None, "Failed to resolve current directory path."));
 
-    let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths, args.debug);
+    let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths);
  
     let output_name = args.output
         .unwrap_or_else(|| args.input_file.with_extension("out") );
