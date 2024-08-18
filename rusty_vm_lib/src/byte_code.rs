@@ -3,7 +3,7 @@ use std::fmt;
 
 
 macro_rules! declare_bytecodes {
-    ($($name:ident),+) => {       
+    ($($name:ident),+) => {
 
 /// Represents the byte code instruction set
 #[derive(Debug, Clone, Copy)]
@@ -129,6 +129,7 @@ declare_bytecodes! {
     NOT,
     SHIFT_LEFT,
     SHIFT_RIGHT,
+    SWAP_BYTES_ENDIANNESS,
 
     INTERRUPT,
 
@@ -163,4 +164,3 @@ impl std::convert::From<u8> for ByteCodes {
 pub fn is_jump_instruction(instruction: ByteCodes) -> bool {
     ByteCodes::JUMP as usize <= instruction as usize && instruction as usize <= ByteCodes::RETURN as usize
 }
-

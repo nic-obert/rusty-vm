@@ -22,7 +22,7 @@ pub const CURRENT_POSITION_TOKEN: &'static str = "$";
 
 
 macro_rules! asm_arg_size {
-    
+
     (Register, $_handled_size:ident) => {
         REGISTER_ID_SIZE
     };
@@ -39,7 +39,7 @@ macro_rules! asm_arg_size {
     (AddressLiteral, $_handled_size:ident) => {
         ADDRESS_SIZE
     };
-    
+
     (AddressAtLabel, $_handled_size:ident) => {
         ADDRESS_SIZE
     };
@@ -70,7 +70,7 @@ macro_rules! parse_asm_arg {
     (AddressInRegister, $i:ident, $bytecode_after:ident, $_handled_size: ident $(, $do_increase_i:ident)?) => {{
 
         let reg = $bytecode_after[$i];
-        
+
         $(
             let _ = $do_increase_i;
             $i += REGISTER_ID_SIZE;
@@ -82,7 +82,7 @@ macro_rules! parse_asm_arg {
     (Number, $i:ident, $bytecode_after:ident, $handled_size: ident $(, $do_increase_i:ident)?) => {{
 
         let n = Number::uint_from_bytes(&$bytecode_after[$i..$i + $handled_size])?;
-        
+
         $(
             let _ = $do_increase_i;
             $i += $handled_size;
@@ -93,9 +93,9 @@ macro_rules! parse_asm_arg {
 
 
     (AddressLiteral, $i:ident, $bytecode_after:ident, $_handled_size: ident $(, $do_increase_i:ident)?) => {{
-        
+
         let addr = Address::from_le_bytes($bytecode_after[$i..$i + ADDRESS_SIZE].try_into().unwrap()); // TODO: the try_into() never fails because [u8; ADDRESS_SIZE] is a valid Address
-        
+
         $(
             let _ =$do_increase_i;
             $i += ADDRESS_SIZE;
@@ -103,7 +103,7 @@ macro_rules! parse_asm_arg {
 
         AsmValue::AddressLiteral(Number::UnsignedInt(addr as u64))
     }};
-    
+
     (AddressAtLabel, $i:ident, $bytecode_after:ident, $_handled_size: ident $(, $do_increase_i:ident)?) => {
         // Labels get compiled to raw numbers, so this is equivalent to an address literal
         parse_asm_arg!(AddressLiteral, $i, $bytecode_after, $_handled_size $(, $do_increase_i)?)
@@ -146,12 +146,12 @@ macro_rules! declare_asm_instructions {
         $( = $bytecode_no_args:ident)?
     ),+
 ) => {
-    
+
 #[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum AsmInstruction {
-    
+
     $($name),+
 
 }
@@ -200,7 +200,7 @@ impl<'a> AsmInstructionNode<'a> {
 
     /// Checks if the arguments are valid for the given instruction and constructs an instruction node.
     /// Returns an error if the arguments are incorrect.
-    pub fn build(instruction: AsmInstruction, args: Box<[AsmOperand<'a>]>) -> Result<AsmInstructionNode<'a>, (Option<Rc<SourceToken<'a>>>, String)> {        
+    pub fn build(instruction: AsmInstruction, args: Box<[AsmOperand<'a>]>) -> Result<AsmInstructionNode<'a>, (Option<Rc<SourceToken<'a>>>, String)> {
         match instruction {
             $(
                 AsmInstruction::$name => {
@@ -283,7 +283,7 @@ impl<'a> AsmInstructionNode<'a> {
 
                                 },
                             )+
-                            
+
                             #[allow(unreachable_patterns)]
                             _ => unreachable!()
                         }
@@ -312,7 +312,7 @@ pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Res
         $(
 
             // At least one arg is expected
-            $( 
+            $(
 
                 // For every first arg
                 $(
@@ -325,7 +325,7 @@ pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Res
                             // Allow duplicated pattterns beacause multiple groups of asm instructions and arguments can be compiled to the same bytecode
                             #[allow(unreachable_patterns)]
                             ByteCodes::$bytecode_two_args => {
-                                
+
                                 // Allow to not use `actual_handled_size` because some sized instructions have arguments whose size don't depend on the handled size specifier
                                 #[allow(unused_variables)]
                                 let actual_handled_size = if $handled_size > 0 {
@@ -440,7 +440,7 @@ pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Resu
                             } else {
                                 (0, 0)
                             };
-    
+
                             base_arg_size
                             + asm_arg_size!($arg1_type, actual_handled_size)
                         }
@@ -505,38 +505,38 @@ declare_asm_instructions! {
         [
             Register = DEC_REG
         ],
-    dec1 size:1 argc:1 
+    dec1 size:1 argc:1
         [
             AddressInRegister = DEC_ADDR_IN_REG,
             AddressLiteral = DEC_ADDR_LITERAL,
             AddressAtLabel = DEC_ADDR_LITERAL
         ],
-    dec2 size:2 argc:1 
+    dec2 size:2 argc:1
         [
             AddressInRegister = DEC_ADDR_IN_REG,
             AddressLiteral = DEC_ADDR_LITERAL,
             AddressAtLabel = DEC_ADDR_LITERAL
         ],
-    dec4 size:4 argc:1 
+    dec4 size:4 argc:1
         [
             AddressInRegister = DEC_ADDR_IN_REG,
             AddressLiteral = DEC_ADDR_LITERAL,
             AddressAtLabel = DEC_ADDR_LITERAL
         ],
-    dec8 size:8 argc:1 
+    dec8 size:8 argc:1
         [
             AddressInRegister = DEC_ADDR_IN_REG,
             AddressLiteral = DEC_ADDR_LITERAL,
             AddressAtLabel = DEC_ADDR_LITERAL
         ],
     nop size:0 argc:0 = NO_OPERATION,
-        mov size:0 argc:2 
+        mov size:0 argc:2
         [
             Register (
                 Register = MOVE_INTO_REG_FROM_REG
             )
         ],
-    mov1 size:1 argc:2 
+    mov1 size:1 argc:2
         [
             Register (
                 Register = MOVE_INTO_REG_FROM_REG_SIZED,
@@ -834,7 +834,7 @@ declare_asm_instructions! {
         [
             Label = JUMP_OVERFLOW
         ],
-    jmpnof size:0 argc:1 
+    jmpnof size:0 argc:1
         [
             Label = JUMP_NOT_OVERFLOW
         ],
@@ -1036,6 +1036,7 @@ declare_asm_instructions! {
     not size:0 argc:0 = NOT,
     shl size:0 argc:0 = SHIFT_LEFT,
     shr size:0 argc:0 = SHIFT_RIGHT,
+    swpe size:0 argc:0 = SWAP_BYTES_ENDIANNESS,
     intr size:0 argc:0 = INTERRUPT,
     exit size:0 argc:0 = EXIT
 
@@ -1052,7 +1053,7 @@ macro_rules! declare_pseudo_instructions {
         ),*}
     ),+
 ) => {
-        
+
 /// Pseudo-instructions are assembler-specific instructions that get evaluated at compile-time and have effects on the generated output byte code.
 /// Each instruction is represented by one byte.
 #[derive(Debug, Clone, Copy)]
@@ -1119,7 +1120,7 @@ impl NumberSize {
             => Some( unsafe {
                 mem::transmute::<u8, Self>(n as u8)
             }),
-                    
+
             _ => None
         }
     }
@@ -1145,7 +1146,7 @@ impl ArrayData {
 
     pub fn to_le_bytes(&self) -> Box<[u8]> {
         // Assume the array elements and data type match
-        
+
         let size = self.element_type.size()*self.array.len();
         let mut bytes = Vec::with_capacity(size);
 
@@ -1256,7 +1257,7 @@ pub enum Number {
     SignedInt(i64),
     UnsignedInt(u64),
     Float(f64)
-    
+
 }
 
 impl Number {
@@ -1361,7 +1362,7 @@ pub struct UnitPath<'a> {
 impl UnitPath<'_> {
 
     /// Construct a new `UnitPath` from a canonicalized path.
-    /// This function assumes that `path` is correctly canonicalized. 
+    /// This function assumes that `path` is correctly canonicalized.
     pub fn new_canonicalized<'a>(path: &'a Path) -> UnitPath<'a> {
         UnitPath {
             path
@@ -1399,4 +1400,3 @@ impl SourceToken<'_> {
     }
 
 }
-
