@@ -6,10 +6,10 @@ Project Description
 
 ### Todo
 
-- [ ] the intermediate code Tn system should assign to Tns only once. Tns are worm variables
+- [ ] the intermediate code Tn system should assign to Tns only once. Tns are worm variables. Really, though? It doesn't seem to be necessary
 - [ ] create a README with the project description and the language features and syntax
-- [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff
-- [ ] detect infinite recursion
+- [ ] eventually, merge irc and flow analyzer modules since they work on the same stuff. Or maybe not
+- [ ] detect infinite recursion during flow analysis
 - [ ] add warnings for casting references to different-sized types. is_castable_to returns an enum that specifies why it cannot be cast
 - [ ] check if variable is initialized in every path (may be hard to implement)
 - [ ] vscode extension for syntax highlighting
@@ -19,16 +19,16 @@ Project Description
 - [ ] eventually, implement compiler directives
 - [ ] eventually, add better type inference for array elements
 - [ ] implement tuples
-- [ ] main function
-- [ ] lifetimes?
+- [ ] main function and entry point
+- [ ] lifetimes? they may require to structure the compiler in a totally different way. this may be a feature for a future compiler
 - [ ] implement module system
 - [ ] implement enums
 - [ ] implement structs
 - [ ] Add the no-op operator to the oxide language to prevent the optimizer from optimizing out conditional blocks and loops without any operation in them
-- [ ] Devise a calling convention that takes into account registers and the stack. It must be the same for every function.
 
 ### In Progress
 
+- [ ] Devise a calling convention that takes into account registers and the stack. It must be the same for every function.
 - [ ] implement IR code to bytecode translation
 - [ ] flow analysis (using directed graphs) & optimization
 - [ ] implement const function evaluation
@@ -52,7 +52,7 @@ Project Description
 - [x] Wrap LiteralValues into Rc to allow passing them around. Note that they never get mutated and the symbol table holds some that are currently being copied to substitute their symbol if the value is known
 - [x] hide the debug printing to the console behind the -v flag
 - [x] static keyword
-- [x] disallow changinc mutability when casting references
+- [x] disallow changing mutability when casting references
 - [x] remove effectless operations in ir code as an optimization
 - [x] declare optimizations/string representation/cli argument using a single macro
 - [x] differentiate between dereference used to assign and dereference used to get a value

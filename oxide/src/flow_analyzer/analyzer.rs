@@ -104,7 +104,8 @@ fn divide_basic_blocks<'a>(ir_function: FunctionIR<'a>, bb_table: &mut BasicBloc
     FunctionGraph {
         name: ir_function.name,
         code_blocks: basic_blocks,
-        labels: ir_function.function_labels
+        labels: ir_function.function_labels,
+        signature: ir_function.signature
     }
 }
 

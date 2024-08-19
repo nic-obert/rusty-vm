@@ -82,7 +82,11 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
     for function_graph in function_graphs {
 
-        // Keeps track of which
+        // TODO: we need to load the function arguments, or at least keep track of where they are.
+        // defining a calling convention is thus necessary at this point.
+        // This function should have access to the function's signature
+
+        // Keeps track of where the actual value of Tns is stored
         let mut tn_location: HashMap<TnID, TnLocation> = HashMap::new();
 
         for block in function_graph.code_blocks {
@@ -122,7 +126,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                 match &ir_node.op {
 
                     IROperator::Add { target, left, right } => {
-                        // TODO: we need to keep a record of which tns map to which memory address in the stack.
+                        // TODO: we need to keep a record of which Tns map to which memory address in the stack.
                     },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),
@@ -156,6 +160,8 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     IROperator::JumpIfNot { condition, target } => todo!(),
 
                     IROperator::Label { label } => {
+                        // Labels are not actual instructions and don't get translated to any bytecode.
+                        // Mark the label as pointing to this specific real location in the bytecode
                         label_address_map.insert(label.0, bytecode.len());
                     },
 

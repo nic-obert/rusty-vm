@@ -309,11 +309,14 @@ pub struct FunctionIR<'a> {
     /// Important labels of the function that are needed to perform a call
     pub function_labels: FunctionLabels,
 
+    /// The function signature
+    pub signature: Rc<DataType>
+
 }
 
 impl FunctionIR<'_> {
 
-    pub fn new<'a>(name: &'a str, first_scope: ScopeID, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
+    pub fn new<'a>(name: &'a str, first_scope: ScopeID, signature: Rc<DataType>, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
         FunctionIR {
             name,
             code: Default::default(),
@@ -323,6 +326,7 @@ impl FunctionIR<'_> {
                 start: irid_gen.next_label(),
                 exit: irid_gen.next_label(),
             },
+            signature
         }
     }
 

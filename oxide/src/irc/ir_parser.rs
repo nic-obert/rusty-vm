@@ -1154,7 +1154,7 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
             return
     */
 
-    let mut ir_function = FunctionIR::new(function.name, function.code.scope_id, irid_gen);
+    let mut ir_function = FunctionIR::new(function.name, function.code.scope_id, Rc::clone(&function.signature), irid_gen);
 
     // Create the top-level function scope
     let ir_scope = ir_function.scope_table.add_scope(None);

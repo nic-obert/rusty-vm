@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::irc::{FunctionLabels, IRCode, LabelID};
+use crate::{irc::{FunctionLabels, IRCode, LabelID}, lang::data_types::DataType};
 
 
 /// A basic block is a sequence of instructions that always get executed together.
@@ -76,14 +76,20 @@ impl std::fmt::Debug for BasicBlock {
 /// This is used to determine which basic block to jump to.
 pub type BasicBlockTable = HashMap<LabelID, Rc<RefCell<BasicBlock>>>;
 
+/// Represents a function's code as a graph where every node is a basic block
 #[derive(Debug)]
 pub struct FunctionGraph<'a> {
 
     /// The function name as it appears in the source code
-    pub(crate) name: &'a str,
+    pub name: &'a str,
+
     /// The code of the function, split into basic blocks
-    pub(crate) code_blocks: Vec<Rc<RefCell<BasicBlock>>>,
-    /// Important function labels
-    pub(crate) labels: FunctionLabels
+    pub code_blocks: Vec<Rc<RefCell<BasicBlock>>>,
+
+    /// Important function labels. There are used when calling the function and when returning
+    pub labels: FunctionLabels,
+
+    /// The function signature. This is used to correctly implement the calling convention.
+    pub signature: Rc<DataType>,
 
 }
