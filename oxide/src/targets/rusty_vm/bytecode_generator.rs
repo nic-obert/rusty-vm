@@ -4,9 +4,9 @@ use std::mem;
 use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::Address;
-use rusty_vm_lib::registers::{Registers, GENERAL_PURPOSE_REGISTER_COUNT};
+use rusty_vm_lib::registers::Registers;
 
-use crate::irc::{LabelID, IROperator};
+use crate::irc::{IROperator, LabelID, TnID};
 use crate::symbol_table::{StaticID, SymbolTable};
 use crate::flow_analyzer::FunctionGraph;
 
@@ -44,21 +44,20 @@ type StaticAddressMap = HashMap<StaticID, Address>;
 
 // }
 
+type Offset = usize;
 
-pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> ByteCode {
-    /*
-        Generate a static section for static data
-        Generate a text section for the code
-        Substitute labels with actual addresses
-    */
+enum TnLocation {
 
-    let mut label_address_map = LabelAddressMap::new();
-    let mut static_address_map = StaticAddressMap::new();
-    // let mut reg_set = GeneralPurposeRegisterSet::new();
+    /// The value of the Tn is stored inside a register
+    Register (Registers),
+    /// The value of the Tn is stores on the stack at an offset
+    Stack (Offset)
 
-    let mut bytecode = ByteCode::new();
+}
 
-    // Generate static data section (equivalent to .data section in assembly)
+
+/// Generate static data section, equivalent to .data section in assembly
+fn generate_static_data_section(symbol_table: &SymbolTable, static_address_map: &mut StaticAddressMap, bytecode: &mut ByteCode) {
 
     for (static_id, static_value) in symbol_table.get_statics() {
 
@@ -75,15 +74,18 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
         bytecode.extend(byte_repr);
     }
 
-    // Generate the code section (equivalent to .text section in assembly)
-    // And also populate the label-address map
+}
 
-    // List of labels that will need to be filled in later, when all label addresses are known.
-    let mut labels_to_resolve: Vec<Address> = Vec::new();
-    
+
+/// Generate the code section, equivalent to .text in assembly
+fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bytecode: &mut ByteCode, label_address_map: &mut LabelAddressMap) {
+
     for function_graph in function_graphs {
 
-        for block in function_graph {
+        // Keeps track of which
+        let mut tn_location: HashMap<TnID, TnLocation> = HashMap::new();
+
+        for block in function_graph.code_blocks {
 
             for ir_node in block.borrow().code.iter() {
 
@@ -120,7 +122,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
                 match &ir_node.op {
 
                     IROperator::Add { target, left, right } => {
-                        // TODO: we need to keep a record of which tns map to which memory address in the stack.                
+                        // TODO: we need to keep a record of which tns map to which memory address in the stack.
                     },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),
@@ -182,6 +184,11 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
         }
     }
 
+}
+
+
+fn resolve_unresolved_addresses(labels_to_resolve: Vec<Address>, label_address_map: LabelAddressMap, bytecode: &mut ByteCode) {
+
     // Substitute labels with actual addresses
     for label_location in labels_to_resolve {
         let label_id = LabelID(usize::from_le_bytes(
@@ -191,8 +198,33 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
         bytecode[label_location..label_location + mem::size_of::<LabelID>()].copy_from_slice(&address.to_le_bytes());
     }
 
+}
+
+
+pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> ByteCode {
+    /*
+        Generate a static section for static data
+        Generate a text section for the code
+        Substitute labels with actual addresses
+    */
+
+    // Map a label to an actual memory address in the bytecode
+    let mut label_address_map = LabelAddressMap::new();
+    // Maps a static data id to an actual memory address in the bytecode
+    let mut static_address_map = StaticAddressMap::new();
+    // List of labels that will need to be filled in later, when all label addresses are known.
+    let mut labels_to_resolve: Vec<Address> = Vec::new();
+
+    let mut bytecode = ByteCode::new();
+
+    generate_static_data_section(symbol_table, &mut static_address_map, &mut bytecode);
+
+    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map);
+
+    resolve_unresolved_addresses(labels_to_resolve, label_address_map, &mut bytecode);
+
     // Specify the entry point of the program (main function or __init__ function)
+    todo!();
 
     bytecode
 }
-

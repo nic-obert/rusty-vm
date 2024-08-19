@@ -1131,6 +1131,7 @@ fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop:
 
 /// Keeps track of the basic significant labels of a function.
 /// All functions should define these labels.
+#[derive(Debug)]
 pub struct FunctionLabels {
     /// The first instruction of the function (pushing the function's scope onto the stack)
     /// This label should be the target of function calls.

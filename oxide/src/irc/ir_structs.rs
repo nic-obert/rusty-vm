@@ -293,13 +293,22 @@ pub type IRCode = OpenLinkedList<IRNode>;
 
 
 pub struct FunctionIR<'a> {
+
+    /// Name of the function
     pub name: &'a str,
+
+    /// The IR code of the function
     pub code: Rc<RefCell<IRCode>>,
+
     pub scope_table: ScopeTable<'a>,
+
     /// The top-level scope of the function in the symbol table.
-    // This is used to calculate how many bytes to pop upon returning from the function.
+    /// This is used to calculate how many bytes to pop upon returning from the function.
     pub st_top_scope: ScopeID,
+
+    /// Important labels of the function that are needed to perform a call
     pub function_labels: FunctionLabels,
+
 }
 
 impl FunctionIR<'_> {

@@ -2,20 +2,22 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::irc::{IRCode, LabelID};
+use crate::irc::{FunctionLabels, IRCode, LabelID};
 
 
 /// A basic block is a sequence of instructions that always get executed together.
-/// 
+///
 /// A basic block ends when the control flow changes.
-/// 
+///
 /// A basic block starts at labels or after control flow instructions.
 pub struct BasicBlock {
     /// The IR code of this basic block
     pub code: IRCode,
-    /// List of basic blocks that can be directly reached from this basic block
+    /// List of basic blocks that can be directly reached from this basic block.
+    /// These include the block that comes right after self and eventual blocks that can be jumped to
     next: Vec<Rc<RefCell<BasicBlock>>>,
-    /// List of basic blocks that can directly reach this basic block
+    /// List of basic blocks that can directly reach this basic block.
+    /// These include the previous block and eventual blocks that jump to this block's start label.
     refs: Vec<Rc<RefCell<BasicBlock>>>,
     /// Number of times this block is referenced by other blocks.
     /// This is different from `refs.len()` because a referencing block may get deleted as an optimization.
@@ -59,7 +61,7 @@ impl std::fmt::Debug for BasicBlock {
         writeln!(f, "  refs: {}", self.refs.len())?;
         writeln!(f, "  ref_count: {:?}", self.ref_count)?;
         writeln!(f, "  code:")?;
-        
+
         for ir in self.code.iter() {
             writeln!(f, "    {ir}")?;
         }
@@ -70,10 +72,18 @@ impl std::fmt::Debug for BasicBlock {
 
 
 /// Maps a label to the basic block it introduces.
-/// 
+///
 /// This is used to determine which basic block to jump to.
 pub type BasicBlockTable = HashMap<LabelID, Rc<RefCell<BasicBlock>>>;
 
-// TODO: make this a struct with references to the original function to allow for generating code and identifying the main function/exporting functionsand identifying the main function, etc.
-pub type FunctionGraph = Vec<Rc<RefCell<BasicBlock>>>;
+#[derive(Debug)]
+pub struct FunctionGraph<'a> {
 
+    /// The function name as it appears in the source code
+    pub(crate) name: &'a str,
+    /// The code of the function, split into basic blocks
+    pub(crate) code_blocks: Vec<Rc<RefCell<BasicBlock>>>,
+    /// Important function labels
+    pub(crate) labels: FunctionLabels
+
+}

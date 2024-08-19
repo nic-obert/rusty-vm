@@ -25,6 +25,7 @@ Project Description
 - [ ] implement enums
 - [ ] implement structs
 - [ ] Add the no-op operator to the oxide language to prevent the optimizer from optimizing out conditional blocks and loops without any operation in them
+- [ ] Devise a calling convention that takes into account registers and the stack. It must be the same for every function.
 
 ### In Progress
 
