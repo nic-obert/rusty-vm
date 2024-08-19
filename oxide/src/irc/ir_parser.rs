@@ -1104,16 +1104,33 @@ fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop:
 
     for statement in block.statements.drain(0..block.statements.len() - 1) {
 
-        generate_node(statement, None, outer_loop, irid_gen, ir_function, ir_scope, block.scope_id, symbol_table, source);
+        // Save the statement start token because it will be consumed by the `generate_node` function
+        let statement_start = Rc::clone(&statement.token);
+
+        let returns_value = generate_node(statement, None, outer_loop, irid_gen, ir_function, ir_scope, block.scope_id, symbol_table, source);
+
+        // Warn if the node is an expression. Top-level nodes should not be expressions.
+        if let Some(return_value) = returns_value {
+            error::warn_unused_result(&statement_start, source, &return_value.data_type);
+        }
 
     }
 
     let last_statement = block.statements.pop().unwrap();
-    generate_node(last_statement, target, outer_loop, irid_gen, ir_function, ir_scope, block.scope_id, symbol_table, source);
+    let statement_start = Rc::clone(&last_statement.token);
+    let returns_value = generate_node(last_statement, target.clone(), outer_loop, irid_gen, ir_function, ir_scope, block.scope_id, symbol_table, source);
 
+    // Warn if the last node of the block is an expression when the node isn't expected to return anything.
+    if target.is_none() {
+        if let Some(return_value) = returns_value {
+            error::warn_unused_result(&statement_start, source, &return_value.data_type)
+        }
+    }
 }
 
 
+/// Keeps track of the basic significant labels of a function.
+/// All functions should define these labels.
 pub struct FunctionLabels {
     /// The first instruction of the function (pushing the function's scope onto the stack)
     /// This label should be the target of function calls.
@@ -1203,6 +1220,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
     let mut node_ptr = unsafe { function_code.tail() };
 
+    // This HashMap keeps track of all the Tns that are used in the code. Tns that are not used are discarded.
     // Allocate at least as much hashmap slots as the maximum number of Tns that will ever be inserted.
     // This isn't a bad estimate since almost every operation assigns to a Tn.
     // Also, the memory will be freed upon returning from this function.

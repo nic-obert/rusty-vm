@@ -11,7 +11,7 @@ use crate::tokenizer::{SourceToken, Token, TokenKind};
 
 
 /// Number of lines of source code to include before and after the highlighted line in error messages
-const SOURCE_CONTEXT_RADIUS: u8 = 3;
+const SOURCE_CONTEXT_RADIUS: u8 = 4;
 
 
 pub fn warn(token: &SourceToken, source: &SourceCode, message: &str) {
@@ -27,6 +27,11 @@ pub fn warn(token: &SourceToken, source: &SourceCode, message: &str) {
 }
 
 
+pub fn warn_unused_result(token: &SourceToken, source: &SourceCode, data_type: &DataType) {
+    warn(token, source, format!( "The result of this expression is never used. Expected type {}, but got {}.", DataType::Void, data_type).as_str());
+}
+
+
 /// Print the source code context around the specified line.
 pub fn print_source_context(source: &SourceCode, line_index: usize, char_pointer: usize) {
 
@@ -35,7 +40,7 @@ pub fn print_source_context(source: &SourceCode, line_index: usize, char_pointer
     let end_index = min(line_index + SOURCE_CONTEXT_RADIUS as usize + 1, source.len());
 
     let line_number_width = end_index.to_string().len();
-    
+
     // Print the source lines before the highlighted line.
     while index < line_index {
         println!(" {:line_number_width$}  {}", index + 1, source[index]);
@@ -79,7 +84,7 @@ pub fn unmatched_delimiter(delimiter: char, token: &SourceToken, source: &Source
         Unmatched delimiter '{}' at line {}:{}:
 
         ",
-        token.unit_path.display(), delimiter, token.line_number(), token.column 
+        token.unit_path.display(), delimiter, token.line_number(), token.column
     );
 
     print_source_context(source, token.line_index(), token.column);
@@ -145,7 +150,7 @@ pub fn expected_argument(operator: &Token, source: &SourceCode, hint: &str) -> !
         ❌ Error in unit \"{}\"
 
         Expected argment for operator {:?} at line {}:{}, but got none:
-        
+
         ",
         operator.source_token.unit_path.display(), operator.value, operator.source_token.line_number(), operator.source_token.column
     );
@@ -313,7 +318,7 @@ pub fn illegal_mutable_borrow(token: &SourceToken, source: &SourceCode, hint: &s
 pub fn not_a_constant(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
-        
+
         Expected constant at line {}:{}:
 
         ",
@@ -321,7 +326,7 @@ pub fn not_a_constant(token: &SourceToken, source: &SourceCode, hint: &str) -> !
     );
 
     print_source_context(source, token.line_index(), token.column);
-    
+
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
@@ -330,7 +335,7 @@ pub fn not_a_constant(token: &SourceToken, source: &SourceCode, hint: &str) -> !
 pub fn use_of_uninitialized_value(token: &SourceToken, data_type: &DataType, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
-        
+
         Use of uninitialized value of type {} at line {}:{}:
 
         ",
@@ -338,7 +343,7 @@ pub fn use_of_uninitialized_value(token: &SourceToken, data_type: &DataType, sou
     );
 
     print_source_context(source, token.line_index(), token.column);
-    
+
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
@@ -347,7 +352,7 @@ pub fn use_of_uninitialized_value(token: &SourceToken, data_type: &DataType, sou
 pub fn already_defined(new_def: &SourceToken, old_def: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
-        
+
         Cannot redefine symbol `{}` at line {}:{}:
 
         ",
@@ -355,7 +360,7 @@ pub fn already_defined(new_def: &SourceToken, old_def: &SourceToken, source: &So
     );
 
     print_source_context(source, new_def.line_index(), new_def.column);
-    
+
     println!("\n{}", hint);
 
     println!("Outshadows previous definition in unit \"{}\" at line {}:{}:\n", old_def.unit_path.display(), old_def.line_number(), old_def.column);
@@ -369,7 +374,7 @@ pub fn already_defined(new_def: &SourceToken, old_def: &SourceToken, source: &So
 pub fn illegal_symbol_capture(token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
-        
+
         Illegal capture of symbol at line {}:{}:
 
         ",
@@ -377,18 +382,18 @@ pub fn illegal_symbol_capture(token: &SourceToken, source: &SourceCode, hint: &s
     );
 
     print_source_context(source, token.line_index(), token.column);
-    
+
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
 
 
 pub fn unknown_sizes(tokens: &[(Rc<SourceToken>, Rc<DataType>)], source: &SourceCode, hint: &str) -> ! {
-    
+
     for (token, dt) in tokens {
         printdoc!("
             ❌ Error in unit \"{}\"
-            
+
             Cannot statically determine size of type `{}` at line {}:{}:
 
             ",
@@ -397,7 +402,7 @@ pub fn unknown_sizes(tokens: &[(Rc<SourceToken>, Rc<DataType>)], source: &Source
 
         print_source_context(source, token.line_index(), token.column);
     }
-    
+
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
@@ -406,7 +411,7 @@ pub fn unknown_sizes(tokens: &[(Rc<SourceToken>, Rc<DataType>)], source: &Source
 pub fn index_out_of_bounds(index: usize, length: usize, token: &SourceToken, source: &SourceCode, hint: &str) -> ! {
     printdoc!("
         ❌ Error in unit \"{}\"
-        
+
         Index {} out of bounds for array of length {} at line {}:{}:
 
         ",
@@ -414,8 +419,7 @@ pub fn index_out_of_bounds(index: usize, length: usize, token: &SourceToken, sou
     );
 
     print_source_context(source, token.line_index(), token.column);
-    
+
     println!("\n{}\n", hint);
     std::process::exit(1);
 }
-
