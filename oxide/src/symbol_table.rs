@@ -11,7 +11,7 @@ use crate::tokenizer::SourceToken;
 
 
 /// Struct representing a symbol in the source code.
-/// 
+///
 /// A symbol is a variable, function, any identifier that can be referenced by name.
 pub struct Symbol<'a> {
 
@@ -57,9 +57,9 @@ impl<'a> Symbol<'a> {
         Symbol {
             data_type: signature,
             token,
-            value: SymbolValue::Function(FunctionInfo { 
+            value: SymbolValue::Function(FunctionInfo {
                 constantness: if is_const { FunctionConstantness::MarkedConst } else { FunctionConstantness::NotConst },
-                has_side_effects: false, 
+                has_side_effects: false,
                 param_names,
                 code: None,
             }),
@@ -73,7 +73,7 @@ impl<'a> Symbol<'a> {
     pub fn initialize_immutable(&mut self, value: Rc<LiteralValue>) {
 
         assert!(matches!(self.value, SymbolValue::Immutable(None)));
-        
+
         self.value = SymbolValue::Immutable(Some(value));
         self.initialized = true;
     }
@@ -94,7 +94,7 @@ impl<'a> Symbol<'a> {
             SymbolValue::UninitializedStatic { .. }
              => unreachable!(),
         }
-    } 
+    }
 
 
     pub fn is_mutable(&self) -> bool {
@@ -115,7 +115,7 @@ pub struct FunctionCode {
 
     /// The starting label of the function.
     pub label: Label,
-    /// The IR code of the function. 
+    /// The IR code of the function.
     /// Here we use shared mutability to allow for modification of the code for optimization reasons.
     pub code: Rc<RefCell<IRCode>>,
 
@@ -132,10 +132,10 @@ pub enum FunctionConstantness {
 
 
 #[derive(Debug)]
-pub struct FunctionInfo<'a> { 
+pub struct FunctionInfo<'a> {
     /// Whether the function is marked as const in the source code (or by the compiler if it can be determined that the function is const)
-    pub constantness: FunctionConstantness, 
-    pub has_side_effects: bool, 
+    pub constantness: FunctionConstantness,
+    pub has_side_effects: bool,
     pub param_names: Box<[&'a str]>,
     /// The IR code of the function, if it has been generated.
     /// This code may be copy-pasted in place of the function call if the compiler determines it's good to do so.
@@ -296,18 +296,20 @@ impl Display for ScopeDiscriminant {
 }
 
 
+/// Uniquely identifies a function by its name and its scope.
+/// Function names must be unique within the same scope.
 #[derive(PartialEq, Eq, Hash)]
-pub struct FunctionUUID {
-    pub name: String,
+pub struct FunctionUUID<'a> {
+    pub name: &'a str,
     pub scope: ScopeID,
 }
 
 
-/// Struct containing the local symbols of a scope. 
+/// Struct containing the local symbols of a scope.
 pub struct SymbolTable<'a> {
     scopes: Vec<Scope<'a>>,
     statics: Vec<StaticValue<'a>>,
-    function_labels: HashMap<FunctionUUID, Label>,
+    function_labels: HashMap<FunctionUUID<'a>, Label>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -339,7 +341,7 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Maps a function id to a IR label, which will than be used to call the function.
-    pub fn map_function_label(&mut self, function: FunctionUUID, label: Label) {
+    pub fn map_function_label(&mut self, function: FunctionUUID<'a>, label: Label) {
         self.function_labels.insert(function, label);
     }
 
@@ -354,7 +356,7 @@ impl<'a> SymbolTable<'a> {
         let scope = &self.scopes[scope_id.0];
 
         for symbol in scope.symbols.values().flat_map(|s| s.iter()) {
-            
+
             let symbol = symbol.borrow();
 
             // Do not include removed symbols in the scope stack size calculation.
@@ -402,7 +404,7 @@ impl<'a> SymbolTable<'a> {
 
 
     pub fn define_static(&self, name: &str, scope_id: ScopeID, value: Rc<LiteralValue>) -> Result<(), ()> {
-        
+
         let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .ok_or(())?
             .borrow_mut();
@@ -416,7 +418,7 @@ impl<'a> SymbolTable<'a> {
 
 
     pub fn define_constant(&self, name: &str, scope_id: ScopeID, value: Rc<LiteralValue>) -> Result<(), ()> {
-        
+
         let mut symbol = self.get_symbol(scope_id, name, ScopeDiscriminant(0))
             .ok_or(())?
             .borrow_mut();
@@ -432,7 +434,7 @@ impl<'a> SymbolTable<'a> {
     /// Return the requested symbol if it exists in the symbol table.
     pub fn get_unreachable_symbol(&self, symbol_id: &str) -> Option<&RefCell<Symbol<'a>>> {
         self.scopes.iter()
-            .find_map(|scope| 
+            .find_map(|scope|
                 scope.get_symbol(symbol_id, ScopeDiscriminant(0)
             )
         )
@@ -440,10 +442,10 @@ impl<'a> SymbolTable<'a> {
 
 
     pub fn declare_function(&mut self, name: &'a str, is_const: bool, signature: Rc<DataType>, param_names: Box<[&'a str]>, token: Rc<SourceToken<'a>>, scope_id: ScopeID) -> Result<(), Rc<SourceToken>> {
-        
+
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
-        
+
         symbol_list.push(
             RefCell::new(Symbol::new_function(signature, param_names, is_const, token))
         );
@@ -461,7 +463,7 @@ impl<'a> SymbolTable<'a> {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
-        
+
         symbol_list.push(
             RefCell::new(symbol)
         );
@@ -474,14 +476,14 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    
+
     /// Declare the new symbol in the symbol table.
     /// Return the the previous declaration of the symbol, if it exists.
     pub fn declare_symbol(&mut self, name: &'a str, symbol: Symbol<'a>, scope_id: ScopeID) -> (ScopeDiscriminant, Option<Rc<SourceToken>>) {
 
         let symbol_list = self.scopes[scope_id.0].symbols.entry(name).or_default();
         let discriminant = ScopeDiscriminant(symbol_list.len() as u16);
-        
+
         symbol_list.push(
             RefCell::new(symbol)
         );
@@ -538,13 +540,13 @@ impl<'a> SymbolTable<'a> {
             None
         }
     }
-    
+
 
     /// Get the symbol with the given id from the symbol table.
     /// If the symbol is found outside the function boundary, including the boundary scope, return a true flag, else return a false flag.
     /// `function_boundary` is the scope id of the function's parent scope
     pub fn get_symbol_warn_if_outside_function(&self, scope_id: ScopeID, symbol_id: &str, discriminant: ScopeDiscriminant, function_boundary: ScopeID) -> (Option<&RefCell<Symbol<'a>>>, bool) {
-        
+
         let scope = &self.scopes[scope_id.0];
 
         if let Some(symbol) = scope.get_symbol(symbol_id, discriminant) {
@@ -649,4 +651,3 @@ pub enum NameType {
     Symbol(ScopeDiscriminant),
     Type(Rc<DataType>)
 }
-

@@ -1126,7 +1126,7 @@ pub struct FunctionLabels {
 
 
 /// Recursively generate the IR code for the given function.
-fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, symbol_table: &mut SymbolTable, source: &SourceCode) -> FunctionIR<'a> {
+fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, symbol_table: &mut SymbolTable<'a>, source: &SourceCode) -> FunctionIR<'a> {
     /*
         Lstart:
             pushscope <function_size>
@@ -1167,7 +1167,7 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
         has_side_effects: false
     });
 
-    symbol_table.map_function_label(FunctionUUID { name: function.name.to_string(), scope: function.parent_scope }, ir_function.function_labels.start);
+    symbol_table.map_function_label(FunctionUUID { name: function.name, scope: function.parent_scope }, ir_function.function_labels.start);
 
     generate_block(function.code, return_tn, None, irid_gen, &mut ir_function, ir_scope, symbol_table, source);
 
@@ -1323,7 +1323,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
 
 /// Generate ir code from the given functions
-pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable, optimization_flags: &OptimizationFlags, verbose: bool, source: &SourceCode) -> Vec<FunctionIR<'a>> {
+pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable<'a>, optimization_flags: &OptimizationFlags, verbose: bool, source: &SourceCode) -> Vec<FunctionIR<'a>> {
 
     let mut ir_functions = Vec::new();
     let mut irid_gen = IRIDGenerator::new();
