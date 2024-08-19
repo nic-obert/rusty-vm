@@ -12,6 +12,8 @@ use super::ir_parser::{FunctionLabels, IRIDGenerator};
 
 
 /// Represents a temporary variable
+/// Tns are write-once, read-only variables. They are effectively single-assignment register variables.
+/// They have to be unique and immutable because it may be useful to store the result of one operation and re-use it later.
 #[derive(Debug, Clone)]
 pub struct Tn {
     pub id: TnID,
@@ -47,7 +49,7 @@ pub enum IRValue {
 impl Debug for IRValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
-    
+
     }
 }
 
@@ -65,13 +67,13 @@ pub enum IRJumpTarget {
 
     Tn (Tn),
     Label (Label),
-    
+
 }
 
 impl Debug for IRJumpTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
-    
+
     }
 }
 
@@ -139,7 +141,7 @@ impl<'a> ScopeTable<'a> {
         self.scopes[ir_scope.0].return_tn.clone()
             .or_else(|| self.scopes[ir_scope.0].parent
                 .and_then(|parent| self.return_tn(parent)))
-            
+
     }
 
 
@@ -166,16 +168,21 @@ impl<'a> ScopeTable<'a> {
 }
 
 
-/// Represents an intermediate code operation
+/// Represents an intermediate code operation.
 #[derive(Debug)]
 pub enum IROperator {
 
+    /// Add `left` and `right`, and store the result in `target`
     Add { target: Tn, left: IRValue, right: IRValue },
+    /// Subtract `left` and `right`, and store the result in `target`
     Sub { target: Tn, left: IRValue, right: IRValue },
+    /// Multiply `left` and `right`, and store the result in `target`
     Mul { target: Tn, left: IRValue, right: IRValue },
+    /// Divide `left` and `right`, and store the result in `target`
     Div { target: Tn, left: IRValue, right: IRValue },
+    /// Mod `left` and `right`, and store the result in `target`
     Mod { target: Tn, left: IRValue, right: IRValue },
-    
+
     /// Copy the value of source into target.
     Assign { target: Tn, source: IRValue },
     /// Copy the value pointed to by `ref_` into the target
@@ -184,14 +191,14 @@ pub enum IROperator {
     DerefAssign { target: Tn, source: IRValue },
     /// Copy the address of the `ref_` into the target
     Ref { target: Tn, ref_: Tn },
-    
+
     Greater { target: Tn, left: IRValue, right: IRValue },
     Less { target: Tn, left: IRValue, right: IRValue },
     GreaterEqual { target: Tn, left: IRValue, right: IRValue },
     LessEqual { target: Tn, left: IRValue, right: IRValue },
     Equal { target: Tn, left: IRValue, right: IRValue },
     NotEqual { target: Tn, left: IRValue, right: IRValue },
-    
+
     BitShiftLeft { target: Tn, left: IRValue, right: IRValue },
     BitShiftRight { target: Tn, left: IRValue, right: IRValue },
     BitNot { target: Tn, operand: IRValue },
@@ -199,13 +206,15 @@ pub enum IROperator {
     BitOr { target: Tn, left: IRValue, right: IRValue },
     BitXor { target: Tn, left: IRValue, right: IRValue },
 
+    // TODO: add swap byte endianness instruction
+
     /// Copy the raw bits from `source` into `target`.
     /// Assume that `target` is either the same size or larget than `source`.
     Copy { target: Tn, source: IRValue },
     /// Copy the raw bits from `source` into the address pointed to by `target`.
     /// Assume that `target` is either the same size or larget than `source`.
     DerefCopy { target: Tn, source: IRValue },
-    
+
     Jump { target: Label },
     JumpIf { condition: Tn, target: Label },
     JumpIfNot { condition: Tn, target: Label },
@@ -262,6 +271,8 @@ impl Display for IROperator {
 }
 
 
+/// Represents a single operation in the IR code.
+/// Each operation may or may not have side effects.
 #[derive(Debug)]
 pub struct IRNode {
 
@@ -330,4 +341,3 @@ impl Display for FunctionIR<'_> {
     }
 
 }
-

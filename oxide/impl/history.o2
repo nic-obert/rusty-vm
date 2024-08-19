@@ -1,4 +1,4 @@
-// All of the code in this file should work.
+// All of the code in this file should compile without errors.
 // If anything breaks, compiling this file may catch it
 
 fn big_foo() {

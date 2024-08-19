@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use rusty_vm_lib::ir::SourceCode;
 
@@ -23,7 +24,7 @@ impl IRIDGenerator {
 
     /// Create a new sequential Tn generator
     pub fn new() -> Self {
-        Self { 
+        Self {
             next_tn: TnID(0),
             next_label: LabelID(0),
         }
@@ -60,10 +61,10 @@ struct LoopLabels {
 }
 
 
-/// Recursively generate IR code for the given node and return where its value is stored, if it's an expression 
+/// Recursively generate IR code for the given node and return where its value is stored, if it's an expression
 #[allow(clippy::too_many_arguments)]
 fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, st_scope: ScopeID, symbol_table: &mut SymbolTable, source: &SourceCode) -> Option<Tn> {
-    
+
     match node.value {
 
         SyntaxNodeValue::RuntimeOp(op) => match op {
@@ -164,7 +165,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             },
 
             RuntimeOp::Assign { left, right } => {
-                
+
                 let deref_assign = matches!(left.value, SyntaxNodeValue::RuntimeOp(RuntimeOp::Deref { .. }));
 
                 let target = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
@@ -187,7 +188,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // Regular assignment, no further processing is needed
 
                     generate_node(*right, Some(target), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source);
-    
+
                     // Adding an Assign node is superfluous since genetate_node for the source node has already assigned the value to the target
                 }
 
@@ -235,7 +236,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     [Tresult =] call Tcallable [Targ-n...] return: Lreturn
                     Lreturn:
                 */
-                
+
                 let return_target = if !matches!(*node.data_type, DataType::Void) {
                     target.or_else(|| Some(Tn { id: irid_gen.next_tn(), data_type: node.data_type }))
                 } else {
@@ -256,20 +257,20 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     function_info.code.as_ref().map(|code| IRJumpTarget::Label(code.label))
 
                 } else { None }
-                .unwrap_or_else(|| 
+                .unwrap_or_else(||
                     // The callable is not a known symbol or doesn't have a known label, we have to generate the code for it
                     IRJumpTarget::Tn(
                         generate_node(*callable, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
                     )
                 );
-                
+
                 let args: Vec<IRValue> = args.into_iter().map(
                     |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
                 ).map(IRValue::Tn)
                     .collect();
 
                 let return_label = irid_gen.next_label();
-                
+
                 ir_function.push_code(IRNode {
                     op: IROperator::Call {
                         return_target: return_target.clone(),
@@ -281,7 +282,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 });
 
                 ir_function.push_code(IRNode {
-                    op: IROperator::Label { 
+                    op: IROperator::Label {
                         label: return_label
                     },
                     has_side_effects: false // Labels are not operations and thus have no side effects
@@ -291,7 +292,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             },
 
             RuntimeOp::Return(expr) => {
-                
+
                 if let Some(expr) = expr {
 
                     let return_tn = ir_function.scope_table.return_tn(ir_scope).unwrap();
@@ -301,10 +302,10 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // No return value is provided and the function should return void
                     assert!(ir_function.scope_table.return_tn(ir_scope).is_none());
                 }
-                
+
                 // Jump to the function's exit label, which will take care of popping the stack and returning to the caller
                 ir_function.push_code(IRNode {
-                    op: IROperator::Jump { 
+                    op: IROperator::Jump {
                         target: ir_function.function_labels.exit
                     },
                     has_side_effects: node.has_side_effects
@@ -320,7 +321,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let l_value = generate_node(*left, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
                 let r_value = generate_node(*right, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
-                ir_function.push_code(IRNode { 
+                ir_function.push_code(IRNode {
                     op: IROperator::Equal {
                         target: target.clone(),
                         left: IRValue::Tn(l_value),
@@ -511,7 +512,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         target: target.clone(),
                         left: IRValue::Tn(l_value),
                         right: IRValue::Tn(r_value),
-                    }, 
+                    },
                     has_side_effects: node.has_side_effects
                 });
 
@@ -596,9 +597,9 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             RuntimeOp::ArrayIndex { array, index } => {
 
-                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array.data_type.as_ref(), element_type.clone());
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array.data_type.as_ref(), Rc::clone(element_type));
                 let element_size = element_type.static_size()
-                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
+                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, Rc::clone(&element_type))], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
 
                 let array_addr_tn = generate_node(*array, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
                 let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
@@ -613,7 +614,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     has_side_effects: node.has_side_effects
                 });
 
-                let element_addr_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
+                let element_addr_tn = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: Rc::clone(&element_type), mutable: true }.into() };
                 ir_function.push_code(IRNode {
                     op: IROperator::Add {
                         target: element_addr_tn.clone(),
@@ -626,7 +627,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: element_type });
 
                 ir_function.push_code(IRNode {
-                    op: IROperator::Deref { 
+                    op: IROperator::Deref {
                         target: target.clone(),
                         ref_: IRValue::Tn(element_addr_tn),
                     },
@@ -638,10 +639,10 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
 
-                let array_type = match_unreachable!(DataType::Ref { target, mutable: _ } = array_ref.data_type.as_ref(), target.clone());
-                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array_type.as_ref(), element_type.clone());
+                let array_type = match_unreachable!(DataType::Ref { target, mutable: _ } = array_ref.data_type.as_ref(), Rc::clone(target));
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = array_type.as_ref(), Rc::clone(element_type));
                 let element_size = element_type.static_size()
-                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
+                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, Rc::clone(&element_type))], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
 
                 let array_ref_tn = generate_node(*array_ref, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
                 let index_tn = generate_node(*index, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
@@ -656,7 +657,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     has_side_effects: node.has_side_effects
                 });
 
-                let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() });
+                let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type, mutable: true }.into() });
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Add {
@@ -677,8 +678,8 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 let loop_labels = outer_loop.expect("Break statement outside of a loop");
 
                 ir_function.push_code( IRNode {
-                    op: IROperator::Jump { 
-                        target: loop_labels.after 
+                    op: IROperator::Jump {
+                        target: loop_labels.after
                     },
                     has_side_effects: node.has_side_effects
                 });
@@ -689,44 +690,44 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             RuntimeOp::Continue => {
 
                 let loop_labels = outer_loop.expect("Continue statement outside of a loop");
-                
+
                 ir_function.push_code(IRNode {
                     op: IROperator::Jump {
                         target: loop_labels.start
                     },
                     has_side_effects: node.has_side_effects
                 });
-                
+
                 None
             },
 
             RuntimeOp::MakeArray { elements } => {
                 // Set each array item to the corresponding value
-    
-                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = node.data_type.as_ref(), element_type.clone());
+
+                let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = node.data_type.as_ref(), Rc::clone(element_type));
                 let element_size = element_type.static_size()
-                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, element_type.clone())], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
-    
+                    .unwrap_or_else(|()| error::unknown_sizes(&[(node.token, Rc::clone(&element_type))], source, &format!("Array element type has unknown size: {:?}. Array elements must have static sizes.", element_type)));
+
                 let target = target.unwrap_or_else(|| Tn { id: irid_gen.next_tn(), data_type: node.data_type });
-    
+
                 // Reference to the first element of the array, for now. This will be incremented for each element
-                let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: element_type.clone(), mutable: true }.into() };
-    
+                let arr_element_ptr = Tn { id: irid_gen.next_tn(), data_type: DataType::Ref { target: Rc::clone(&element_type), mutable: true }.into() };
+
                 // Get the address of the array (and store it into the `element_ptr` Tn)
                 ir_function.push_code(IRNode {
-                    op: IROperator::Ref { 
-                        target: arr_element_ptr.clone(), 
-                        ref_: target.clone() 
+                    op: IROperator::Ref {
+                        target: arr_element_ptr.clone(),
+                        ref_: target.clone()
                     },
                     has_side_effects: node.has_side_effects
                 });
-                
+
                 // Initialize each element
                 for element_node in elements {
-                    
+
                     // Generate the code for the element and store the result in the array
                     let element_tn = generate_node(element_node, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
-    
+
                     ir_function.push_code(IRNode {
                         op: IROperator::DerefCopy {
                             target: arr_element_ptr.clone(),
@@ -734,20 +735,20 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         },
                         has_side_effects: node.has_side_effects
                     });
-    
+
                     // Increment the pointer to the next element
                     ir_function.push_code(IRNode {
-                        op: IROperator::Add { 
-                            target: arr_element_ptr.clone(), 
-                            left: IRValue::Tn(arr_element_ptr.clone()), 
+                        op: IROperator::Add {
+                            target: arr_element_ptr.clone(),
+                            left: IRValue::Tn(arr_element_ptr.clone()),
                             right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)).into())
                         },
                         has_side_effects: node.has_side_effects
                     });
                 }
-    
+
                 Some(target)
-            }, 
+            },
         },
 
         SyntaxNodeValue::Literal (value) => {
@@ -768,15 +769,15 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             // Try to get the symbol's Tn
             let symbol_tn = ir_function.scope_table.get_tn(name, scope_discriminant, ir_scope);
-            
+
             if let Some(target) = target {
                 // The symbol should be loaded into `target`
                 // Assume the symbol has already been mapped to a Tn
 
                 let symbol_tn =  symbol_tn.expect("Symbol not found in scope table, but it's being read");
-                    
+
                 ir_function.push_code(IRNode {
-                    op: IROperator::Assign { 
+                    op: IROperator::Assign {
                         target: target.clone(),
                         source: IRValue::Tn(symbol_tn)
                     },
@@ -834,9 +835,9 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     // No need to do anything, just reinterpret the bits as the new type.
                     // If the source and target have the same size, the bits are already in the correct format.
                     // If the source has more bits than the target, the excess bits are simply ignored.
-                    
+
                     generate_node(*expr, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
-                    
+
                     // Just change the type of the Tn
                     target.data_type = target_type;
                     Some(target)
@@ -862,7 +863,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             let after_chain = irid_gen.next_label();
 
             for if_block in if_blocks {
-                
+
                 let condition_tn = generate_node(if_block.condition, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                 ir_function.push_code(IRNode {
@@ -890,7 +891,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     },
                     has_side_effects: false
                 });
-                
+
                 // A redundant label is generated at the last iteration of the loop, but that's ok since this operation is cheap and labels don't have to be serial.
                 next_if_block = irid_gen.next_label();
             }
@@ -922,7 +923,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     jump Lstart
                 Lafter:
             */
-            
+
             let loop_labels = LoopLabels {
                 start: irid_gen.next_label(),
                 check: Some(irid_gen.next_label()),
@@ -930,15 +931,15 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             };
 
             ir_function.push_code(IRNode {
-                op: IROperator::Jump { 
-                    target: loop_labels.check.unwrap() 
+                op: IROperator::Jump {
+                    target: loop_labels.check.unwrap()
                 },
                 has_side_effects: node.has_side_effects
             });
 
             ir_function.push_code(IRNode {
-                op: IROperator::Label { 
-                    label: loop_labels.start 
+                op: IROperator::Label {
+                    label: loop_labels.start
                 },
                 has_side_effects: node.has_side_effects
             });
@@ -952,17 +953,17 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 },
                 has_side_effects: false
             });
-            
+
             let condition_tn = generate_node(*condition, None, Some(&loop_labels), irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
-       
+
             ir_function.push_code(IRNode {
                 op: IROperator::JumpIf {
                     condition: condition_tn,
                     target: loop_labels.start
                 },
                 has_side_effects: node.has_side_effects
-            });     
-       
+            });
+
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
                     label: loop_labels.after
@@ -990,7 +991,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             // Put the label inside the scope bounds to avoid push-popping the scope for every iteration
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
-                    label: loop_labels.start 
+                    label: loop_labels.start
                 },
                 has_side_effects: false
             });
@@ -1000,14 +1001,14 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             ir_function.push_code(IRNode {
                 op: IROperator::Jump {
-                    target: loop_labels.start 
+                    target: loop_labels.start
                 },
                 has_side_effects: node.has_side_effects
             });
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
-                    label: loop_labels.after 
+                    label: loop_labels.after
                 },
                 has_side_effects: false
             });
@@ -1033,7 +1034,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
-                    label: loop_labels.start 
+                    label: loop_labels.start
                 },
                 has_side_effects: false
             });
@@ -1043,7 +1044,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
-                    label: loop_labels.check.unwrap() 
+                    label: loop_labels.check.unwrap()
                 },
                 has_side_effects: false
             });
@@ -1053,21 +1054,21 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             ir_function.push_code(IRNode {
                 op: IROperator::JumpIf {
                     condition: condition_tn,
-                    target: loop_labels.start 
-                }, 
+                    target: loop_labels.start
+                },
                 has_side_effects: node.has_side_effects
             });
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
-                    label: loop_labels.after 
+                    label: loop_labels.after
                 },
                 has_side_effects: false
             });
 
             None
         },
-        
+
         SyntaxNodeValue::Scope(block) => {
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
@@ -1083,7 +1084,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
         SyntaxNodeValue::Const { .. } |
         SyntaxNodeValue::Static { .. } |
         SyntaxNodeValue::TypeDef { .. } |
-        SyntaxNodeValue::Placeholder 
+        SyntaxNodeValue::Placeholder
             => unreachable!("{:?} is not expected. This is a bug.", node)
     }
 }
@@ -1191,11 +1192,11 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
 
 /// Reverse iteration over the IR code to remove operations whose result is never used
 /// Starting from the back, when a Tn is assigned to but never read, the assignment is removed.
-fn remove_unread_operations(ir_function: &mut FunctionIR) {
+fn remove_unused_operations(ir_function: &mut FunctionIR) {
     /*
         Statements marked as having side effects won't be removed, even if their result is never read.
         Their result will probably have effects outside of the function's scope (or I/O).
-        Inside an macro-operation with side effects, there may be operations that do not have side effects, and they can be remvoved.
+        Inside a multi-stage operation with side effects, there may be operations that do not have side effects, and they can be remvoved.
     */
 
     let mut function_code = ir_function.code.borrow_mut();
@@ -1231,7 +1232,7 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
             IROperator::Greater { target, left, right } |
             IROperator::Less { target, left, right } |
             IROperator::BitShiftLeft { target, left, right } |
-            IROperator::BitShiftRight { target, left, right } 
+            IROperator::BitShiftRight { target, left, right }
             => {
                 // If the target is never read, the operation result is useless
                 if !read_tns.contains_key(&target.id) {
@@ -1252,7 +1253,7 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
                     read_tns.insert(tn.id, ());
                 }
             },
-            
+
             IROperator::Assign { target, source: operand } |
             IROperator::Deref { target, ref_: operand } |
             IROperator::DerefAssign { target, source: operand } |
@@ -1296,7 +1297,7 @@ fn remove_unread_operations(ir_function: &mut FunctionIR) {
             },
 
             IROperator::Call { return_target: _, return_label: _, callable: _, args } => {
-                // The function will be called anyway. 
+                // The function will be called anyway.
                 // TODO: if there are no side effects to the functions, the call can be removed
 
                 for arg in args {
@@ -1339,11 +1340,11 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
         let function_info = match_unreachable!(SymbolValue::Function(function_info) = &mut function_symbol.value, function_info);
         function_info.code = Some(FunctionCode {
             label: ir_function.function_labels.start,
-            code: ir_function.code.clone(),
+            code: Rc::clone(&ir_function.code),
         });
 
         if optimization_flags.remove_useless_code {
-            remove_unread_operations(&mut ir_function);
+            remove_unused_operations(&mut ir_function);
         }
 
         ir_functions.push(
@@ -1357,4 +1358,3 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
 
     ir_functions
 }
-
