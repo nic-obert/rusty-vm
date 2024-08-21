@@ -165,7 +165,13 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                         label_address_map.insert(label.0, bytecode.len());
                     },
 
-                    IROperator::Call { return_target, return_label, callable, args } => todo!(),
+                    IROperator::Call { return_target, return_label, callable, args } => {
+
+                        for arg in args {
+                            todo!()
+                        }
+                    },
+
                     IROperator::Return => todo!(),
 
                     IROperator::PushScope { bytes } => {

@@ -10,7 +10,7 @@ use crate::utils::write_indent;
 #[derive(Debug)]
 pub enum RuntimeOp<'a> {
 
-    MakeArray { elements: Vec<SyntaxNode<'a>> },
+    MakeArray { elements: Box<[SyntaxNode<'a>]> },
     Add { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
     Sub { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
     Mul { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
@@ -19,7 +19,7 @@ pub enum RuntimeOp<'a> {
     Assign { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
     Deref { mutable: bool, expr: Box<SyntaxNode<'a>> },
     Ref { mutable: bool, expr: Box<SyntaxNode<'a>> },
-    Call { callable: Box<SyntaxNode<'a>>, args: Vec<SyntaxNode<'a>> },
+    Call { callable: Box<SyntaxNode<'a>>, args: Box<[SyntaxNode<'a>]> },
     Return(Option<Box<SyntaxNode<'a>>>),
     Equal { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
     NotEqual { left: Box<SyntaxNode<'a>>, right: Box<SyntaxNode<'a>> },
@@ -108,7 +108,7 @@ impl RuntimeOp<'_> {
                 let right = right.known_literal_value(scope_id, symbol_table).unwrap();
                 Ok(LiteralValue::Bool(!left.equal(&right)).into())
             },
-            
+
             RuntimeOp::Greater { left, right } => {
                 let left_value = left.known_literal_value(scope_id, symbol_table).unwrap();
                 let left = left_value.assume_numeric();
@@ -208,14 +208,14 @@ impl RuntimeOp<'_> {
                 let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
                 let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
                 let (_data_type, elements) = array_value.assume_array();
-                
+
                 if index as usize >= elements.len() {
                     return Err("Index out of bounds");
                 }
 
                 Ok(elements[index as usize].clone())
             },
-            
+
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
                 let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
                 let array_ref_value = array_ref.known_literal_value(scope_id, symbol_table).unwrap();
@@ -230,9 +230,9 @@ impl RuntimeOp<'_> {
 
                 Ok(LiteralValue::Ref { target: element, mutable }.into())
             }
-            
+
             RuntimeOp::MakeArray { elements: _ } => todo!(),
-            
+
             RuntimeOp::Assign { .. } |
             RuntimeOp::Deref { .. } |
             RuntimeOp::Ref { .. } |
@@ -345,7 +345,7 @@ pub enum SyntaxNodeValue<'a> {
     Scope(ScopeBlock<'a>),
     Symbol { name: &'a str, scope_discriminant: ScopeDiscriminant },
     Literal(Rc<LiteralValue>),
-    
+
     Const { name: &'a str, data_type: Rc<DataType>, definition: Box<SyntaxNode<'a>> },
     Static { name: &'a str, data_type: Rc<DataType>, definition: Box<SyntaxNode<'a>> },
     TypeDef { name: &'a str, definition: Rc<DataType> },
@@ -359,7 +359,7 @@ pub enum SyntaxNodeValue<'a> {
 impl SyntaxNodeValue<'_> {
 
     pub const fn name(&self) -> &'static str {
-        
+
         match self {
             SyntaxNodeValue::RuntimeOp(op) => op.name(),
             SyntaxNodeValue::FunctionParams(_) => "FunctionParams",
@@ -384,12 +384,12 @@ impl SyntaxNodeValue<'_> {
     pub fn is_expression(&self) -> bool {
         match self {
             SyntaxNodeValue::RuntimeOp(op) => op.returns_a_value(),
-            
+
             SyntaxNodeValue::Literal(_) |
             SyntaxNodeValue::Scope(_) |
             SyntaxNodeValue::As { .. } |
             SyntaxNodeValue::IfChain { .. } |
-            SyntaxNodeValue::Symbol { .. } 
+            SyntaxNodeValue::Symbol { .. }
              => true,
 
             SyntaxNodeValue::DataType(_) |
@@ -400,7 +400,7 @@ impl SyntaxNodeValue<'_> {
             SyntaxNodeValue::FunctionParams(_) |
             SyntaxNodeValue::Const { .. } |
             SyntaxNodeValue::Static { .. } |
-            SyntaxNodeValue::TypeDef { .. } 
+            SyntaxNodeValue::TypeDef { .. }
              => false,
 
             SyntaxNodeValue::Placeholder => unreachable!(),
@@ -510,13 +510,13 @@ impl<'a> SyntaxNode<'a> {
                     op1.fmt_indented(indent + 1, f)?;
                     op2.fmt_indented(indent + 1, f)?;
                 },
-                
+
                 RuntimeOp::Call { callable, args } => {
                     callable.fmt_indented(indent + 1, f)?;
                     for arg in args.iter() {
                         arg.fmt_indented(indent + 1, f)?;
                     }
-                
+
                 },
 
                 RuntimeOp::Ref { mutable, expr } |
@@ -526,15 +526,15 @@ impl<'a> SyntaxNode<'a> {
                     writeln!(f, "{}", if *mutable { "mut" } else { "immutable" })?;
                     expr.fmt_indented(indent + 1, f)?;
                 },
-                
+
                 RuntimeOp::MakeArray { elements } => for element in elements.iter() {
                     element.fmt_indented(indent + 1, f)?;
                 },
-                
+
                 RuntimeOp::BitwiseNot(operand) |
                 RuntimeOp::LogicalNot(operand)
                     => operand.fmt_indented(indent + 1, f)?,
-                
+
                 RuntimeOp::Return(expr) => if let Some(expr) = expr {
                     expr.fmt_indented(indent + 1, f)?;
                 },
@@ -586,7 +586,7 @@ impl<'a> SyntaxNode<'a> {
                 write_indent(f, indent + 1)?;
                 writeln!(f, "do")?;
                 body.fmt_indented(indent + 1, f)?;
-            
+
             },
 
             SyntaxNodeValue::Loop { body } => body.fmt_indented(indent + 1, f)?,
@@ -597,7 +597,7 @@ impl<'a> SyntaxNode<'a> {
                 write_indent(f, indent + 1)?;
                 writeln!(f, "while")?;
                 condition.fmt_indented(indent + 1, f)?;
-            
+
             },
 
             SyntaxNodeValue::Scope(block) => block.fmt_indented(indent + 1, f)?,
@@ -609,14 +609,14 @@ impl<'a> SyntaxNode<'a> {
             SyntaxNodeValue::Literal(value) => {
                 write_indent(f, indent + 1)?;
                 writeln!(f, "{value}")?;
-            
+
             },
 
             SyntaxNodeValue::Const { name, data_type, definition } => {
                 write_indent(f, indent + 1)?;
                 write!(f, "const {name}: {data_type} =")?;
                 definition.fmt_indented(indent + 1, f)?;
-            
+
             },
 
             SyntaxNodeValue::Static { name, data_type, definition } => {
@@ -686,7 +686,7 @@ pub struct ScopeBlock<'a> {
     pub has_side_effects: bool,
 }
 
-impl ScopeBlock<'_> {    
+impl ScopeBlock<'_> {
 
     pub fn new(scope_id: ScopeID) -> Self {
         Self {
@@ -766,4 +766,3 @@ impl std::fmt::Debug for FunctionParam<'_> {
         write!(f, "{}{}: {}", if self.mutable { "mut " } else { "" }, self.name(), self.data_type)
     }
 }
-

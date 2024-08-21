@@ -220,7 +220,7 @@ pub enum IROperator {
     JumpIfNot { condition: Tn, target: Label },
     Label { label: Label },
 
-    Call { return_target: Option<Tn>, return_label: Label, callable: IRJumpTarget, args: Vec<IRValue> },
+    Call { return_target: Option<Tn>, return_label: Label, callable: IRJumpTarget, args: Box<[IRValue]> },
     Return,
 
     PushScope { bytes: usize },

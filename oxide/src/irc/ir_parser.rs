@@ -264,10 +264,14 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     )
                 );
 
-                let args: Vec<IRValue> = args.into_iter().map(
-                    |arg| generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
-                ).map(IRValue::Tn)
-                    .collect();
+                let mut ir_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    ir_args.push(
+                        IRValue::Tn(
+                            generate_node(arg, None, outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap()
+                        )
+                    )
+                }
 
                 let return_label = irid_gen.next_label();
 
@@ -276,7 +280,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         return_target: return_target.clone(),
                         return_label,
                         callable,
-                        args,
+                        args: ir_args.into_boxed_slice(),
                     },
                     has_side_effects: node.has_side_effects // This will be true, but future changes could break this, though unlikely
                 });
