@@ -612,7 +612,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 ir_function.push_code(IRNode {
                     op: IROperator::Mul {
                         target: offset_tn.clone(),
-                        left: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)).into()),
+                        left: IRValue::Const(LiteralValue::Numeric(Number::U64(element_size as u64)).into()),
                         right: IRValue::Tn(index_tn),
                     },
                     has_side_effects: node.has_side_effects
@@ -655,7 +655,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 ir_function.push_code(IRNode {
                     op: IROperator::Mul {
                         target: offset_tn.clone(),
-                        left: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)).into()),
+                        left: IRValue::Const(LiteralValue::Numeric(Number::U64(element_size as u64)).into()),
                         right: IRValue::Tn(index_tn),
                     },
                     has_side_effects: node.has_side_effects
@@ -745,7 +745,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                         op: IROperator::Add {
                             target: arr_element_ptr.clone(),
                             left: IRValue::Tn(arr_element_ptr.clone()),
-                            right: IRValue::Const(LiteralValue::Numeric(Number::Uint(element_size as u64)).into())
+                            right: IRValue::Const(LiteralValue::Numeric(Number::U64(element_size as u64)).into())
                         },
                         has_side_effects: node.has_side_effects
                     });

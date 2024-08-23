@@ -5,7 +5,7 @@ use crate::cli_parser::OptimizationFlags;
 use crate::match_unreachable;
 use crate::ast::{RuntimeOp, ScopeBlock, SyntaxNode, SyntaxNodeValue};
 use crate::symbol_table::{FunctionConstantness, FunctionInfo, ScopeID, SymbolTable, SymbolValue};
-use crate::lang::data_types::{DataType, LiteralValue, Number};
+use crate::lang::data_types::{DataType, LiteralValue};
 use crate::lang::data_types::dt_macros::*;
 use crate::lang::error;
 use crate::tokenizer::SourceToken;
@@ -1141,7 +1141,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     if let Some(index_value) = index.known_literal_value(scope_id, symbol_table) {
                         // If the index is known, check if it is within the bounds of the array
 
-                        let index_value = match_unreachable!(LiteralValue::Numeric(Number::Uint(v)) = index_value.as_ref(), *v) as usize;
+                        let index_value = match_unreachable!(LiteralValue::Numeric(n) = index_value.as_ref(), n.assume_u64()) as usize;
 
                         let array_size = match array.data_type.as_ref() {
 

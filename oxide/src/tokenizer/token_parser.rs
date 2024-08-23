@@ -56,7 +56,7 @@ fn escape_string_copy(string: &str, checked_until: usize, token: &SourceToken, s
 fn escape_string<'a>(string: &'a str, token: &SourceToken, source: &SourceCode) -> Cow<'a, str> {
     // Ignore the enclosing quote characters
     let string = &string[1..string.len() - 1];
-    
+
     for (i, c) in string.chars().enumerate() {
         if c == '\\' {
             let copied_string = escape_string_copy(string, i, token, source);
@@ -242,7 +242,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
     let mut ts = TokenizerStatus::new();
 
     for token in raw_tokens {
-        
+
         let token_kind = match token.string {
 
             "->" => TokenKind::Arrow,
@@ -358,17 +358,17 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             // Numbers
             string if string.starts_with(is_numeric) => {
                 if string.contains('.') {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Float(string.parse::<f64>().unwrap_or_else(
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_float(string).unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))).into() })
+                    )).into() })
                 } else if string.starts_with('-') {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Int(string.parse::<i64>().unwrap_or_else(
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_signed_int(string).unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))).into() })
+                    )).into() })
                 } else {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::Uint(string.parse::<u64>().unwrap_or_else(
+                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_unsigned_int(string).unwrap_or_else(
                         |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    ))).into() }) 
+                    )).into() })
                 }
             },
 
@@ -383,7 +383,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
                 // Add the string to the static string table, store the id in the token
                 let static_id = symbol_table.add_static_string(string);
 
-                TokenKind::Value(Value::Literal { 
+                TokenKind::Value(Value::Literal {
                     value: LiteralValue::StaticString(static_id).into()
                 })
             },
@@ -393,13 +393,13 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
                 if string.len() == 1 {
                     error::unmatched_delimiter('\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
                 }
-                
+
                 let s = escape_string(string, &token, source);
                 if s.len() != 1 {
                     error::invalid_char_literal(&s, &token, source, "Character literals can only be one character long")
                 }
 
-                TokenKind::Value(Value::Literal { 
+                TokenKind::Value(Value::Literal {
                     value: LiteralValue::Char(s.chars().next().unwrap()).into()
                 })
             },
@@ -422,7 +422,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "typedef" => TokenKind::TypeDef,
             "do" => TokenKind::DoWhile,
             "static" => TokenKind::Static,
-            
+
             // Data types
             "i8" => TokenKind::DataType(DataType::I8.into()),
             "i16" => TokenKind::DataType(DataType::I16.into()),
@@ -441,7 +441,7 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
             "bool" => TokenKind::DataType(DataType::Bool.into()),
             "usize" => TokenKind::DataType(DataType::Usize.into()),
             "isize" => TokenKind::DataType(DataType::Isize.into()),
-            
+
             // Variable names
             string => {
                 if !is_symbol_name(string) {
@@ -461,4 +461,3 @@ pub fn tokenize<'a>(source: &'a SourceCode, unit_path: &'a Path, symbol_table: &
 
     tokens
 }
-

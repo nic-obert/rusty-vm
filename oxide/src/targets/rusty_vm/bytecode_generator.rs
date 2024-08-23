@@ -235,10 +235,27 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                     DataType::Function { .. } |
                                     DataType::Void |
                                     DataType::Unspecified
-                                        => unreachable!(),
+                                        => unreachable!("Operation not supported for this type"),
                                 }
                             },
-                            IRValue::Const(_) => todo!(),
+                            IRValue::Const(v) => {
+
+                                match v.as_ref() {
+                                    LiteralValue::Char(ch) => {
+                                        // mov1 r1 ch
+                                        move_into_reg_from_const!(CHAR_SIZE, Registers::R1, *ch as u8);
+                                    },
+                                    LiteralValue::Numeric(n) => {
+                                        todo!()
+                                    },
+                                    LiteralValue::Ref { target, .. } => todo!(),
+
+                                    LiteralValue::Array { .. } |
+                                    LiteralValue::StaticString(_) |
+                                    LiteralValue::Bool(_)
+                                        => unreachable!("Operation not supported for this type")
+                                }
+                            },
                         }
 
                         // Be careful because performing calculations to load the right argument into r2 will invalidate r1, which contains the left argument

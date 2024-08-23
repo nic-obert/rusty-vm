@@ -27,6 +27,7 @@ Project Description
 - [ ] Add the no-op operator to the oxide language to prevent the optimizer from optimizing out conditional blocks and loops without any operation in them
 - [ ] Add the slice type &[T]. This is a wide pointer.
 - [ ] Make StringRef a wide pointer.
+- [ ] Add integer type inference. Implicit numeric casts have been disallowed, but they may be allowed only if no type was specified and if they are literals
 
 ### In Progress
 

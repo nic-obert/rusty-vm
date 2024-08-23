@@ -2,9 +2,5 @@
 
 fn main() {
 
-    let mut x = 0;
-    x = x + 1;
-    let y = x - 9;
-    let z = &y;
-
+    let x = 1 + 2;
 }

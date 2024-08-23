@@ -205,7 +205,7 @@ impl RuntimeOp<'_> {
             },
 
             RuntimeOp::ArrayIndex { array, index } => {
-                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_u64();
                 let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
                 let (_data_type, elements) = array_value.assume_array();
 
@@ -217,7 +217,7 @@ impl RuntimeOp<'_> {
             },
 
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
-                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_uint();
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_u64();
                 let array_ref_value = array_ref.known_literal_value(scope_id, symbol_table).unwrap();
                 let (ref_target, mutable) = array_ref_value.assume_ref();
                 let (_element_type, elements) = ref_target.assume_array();
