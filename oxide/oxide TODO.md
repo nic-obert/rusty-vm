@@ -27,7 +27,6 @@ Project Description
 - [ ] Add the no-op operator to the oxide language to prevent the optimizer from optimizing out conditional blocks and loops without any operation in them
 - [ ] Add the slice type &[T]. This is a wide pointer.
 - [ ] Make StringRef a wide pointer.
-- [ ] Add two special registers for floating point arithmetic.
 
 ### In Progress
 

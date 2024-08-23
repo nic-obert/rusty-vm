@@ -114,12 +114,18 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     }
                 }
 
-                macro_rules! set_reg_const {
+                macro_rules! add_const_usize {
+                    ($val:expr) => {
+                        bytecode.extend(($val as usize).to_le_bytes());
+                    }
+                }
+
+                macro_rules! set_reg_const_usize {
                     ($reg:path, $val:expr) => {
                         add_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
-                        bytecode.extend(mem::size_of::<usize>().to_le_bytes());
+                        add_byte!(mem::size_of::<usize>());
                         add_byte!($reg);
-                        bytecode.extend(($val).to_le_bytes());
+                        bytecode.extend(($val as usize).to_le_bytes());
                     }
                 }
 
@@ -136,6 +142,15 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                         add_byte!(ByteCodes::PUSH_FROM_REG);
                         add_byte!($reg);
                         stack_frame_offset -= REGISTER_SIZE as StackOffset;
+                    }
+                }
+
+                macro_rules! push_stack_pointer_const {
+                    ($offset:expr) => {
+                        add_byte!(ByteCodes::PUSH_STACK_POINTER_CONST);
+                        add_byte!(mem::size_of::<usize>());
+                        bytecode.extend(($offset as Address).to_le_bytes());
+                        stack_frame_offset -= $offset as isize;
                     }
                 }
 
@@ -197,7 +212,8 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                             Registers::R4,
                             Registers::R5,
                             Registers::R6,
-                            Registers::R7
+                            Registers::R7,
+                            Registers::R8
                         ];
 
                         let mut arg_register_it = arg_registers.iter();
@@ -212,7 +228,9 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                                 IRValue::Tn(tn) => {
 
-                                    if tn.data_type.static_size().expect("Size should be known by now") <= REGISTER_SIZE {
+                                    let arg_size = tn.data_type.static_size().expect("Size should be known by now");
+
+                                    if arg_size <= REGISTER_SIZE {
                                         if let Some(arg_reg) = arg_register_it.next() {
                                             // The arg will be passed through a register
 
@@ -233,19 +251,52 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                                     match tn_location.get(&tn.id).unwrap() {
 
-                                        TnLocation::Register(reg) => {
+                                        &TnLocation::Register(reg) => {
                                             // The value in the register is to be pushed onto the stack
-                                            push_from_reg!(*reg);
+                                            push_from_reg!(reg);
                                         },
 
-                                        TnLocation::Stack(offset) => {
+                                        &TnLocation::Stack(offset) => {
                                             // The value on the stack is to be copied onto the stack
 
+                                            // Calculate the stack address of the argument to copy
+                                            // A positive offset is required because addresses are positive and adding the usize representation of an isize to a usize would overflow
+                                            // mov8 r1 sbp
+                                            // mov8 r2 abs(offset)
+                                            move_into_reg_from_reg!(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
+                                            set_reg_const_usize!(Registers::R2, (offset).abs());
+                                            if offset < 0 {
+                                                // iadd
+                                                add_byte!(ByteCodes::INTEGER_ADD);
+                                            } else {
+                                                // isub
+                                                add_byte!(ByteCodes::INTEGER_SUB);
+                                            }
+
+                                            // Push the stack pointer to make space for the argument. stp will now point to the uninitialized arg
+                                            // pushsp sizeof(arg)
+                                            push_stack_pointer_const!(arg_size);
+
+                                            // Copy the argument value on the stack into its designated place on the stack
+                                            // mov r2 r1 (r1 contains the source address of the argument, which was calculated above)
+                                            // mov r1 stp
+                                            // memcpyb8 sizeof(arg)
+                                            move_into_reg_from_reg!(Registers::R2, Registers::R1);
+                                            move_into_reg_from_reg!(Registers::R1, Registers::STACK_TOP_POINTER);
+                                            add_byte!(ByteCodes::MEM_COPY_BLOCK_CONST);
+                                            add_byte!(8);
+                                            add_const_usize!(arg_size);
                                         },
                                     }
                                 },
 
-                                IRValue::Const(v) => todo!(),
+                                IRValue::Const(v) => {
+                                    // The literal value is to be copied onto the stack
+                                    // pushsp8 sizeof(arg)
+                                    // mov r1 stp
+                                    // mov8 r2
+                                    //
+                                },
                             }
 
                         }
@@ -256,15 +307,15 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                     IROperator::Return => todo!(),
 
-                    IROperator::PushScope { bytes } => {
-                        set_reg_const!(Registers::R1, bytes);
+                    &IROperator::PushScope { bytes } => {
+                        set_reg_const_usize!(Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         // The stack grows downwards
                         add_byte!(ByteCodes::INTEGER_SUB);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
-                    IROperator::PopScope { bytes } => {
-                        set_reg_const!(Registers::R1, bytes);
+                    &IROperator::PopScope { bytes } => {
+                        set_reg_const_usize!(Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         add_byte!(ByteCodes::INTEGER_ADD);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);

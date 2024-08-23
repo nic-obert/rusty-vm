@@ -60,7 +60,7 @@ const_assert_eq!(mem::size_of::<Registers>(), REGISTER_ID_SIZE);
 
 
 declare_registers! {
-    
+
     R1 r1,
     R2 r2,
     R3 r3,
@@ -69,7 +69,7 @@ declare_registers! {
     R6 r6,
     R7 r7,
     R8 r8,
-    
+
     EXIT exit,
     INPUT input,
     ERROR error,
@@ -78,13 +78,14 @@ declare_registers! {
 
     STACK_TOP_POINTER stp,
     PROGRAM_COUNTER pc,
-    
+    STACK_FRAME_BASE_POINTER sbp,
+
     ZERO_FLAG zf,
     SIGN_FLAG sf,
     REMAINDER_FLAG rf,
     CARRY_FLAG cf,
     OVERFLOW_FLAG of
-    
+
 }
 
 
@@ -103,4 +104,3 @@ impl fmt::Display for Registers {
         write!(f, "{}", self.name())
     }
 }
-

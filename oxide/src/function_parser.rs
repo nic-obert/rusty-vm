@@ -71,7 +71,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
         let keep_statement: Option<SyntaxNode> = match statement.value {
 
             SyntaxNodeValue::Function { name, signature, mut body, marked_const, .. } => {
-                
+
                 // Recursively extract functions from the body
                 let inner_functions = extract_functions(&mut body, true, block.scope_id, symbol_table, source);
                 functions.extend(inner_functions);
@@ -101,7 +101,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     // Allow initializing statics with initialized constants and other initialized statics
                     SyntaxNodeValue::Symbol { name, scope_discriminant } => {
                         let symbol = symbol_table.get_symbol(block.scope_id, name, scope_discriminant).unwrap().borrow();
-                        
+
                         match &symbol.value {
 
                             SymbolValue::Constant(value) |
@@ -111,7 +111,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                             _ => error::not_a_constant(&definition.token, source, "Static definition must be a literal value or a constant expression.")
                         }
                     },
-                    
+
                     _ => error::not_a_constant(&definition.token, source, "Static definition must be a literal value or a constant expression.")
                 };
 
@@ -120,7 +120,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     error::type_error(&definition.token, &[&data_type.name()], &value_type, source, "Mismatched data type in static declaration.");
                 }
                 let final_value = LiteralValue::from_cast(&literal_value, &value_type, &data_type);
-           
+
                 let res = symbol_table.define_static(name, block.scope_id, final_value);
                 if res.is_err() {
                     error::compile_time_operation_error(&statement.token, source, format!("Could not define static \"{name}\".").as_str());
@@ -148,7 +148,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                             _ => error::not_a_constant(&definition.token, source, "Constant definition must be a literal value or a constant expression.")
                         }
                     },
-                    
+
                     _ => error::not_a_constant(&definition.token, source, "Constant definition must be a literal value or a constant expression.")
                 };
 
@@ -157,7 +157,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                     error::type_error(&definition.token, &[&data_type.name()], &value_type, source, "Mismatched constant type.");
                 }
                 let final_value = LiteralValue::from_cast(&literal_value, &value_type, &data_type);
-                
+
                 let res = symbol_table.define_constant(name, block.scope_id, final_value);
                 if res.is_err() {
                     error::compile_time_operation_error(&statement.token, source, format!("Could not define constant \"{name}\".").as_str());
@@ -205,7 +205,7 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
             FunctionConstantness::NotConst |
             FunctionConstantness::ProvenConst
             => continue,
-            
+
             FunctionConstantness::MarkedConst => {}
         }
         // The function is marked as const, so we need to ensure that it's indeed const
@@ -213,10 +213,10 @@ fn resolve_functions_types(functions: &mut [Function], symbol_table: &mut Symbol
         // Reduce the constant function to the minimum
         // This will be useful when the function is called statically because it will be faster to evaluate.
         evaluate_constants_block(&mut function.code, source, symbol_table);
-        
+
         let mut function_symbol = symbol_table.get_function(function.name, function.parent_scope).unwrap().borrow_mut();
         let function_info = unsafe { function_symbol.assume_function_mut() };
-        
+
         if function_info.has_side_effects {
             error::not_a_constant(&function_symbol.token, source, format!("Function `{}` is declared as const but has side effects.", function.name).as_str());
         }
@@ -270,13 +270,13 @@ fn check_node_is_constant<'a>(node: &'a SyntaxNode, scope_id: ScopeID, function_
                 check_node_is_constant(left, scope_id, function_top_scope, function_info, symbol_table)?;
                 check_node_is_constant(right, scope_id, function_top_scope, function_info, symbol_table)?;
             },
-            
+
             RuntimeOp::Deref { mutable: _, expr } |
             RuntimeOp::Ref { mutable: _, expr } |
             RuntimeOp::LogicalNot(expr) |
-            RuntimeOp::BitwiseNot(expr) 
+            RuntimeOp::BitwiseNot(expr)
                 => check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table)?,
-            
+
             RuntimeOp::Return(expr)
                 => if let Some(expr) = expr.as_ref() {
                     check_node_is_constant(expr, scope_id, function_top_scope, function_info, symbol_table)?;
@@ -339,7 +339,7 @@ fn check_node_is_constant<'a>(node: &'a SyntaxNode, scope_id: ScopeID, function_
                 check_block_is_constant(else_block, function_top_scope, function_info, symbol_table)?;
             }
         },
-        
+
         SyntaxNodeValue::DoWhile { .. } |
         SyntaxNodeValue::While { .. } |
         SyntaxNodeValue::Loop { .. }
@@ -365,12 +365,12 @@ fn check_node_is_constant<'a>(node: &'a SyntaxNode, scope_id: ScopeID, function_
                     If the scope discriminant is not 0, this symbol is not the first symbol declared with its name in the scope.
                     Since the function parameters are the first symbols to be declared in a function body, this symbol is not a function parameter.
                 */
-                return Err(node.token.clone());  
+                return Err(node.token.clone());
             }
 
             /*
                 However, the this symbol may be an omonym of a function parameter in an inner scope like this:
-                
+
                 ```
                 fn foo(x: i32) {
                     {
@@ -400,14 +400,14 @@ fn check_node_is_constant<'a>(node: &'a SyntaxNode, scope_id: ScopeID, function_
 
         SyntaxNodeValue::Literal(_)
             => {}, // Literals are always constant
-        
+
         SyntaxNodeValue::FunctionParams(_) |
         SyntaxNodeValue::DataType(_) |
         SyntaxNodeValue::Function { .. } |
         SyntaxNodeValue::Const { .. } |
         SyntaxNodeValue::Static { .. } |
         SyntaxNodeValue::TypeDef { .. } |
-        
+
         SyntaxNodeValue::Placeholder
             => unreachable!("Unexpected SyntaxNode {:?}. This node should have been removed. This is a bug.", node),
     }
@@ -469,7 +469,7 @@ fn mark_and_warn_unused_symbols(block: &ScopeBlock, symbol_table: &mut SymbolTab
 
 
 /// Reduce the operations down the node by evaluating constant expressions.
-/// 
+///
 /// Return whether the node can be removed because it has no effect.
 fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: ScopeID, symbol_table: &mut SymbolTable) -> bool {
 
@@ -481,7 +481,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
 
                     SyntaxNodeValue::Symbol { name, scope_discriminant }
                         => symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow().get_value().is_some(),
-                        
+
                     _ => false
                 }
             )&&+)
@@ -508,7 +508,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             },
 
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
-                    
+
                 evaluate_constants(array_ref, source, scope_id, symbol_table);
                 evaluate_constants(index, source, scope_id, symbol_table);
 
@@ -522,7 +522,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
 
                 // If the left operand is a plain symbol and the right operand is known, perform the assignment statically
                 if let (SyntaxNodeValue::Symbol { name, scope_discriminant }, true) = (&l_node.value, has_known_value!(r_node)) {
-                    
+
                     let mut l_symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow_mut();
 
                     // Only allow to statically initialize immutable symbols
@@ -531,12 +531,12 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
 
                         let r_value = match r_node.extract_value() {
                             SyntaxNodeValue::Literal (value) => Some(value),
-            
+
                             SyntaxNodeValue::Symbol { name, scope_discriminant } => {
                                 let symbol = symbol_table.get_symbol(scope_id, name, scope_discriminant).unwrap();
                                 symbol.borrow().get_value()
                             }
-                            
+
                             _ => unreachable!()
                         }.unwrap();
 
@@ -574,7 +574,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                 if !has_known_value!(left, right) {
                     return SHOULD_NOT_BE_REMOVED;
                 }
-                
+
                 let res = match op.execute(scope_id, symbol_table) {
                     Ok(res) => res,
                     Err(err) => error::compile_time_operation_error(&node.token, source, err)
@@ -610,7 +610,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             RuntimeOp::Return (return_value) => if let Some(expr) = return_value {
                 evaluate_constants(expr, source, scope_id, symbol_table);
             },
-            
+
             RuntimeOp::Call { callable, args } => {
 
                 // TODO: evaluate const functions
@@ -692,7 +692,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
                     node.value = SyntaxNodeValue::Loop { body: mem::take(body) };
 
                     return SHOULD_NOT_BE_REMOVED;
-                } 
+                }
 
                 // Condition is always false, so the body will never be executed
                 // Remove the while loop entirely
@@ -744,7 +744,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
             if let Some(else_block) = else_block {
                 evaluate_constants_block(else_block, source, symbol_table);
             }
-        },     
+        },
 
         SyntaxNodeValue::Scope(inner_block) => {
 
@@ -782,7 +782,7 @@ fn evaluate_constants(node: &mut SyntaxNode, source: &SourceCode, scope_id: Scop
         SyntaxNodeValue::Const { .. } |
         SyntaxNodeValue::Static { .. } |
         SyntaxNodeValue::TypeDef { .. } |
-        SyntaxNodeValue::Placeholder 
+        SyntaxNodeValue::Placeholder
             => unreachable!("{:?} should have been removed from the tree.", node)
     }
 
@@ -799,7 +799,7 @@ fn evaluate_constants_block(block: &mut ScopeBlock, source: &SourceCode, symbol_
     while let Some(statement) = block.statements.get_mut(i) {
 
         if evaluate_constants(statement, source, block.scope_id, symbol_table) {
-            // Remove the useless node 
+            // Remove the useless node
             block.statements.remove(i);
         } else {
             i += 1;
@@ -830,10 +830,10 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
         SyntaxNodeValue::RuntimeOp(operator) => {
             // Resolve and check the types of the operands first
             // Based on the operand values, determine the type of the operator
-            
+
             macro_rules! resolve_arithmetic_binary {
                 ( $left:ident, $right:ident, $is_allowed:pat, $allowed_types:expr, $op_name:literal ) => {{
-                    
+
                     resolve_expression_types($left, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
                     resolve_expression_types($right, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
@@ -859,7 +859,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
             macro_rules! resolve_boolean_binary {
                 ( $left:ident, $right:ident, $is_allowed:pat, $allowed_types:expr, $op_name:literal ) => {{
-                    
+
                     resolve_expression_types($left, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
                     resolve_expression_types($right, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
@@ -885,7 +885,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
             macro_rules! resolve_generic_unary {
                 ( $operand:ident, $is_allowed:pat, $allowed_types:expr, $op_name:literal ) => {{
-                    
+
                     resolve_expression_types($operand, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
                     require_initialized!($operand);
@@ -946,7 +946,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     => resolve_boolean_binary!(left, right, numeric_pattern!(), &["numeric"], "LessEqual"),
                 RuntimeOp::LogicalAnd { left, right }
                     => resolve_boolean_binary!(left, right, DataType::Bool, &["bool"], "LogicalAnd"),
-                RuntimeOp::LogicalOr { left, right } 
+                RuntimeOp::LogicalOr { left, right }
                     => resolve_boolean_binary!(left, right, DataType::Bool, &["bool"], "LogicalOr"),
 
                 // Unary operators that return a boolean
@@ -960,27 +960,27 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                 // Binary operators whose return type is the same as the operand type
                 RuntimeOp::Add { left, right }
                     => resolve_arithmetic_binary!(left, right, numeric_pattern!(), &["numeric"], "Add"),
-                RuntimeOp::Sub { left, right } 
+                RuntimeOp::Sub { left, right }
                     => resolve_arithmetic_binary!(left, right, numeric_pattern!(), &["numeric"], "Sub"),
-                RuntimeOp::Mul { left, right } 
+                RuntimeOp::Mul { left, right }
                     => resolve_arithmetic_binary!(left, right, numeric_pattern!(), &["numeric"], "Mul"),
-                RuntimeOp::Div { left, right } 
+                RuntimeOp::Div { left, right }
                     => resolve_arithmetic_binary!(left, right, numeric_pattern!(), &["numeric"], "Div"),
-                RuntimeOp::Mod { left, right } 
+                RuntimeOp::Mod { left, right }
                     => resolve_arithmetic_binary!(left, right, numeric_pattern!(), &["integer"], "Mod"),
                 RuntimeOp::BitShiftLeft { left, right }
                     => resolve_arithmetic_binary!(left, right, integer_pattern!(), &["integer"], "BitShiftLeft"),
-                RuntimeOp::BitShiftRight { left, right } 
+                RuntimeOp::BitShiftRight { left, right }
                     => resolve_arithmetic_binary!(left, right, integer_pattern!(), &["integer"], "BitShiftRight"),
-                RuntimeOp::BitwiseOr { left, right } 
+                RuntimeOp::BitwiseOr { left, right }
                     => resolve_arithmetic_binary!(left, right, integer_pattern!(), &["integer"], "BitwiseOr"),
-                RuntimeOp::BitwiseAnd { left, right } 
+                RuntimeOp::BitwiseAnd { left, right }
                     => resolve_arithmetic_binary!(left, right, integer_pattern!(), &["integer"], "BitwiseAnd"),
-                RuntimeOp::BitwiseXor { left, right } 
+                RuntimeOp::BitwiseXor { left, right }
                     => resolve_arithmetic_binary!(left, right, integer_pattern!(), &["integer"], "BitwiseXor"),
 
                 RuntimeOp::Call { callable, args } => {
-                    
+
                     // Resolve the type of the callable operand
                     resolve_expression_types(callable, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
 
@@ -1003,7 +1003,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     // Check this before resolving the types of the arguments to avoid unnecessary work
                     if args.len() != param_types.len() {
                         error::mismatched_call_arguments(&expression.token, param_types.len(), args.len(), source, "Invalid number of arguments for function call.");
-                    }                    
+                    }
 
                     // Resolve the types of the arguments and check if they match the function parameters
                     for (arg, expected_type) in args.iter_mut().zip(param_types) {
@@ -1031,7 +1031,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                         resolve_expression_types(return_expr, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                         require_initialized!(return_expr);
-                        
+
                         // Check if the return type matches the outer function return type
                         if return_expr.data_type != return_type {
                             error::type_error(&return_expr.token, &[&return_type.name()], &return_expr.data_type, source, "The returned expression type does not match function signature.");
@@ -1046,7 +1046,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                 },
 
                 RuntimeOp::Assign { left: l_node, right: r_node } => {
-                    
+
                     // Only allow assignment to a symbol or a dereference
                     if !matches!(l_node.value, SyntaxNodeValue::Symbol { .. } | SyntaxNodeValue::RuntimeOp(RuntimeOp::Deref { .. })) {
                         error::type_error(&l_node.token, &["symbol<any>", "deref<any>"], &l_node.data_type, source, "Invalid left operand for assignment operator.");
@@ -1057,14 +1057,14 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     resolve_expression_types(r_node, scope_id, outer_function_return, function_parent_scope, symbol_table, source);
 
                     require_initialized!(r_node);
-                
+
                     // Assert that the symbol or dereference can be assigned to (mutable or uninitialized)
                     match &mut l_node.value {
                         SyntaxNodeValue::Symbol { name, scope_discriminant } => {
 
                             // Unwrap is safe because symbols have already been checked to be valid
                             let mut symbol = symbol_table.get_symbol(scope_id, name, *scope_discriminant).unwrap().borrow_mut();
-                            
+
                             if symbol.initialized {
                                 if !symbol.is_mutable() {
                                     // Symbol is immutable and already initialized, so cannot assign to it again
@@ -1102,7 +1102,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value.as_deref()) {
                         error::type_error(&r_node.token, &[&l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
                     }
-                    
+
                     // An assignment is not an expression, so it does not have a type
                     DataType::Void.into()
                 },
@@ -1122,8 +1122,8 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                         DataType::Array { element_type, size: _ } => element_type.clone(),
 
                         // Indexing a reference to an array returns a reference to the element type
-                        DataType::Ref { target, mutable } 
-                            if matches!(target.as_ref(), DataType::Array { element_type, size: _ } 
+                        DataType::Ref { target, mutable }
+                            if matches!(target.as_ref(), DataType::Array { element_type, size: _ }
                                 if matches!(element_type.as_ref(), DataType::Array { .. }) )
                         => {
                             let element_type = match_unreachable!(DataType::Array { element_type, size: _ } = target.as_ref() , element_type);
@@ -1160,12 +1160,12 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     if matches!(data_type.as_ref(), DataType::Ref { .. }) {
                         // We are indexing a reference to an array, so change the operator accordingly
                         let (array_ref, index) = match_unreachable!(SyntaxNodeValue::RuntimeOp(RuntimeOp::ArrayIndex { array, index }) = expression.extract_value(), (array, index));
-                        expression.value = SyntaxNodeValue::RuntimeOp(RuntimeOp::ArrayIndexRef { 
+                        expression.value = SyntaxNodeValue::RuntimeOp(RuntimeOp::ArrayIndexRef {
                             array_ref,
-                            index 
+                            index
                         });
                     }
-                    
+
                     data_type
                 },
 
@@ -1174,25 +1174,25 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                     // The array element type is the type of the first element.
                     // Check if the array elements have the same type.
                     // The array element type is void if the array is empty. A void array can be used as a generic array by assignment operators.
-        
+
                     let array_size = elements.len();
-                    
+
                     let (data_type, is_literal_array, element_type) = if elements.is_empty() {
                         (DataType::Array { element_type: DataType::Void.into(), size: Some(0) }, true, DataType::Void.into())
                     } else {
-        
+
                         let mut element_type: Option<Rc<DataType>> = None;
-        
+
                         let mut is_literal_array = true;
                         for element in elements.iter_mut() {
-                            
+
                             // Resolve the element type
                             resolve_expression_types(element, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
-        
+
                             require_initialized!(element);
-        
+
                             let expr_type = element.data_type.clone();
-        
+
                             if let Some(expected_element_type) = &element_type {
                                 if *expected_element_type != expr_type {
                                     error::type_error(&element.token, &[&expected_element_type.name()], &expr_type, source, "Array elements have different types.");
@@ -1201,14 +1201,18 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                                 // The first element of the array determines the array type
                                 element_type = Some(expr_type);
                             }
-        
+
                             // Check if all the array elements are literals
                             is_literal_array &= element.has_literal_value();
                         }
-        
-                        (DataType::Array { element_type: element_type.as_ref().unwrap().clone(), size: Some(array_size) }, is_literal_array, element_type.unwrap())
+
+                        (
+                            DataType::Array { element_type: element_type.as_ref().unwrap().clone(), size: Some(array_size) },
+                            is_literal_array,
+                            element_type.unwrap()
+                        )
                     };
-        
+
                     if is_literal_array {
                         // If all the array elements are literals, the whole array is a literal array
                         // Change this token to a literal array
@@ -1216,9 +1220,12 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                         for element in mem::take(elements) {
                             literal_items.push(element.assume_literal());
                         }
-                        expression.value = SyntaxNodeValue::Literal (LiteralValue::Array { element_type, items: literal_items }.into() );
+                        expression.value = SyntaxNodeValue::Literal (Rc::new(LiteralValue::Array {
+                            element_type,
+                            items: literal_items.into_boxed_slice() }
+                        ));
                     }
-        
+
                     data_type.into()
                 },
 
@@ -1235,7 +1242,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             require_initialized!(expr);
 
             if expr.data_type == *target_type {
-                
+
                 error::warn(&expression.token, source, "Redundant type cast. Expression is already of the specified type.")
 
             } else {
@@ -1256,7 +1263,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
         SyntaxNodeValue::Symbol { name, scope_discriminant } => {
 
             let (symbol, outside_function_boundary) = symbol_table.get_symbol_warn_if_outside_function(scope_id, name, *scope_discriminant, function_parent_scope);
-            
+
             let mut symbol = symbol.unwrap_or_else(
                 || error::symbol_undefined(&expression.token, name, source, if let Some(symbol) = symbol_table.get_unreachable_symbol(name) { let symbol = symbol.borrow(); format!("Symbol \"{name}\" is declared in a different scope at {}:{}:\n{}.", symbol.line_number(), symbol.token.column, source[symbol.token.line_index]) } else { format!("Symbol \"{name}\" is not declared in any scope.") }.as_str())
             ).borrow_mut();
@@ -1276,7 +1283,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
         SyntaxNodeValue::Function { signature, body, .. } => {
             // Resolve the types inside the function body
-            
+
             let return_type = match_unreachable!(DataType::Function { return_type, .. } = signature.as_ref(), return_type);
 
             resolve_scope_types(body, Some(return_type.clone()), function_parent_scope, symbol_table, source);
@@ -1354,7 +1361,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
         SyntaxNodeValue::DoWhile { body, condition } |
         SyntaxNodeValue::While { condition, body } => {
-            
+
             resolve_expression_types(condition, scope_id, outer_function_return.clone(), function_parent_scope, symbol_table, source);
             resolve_scope_types(body, outer_function_return, function_parent_scope, symbol_table, source);
 
@@ -1380,7 +1387,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
             if !matches!(body.return_type().as_ref(), DataType::Void) {
                 error::type_error(&body.statements.last().unwrap().token, &["void"], &body.return_type(), source, "Loop body should not return anything.");
-            }            
+            }
 
             // A loop evaluates to void
             DataType::Void.into()
@@ -1391,7 +1398,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
         SyntaxNodeValue::Const { .. } |
         SyntaxNodeValue::Static { .. } |
         SyntaxNodeValue::TypeDef { .. } |
-        SyntaxNodeValue::Placeholder 
+        SyntaxNodeValue::Placeholder
             => unreachable!("Unexpected syntax node during expression and symbol type resolution: {:?}. This is a bug.", expression)
     };
 }
@@ -1456,10 +1463,10 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
             RuntimeOp::ArrayIndex { array: left, index: right } |
             RuntimeOp::ArrayIndexRef { array_ref: left, index: right }
             => {
-                
+
                 function_side_effects = calculate_side_effects(left, scope_id, symbol_table);
                 function_side_effects |= calculate_side_effects(right, scope_id, symbol_table);
-                
+
                 // Propagate the side effects of the children to the parent
                 left.has_side_effects | right.has_side_effects
             },
@@ -1512,7 +1519,7 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
                 }
 
                 expr.has_side_effects
-            }, 
+            },
 
             RuntimeOp::Deref { mutable: _, expr } => {
 
@@ -1560,14 +1567,14 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
 
             RuntimeOp::MakeArray { elements } => {
                 // Has side effects if any of its elements has side effects
-    
+
                 function_side_effects = false;
                 let mut has_local_side_effects = false;
                 for element in elements {
                     function_side_effects |= calculate_side_effects(element, scope_id, symbol_table);
                     has_local_side_effects |= element.has_side_effects;
                 }
-    
+
                 has_local_side_effects
             },
         },
@@ -1594,7 +1601,7 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
             function_side_effects |= calculate_side_effects_block(body, symbol_table);
 
             NO_LOCAL_SIDE_EFFECTS
-        
+
         },
 
         SyntaxNodeValue::Loop { body }=> {
@@ -1618,7 +1625,7 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
 
             expr.has_side_effects
         },
-        
+
         // A value has no side effects. Side effects may arise when the value is used in an operation.
         SyntaxNodeValue::Symbol { .. } |
         SyntaxNodeValue::Literal(_)
@@ -1626,7 +1633,7 @@ fn calculate_side_effects(node: &mut SyntaxNode, scope_id: ScopeID, symbol_table
             function_side_effects = false;
             NO_LOCAL_SIDE_EFFECTS
         },
-        
+
         _ => unreachable!("Unexpected node during side effects calculation: {:?}. This is a bug.", node)
     };
 
@@ -1685,7 +1692,7 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &Optim
     if verbose {
         println!("\n\nAfter symbol resolution:\n{:#?}", functions);
     }
-    
+
     mark_and_warn_unused_symbols(&block, symbol_table, source);
 
     calculate_side_effects_functions(&mut functions, symbol_table);
@@ -1696,7 +1703,6 @@ pub fn parse_functions<'a>(mut block: ScopeBlock<'a>, optimization_flags: &Optim
             println!("\n\nAfter constant expression evaluation:\n{:#?}", functions);
         }
     }
-    
+
     functions
 }
-

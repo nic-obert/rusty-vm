@@ -42,7 +42,7 @@ pub enum DataType {
     Function { params: Vec<Rc<DataType>>, return_type: Rc<DataType> },
 
     Void,
-    
+
     /// Only used internally for type inference.
     Unspecified
 }
@@ -126,16 +126,16 @@ impl DataType {
             DataType::F64 => F64_SIZE,
             DataType::Usize => USIZE_SIZE,
             DataType::Isize => ISIZE_SIZE,
-            
+
             DataType::RawString { length } => CHAR_SIZE * *length,
             DataType::Array { element_type, size} => element_type.static_size()? * size.ok_or(())?,
 
             DataType::StringRef { length: _ } => ADDRESS_SIZE + USIZE_SIZE,
             DataType::Ref { .. } => ADDRESS_SIZE,
-            
+
             DataType::String  // TODO: update with a rust-like string struct size
             => todo!("String size is not yet implemented"),
-            
+
             DataType::Void |
             DataType::Function { .. }
              => 0,
@@ -154,7 +154,7 @@ impl DataType {
             DataType::I8 | DataType::U8 => matches!(target, DataType::Char | numeric_pattern!()),
 
             // u64 is castable to pointers (and other numbers)
-            DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref { .. }),    
+            DataType::U64 => matches!(target, numeric_pattern!() | DataType::Ref { .. }),
 
             // A number is castable to any other number.
             #[allow(unreachable_patterns)]
@@ -170,7 +170,7 @@ impl DataType {
             // Only allow casting an immutable referene to another immutable reference or to u64 (which is unsafe, though).
             DataType::Ref { mutable: false, target: _ }
                 => matches!(target, DataType::Ref { mutable: false, target: _ } | DataType::U64),
-            
+
             DataType::Bool => matches!(target, integer_pattern!()),
 
             DataType::Array { element_type, size }
@@ -211,7 +211,7 @@ impl DataType {
                     || element_type.is_implicitly_castable_to(target_element_type, None)
                     // Else, check if all the items in the array are implicitly castable to the target element type.
                     || self_value.map(|value| match value {
-                        LiteralValue::Array { items, .. } => items.iter().all(|item| 
+                        LiteralValue::Array { items, .. } => items.iter().all(|item|
                             // Is `element_type` implicitly castable to `target_element_type` if its value is `value`?
                             element_type.is_implicitly_castable_to(target_element_type, Some(item))
                         ),
@@ -221,7 +221,7 @@ impl DataType {
             } else {
                 false
             },
-             
+
             // If target type is x, what types can be implicitly cast to x?
             _ => match target {
 
@@ -282,7 +282,7 @@ impl DataType {
                         LiteralValue::Numeric(Number::Float(n)) => *n >= std::f32::MIN as f64 && *n <= std::f32::MAX as f64,
                         _ => false
                     }).unwrap_or(false),
-                
+
                 // All numeric types can be cast to f64 because f64 is the largest numeric type.
                 DataType::F64 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32 | DataType::I64 | DataType::U64 | DataType::F32),
 
@@ -292,7 +292,7 @@ impl DataType {
     }
 
 
-    pub fn name(&self) -> Cow<'static, str> { // Uses Cow to avoid leaking owned strings 
+    pub fn name(&self) -> Cow<'static, str> { // Uses Cow to avoid leaking owned strings
         match self {
             DataType::Bool => Cow::Borrowed("bool"),
             DataType::Char => Cow::Borrowed("char"),
@@ -464,7 +464,7 @@ pub enum LiteralValue {
     Char (char),
     StaticString (StaticID),
 
-    Array { element_type: Rc<DataType>, items: Vec<Rc<LiteralValue>> },
+    Array { element_type: Rc<DataType>, items: Box<[Rc<LiteralValue>]> },
 
     Numeric (Number),
 
@@ -506,10 +506,10 @@ impl LiteralValue {
     }
 
     /// Assumes that the source value is castable to the target type. This should have been checked during type resolution.
-    /// 
+    ///
     /// This function can perform only compile-time casts.
     pub fn from_cast(src_value: &LiteralValue, src_type: &DataType, target_type: &DataType) -> Rc<Self> {
-        
+
         assert!(src_type.is_castable_to(target_type));
 
         // This is checked before calling the function.
@@ -574,7 +574,7 @@ impl LiteralValue {
                     _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
                 }
             },
-            
+
             floating_point_pattern!() => {
                 let value = match_unreachable!(LiteralValue::Numeric(Number::Float(value)) = src_value, *value);
                 match target_type {
@@ -593,22 +593,22 @@ impl LiteralValue {
                     _ => unreachable!("Cannot cast from {:?} to {:?}", src_type, target_type)
                 }
             },
-            
+
             DataType::Array { element_type: src_element_type, size } => {
                 let (target_element_type, items) = match_unreachable!(LiteralValue::Array { element_type: target_element_type, items } = src_value, (target_element_type, items));
-                
+
                 assert_eq!(items.len(), size.expect("Array size is not known at compile-time"));
 
                 let res = items.iter().map(
                     |item| LiteralValue::from_cast(item, src_element_type, target_element_type)
                 ).collect();
-                
-                LiteralValue::Array { 
-                    element_type: target_element_type.clone(), 
-                    items: res 
+
+                LiteralValue::Array {
+                    element_type: target_element_type.clone(),
+                    items: res
                 }
             },
-            
+
             _ => unreachable!("Cannot cast from {:?} to {:?} (or at least not at compile-time)", src_type, target_type)
 
         }.into()
@@ -726,7 +726,7 @@ mod tests {
             LiteralValue::Numeric(Number::Int(1)).into(),
             LiteralValue::Numeric(Number::Int(2)).into(),
             LiteralValue::Numeric(Number::Int(3)).into(),
-        ]};
+        ].into_boxed_slice()};
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&a)));
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: Some(3) }, Some(&a)));
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U32), size: Some(3) }, Some(&a)));
@@ -737,7 +737,7 @@ mod tests {
                 LiteralValue::Numeric(Number::Int(1)).into(),
                 LiteralValue::Numeric(Number::Int(-2)).into(),
                 LiteralValue::Numeric(Number::Int(3)).into(),
-            ]};
+            ].into_boxed_slice()};
             assert!(DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::I64), size: Some(3) }, Some(&b)));
             assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U8), size: Some(3) }, Some(&b)));
             assert!(!DataType::Array { element_type: Rc::new(DataType::I32), size: Some(3) }.is_implicitly_castable_to(&DataType::Array { element_type: Rc::new(DataType::U16), size: Some(3) }, Some(&b)));
@@ -746,4 +746,3 @@ mod tests {
         }
 
 }
-
