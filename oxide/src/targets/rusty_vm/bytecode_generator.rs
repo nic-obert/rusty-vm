@@ -7,6 +7,7 @@ use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 use rusty_vm_lib::registers::{Registers, REGISTER_COUNT, REGISTER_SIZE};
 
 use crate::irc::{IROperator, IRValue, LabelID, TnID};
+use crate::lang::data_types::{DataType, LiteralValue, BOOL_SIZE, CHAR_SIZE, F32_SIZE, F64_SIZE, I16_SIZE, I32_SIZE, I64_SIZE, I8_SIZE, ISIZE_SIZE, U16_SIZE, U32_SIZE, U64_SIZE, U8_SIZE, USIZE_SIZE};
 use crate::symbol_table::{StaticID, SymbolTable};
 use crate::flow_analyzer::FunctionGraph;
 
@@ -85,7 +86,7 @@ fn generate_static_data_section(symbol_table: &SymbolTable, static_address_map: 
 
 
 /// Generate the code section, equivalent to .text in assembly
-fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bytecode: &mut ByteCode, label_address_map: &mut LabelAddressMap) {
+fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bytecode: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap) {
 
     for function_graph in function_graphs {
 
@@ -96,7 +97,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
         let mut reg_table = UsedRegisterTable::new();
 
         // Keeps track of where the actual value of Tns is stored
-        let mut tn_location: HashMap<TnID, TnLocation> = HashMap::new();
+        let mut tn_locations: HashMap<TnID, TnLocation> = HashMap::new();
 
         // TODO: initialize the stack frame
 
@@ -120,17 +121,8 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     }
                 }
 
-                macro_rules! set_reg_const_usize {
-                    ($reg:path, $val:expr) => {
-                        add_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
-                        add_byte!(mem::size_of::<usize>());
-                        add_byte!($reg);
-                        bytecode.extend(($val as usize).to_le_bytes());
-                    }
-                }
-
                 macro_rules! move_into_reg_from_reg {
-                    ($reg1:path, $reg2:path) => {
+                    ($reg1:expr, $reg2:expr) => {
                         add_byte!(ByteCodes::MOVE_INTO_REG_FROM_REG);
                         add_byte!($reg1);
                         add_byte!($reg2);
@@ -154,8 +146,6 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     }
                 }
 
-                // macro_rules! push_from_
-
                 macro_rules! placeholder_label {
                     ($label:ident) => {
                         labels_to_resolve.push(bytecode.len());
@@ -163,10 +153,101 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     }
                 }
 
+                macro_rules! move_into_reg_from_const {
+                    ($handled_size:expr, $target_reg:expr, $source:expr) => {
+                        add_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        add_byte!($handled_size);
+                        add_byte!($target_reg);
+                        bytecode.extend(($source).to_le_bytes());
+                    }
+                }
+
+                macro_rules! move_into_reg_from_addr_in_reg {
+                    ($handled_size:expr, $target_reg:expr, $source_reg:expr) => {
+                        add_byte!(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
+                        add_byte!($handled_size);
+                        add_byte!($target_reg);
+                        add_byte!($source_reg);
+                    }
+                }
+
+                macro_rules! load_numeric_arg {
+                    (LEFT, $tn_location:expr, $size:expr) => {
+                        match $tn_location {
+                            TnLocation::Register(reg) => {
+                                // mov r1 reg
+                                move_into_reg_from_reg!(Registers::R1, *reg);
+                            },
+                            TnLocation::Stack(offset) => {
+                                // Calculate the stack address of the operand
+                                // mov r1 sbp
+                                // mov8 r2 abs(offset)
+                                move_into_reg_from_reg!(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
+                                move_into_reg_from_const!(ADDRESS_SIZE, Registers::R2, (*offset).abs());
+                                if *offset < 0 {
+                                    // isub
+                                    add_byte!(ByteCodes::INTEGER_SUB);
+                                } else {
+                                    // iadd
+                                    add_byte!(ByteCodes::INTEGER_ADD);
+                                }
+                                // Load the operand value
+                                // mov(n) r1 [r1]
+                                move_into_reg_from_addr_in_reg!($size, Registers::R1, Registers::R1);
+                            },
+                        }
+                    }
+                }
+
                 match &ir_node.op {
 
                     IROperator::Add { target, left, right } => {
-                        // TODO: we need to keep a record of which Tns map to which memory address in the stack.
+
+                        match left {
+
+                            IRValue::Tn(tn) => {
+
+                                let tn_location = tn_locations.get(&tn.id).unwrap();
+
+                                match tn.data_type.as_ref() {
+
+                                    DataType::I8 => load_numeric_arg!(LEFT, tn_location, I8_SIZE),
+                                    DataType::I16 => load_numeric_arg!(LEFT, tn_location, I16_SIZE),
+                                    DataType::I32 => load_numeric_arg!(LEFT, tn_location, I32_SIZE),
+                                    DataType::I64 => load_numeric_arg!(LEFT, tn_location, I64_SIZE),
+                                    DataType::U8 => load_numeric_arg!(LEFT, tn_location, U8_SIZE),
+                                    DataType::U16 => load_numeric_arg!(LEFT, tn_location, U16_SIZE),
+                                    DataType::U32 => load_numeric_arg!(LEFT, tn_location, U32_SIZE),
+                                    DataType::U64 => load_numeric_arg!(LEFT, tn_location, U64_SIZE),
+                                    DataType::F32 => load_numeric_arg!(LEFT, tn_location, F32_SIZE),
+                                    DataType::F64 => load_numeric_arg!(LEFT, tn_location, F64_SIZE),
+                                    DataType::Usize => load_numeric_arg!(LEFT, tn_location, USIZE_SIZE),
+                                    DataType::Isize => load_numeric_arg!(LEFT, tn_location, ISIZE_SIZE),
+                                    // References are usize-sized numbers
+                                    DataType::Ref { .. } => load_numeric_arg!(LEFT, tn_location, USIZE_SIZE),
+
+                                    DataType::Bool |
+                                    DataType::Char |
+                                    DataType::String |
+                                    DataType::Array { .. } |
+                                    DataType::StringRef { .. } |
+                                    DataType::RawString { .. } |
+                                    DataType::Function { .. } |
+                                    DataType::Void |
+                                    DataType::Unspecified
+                                        => unreachable!(),
+                                }
+                            },
+                            IRValue::Const(_) => todo!(),
+                        }
+
+                        // Be careful because performing calculations to load the right argument into r2 will invalidate r1, which contains the left argument
+                        match right {
+                            IRValue::Tn(_) => todo!(),
+                            IRValue::Const(_) => todo!(),
+                        }
+
+                        todo!("Perform the addition and move into target")
                     },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),
@@ -239,7 +320,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                                 registers_to_restore.push(*arg_reg);
                                                 push_from_reg!(*arg_reg);
                                                 // Keep track of the moved value
-                                                tn_location.insert(tn.id, TnLocation::Stack(stack_frame_offset)).expect("Tn should exist");
+                                                tn_locations.insert(tn.id, TnLocation::Stack(stack_frame_offset)).expect("Tn should exist");
                                             }
 
                                             push_from_reg!(*arg_reg);
@@ -249,7 +330,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                                     // The arg must be passed on the stack because it's either too large for a register or there aren't enough registers for all args
 
-                                    match tn_location.get(&tn.id).unwrap() {
+                                    match tn_locations.get(&tn.id).unwrap() {
 
                                         &TnLocation::Register(reg) => {
                                             // The value in the register is to be pushed onto the stack
@@ -264,7 +345,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                             // mov8 r1 sbp
                                             // mov8 r2 abs(offset)
                                             move_into_reg_from_reg!(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                                            set_reg_const_usize!(Registers::R2, (offset).abs());
+                                            move_into_reg_from_const!(ADDRESS_SIZE, Registers::R2, (offset).abs());
                                             if offset < 0 {
                                                 // iadd
                                                 add_byte!(ByteCodes::INTEGER_ADD);
@@ -291,11 +372,49 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                 },
 
                                 IRValue::Const(v) => {
-                                    // The literal value is to be copied onto the stack
-                                    // pushsp8 sizeof(arg)
-                                    // mov r1 stp
-                                    // mov8 r2
-                                    //
+                                    // The literal value has to be included in the static bytecode and copied onto the stack
+                                    // Based on the data type, a different approach is used to include the value into the bytecode
+                                    // Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly
+                                    let stack_offset = match v.as_ref() {
+                                        LiteralValue::Bool(b) => {
+                                            // push1 b
+                                            add_byte!(ByteCodes::PUSH_FROM_CONST);
+                                            add_byte!(BOOL_SIZE);
+                                            add_byte!(*b);
+                                            BOOL_SIZE as isize
+                                        },
+                                        LiteralValue::Char(ch) => {
+                                            // push1 ch
+                                            add_byte!(ByteCodes::PUSH_FROM_CONST);
+                                            add_byte!(CHAR_SIZE);
+                                            add_byte!(*ch);
+                                            CHAR_SIZE as isize
+                                        },
+                                        LiteralValue::StaticString(string_id) => {
+                                            // push8 address of static string
+                                            add_byte!(ByteCodes::PUSH_FROM_CONST);
+                                            add_byte!(ADDRESS_SIZE);
+                                            let static_addr = *static_address_map.get(string_id).unwrap();
+                                            bytecode.extend(static_addr.to_le_bytes());
+                                            ADDRESS_SIZE as isize
+                                        },
+                                        LiteralValue::Array { element_type, items } => {
+                                            todo!()
+                                        },
+                                        LiteralValue::Numeric(n) => {
+                                            // push(sizeof(n)) n
+                                            add_byte!(ByteCodes::PUSH_FROM_CONST);
+                                            todo!("Need to know which numeric type this is to push the correct amount of bytes. Ideally, Number would keep track of which numeric variant it represents")
+                                        },
+                                        LiteralValue::Ref { target, .. } => {
+                                            // push8 address
+                                            add_byte!(ByteCodes::PUSH_FROM_CONST);
+                                            add_byte!(ADDRESS_SIZE);
+                                            // bytecode.extend(iter)
+                                            todo!("Need to know what the ref points to")
+                                        },
+                                    };
+                                    stack_frame_offset -= stack_offset;
                                 },
                             }
 
@@ -308,14 +427,14 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     IROperator::Return => todo!(),
 
                     &IROperator::PushScope { bytes } => {
-                        set_reg_const_usize!(Registers::R1, bytes);
+                        move_into_reg_from_const!(ADDRESS_SIZE, Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         // The stack grows downwards
                         add_byte!(ByteCodes::INTEGER_SUB);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
                     &IROperator::PopScope { bytes } => {
-                        set_reg_const_usize!(Registers::R1, bytes);
+                        move_into_reg_from_const!(ADDRESS_SIZE, Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         add_byte!(ByteCodes::INTEGER_ADD);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
@@ -364,7 +483,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     generate_static_data_section(symbol_table, &mut static_address_map, &mut bytecode);
 
-    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map);
+    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map);
 
     resolve_unresolved_addresses(labels_to_resolve, label_address_map, &mut bytecode);
 

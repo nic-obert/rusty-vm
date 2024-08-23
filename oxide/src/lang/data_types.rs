@@ -10,6 +10,22 @@ use rusty_vm_lib::vm::ADDRESS_SIZE;
 use self::dt_macros::numeric_pattern;
 
 
+pub const BOOL_SIZE: usize = 1;
+pub const CHAR_SIZE: usize = 1;
+pub const I8_SIZE: usize = 1;
+pub const I16_SIZE: usize = 2;
+pub const I32_SIZE: usize = 4;
+pub const I64_SIZE: usize = 8;
+pub const U8_SIZE: usize = 1;
+pub const U16_SIZE: usize = 2;
+pub const U32_SIZE: usize = 4;
+pub const U64_SIZE: usize = 8;
+pub const F32_SIZE: usize = 4;
+pub const F64_SIZE: usize = 8;
+pub const USIZE_SIZE: usize = ADDRESS_SIZE;
+pub const ISIZE_SIZE: usize = ADDRESS_SIZE;
+
+
 #[derive(Clone, PartialEq)]
 pub enum DataType {
 
@@ -95,21 +111,6 @@ impl DataType {
 
     /// Return the size of the data type in bytes, if it is known at compile-time.
     pub fn static_size(&self) -> Result<usize, ()> {
-
-        const BOOL_SIZE: usize = 1;
-        const CHAR_SIZE: usize = 1;
-        const I8_SIZE: usize = 1;
-        const I16_SIZE: usize = 2;
-        const I32_SIZE: usize = 4;
-        const I64_SIZE: usize = 8;
-        const U8_SIZE: usize = 1;
-        const U16_SIZE: usize = 2;
-        const U32_SIZE: usize = 4;
-        const U64_SIZE: usize = 8;
-        const F32_SIZE: usize = 4;
-        const F64_SIZE: usize = 8;
-        const USIZE_SIZE: usize = ADDRESS_SIZE;
-        const ISIZE_SIZE: usize = ADDRESS_SIZE;
 
         Ok(match self {
             DataType::Bool => BOOL_SIZE,
