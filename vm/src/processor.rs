@@ -2,6 +2,7 @@
 
 use std::cmp::min;
 use std::io::{Read, Write};
+use std::mem;
 use std::io;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -34,6 +35,7 @@ fn is_msb_set(value: u64) -> bool {
 
 /// Converts a byte array to an integer
 fn bytes_to_int(bytes: &[Byte], handled_size: Byte) -> u64 {
+    // TODO: don't use try_into. use a more performant method that doesn't return an option. panic is ok here
     match handled_size {
         1 => bytes[0] as u64,
         2 => u16::from_le_bytes(bytes.try_into().unwrap()) as u64,
@@ -410,6 +412,7 @@ impl Processor {
 
     /// Move a number of bytes from the given register into the given address
     fn move_from_register_into_address(&mut self, src_reg: Registers, dest_address: Address, handled_size: Byte) {
+
         let value = self.registers.get(src_reg);
 
         match handled_size {
@@ -430,6 +433,14 @@ impl Processor {
     }
 
 
+    /// Get the next item of type `T` in the bytecode and update the program counter
+    fn get_next_item<T>(&mut self) -> T {
+        let pc = self.registers.pc();
+        self.registers.inc_pc(mem::size_of::<T>());
+        self.memory.read::<T>(pc)
+    }
+
+
     /// Get the next byte in the bytecode
     fn get_next_byte(&mut self) -> Byte {
         let pc = self.registers.pc();
@@ -440,7 +451,7 @@ impl Processor {
 
     fn run(&mut self) {
         loop {
-            let opcode = ByteCodes::from(self.get_next_byte());
+            let opcode = self.get_next_item();
             self.handle_instruction(opcode);
         }
     }
@@ -455,7 +466,7 @@ impl Processor {
 
         loop {
 
-            let opcode = ByteCodes::from(self.get_next_byte());
+            let opcode = self.get_next_item();
 
             println!();
 
@@ -502,7 +513,7 @@ impl Processor {
 
     fn run_verbose(&mut self) {
         loop {
-            let opcode = ByteCodes::from(self.get_next_byte());
+            let opcode = self.get_next_item();
             println!("PC: {}, opcode: {}", self.registers.pc(), opcode);
             self.handle_instruction(opcode);
         }
@@ -895,6 +906,64 @@ impl Processor {
                 let src_address = self.get_next_address();
 
                 self.memory.memcpy(src_address, dest_address, size as usize);
+            },
+
+            ByteCodes::MEM_COPY_BLOCK_REG => {
+                let dest_address = self.registers.get(Registers::R1) as Address;
+                let src_address = self.registers.get(Registers::R2) as Address;
+                let size_reg = Registers::from(self.get_next_byte());
+                let copy_size = self.registers.get(size_reg) as usize;
+
+                self.memory.memcpy(src_address, dest_address, copy_size);
+            },
+
+            ByteCodes::MEM_COPY_BLOCK_REG_SIZED => {
+                let size = self.get_next_byte();
+                let dest_address = self.registers.get(Registers::R1) as Address;
+                let src_address = self.registers.get(Registers::R2) as Address;
+                let size_reg = Registers::from(self.get_next_byte());
+                let copy_size = self.registers.get_masked(size_reg, size) as usize;
+
+                self.memory.memcpy(src_address, dest_address, copy_size);
+            },
+
+            ByteCodes::MEM_COPY_BLOCK_ADDR_IN_REG => {
+                let size = self.get_next_byte();
+                let dest_address = self.registers.get(Registers::R1) as Address;
+                let src_address = self.registers.get(Registers::R2) as Address;
+                let size_reg = Registers::from(self.get_next_byte());
+                let size_address = self.registers.get(size_reg) as Address;
+                let copy_size = bytes_to_int(
+                    self.memory.get_bytes(size_address, size as usize),
+                    size
+                ) as usize;
+
+                self.memory.memcpy(src_address, dest_address, copy_size);
+            },
+
+            ByteCodes::MEM_COPY_BLOCK_CONST => {
+                let size = self.get_next_byte();
+                let dest_address = self.registers.get(Registers::R1) as Address;
+                let src_address = self.registers.get(Registers::R2) as Address;
+                let copy_size =  bytes_to_int(
+                    self.get_next_bytes(size as usize),
+                    size
+                ) as usize;
+
+                self.memory.memcpy(src_address, dest_address, copy_size);
+            },
+
+            ByteCodes::MEM_COPY_BLOCK_ADDR_LITERAL => {
+                let size = self.get_next_byte();
+                let dest_address = self.registers.get(Registers::R1) as Address;
+                let src_address = self.registers.get(Registers::R2) as Address;
+                let size_address = self.get_next_address();
+                let copy_size = bytes_to_int(
+                    self.memory.get_bytes(size_address, size as usize),
+                    size
+                ) as usize;
+
+                self.memory.memcpy(src_address, dest_address, copy_size);
             },
 
             ByteCodes::PUSH_FROM_REG => {

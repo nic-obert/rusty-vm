@@ -3,10 +3,10 @@ use std::mem;
 
 use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::byte_code::ByteCodes;
-use rusty_vm_lib::vm::Address;
-use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
+use rusty_vm_lib::registers::{Registers, REGISTER_COUNT, REGISTER_SIZE};
 
-use crate::irc::{IROperator, LabelID, TnID};
+use crate::irc::{IROperator, IRValue, LabelID, TnID};
 use crate::symbol_table::{StaticID, SymbolTable};
 use crate::flow_analyzer::FunctionGraph;
 
@@ -15,43 +15,50 @@ type LabelAddressMap = HashMap<LabelID, Address>;
 type StaticAddressMap = HashMap<StaticID, Address>;
 
 
-// struct GeneralPurposeRegisterSet {
-//     registers: Vec<bool>,
-// }
+struct ArgsTable {
 
-// impl GeneralPurposeRegisterSet {
-
-//     pub fn new() -> Self {
-//         Self {
-//             registers: vec![false; GENERAL_PURPOSE_REGISTER_COUNT]
-//         }
-//     }
+}
 
 
-//     pub fn set(&mut self, reg: Registers) {
-//         self.registers[reg as usize] = true;
-//     }
+struct UsedRegisterTable {
+    registers: [bool; REGISTER_COUNT]
+}
+
+impl UsedRegisterTable {
+
+    pub const fn new() -> Self {
+        Self {
+            registers: [false; REGISTER_COUNT]
+        }
+    }
 
 
-//     pub fn is_set(&mut self, reg: Registers) -> bool {
-//         self.registers[reg as usize]
-//     }
+    pub const fn is_in_use(&self, reg: Registers) -> bool {
+        self.registers[reg as usize]
+    }
 
 
-//     pub fn clear(&mut self, reg: Registers) {
-//         self.registers[reg as usize] = false;
-//     }
+    pub fn set_in_use(&mut self, reg: Registers) {
+        self.registers[reg as usize] = true;
+    }
 
-// }
 
-type Offset = usize;
+    pub fn set_unused(&mut self, reg: Registers) {
+        self.registers[reg as usize] = false;
+    }
+
+}
+
+
+type StackOffset = isize;
 
 enum TnLocation {
 
     /// The value of the Tn is stored inside a register
     Register (Registers),
     /// The value of the Tn is stores on the stack at an offset
-    Stack (Offset)
+    /// TODO: brobably this doesn't need to be an isize. A i32 or i16 would be good enough
+    Stack (StackOffset)
 
 }
 
@@ -86,35 +93,53 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
         // defining a calling convention is thus necessary at this point.
         // This function should have access to the function's signature
 
+        let mut reg_table = UsedRegisterTable::new();
+
         // Keeps track of where the actual value of Tns is stored
         let mut tn_location: HashMap<TnID, TnLocation> = HashMap::new();
+
+        // TODO: initialize the stack frame
+
+        // Keeps a record of the current offset from the stack frame base.
+        // This is used to keep track of where Tns' real values are located when pushed onto the stack
+        let mut stack_frame_offset: StackOffset = 0;
 
         for block in function_graph.code_blocks {
 
             for ir_node in block.borrow().code.iter() {
 
-                macro_rules! pushbc {
-                    ($instruction:path) => {
-                        bytecode.push($instruction as u8);
+                macro_rules! add_byte {
+                    ($byte:expr) => {
+                        bytecode.push($byte as u8);
                     }
                 }
 
                 macro_rules! set_reg_const {
                     ($reg:path, $val:expr) => {
-                        pushbc!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
+                        add_byte!(ByteCodes::MOVE_INTO_REG_FROM_CONST);
                         bytecode.extend(mem::size_of::<usize>().to_le_bytes());
-                        pushbc!($reg);
+                        add_byte!($reg);
                         bytecode.extend(($val).to_le_bytes());
                     }
                 }
 
                 macro_rules! move_into_reg_from_reg {
                     ($reg1:path, $reg2:path) => {
-                        pushbc!(ByteCodes::MOVE_INTO_REG_FROM_REG);
-                        pushbc!($reg1);
-                        pushbc!($reg2);
+                        add_byte!(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                        add_byte!($reg1);
+                        add_byte!($reg2);
                     }
                 }
+
+                macro_rules! push_from_reg {
+                    ($reg:expr) => {
+                        add_byte!(ByteCodes::PUSH_FROM_REG);
+                        add_byte!($reg);
+                        stack_frame_offset -= REGISTER_SIZE as StackOffset;
+                    }
+                }
+
+                // macro_rules! push_from_
 
                 macro_rules! placeholder_label {
                     ($label:ident) => {
@@ -152,7 +177,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                     IROperator::DerefCopy { target, source } => todo!(),
 
                     IROperator::Jump { target } => {
-                        pushbc!(ByteCodes::JUMP);
+                        add_byte!(ByteCodes::JUMP);
                         placeholder_label!(target);
                     },
 
@@ -167,9 +192,66 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                     IROperator::Call { return_target, return_label, callable, args } => {
 
-                        for arg in args {
-                            todo!()
+                        let arg_registers = [
+                            Registers::R3,
+                            Registers::R4,
+                            Registers::R5,
+                            Registers::R6,
+                            Registers::R7
+                        ];
+
+                        let mut arg_register_it = arg_registers.iter();
+
+                        // TODO: this may be more efficient to implement as a stack array with a fixed size of `arg_registers.len()`
+                        let mut registers_to_restore: Vec<Registers> = Vec::new();
+
+                        // Args are pushed in reverse order
+                        for arg in args.iter().rev() {
+
+                            match arg {
+
+                                IRValue::Tn(tn) => {
+
+                                    if tn.data_type.static_size().expect("Size should be known by now") <= REGISTER_SIZE {
+                                        if let Some(arg_reg) = arg_register_it.next() {
+                                            // The arg will be passed through a register
+
+                                            if reg_table.is_in_use(*arg_reg) {
+                                                // If the register is currently in use, save its current state to the stack and restore it after the function has returned
+                                                registers_to_restore.push(*arg_reg);
+                                                push_from_reg!(*arg_reg);
+                                                // Keep track of the moved value
+                                                tn_location.insert(tn.id, TnLocation::Stack(stack_frame_offset)).expect("Tn should exist");
+                                            }
+
+                                            push_from_reg!(*arg_reg);
+                                            continue;
+                                        }
+                                    }
+
+                                    // The arg must be passed on the stack because it's either too large for a register or there aren't enough registers for all args
+
+                                    match tn_location.get(&tn.id).unwrap() {
+
+                                        TnLocation::Register(reg) => {
+                                            // The value in the register is to be pushed onto the stack
+                                            push_from_reg!(*reg);
+                                        },
+
+                                        TnLocation::Stack(offset) => {
+                                            // The value on the stack is to be copied onto the stack
+
+                                        },
+                                    }
+                                },
+
+                                IRValue::Const(v) => todo!(),
+                            }
+
                         }
+
+                        // Clean up after the function has returned (restore previous states)
+                        todo!()
                     },
 
                     IROperator::Return => todo!(),
@@ -178,18 +260,18 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                         set_reg_const!(Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
                         // The stack grows downwards
-                        pushbc!(ByteCodes::INTEGER_SUB);
+                        add_byte!(ByteCodes::INTEGER_SUB);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
                     IROperator::PopScope { bytes } => {
                         set_reg_const!(Registers::R1, bytes);
                         move_into_reg_from_reg!(Registers::R2, Registers::STACK_TOP_POINTER);
-                        pushbc!(ByteCodes::INTEGER_ADD);
+                        add_byte!(ByteCodes::INTEGER_ADD);
                         move_into_reg_from_reg!(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
 
                     IROperator::Nop => {
-                        pushbc!(ByteCodes::NO_OPERATION);
+                        add_byte!(ByteCodes::NO_OPERATION);
                     },
                 }
             }
@@ -240,3 +322,13 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     bytecode
 }
+
+/*
+    TODO
+    Possible optimizations:
+
+    Determine if a function performs any call to other functions. If a function doesn't perform any further function call, there's no need to increment
+    the stack pointer, since local stack variables are accessed through an offset from the stack frame base.
+
+
+*/

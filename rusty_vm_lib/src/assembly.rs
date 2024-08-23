@@ -664,6 +664,46 @@ declare_asm_instructions! {
                 Label = MOVE_INTO_ADDR_LITERAL_FROM_CONST
             )
         ],
+    memcpyb size:0 argc:1
+        [
+            Register = MEM_COPY_BLOCK_REG
+        ],
+    memcpyb1 size:1 argc:1
+        [
+            Register = MEM_COPY_BLOCK_REG_SIZED,
+            AddressInRegister = MEM_COPY_BLOCK_ADDR_IN_REG,
+            Number = MEM_COPY_BLOCK_CONST,
+            AddressLiteral = MEM_COPY_BLOCK_ADDR_LITERAL,
+            AddressAtLabel = MEM_COPY_BLOCK_ADDR_LITERAL,
+            Label = MEM_COPY_BLOCK_CONST
+        ],
+    memcpyb2 size:2 argc:1
+        [
+            Register = MEM_COPY_BLOCK_REG_SIZED,
+            AddressInRegister = MEM_COPY_BLOCK_ADDR_IN_REG,
+            Number = MEM_COPY_BLOCK_CONST,
+            AddressLiteral = MEM_COPY_BLOCK_ADDR_LITERAL,
+            AddressAtLabel = MEM_COPY_BLOCK_ADDR_LITERAL,
+            Label = MEM_COPY_BLOCK_CONST
+        ],
+    memcpyb4 size:4 argc:1
+        [
+            Register = MEM_COPY_BLOCK_REG_SIZED,
+            AddressInRegister = MEM_COPY_BLOCK_ADDR_IN_REG,
+            Number = MEM_COPY_BLOCK_CONST,
+            AddressLiteral = MEM_COPY_BLOCK_ADDR_LITERAL,
+            AddressAtLabel = MEM_COPY_BLOCK_ADDR_LITERAL,
+            Label = MEM_COPY_BLOCK_CONST
+        ],
+    memcpyb8 size:8 argc:1
+        [
+            Register = MEM_COPY_BLOCK_REG_SIZED,
+            AddressInRegister = MEM_COPY_BLOCK_ADDR_IN_REG,
+            Number = MEM_COPY_BLOCK_CONST,
+            AddressLiteral = MEM_COPY_BLOCK_ADDR_LITERAL,
+            AddressAtLabel = MEM_COPY_BLOCK_ADDR_LITERAL,
+            Label = MEM_COPY_BLOCK_CONST
+        ],
     push size:0 argc:1
         [
             Register = PUSH_FROM_REG
