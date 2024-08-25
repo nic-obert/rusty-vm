@@ -490,6 +490,23 @@ impl Number {
     }
 
 
+    // TODO: Heap allocations are overkill for this
+    pub fn to_le_bytes(&self) -> Box<[u8]> {
+        match self {
+            Number::I8(n) => n.to_le_bytes().into(),
+            Number::I16(n) => n.to_le_bytes().into(),
+            Number::I32(n) => n.to_le_bytes().into(),
+            Number::I64(n) => n.to_le_bytes().into(),
+            Number::U8(n) => n.to_le_bytes().into(),
+            Number::U16(n) => n.to_le_bytes().into(),
+            Number::U32(n) => n.to_le_bytes().into(),
+            Number::U64(n) => n.to_le_bytes().into(),
+            Number::F32(n) => n.to_le_bytes().into(),
+            Number::F64(n) => n.to_le_bytes().into(),
+        }
+    }
+
+
     pub fn try_parse_unsigned_int(string: &str) -> Result<Self, ParseIntError> {
 
         let n = string.parse::<u64>()?;
@@ -779,7 +796,6 @@ impl Display for LiteralValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::rc::Rc;
 
     use super::DataType;
 
@@ -794,6 +810,26 @@ mod tests {
             assert!(!DataType::is_implicitly_castable_to(&$a, &$b, None, $is_literal_value))
         };
     }
+
+
+    #[test]
+    fn check_number_size_consistency() {
+
+        assert_eq!(Number::I8(0).data_type().static_size().unwrap(), DataType::I8.static_size().unwrap());
+        assert_eq!(Number::I16(0).data_type().static_size().unwrap(), DataType::I16.static_size().unwrap());
+        assert_eq!(Number::I32(0).data_type().static_size().unwrap(), DataType::I32.static_size().unwrap());
+        assert_eq!(Number::I64(0).data_type().static_size().unwrap(), DataType::I64.static_size().unwrap());
+        assert_eq!(Number::I64(0).data_type().static_size().unwrap(), DataType::Isize.static_size().unwrap());
+        assert_eq!(Number::U8(0).data_type().static_size().unwrap(), DataType::U8.static_size().unwrap());
+        assert_eq!(Number::U16(0).data_type().static_size().unwrap(), DataType::U16.static_size().unwrap());
+        assert_eq!(Number::U32(0).data_type().static_size().unwrap(), DataType::U32.static_size().unwrap());
+        assert_eq!(Number::U64(0).data_type().static_size().unwrap(), DataType::U64.static_size().unwrap());
+        assert_eq!(Number::U64(0).data_type().static_size().unwrap(), DataType::Usize.static_size().unwrap());
+        assert_eq!(Number::F32(0.0).data_type().static_size().unwrap(), DataType::F32.static_size().unwrap());
+        assert_eq!(Number::F64(0.0).data_type().static_size().unwrap(), DataType::F64.static_size().unwrap());
+
+    }
+
 
     #[test]
     fn implicit_casts() {

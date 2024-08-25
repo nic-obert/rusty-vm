@@ -111,7 +111,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                 macro_rules! add_byte {
                     ($byte:expr) => {
-                        bytecode.push($byte as u8);
+                        bytecode.push($byte as u8)
                     }
                 }
 
@@ -246,7 +246,8 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                         move_into_reg_from_const!(CHAR_SIZE, Registers::R1, *ch as u8);
                                     },
                                     LiteralValue::Numeric(n) => {
-                                        todo!()
+                                        // mov(sizeof(n)) r1 n
+                                        move_into_reg_from_const!(n.data_type().static_size().unwrap() as u8, Registers::R1, n);
                                     },
                                     LiteralValue::Ref { target, .. } => todo!(),
 
@@ -421,7 +422,10 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                         LiteralValue::Numeric(n) => {
                                             // push(sizeof(n)) n
                                             add_byte!(ByteCodes::PUSH_FROM_CONST);
-                                            todo!("Need to know which numeric type this is to push the correct amount of bytes. Ideally, Number would keep track of which numeric variant it represents")
+                                            let number_size = n.data_type().static_size().unwrap();
+                                            add_byte!(number_size as u8);
+                                            bytecode.extend(n.to_le_bytes());
+                                            number_size as isize
                                         },
                                         LiteralValue::Ref { target, .. } => {
                                             // push8 address
