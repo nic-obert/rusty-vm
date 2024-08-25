@@ -78,7 +78,7 @@ pub mod dt_macros {
 
     macro_rules! unsigned_integer_pattern {
         () => {
-            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 | DataType::Usize
         };
     }
     pub(crate) use unsigned_integer_pattern;
@@ -86,7 +86,7 @@ pub mod dt_macros {
 
     macro_rules! signed_integer_pattern {
         () => {
-            DataType::I8 | DataType::I16 | DataType::I32 | DataType::I64
+            DataType::I8 | DataType::I16 | DataType::I32 | DataType::I64 | DataType::Isize
         };
     }
     pub(crate) use signed_integer_pattern;
@@ -149,7 +149,7 @@ impl DataType {
 
     pub fn is_castable_to(&self, target: &DataType) -> bool {
 
-        self.is_implicitly_castable_to(target, None)
+        self.is_implicitly_castable_to(target, None, false)
         || match self {
 
             // 1-byte integers are castable to chars and other numbers
@@ -180,7 +180,7 @@ impl DataType {
                     // An array is castable to another array if the element type is implicitly castable to the target element type.
                     // Also, the arrays must be of the same size.
                     size == target_size
-                    && element_type.is_implicitly_castable_to(target_element_type, None)
+                    && element_type.is_implicitly_castable_to(target_element_type, None, false)
                 } else { false },
 
             // Other type casts are not allowed.
@@ -190,7 +190,8 @@ impl DataType {
 
 
     /// Return whether `self` is implicitly castable to `target`.
-    pub fn is_implicitly_castable_to(&self, target: &DataType, self_value: Option<&LiteralValue>) -> bool {
+    /// Literal values have a more flexible implicit casting because they're supposed to conform to the symbol they're assigned to.
+    pub fn is_implicitly_castable_to(&self, target: &DataType, self_value: Option<&LiteralValue>, is_literal_value: bool) -> bool {
 
         // A data type is always implicitly castable to itself
         if self == target {
@@ -209,14 +210,14 @@ impl DataType {
                 src_size == target_size
                 && (
                     // Uninitialized array
-                    matches!(**element_type, DataType::Void)
+                    matches!(**element_type, DataType::Void) // TODO: this should be DataType::Unspecified
                     // Check if the element type is implicitly castable to the target element type.
-                    || element_type.is_implicitly_castable_to(target_element_type, None)
+                    || element_type.is_implicitly_castable_to(target_element_type, None, false)
                     // Else, check if all the items in the array are implicitly castable to the target element type.
                     || self_value.map(|value| match value {
                         LiteralValue::Array { items, .. } => items.iter().all(|item|
                             // Is `element_type` implicitly castable to `target_element_type` if its value is `value`?
-                            element_type.is_implicitly_castable_to(target_element_type, Some(item))
+                            element_type.is_implicitly_castable_to(target_element_type, Some(item), false)
                         ),
                         _ => false
                     }).unwrap_or(false)
@@ -226,71 +227,52 @@ impl DataType {
             },
 
             // If target type is x, what types can be implicitly cast to x?
-            _ => match target {
-                // Disallow implicit numeric type casts, for now
-                // DataType::I8 => self_value.map(|value| match value {
-                //     LiteralValue::Numeric(Number::Int(n)) => *n >= std::i8::MIN as i64 && *n <= std::i8::MAX as i64,
-                //     LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i8::MAX as u64,
-                //     _ => false
-                // }).unwrap_or(false),
+            _ if is_literal_value => match target {
 
-                // DataType::I16 => matches!(self, DataType::I8 | DataType::U8)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Int(n)) => *n >= std::i16::MIN as i64 && *n <= std::i16::MAX as i64,
-                //         LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i16::MAX as u64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                DataType::I8 => self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::U8(n)) => *n <= i8::MAX as u8,
+                        _ => false
+                    }).unwrap_or(false),
 
-                // DataType::I32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Int(n)) => *n >= std::i32::MIN as i64 && *n <= std::i32::MAX as i64,
-                //         LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i32::MAX as u64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                DataType::I16 => matches!(self, DataType::I8 | DataType::U8)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::U16(n)) => *n <= std::i16::MAX as u16,
+                        _ => false
+                    }).unwrap_or(false),
 
-                // DataType::I64 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Uint(n)) => *n <= std::i64::MAX as u64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                DataType::I32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::U32(n)) => *n <= std::i32::MAX as u32,
+                        _ => false
+                    }).unwrap_or(false),
 
-                // DataType::U8 => self_value.map(|value| match value {
-                //     LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u8::MAX as i64,
-                //     LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u8::MAX as u64,
-                //     _ => false
-                // }).unwrap_or(false),
+                DataType::Isize |
+                DataType::I64
+                => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32)
+                    || self_value.map(|value| match value {
+                        LiteralValue::Numeric(Number::U64(n)) => *n <= std::i64::MAX as u64,
+                        _ => false
+                    }).unwrap_or(false),
 
-                // DataType::U16 => matches!(self, DataType::U8)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u16::MAX as i64,
-                //         LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u16::MAX as u64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                // Unsigned integer types won't need to be implicitly cast from a strictly literal signed integer because the tokenizer will interpret those numbers as unsigned integers.
+                // For example, the tokenizer won't treat the literal number `4` as a signed integer.
+                DataType::U8 => false,
 
-                // DataType::U32 => matches!(self, DataType::U8 | DataType::U16)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Int(n)) => *n >= 0 && *n <= std::u32::MAX as i64,
-                //         LiteralValue::Numeric(Number::Uint(n)) => *n <= std::u32::MAX as u64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                DataType::U16 => matches!(self, DataType::U8),
 
-                // DataType::U64 => matches!(self, DataType::U8 | DataType::U16 | DataType::U32)
-                // || self_value.map(|value| match value {
-                //     LiteralValue::Numeric(Number::Int(n)) => *n >= 0,
-                //     _ => false
-                // }).unwrap_or(false),
+                DataType::U32 => matches!(self, DataType::U8 | DataType::U16),
 
-                // DataType::F32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32 | DataType::I64 | DataType::U64)
-                //     || self_value.map(|value| match value {
-                //         LiteralValue::Numeric(Number::Float(n)) => *n >= std::f32::MIN as f64 && *n <= std::f32::MAX as f64,
-                //         _ => false
-                //     }).unwrap_or(false),
+                DataType::U64 |
+                DataType::Usize
+                    => matches!(self, DataType::U8 | DataType::U16 | DataType::U32),
 
-                // // All numeric types can be cast to f64 because f64 is the largest numeric type.
-                // DataType::F64 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32 | DataType::I64 | DataType::U64 | DataType::F32),
+                DataType::F64 => matches!(self, DataType::F32),
+
 
                 _ => false
-            }
+            },
+
+            _ => false
         }
     }
 
@@ -481,10 +463,13 @@ impl Number {
     }
 
 
-    pub fn assume_u64(&self) -> u64 {
+    pub fn assume_usize_like(&self) -> usize {
         match self {
-            Number::U64(n) => *n as u64,
-            _ => unreachable!("Cannot assume uint value from {:?}", self)
+            Number::U8(n) => *n as usize,
+            Number::U16(n) => *n as usize,
+            Number::U32(n) => *n as usize,
+            Number::U64(n) => *n as usize,
+            _ => unreachable!("Cannot assume unsigned integer value from {:?}", self)
         }
     }
 
@@ -805,45 +790,45 @@ mod tests {
     }
 
     macro_rules! assert_not_implicitly_castable {
-        ($a:expr, $b:expr) => {
-            assert!(!DataType::is_implicitly_castable_to(&$a, &$b, None))
+        ($a:expr, $b:expr, $is_literal_value:expr) => {
+            assert!(!DataType::is_implicitly_castable_to(&$a, &$b, None, $is_literal_value))
         };
     }
 
     #[test]
     fn implicit_casts() {
 
-        assert_not_implicitly_castable!(DataType::I8, DataType::I16);
-        assert_not_implicitly_castable!(DataType::I8, DataType::I32);
-        assert_not_implicitly_castable!(DataType::I8, DataType::I64);
-        assert_not_implicitly_castable!(DataType::I16, DataType::I32);
-        assert_not_implicitly_castable!(DataType::I16, DataType::I64);
-        assert_not_implicitly_castable!(DataType::I32, DataType::I64);
+        assert_not_implicitly_castable!(DataType::I8, DataType::I16, false);
+        assert_not_implicitly_castable!(DataType::I8, DataType::I32, false);
+        assert_not_implicitly_castable!(DataType::I8, DataType::I64, false);
+        assert_not_implicitly_castable!(DataType::I16, DataType::I32, false);
+        assert_not_implicitly_castable!(DataType::I16, DataType::I64, false);
+        assert_not_implicitly_castable!(DataType::I32, DataType::I64, false);
 
-        assert_not_implicitly_castable!(DataType::U8, DataType::U16);
-        assert_not_implicitly_castable!(DataType::U8, DataType::U32);
-        assert_not_implicitly_castable!(DataType::U8, DataType::U64);
-        assert_not_implicitly_castable!(DataType::U16, DataType::U32);
-        assert_not_implicitly_castable!(DataType::U16, DataType::U64);
-        assert_not_implicitly_castable!(DataType::U32, DataType::U64);
+        assert_not_implicitly_castable!(DataType::U8, DataType::U16, false);
+        assert_not_implicitly_castable!(DataType::U8, DataType::U32, false);
+        assert_not_implicitly_castable!(DataType::U8, DataType::U64, false);
+        assert_not_implicitly_castable!(DataType::U16, DataType::U32, false);
+        assert_not_implicitly_castable!(DataType::U16, DataType::U64, false);
+        assert_not_implicitly_castable!(DataType::U32, DataType::U64, false);
 
-        assert_not_implicitly_castable!(DataType::F32, DataType::F64);
+        assert_not_implicitly_castable!(DataType::F32, DataType::F64, false);
 
-        assert_not_implicitly_castable!(DataType::I16, DataType::I8);
-        assert_not_implicitly_castable!(DataType::I32, DataType::I8);
-        assert_not_implicitly_castable!(DataType::I64, DataType::I8);
-        assert_not_implicitly_castable!(DataType::I32, DataType::I16);
-        assert_not_implicitly_castable!(DataType::I64, DataType::I16);
-        assert_not_implicitly_castable!(DataType::I64, DataType::I32);
+        assert_not_implicitly_castable!(DataType::I16, DataType::I8, false);
+        assert_not_implicitly_castable!(DataType::I32, DataType::I8, false);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I8, false);
+        assert_not_implicitly_castable!(DataType::I32, DataType::I16, false);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I16, false);
+        assert_not_implicitly_castable!(DataType::I64, DataType::I32, false);
 
-        assert_not_implicitly_castable!(DataType::U16, DataType::U8);
-        assert_not_implicitly_castable!(DataType::U32, DataType::U8);
-        assert_not_implicitly_castable!(DataType::U64, DataType::U8);
-        assert_not_implicitly_castable!(DataType::U32, DataType::U16);
-        assert_not_implicitly_castable!(DataType::U64, DataType::U16);
-        assert_not_implicitly_castable!(DataType::U64, DataType::U32);
+        assert_not_implicitly_castable!(DataType::U16, DataType::U8, false);
+        assert_not_implicitly_castable!(DataType::U32, DataType::U8, false);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U8, false);
+        assert_not_implicitly_castable!(DataType::U32, DataType::U16, false);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U16, false);
+        assert_not_implicitly_castable!(DataType::U64, DataType::U32, false);
 
-        assert_not_implicitly_castable!(DataType::F64, DataType::F32);
+        assert_not_implicitly_castable!(DataType::F64, DataType::F32, false);
 
         // TODO: add some kind of type inference
 

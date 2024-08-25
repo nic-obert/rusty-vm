@@ -2,5 +2,7 @@
 
 fn main() {
 
-    let x = 1 + 2;
+    // let x = -1 + 2;
+    let y: u32 = 1;
+
 }

@@ -15,7 +15,7 @@ fn big_foo() {
     let b: [u16] = [2];
 
     let arr: [i32] = [1,2,2];
-    arr[arr[2] as u64]
+    arr[arr[2] as usize]
 
     if (1+1)==2 {
         0

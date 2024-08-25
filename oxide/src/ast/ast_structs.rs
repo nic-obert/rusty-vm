@@ -205,7 +205,7 @@ impl RuntimeOp<'_> {
             },
 
             RuntimeOp::ArrayIndex { array, index } => {
-                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_u64();
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_usize_like();
                 let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
                 let (_data_type, elements) = array_value.assume_array();
 
@@ -217,7 +217,7 @@ impl RuntimeOp<'_> {
             },
 
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
-                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_u64();
+                let index = index.known_literal_value(scope_id, symbol_table).unwrap().assume_numeric().assume_usize_like();
                 let array_ref_value = array_ref.known_literal_value(scope_id, symbol_table).unwrap();
                 let (ref_target, mutable) = array_ref_value.assume_ref();
                 let (_element_type, elements) = ref_target.assume_array();
@@ -410,14 +410,17 @@ impl SyntaxNodeValue<'_> {
 }
 
 
+/// A node in the syntax tree
 #[derive(Debug)]
 pub struct SyntaxNode<'a> {
 
+    /// What the syntax node represents semantically.
     pub value: SyntaxNodeValue<'a>,
 
+    /// The token in the source code this syntax node was built from.
     pub token: Rc<SourceToken<'a>>,
 
-    /// The data type this node evaluates to
+    /// The data type this node evaluates to.
     pub data_type: Rc<DataType>,
 
     /// Whether the node may have side effects.
@@ -447,7 +450,7 @@ impl<'a> SyntaxNode<'a> {
     /// Return the symbol's literal value, if it is known at compile-time.
     pub fn known_literal_value(&'a self, scope_id: ScopeID, symbol_table: &'a SymbolTable) -> Option<Rc<LiteralValue>> {
         match &self.value {
-            SyntaxNodeValue::Literal(value) => Some(value.clone()),
+            SyntaxNodeValue::Literal(value) => Some(Rc::clone(value)),
             SyntaxNodeValue::Symbol { name, scope_discriminant } => {
                 symbol_table.get_symbol(scope_id, name, *scope_discriminant)
                     .and_then(|symbol| symbol.borrow().get_value().clone())
@@ -697,6 +700,7 @@ impl ScopeBlock<'_> {
         }
     }
 
+
     pub fn return_type(&self) -> Rc<DataType> {
         if let Some(last_statement) = self.statements.last() {
             last_statement.data_type.clone()
@@ -705,12 +709,25 @@ impl ScopeBlock<'_> {
         }
     }
 
-    pub fn return_value_literal(&self, symbol_table: &SymbolTable ) -> Option<Rc<LiteralValue>> {
+
+    /// Get the literal return value of the block, if it is statically known.
+    pub fn known_literal_return_value(&self, symbol_table: &SymbolTable ) -> Option<Rc<LiteralValue>> {
 
         self.statements.last()
             .and_then(|last_statement| last_statement.known_literal_value(self.scope_id, symbol_table)
         )
     }
+
+
+    /// Whether the return statement is a literal value
+    pub fn is_return_value_literal(&self) -> bool {
+
+        self.statements.last()
+            .map(|last_statement| matches!(last_statement.value, SyntaxNodeValue::Literal(_)))
+            .unwrap_or(false)
+
+    }
+
 
     pub fn fmt_indented(&self, indent: usize, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for statement in &self.statements {

@@ -116,7 +116,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                 };
 
                 let value_type = literal_value.data_type(symbol_table);
-                if !value_type.is_implicitly_castable_to(&data_type, Some(&literal_value)) {
+                if !value_type.is_implicitly_castable_to(&data_type, Some(&literal_value), true) {
                     error::type_error(&definition.token, &[&data_type.name()], &value_type, source, "Mismatched data type in static declaration.");
                 }
                 let final_value = LiteralValue::from_cast(&literal_value, &value_type, &data_type);
@@ -153,7 +153,7 @@ fn extract_functions<'a>(block: &mut ScopeBlock<'a>, inside_function: bool, func
                 };
 
                 let value_type = literal_value.data_type(symbol_table);
-                if !value_type.is_implicitly_castable_to(&data_type, Some(&literal_value)) {
+                if !value_type.is_implicitly_castable_to(&data_type, Some(&literal_value), true) {
                     error::type_error(&definition.token, &[&data_type.name()], &value_type, source, "Mismatched constant type.");
                 }
                 let final_value = LiteralValue::from_cast(&literal_value, &value_type, &data_type);
@@ -1099,7 +1099,7 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
 
                     // Check if the symbol type and the expression type are compatible (the same or implicitly castable)
                     let r_value = r_node.known_literal_value(scope_id, symbol_table);
-                    if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value.as_deref()) {
+                    if !r_node.data_type.is_implicitly_castable_to(&l_node.data_type, r_value.as_deref(), r_node.has_literal_value()) {
                         error::type_error(&r_node.token, &[&l_node.data_type.name()], &r_node.data_type, source, "Mismatched right operand type for assignment operator.");
                     }
 
@@ -1133,15 +1133,15 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
                         _ => error::type_error(&array.token, &[&DataType::Array { element_type: DataType::Unspecified.into(), size: None }.name()], &array.data_type, source, "Can only index arrays.")
                     };
 
-                    // Assert that the array index is an unsigned integer
-                    if !matches!(index.data_type.as_ref(), integer_pattern!()) {
-                        error::type_error(&index.token, &[&DataType::Usize.name()], &index.data_type, source, "Array index must strictly be an unsigned integer.");
+                    // Assert that the array index is a usize
+                    if !index.data_type.is_implicitly_castable_to(&DataType::Usize, index.known_literal_value(scope_id, symbol_table).as_deref(), index.has_literal_value()) {
+                        error::type_error(&index.token, &[&DataType::Usize.name()], &index.data_type, source, "Array index must be a usize.");
                     }
 
                     if let Some(index_value) = index.known_literal_value(scope_id, symbol_table) {
                         // If the index is known, check if it is within the bounds of the array
 
-                        let index_value = match_unreachable!(LiteralValue::Numeric(n) = index_value.as_ref(), n.assume_u64()) as usize;
+                        let index_value = match_unreachable!(LiteralValue::Numeric(n) = index_value.as_ref(), n.assume_usize_like()) as usize;
 
                         let array_size = match array.data_type.as_ref() {
 
@@ -1289,8 +1289,8 @@ fn resolve_expression_types(expression: &mut SyntaxNode, scope_id: ScopeID, oute
             resolve_scope_types(body, Some(return_type.clone()), function_parent_scope, symbol_table, source);
 
             // Check return type
-            let return_value = body.return_value_literal(symbol_table);
-            if !body.return_type().is_implicitly_castable_to(return_type.as_ref(), return_value.as_deref()) {
+            let return_value = body.known_literal_return_value(symbol_table);
+            if !body.return_type().is_implicitly_castable_to(return_type.as_ref(), return_value.as_deref(), body.is_return_value_literal()) {
                 error::type_error(&expression.token, &[&return_type.name()], &body.return_type(), source, "Mismatched return type in function declaration.");
             }
 
