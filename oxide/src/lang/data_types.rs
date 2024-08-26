@@ -3,6 +3,8 @@ use std::fmt::{Display, Debug};
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 
+use num_traits::ToBytes;
+
 use crate::match_unreachable;
 use crate::symbol_table::{StaticID, SymbolTable};
 
@@ -490,23 +492,6 @@ impl Number {
     }
 
 
-    // TODO: Heap allocations are overkill for this
-    pub fn to_le_bytes(&self) -> Box<[u8]> {
-        match self {
-            Number::I8(n) => n.to_le_bytes().into(),
-            Number::I16(n) => n.to_le_bytes().into(),
-            Number::I32(n) => n.to_le_bytes().into(),
-            Number::I64(n) => n.to_le_bytes().into(),
-            Number::U8(n) => n.to_le_bytes().into(),
-            Number::U16(n) => n.to_le_bytes().into(),
-            Number::U32(n) => n.to_le_bytes().into(),
-            Number::U64(n) => n.to_le_bytes().into(),
-            Number::F32(n) => n.to_le_bytes().into(),
-            Number::F64(n) => n.to_le_bytes().into(),
-        }
-    }
-
-
     pub fn try_parse_unsigned_int(string: &str) -> Result<Self, ParseIntError> {
 
         let n = string.parse::<u64>()?;
@@ -558,6 +543,34 @@ impl Number {
 
 }
 
+impl ToBytes for &Number {
+    type Bytes = Box<[u8]>;
+
+    // TODO: Heap allocations are overkill for this
+    fn to_le_bytes(&self) -> Self::Bytes {
+        match self {
+            Number::I8(n) => n.to_le_bytes().into(),
+            Number::I16(n) => n.to_le_bytes().into(),
+            Number::I32(n) => n.to_le_bytes().into(),
+            Number::I64(n) => n.to_le_bytes().into(),
+            Number::U8(n) => n.to_le_bytes().into(),
+            Number::U16(n) => n.to_le_bytes().into(),
+            Number::U32(n) => n.to_le_bytes().into(),
+            Number::U64(n) => n.to_le_bytes().into(),
+            Number::F32(n) => n.to_le_bytes().into(),
+            Number::F64(n) => n.to_le_bytes().into(),
+        }
+    }
+
+    fn to_be_bytes(&self) -> Self::Bytes {
+        unimplemented!()
+    }
+
+    fn to_ne_bytes(&self) -> Self::Bytes {
+        unimplemented!()
+    }
+
+}
 
 impl Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -800,8 +813,8 @@ mod tests {
     use super::DataType;
 
     macro_rules! assert_implicitly_castable {
-        ($a:expr, $b:expr) => {
-            assert!(DataType::is_implicitly_castable_to(&$a, &$b, None))
+        ($a:expr, $b:expr, $value:expr, $is_literal_value:expr) => {
+            assert!(DataType::is_implicitly_castable_to(&$a, &$b, $value, $is_literal_value))
         };
     }
 
@@ -866,12 +879,13 @@ mod tests {
 
         assert_not_implicitly_castable!(DataType::F64, DataType::F32, false);
 
-        // TODO: add some kind of type inference
+        assert_implicitly_castable!(DataType::I32, DataType::I64, Some(&LiteralValue::Numeric(Number::I32(312))), true);
 
-        // // Array implicit casts
+        // Array implicit casts
         // assert_not_implicitly_castable!(
         //     DataType::Array { element_type: Rc::new(DataType::I8), size: Some(3) },
-        //     DataType::Array { element_type: Rc::new(DataType::I16), size: Some(3) }
+        //     DataType::Array { element_type: Rc::new(DataType::I16), size: Some(3) },
+        //     false
         // );
 
         // // Array of positive signed integers can be cast to array of unsigned integers.

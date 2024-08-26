@@ -37,6 +37,14 @@ impl Display for Label {
 
 }
 
+impl Label {
+
+    pub const fn to_le_bytes(&self) -> [u8; 8] {
+        self.0.0.to_le_bytes()
+    }
+
+}
+
 
 /// Represents an operand of ir operations
 pub enum IRValue {
