@@ -89,31 +89,35 @@ fn generate_static_data_section(symbol_table: &SymbolTable, static_address_map: 
 
 /// Generate the code to construct the given value in-place on the stack.
 /// Return the amount of bytes the stack pointer was pushed to perform this operation.
-fn generate_stack_value(value: &LiteralValue, bytecode: &mut ByteCode, static_address_map: &StaticAddressMap) -> usize {
-    match value {
+/// The generated value will be placed at the top of the stack.
+/// Based on the data type, a different approach is used to include the value into the bytecode.
+/// Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly.
+fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, symbol_table: &SymbolTable) {
+    *stack_frame_offset
+    -= match value {
 
         LiteralValue::Bool(b) => {
             // push1 b
-            bytecode.push(ByteCodes::PUSH_FROM_CONST as u8);
-            bytecode.push(BOOL_SIZE as u8);
-            bytecode.push(*b as u8);
+            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
+            bc.add_byte(BOOL_SIZE as u8);
+            bc.add_byte(*b as u8);
             BOOL_SIZE
         },
 
         LiteralValue::Char(ch) => {
             // push1 ch
-            bytecode.push(ByteCodes::PUSH_FROM_CONST as u8);
-            bytecode.push(CHAR_SIZE as u8);
-            bytecode.push(*ch as u8);
+            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
+            bc.add_byte(CHAR_SIZE as u8);
+            bc.add_byte(*ch as u8);
             CHAR_SIZE
         },
 
         LiteralValue::StaticString(string_id) => {
             // push8 address of static string
-            bytecode.push(ByteCodes::PUSH_FROM_CONST as u8);
-            bytecode.push(ADDRESS_SIZE as u8);
+            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
+            bc.add_byte(ADDRESS_SIZE as u8);
             let static_addr = *static_address_map.get(string_id).unwrap();
-            bytecode.extend(static_addr.to_le_bytes());
+            bc.extend(static_addr.to_le_bytes());
             ADDRESS_SIZE
         },
 
@@ -123,24 +127,27 @@ fn generate_stack_value(value: &LiteralValue, bytecode: &mut ByteCode, static_ad
 
         LiteralValue::Numeric(n) => {
             // push(sizeof(n)) n
-            bytecode.push(ByteCodes::PUSH_FROM_CONST as u8);
+            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
             let number_size = n.data_type().static_size().unwrap();
-            bytecode.push(number_size as u8);
-            bytecode.extend(n.to_le_bytes());
+            bc.add_byte(number_size as u8);
+            bc.extend(n.to_le_bytes());
             number_size
         },
 
         LiteralValue::Ref { target, .. } => {
-            // Construct the literal value in-place on the stack and load its address as the argument
+            // Construct the literal value in-place on the stack
+            generate_stack_value(target, bc, static_address_map, stack_frame_offset, symbol_table);
 
-            // push8 address
-            bytecode.push(ByteCodes::PUSH_FROM_CONST as u8);
-            bytecode.push(ADDRESS_SIZE as u8);
-            // bytecode.extend(iter)
-            todo!("Need to know what the ref points to")
+            // push stp
+            bc.add_opcode(ByteCodes::PUSH_FROM_REG);
+            bc.add_reg(Registers::STACK_TOP_POINTER);
+
+            // The size of the constructed value, plus the size of the address of the value
+            target.data_type(symbol_table).static_size().unwrap() + ADDRESS_SIZE
         },
-    }
+    } as StackOffset;
 }
+
 
 trait ByteCodeOutput {
 
@@ -264,7 +271,7 @@ impl ByteCodeOutput for ByteCode {
 
 
 /// Generate the code section, equivalent to .text in assembly
-fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap) {
+fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap, symbol_table: &SymbolTable) {
 
     for function_graph in function_graphs {
 
@@ -482,55 +489,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                 },
 
                                 IRValue::Const(v) => {
-                                    // The literal value has to be included in the static bytecode and copied onto the stack
-                                    // Based on the data type, a different approach is used to include the value into the bytecode
-                                    // Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly
-                                    let stack_offset = match v.as_ref() {
-                                        LiteralValue::Bool(b) => {
-                                            // push1 b
-                                            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
-                                            bc.add_byte(BOOL_SIZE as u8);
-                                            bc.add_byte(*b as u8);
-                                            BOOL_SIZE as isize
-                                        },
-                                        LiteralValue::Char(ch) => {
-                                            // push1 ch
-                                            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
-                                            bc.add_byte(CHAR_SIZE as u8);
-                                            bc.add_byte(*ch as u8);
-                                            CHAR_SIZE as isize
-                                        },
-                                        LiteralValue::StaticString(string_id) => {
-                                            // push8 address of static string
-                                            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
-                                            bc.add_byte(ADDRESS_SIZE as u8);
-                                            let static_addr = *static_address_map.get(string_id).unwrap();
-                                            bc.extend(static_addr.to_le_bytes());
-                                            ADDRESS_SIZE as isize
-                                        },
-                                        LiteralValue::Array { element_type, items } => {
-                                            todo!()
-                                        },
-                                        LiteralValue::Numeric(n) => {
-                                            // push(sizeof(n)) n
-                                            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
-                                            let number_size = n.data_type().static_size().unwrap();
-                                            bc.add_byte(number_size as u8);
-                                            bc.extend(n.to_le_bytes());
-                                            number_size as isize
-                                        },
-                                        LiteralValue::Ref { target, .. } => {
-                                            // Construct the literal value in-place on the stack and load its address as the argument
-
-
-                                            // push8 address
-                                            bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
-                                            bc.add_byte(ADDRESS_SIZE as u8);
-                                            // bytecode.extend(iter)
-                                            todo!("Need to know what the ref points to")
-                                        },
-                                    };
-                                    stack_frame_offset -= stack_offset;
+                                    generate_stack_value(v, bc, static_address_map, &mut stack_frame_offset, symbol_table);
                                 },
                             }
 
@@ -599,7 +558,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     generate_static_data_section(symbol_table, &mut static_address_map, &mut bytecode);
 
-    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map);
+    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map, symbol_table);
 
     resolve_unresolved_addresses(labels_to_resolve, label_address_map, &mut bytecode);
 
