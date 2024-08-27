@@ -44,6 +44,13 @@ impl IRIDGenerator {
         Label(old)
     }
 
+
+    /// Consume self and return the current label counter.
+    /// This is used when generating new labels is required at a later stage of compilation.
+    pub fn extract_next_label(self) -> LabelID {
+        self.next_label
+    }
+
 }
 
 
@@ -1346,7 +1353,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
 
 /// Generate ir code from the given functions
-pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable<'a>, optimization_flags: &OptimizationFlags, verbose: bool, source: &SourceCode) -> Vec<FunctionIR<'a>> {
+pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable<'a>, optimization_flags: &OptimizationFlags, verbose: bool, source: &SourceCode) -> (Vec<FunctionIR<'a>>, IRIDGenerator) {
 
     let mut ir_functions = Vec::new();
     let mut irid_gen = IRIDGenerator::new();
@@ -1379,5 +1386,5 @@ pub fn generate<'a>(functions: Vec<Function<'a>>, symbol_table: &mut SymbolTable
         }
     }
 
-    ir_functions
+    (ir_functions, irid_gen)
 }

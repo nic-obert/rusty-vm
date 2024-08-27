@@ -609,6 +609,28 @@ pub enum LiteralValue {
 
 impl LiteralValue {
 
+    pub fn write_to_bytes(&self, buf: &mut Vec<u8>) {
+        match self {
+
+            LiteralValue::Char(ch) => buf.push(*ch as u8),
+
+            LiteralValue::Bool(b) => buf.push(*b as u8),
+
+            LiteralValue::Numeric(n) => buf.extend_from_slice(&n.to_le_bytes()),
+
+            LiteralValue::Array { items, .. } => {
+                for item in items {
+                    item.write_to_bytes(buf);
+                }
+            },
+
+            LiteralValue::StaticString(_) |
+            LiteralValue::Ref { .. }
+                => unreachable!("References cannot be translated to bytecode because we don't know what they're referencing"),
+        }
+    }
+
+
     pub fn assume_array(&self) -> (&Rc<DataType>, &[Rc<LiteralValue>]) {
         match self {
             LiteralValue::Array { element_type, items } => (element_type, items),

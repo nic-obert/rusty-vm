@@ -19,7 +19,7 @@ use crate::targets::Targets;
 
 
 fn main() {
-    
+
     let args = CliParser::parse();
 
     if let Some(command) = args.top_level_command {
@@ -69,11 +69,11 @@ fn main() {
 
     let functions = function_parser::parse_functions(ast, &optimization_flags, &mut symbol_table, &source, args.verbose);
 
-    let ir_code = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
+    let (ir_code, irid_gen) = irc::generate(functions, &mut symbol_table, &optimization_flags, args.verbose, &source);
 
     let function_graphs = flow_analyzer::flow_graph(ir_code, &optimization_flags, args.verbose);
 
-    let bytecode = args.target().generate(&symbol_table, function_graphs);
+    let bytecode = args.target().generate(&symbol_table, function_graphs, irid_gen);
 
     if let Err(e) = files::save_byte_code(&bytecode, input_file) {
         println!("Could not save bytecode to file: {}", e);
@@ -81,4 +81,3 @@ fn main() {
     }
 
 }
-

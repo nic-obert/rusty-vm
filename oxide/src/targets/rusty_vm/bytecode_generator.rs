@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::mem;
+use std::rc::Rc;
 
 use num_traits::ToBytes;
 
@@ -8,7 +9,7 @@ use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 use rusty_vm_lib::registers::{Registers, REGISTER_COUNT, REGISTER_SIZE};
 
-use crate::irc::{IROperator, IRValue, Label, LabelID, TnID};
+use crate::irc::{IROperator, IRValue, Label, LabelID, TnID, IRIDGenerator};
 use crate::lang::data_types::{DataType, LiteralValue, BOOL_SIZE, CHAR_SIZE, F32_SIZE, F64_SIZE, I16_SIZE, I32_SIZE, I64_SIZE, I8_SIZE, ISIZE_SIZE, U16_SIZE, U32_SIZE, U64_SIZE, U8_SIZE, USIZE_SIZE};
 use crate::symbol_table::{StaticID, SymbolTable};
 use crate::flow_analyzer::FunctionGraph;
@@ -19,6 +20,28 @@ type StaticAddressMap = HashMap<StaticID, Address>;
 
 
 struct ArgsTable {
+
+}
+
+
+struct LabelGenerator {
+    next_label: LabelID
+}
+
+impl LabelGenerator {
+
+    pub fn from_irid_generator(irid_gen: IRIDGenerator) -> Self {
+        Self {
+            next_label: irid_gen.extract_next_label()
+        }
+    }
+
+
+    pub fn next_label(&mut self) -> Label {
+        let old = self.next_label;
+        self.next_label = LabelID(old.0 + 1);
+        Label(old)
+    }
 
 }
 
@@ -53,6 +76,8 @@ impl UsedRegisterTable {
 }
 
 
+/// Signed offset from a memory location on the stack.
+/// TODO: brobably this doesn't need to be an isize. A i32 would be good enough because stack frames aren't usually huge
 type StackOffset = isize;
 
 enum TnLocation {
@@ -60,7 +85,6 @@ enum TnLocation {
     /// The value of the Tn is stored inside a register
     Register (Registers),
     /// The value of the Tn is stores on the stack at an offset
-    /// TODO: brobably this doesn't need to be an isize. A i32 or i16 would be good enough
     Stack (StackOffset)
 
 }
@@ -92,7 +116,7 @@ fn generate_static_data_section(symbol_table: &SymbolTable, static_address_map: 
 /// The generated value will be placed at the top of the stack.
 /// Based on the data type, a different approach is used to include the value into the bytecode.
 /// Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly.
-fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, symbol_table: &SymbolTable) {
+fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
     *stack_frame_offset
     -= match value {
 
@@ -122,6 +146,8 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
         },
 
         LiteralValue::Array { element_type, items } => {
+            // Make space for the array on the stack.
+            // Initialize the memory region of all the array elements sequentially
             todo!()
         },
 
@@ -135,15 +161,8 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
         },
 
         LiteralValue::Ref { target, .. } => {
-            // Construct the literal value in-place on the stack
-            generate_stack_value(target, bc, static_address_map, stack_frame_offset, symbol_table);
-
-            // push stp
-            bc.add_opcode(ByteCodes::PUSH_FROM_REG);
-            bc.add_reg(Registers::STACK_TOP_POINTER);
-
-            // The size of the constructed value, plus the size of the address of the value
-            target.data_type(symbol_table).static_size().unwrap() + ADDRESS_SIZE
+            bc.push_unnamed_static_ref(Rc::clone(target), labels_to_resolve, label_generator, unnamed_local_statics);
+            ADDRESS_SIZE
         },
     } as StackOffset;
 }
@@ -174,6 +193,8 @@ trait ByteCodeOutput {
     fn push_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset);
 
     fn load_first_numeric_arg(&mut self, tn_location: &TnLocation, size: usize);
+
+    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
 
 }
 
@@ -267,11 +288,25 @@ impl ByteCodeOutput for ByteCode {
         }
     }
 
+    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
+        // Construct the literal value somewhere alse and push on the stack its memory address
+        self.add_opcode(ByteCodes::PUSH_FROM_CONST);
+        self.add_byte(ADDRESS_SIZE as u8);
+        let label = label_generator.next_label();
+        self.add_placeholder_label(label, labels_to_resolve);
+
+        unnamed_local_statics.push((static_value, label));
+    }
+
+
 }
 
 
 /// Generate the code section, equivalent to .text in assembly
-fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap, symbol_table: &SymbolTable) {
+fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap, symbol_table: &SymbolTable, label_generator: &mut LabelGenerator) {
+
+    // Stores the unnamed local static values. These are, concretely, constants that are created in-place and passed around as references
+    let mut unnamed_local_statics: Vec<(Rc<LiteralValue>, Label)> = Vec::new();
 
     for function_graph in function_graphs {
 
@@ -345,9 +380,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                         bc.move_into_reg_from_const(n.data_type().static_size().unwrap() as u8, Registers::R1, n);
                                     },
                                     LiteralValue::Ref { target, .. } => {
-                                        // First, construct the referenced literal value in-place on the stack.
-                                        // Then, load its address into r1
-                                        todo!()
+                                        bc.push_unnamed_static_ref(Rc::clone(target), labels_to_resolve, label_generator, &mut unnamed_local_statics);
                                     },
 
                                     LiteralValue::Array { .. } |
@@ -489,7 +522,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                 },
 
                                 IRValue::Const(v) => {
-                                    generate_stack_value(v, bc, static_address_map, &mut stack_frame_offset, symbol_table);
+                                    generate_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve, label_generator);
                                 },
                             }
 
@@ -523,6 +556,14 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
         }
     }
 
+    // Include the unnamed local static values in the byte code
+    for (value, label) in unnamed_local_statics {
+        // Construct the value directly in the bytecode and make it available under a label
+        let address = bc.len();
+        label_address_map.insert(label.0, address);
+        value.write_to_bytes(bc);
+    }
+
 }
 
 
@@ -540,12 +581,16 @@ fn resolve_unresolved_addresses(labels_to_resolve: Vec<Address>, label_address_m
 }
 
 
-pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> ByteCode {
+pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>, irid_generator: IRIDGenerator) -> ByteCode {
     /*
         Generate a static section for static data
         Generate a text section for the code
         Substitute labels with actual addresses
+        Note that, since labels are hardcoded into the binary, the binary cannot be mutated after being generated.
+        Inserting or removing instructions would fuck up the jump addresses and labels.
     */
+
+    let mut label_generator = LabelGenerator::from_irid_generator(irid_generator);
 
     // Map a label to an actual memory address in the bytecode
     let mut label_address_map = LabelAddressMap::new();
@@ -558,7 +603,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     generate_static_data_section(symbol_table, &mut static_address_map, &mut bytecode);
 
-    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map, symbol_table);
+    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map, symbol_table, &mut label_generator);
 
     resolve_unresolved_addresses(labels_to_resolve, label_address_map, &mut bytecode);
 

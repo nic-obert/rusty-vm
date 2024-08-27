@@ -3,6 +3,8 @@ use rusty_vm_lib::assembly::ByteCode;
 
 use crate::symbol_table::SymbolTable;
 use crate::flow_analyzer::FunctionGraph;
+use crate::irc::IRIDGenerator;
+
 use casey::lower;
 
 
@@ -32,7 +34,7 @@ macro_rules! declare_targets {
 
         #[derive(Default)]
         pub enum Targets {
-                
+
             $(
                 $(#[$directive])?
                 $target_name
@@ -56,11 +58,11 @@ macro_rules! declare_targets {
                     _ => None
                 }
             }
-        
-        
-            pub fn generate(&self, symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>) -> impl CompiledBinary {
+
+
+            pub fn generate(&self, symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>, irid_gen: IRIDGenerator) -> impl CompiledBinary {
                 match self {
-                    Targets::RustyVM => rusty_vm::generate_bytecode(symbol_table, function_graphs),
+                    Targets::RustyVM => rusty_vm::generate_bytecode(symbol_table, function_graphs, irid_gen),
                 }
             }
         }
@@ -71,4 +73,3 @@ macro_rules! declare_targets {
 declare_targets!(
     RustyVM default
 );
-
