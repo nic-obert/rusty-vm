@@ -112,6 +112,11 @@ pub mod dt_macros {
 
 impl DataType {
 
+    pub const fn is_float(&self) -> bool {
+        matches!(self, DataType::F32 | DataType::F64)
+    }
+
+
     /// Return the size of the data type in bytes, if it is known at compile-time.
     pub fn static_size(&self) -> Result<usize, ()> {
 
