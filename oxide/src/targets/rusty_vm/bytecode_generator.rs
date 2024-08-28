@@ -7,7 +7,7 @@ use num_traits::ToBytes;
 use rusty_vm_lib::assembly::ByteCode;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
-use rusty_vm_lib::registers::{Registers, REGISTER_COUNT, REGISTER_SIZE};
+use rusty_vm_lib::registers::{Registers, GENERAL_PURPOSE_REGISTER_COUNT, REGISTER_COUNT, REGISTER_SIZE};
 
 use crate::irc::{IROperator, IRValue, Label, LabelID, TnID, IRIDGenerator};
 use crate::lang::data_types::{DataType, LiteralValue, BOOL_SIZE, CHAR_SIZE, F32_SIZE, F64_SIZE, I16_SIZE, I32_SIZE, I64_SIZE, I8_SIZE, ISIZE_SIZE, U16_SIZE, U32_SIZE, U64_SIZE, U8_SIZE, USIZE_SIZE};
@@ -46,31 +46,42 @@ impl LabelGenerator {
 }
 
 
-struct UsedRegisterTable {
-    registers: [bool; REGISTER_COUNT]
+const GENERAL_PURPOSE_REGISTER_COUNT_WITHOUT_R1R2: usize = GENERAL_PURPOSE_REGISTER_COUNT - 2;
+
+
+struct UsedGeneralPurposeRegisterTable {
+    registers: [bool; GENERAL_PURPOSE_REGISTER_COUNT_WITHOUT_R1R2]
 }
 
-impl UsedRegisterTable {
+impl UsedGeneralPurposeRegisterTable {
 
     pub const fn new() -> Self {
         Self {
-            registers: [false; REGISTER_COUNT]
+            registers: [false; GENERAL_PURPOSE_REGISTER_COUNT_WITHOUT_R1R2]
         }
     }
 
 
     pub const fn is_in_use(&self, reg: Registers) -> bool {
-        self.registers[reg as usize]
+        self.registers[reg as usize - 2]
     }
 
 
     pub fn set_in_use(&mut self, reg: Registers) {
-        self.registers[reg as usize] = true;
+        self.registers[reg as usize - 2] = true;
     }
 
 
     pub fn set_unused(&mut self, reg: Registers) {
-        self.registers[reg as usize] = false;
+        self.registers[reg as usize - 2] = false;
+    }
+
+
+    pub fn get_first_unused_register_not_r1r2(&self) -> Option<Registers> {
+        self.registers.iter()
+            .enumerate()
+            .find(|(_, &is_used)| !is_used)
+            .map(|(i, _)| Registers::from(i as u8 + 2))
     }
 
 }
@@ -145,10 +156,20 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
             ADDRESS_SIZE
         },
 
-        LiteralValue::Array { element_type, items } => {
-            // Make space for the array on the stack.
-            // Initialize the memory region of all the array elements sequentially
-            todo!()
+        LiteralValue::Array { items, .. } => {
+            /*
+                Sequentially push every element of the array onto the stack
+                Push the elements in reverse order to maintain the correct indices
+                This could also be done like gcc does, by moving each element onto the stack at the correct index.
+                However, calculating the element index can be more expensive because it requires loading the operands into r1 and r2.
+                Also, values larger than 8 bytes cannot be directly moved, so this approach is more generic
+            */
+            for item in items.iter().rev() {
+                generate_stack_value(item, bc, static_address_map, stack_frame_offset, unnamed_local_statics, labels_to_resolve, label_generator);
+            }
+
+            // Don't modify the stack frame offset because it was already modified when pushing the array elements
+            0
         },
 
         LiteralValue::Numeric(n) => {
@@ -184,6 +205,8 @@ trait ByteCodeOutput {
     /// Update the stack frame offset to account for the pushed value
     fn push_from_reg(&mut self, reg: Registers, stack_frame_offset: &mut StackOffset);
 
+    fn pop8_into_reg(&mut self, reg: Registers, stack_frame_offset: &mut StackOffset);
+
     fn move_into_reg_from_reg(&mut self, dest: Registers, source: Registers);
 
     fn move_into_reg_from_const<T>(&mut self, handled_size: u8, reg: Registers, value: T) where T: ToBytes;
@@ -193,6 +216,8 @@ trait ByteCodeOutput {
     fn push_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset);
 
     fn load_first_numeric_arg(&mut self, tn_location: &TnLocation, size: usize);
+
+    fn load_second_numeric_arg(&mut self, tn_location: &TnLocation, size: usize, reg_table: &mut UsedGeneralPurposeRegisterTable);
 
     fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
 
@@ -204,22 +229,27 @@ impl ByteCodeOutput for ByteCode {
         self.push(byte);
     }
 
+
     fn add_reg(&mut self, reg: Registers) {
         self.add_byte(reg as u8);
     }
 
+
     fn add_opcode(&mut self, opcode: ByteCodes) {
         self.add_byte(opcode as u8);
     }
+
 
     fn add_placeholder_label(&mut self, label: Label, labels_to_resolve: &mut Vec<Address>) {
         labels_to_resolve.push(self.len());
         self.extend(label.to_le_bytes());
     }
 
+
     fn add_const_usize(&mut self, value: usize) {
         self.extend(value.to_le_bytes());
     }
+
 
     fn push_from_reg(&mut self, reg: Registers, stack_frame_offset: &mut StackOffset) {
         self.add_opcode(ByteCodes::PUSH_FROM_REG);
@@ -227,11 +257,21 @@ impl ByteCodeOutput for ByteCode {
         *stack_frame_offset -= REGISTER_SIZE as StackOffset;
     }
 
+
+    fn pop8_into_reg(&mut self, reg: Registers, stack_frame_offset: &mut StackOffset) {
+        self.add_opcode(ByteCodes::POP_INTO_REG);
+        self.add_byte(REGISTER_SIZE as u8);
+        self.add_reg(reg);
+        *stack_frame_offset += REGISTER_SIZE as StackOffset
+    }
+
+
     fn move_into_reg_from_reg(&mut self, dest: Registers, source: Registers) {
         self.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_REG);
         self.add_reg(dest);
         self.add_reg(source);
     }
+
 
     fn move_into_reg_from_const<T>(&mut self, handled_size: u8, reg: Registers, value: T)
     where
@@ -248,6 +288,7 @@ impl ByteCodeOutput for ByteCode {
         self.extend_from_slice(AsRef::<[u8]>::as_ref(&value.to_le_bytes()));
     }
 
+
     fn move_into_reg_from_addr_in_reg(&mut self, handled_size: u8, dest: Registers, source: Registers) {
         self.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_ADDR_IN_REG);
         self.add_byte(handled_size);
@@ -255,12 +296,14 @@ impl ByteCodeOutput for ByteCode {
         self.add_reg(source);
     }
 
+
     fn push_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset) {
         self.add_opcode(ByteCodes::PUSH_STACK_POINTER_CONST);
         self.add_byte(mem::size_of::<usize>() as u8);
         self.extend(offset.to_le_bytes());
         *stack_frame_offset -= offset as StackOffset;
     }
+
 
     fn load_first_numeric_arg(&mut self, tn_location: &TnLocation, size: usize) {
         match tn_location {
@@ -288,17 +331,81 @@ impl ByteCodeOutput for ByteCode {
         }
     }
 
-    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
-        // Construct the literal value somewhere alse and push on the stack its memory address
-        self.add_opcode(ByteCodes::PUSH_FROM_CONST);
-        self.add_byte(ADDRESS_SIZE as u8);
-        let label = label_generator.next_label();
-        self.add_placeholder_label(label, labels_to_resolve);
 
-        unnamed_local_statics.push((static_value, label));
+    fn load_second_numeric_arg(&mut self, tn_location: &TnLocation, size: usize, reg_table: &mut UsedGeneralPurposeRegisterTable) {
+        match tn_location {
+            TnLocation::Register(reg) => {
+                // mov r2 reg
+                self.move_into_reg_from_reg(Registers::R2, *reg);
+            },
+            TnLocation::Stack(offset) => {
+
+                // Save the value stored in r1, which would otherwise be overwritten
+                let r1_store =
+                    if let Some(store_reg) = reg_table.get_first_unused_register_not_r1r2() {
+                        reg_table.set_in_use(store_reg);
+                        // mov store_reg r1
+                        self.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                        self.add_reg(store_reg);
+                        self.add_reg(Registers::R1);
+                        TnLocation::Register(store_reg)
+                    } else {
+                        // push r1
+                        // We don't care about the stack frame offset since we aren't doing any stack operation besides pushing and popping the value of r1
+                        self.push_from_reg(Registers::R1, &mut (REGISTER_SIZE as StackOffset));
+                        TnLocation::Stack(0)
+                    };
+
+                // Calculate the stack address of the operand
+                // mov r1 sbp
+                // mov8 r2 abs(offset)
+                self.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
+                self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (*offset).abs());
+                if *offset < 0 {
+                    // isub
+                    self.add_opcode(ByteCodes::INTEGER_SUB);
+                } else {
+                    // iadd
+                    self.add_opcode(ByteCodes::INTEGER_ADD);
+                }
+                // Load the operand value
+                // mov(n) r2 [r1]
+                self.move_into_reg_from_addr_in_reg(size as u8, Registers::R2, Registers::R1);
+
+                // Restore the value of r1
+                match r1_store {
+                    TnLocation::Register(store_reg) => {
+                        // mov r1 store_reg
+                        self.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                        self.add_reg(store_reg);
+                        self.add_reg(Registers::R1);
+                    },
+                    TnLocation::Stack(_) => {
+                        // pop8 r1
+                        self.pop8_into_reg(Registers::R1, &mut 0);
+                    },
+                }
+            },
+        }
     }
 
 
+    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
+        // Construct the literal value somewhere alse and push on the stack its memory address
+        let label = declare_unnamed_local_static_ref(static_value, label_generator, unnamed_local_statics);
+
+        self.add_opcode(ByteCodes::PUSH_FROM_CONST);
+        self.add_byte(ADDRESS_SIZE as u8);
+        self.add_placeholder_label(label, labels_to_resolve);
+    }
+
+}
+
+
+fn declare_unnamed_local_static_ref(static_value: Rc<LiteralValue>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) -> Label {
+    let label = label_generator.next_label();
+    unnamed_local_statics.push((static_value, label));
+    label
 }
 
 
@@ -314,7 +421,7 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
         // defining a calling convention is thus necessary at this point.
         // This function should have access to the function's signature
 
-        let mut reg_table = UsedRegisterTable::new();
+        let mut reg_table = UsedGeneralPurposeRegisterTable::new();
 
         // Keeps track of where the actual value of Tns is stored
         let mut tn_locations: HashMap<TnID, TnLocation> = HashMap::new();
@@ -369,7 +476,6 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                 }
                             },
                             IRValue::Const(v) => {
-
                                 match v.as_ref() {
                                     LiteralValue::Char(ch) => {
                                         // mov1 r1 ch
@@ -380,7 +486,8 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                         bc.move_into_reg_from_const(n.data_type().static_size().unwrap() as u8, Registers::R1, n);
                                     },
                                     LiteralValue::Ref { target, .. } => {
-                                        bc.push_unnamed_static_ref(Rc::clone(target), labels_to_resolve, label_generator, &mut unnamed_local_statics);
+                                        let label = declare_unnamed_local_static_ref(Rc::clone(target), label_generator, &mut unnamed_local_statics);
+                                        bc.add_placeholder_label(label, labels_to_resolve);
                                     },
 
                                     LiteralValue::Array { .. } |
@@ -393,11 +500,146 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
 
                         // Be careful because performing calculations to load the right argument into r2 will invalidate r1, which contains the left argument
                         match right {
-                            IRValue::Tn(_) => todo!(),
-                            IRValue::Const(_) => todo!(),
+
+                            IRValue::Tn(tn) => {
+
+                                let tn_location = tn_locations.get(&tn.id).unwrap();
+
+                                match tn.data_type.as_ref() {
+
+                                    DataType::I8 => bc.load_second_numeric_arg(tn_location, I8_SIZE, &mut reg_table),
+                                    DataType::I16 => bc.load_second_numeric_arg(tn_location, I16_SIZE, &mut reg_table),
+                                    DataType::I32 => bc.load_second_numeric_arg(tn_location, I32_SIZE, &mut reg_table),
+                                    DataType::I64 => bc.load_second_numeric_arg(tn_location, I64_SIZE, &mut reg_table),
+                                    DataType::U8 => bc.load_second_numeric_arg(tn_location, U8_SIZE, &mut reg_table),
+                                    DataType::U16 => bc.load_second_numeric_arg(tn_location, U16_SIZE, &mut reg_table),
+                                    DataType::U32 => bc.load_second_numeric_arg(tn_location, U32_SIZE, &mut reg_table),
+                                    DataType::U64 => bc.load_second_numeric_arg(tn_location, U64_SIZE, &mut reg_table),
+                                    DataType::F32 => bc.load_second_numeric_arg(tn_location, F32_SIZE, &mut reg_table),
+                                    DataType::F64 => bc.load_second_numeric_arg(tn_location, F64_SIZE, &mut reg_table),
+                                    DataType::Usize => bc.load_second_numeric_arg(tn_location, USIZE_SIZE, &mut reg_table),
+                                    DataType::Isize => bc.load_second_numeric_arg(tn_location, ISIZE_SIZE, &mut reg_table),
+                                    // References are usize-sized numbers
+                                    DataType::Ref { .. } => bc.load_second_numeric_arg(tn_location, USIZE_SIZE, &mut reg_table),
+
+                                    DataType::Bool |
+                                    DataType::Char |
+                                    DataType::String |
+                                    DataType::Array { .. } |
+                                    DataType::StringRef { .. } |
+                                    DataType::RawString { .. } |
+                                    DataType::Function { .. } |
+                                    DataType::Void |
+                                    DataType::Unspecified
+                                        => unreachable!("Operation not supported for this type"),
+                                }
+                            },
+                            IRValue::Const(v) => {
+                                match v.as_ref() {
+                                    LiteralValue::Char(ch) => {
+                                        // mov1 r2 ch
+                                        bc.move_into_reg_from_const(CHAR_SIZE as u8, Registers::R2, *ch as u8);
+                                    },
+                                    LiteralValue::Numeric(n) => {
+                                        // mov(sizeof(n)) r2 n
+                                        bc.move_into_reg_from_const(n.data_type().static_size().unwrap() as u8, Registers::R2, n);
+                                    },
+                                    LiteralValue::Ref { target, .. } => {
+                                        let label = declare_unnamed_local_static_ref(Rc::clone(target), label_generator, &mut unnamed_local_statics);
+                                        bc.add_placeholder_label(label, labels_to_resolve);
+                                    },
+
+                                    LiteralValue::Array { .. } |
+                                    LiteralValue::StaticString(_) |
+                                    LiteralValue::Bool(_)
+                                        => unreachable!("Operation not supported for this type")
+                                }
+                            },
                         }
 
-                        todo!("Perform the addition and move into target")
+                        match target.data_type.as_ref() {
+
+                            DataType::Char |
+                            DataType::Ref { .. } |
+                            DataType::I8 |
+                            DataType::I16 |
+                            DataType::I32 |
+                            DataType::I64 |
+                            DataType::U8 |
+                            DataType::U16 |
+                            DataType::U32 |
+                            DataType::U64 |
+                            DataType::Usize |
+                            DataType::Isize
+                                => bc.add_opcode(ByteCodes::INTEGER_ADD),
+
+                            DataType::F32 |
+                            DataType::F64
+                                => bc.add_opcode(ByteCodes::FLOAT_ADD),
+
+                            DataType::StringRef { .. } |
+                            DataType::RawString { .. } |
+                            DataType::String |
+                            DataType::Array { .. } |
+                            DataType::Bool |
+                            DataType::Function { .. } |
+                            DataType::Void |
+                            DataType::Unspecified
+                                => unreachable!("Operation not supported for this type")
+                        }
+
+                        match tn_locations.get(&target.id).unwrap() {
+                            TnLocation::Register(target_reg) => {
+                                // mov target_reg r1
+                                bc.move_into_reg_from_reg(*target_reg, Registers::R1);
+                            },
+                            TnLocation::Stack(target_offset) => {
+                                // Save the result value in r1 because it will be overwritten when calculating the target address
+                                let r1_store =
+                                    if let Some(store_reg) = reg_table.get_first_unused_register_not_r1r2() {
+                                        reg_table.set_in_use(store_reg);
+                                        // mov store_reg r1
+                                        bc.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                                        bc.add_reg(store_reg);
+                                        bc.add_reg(Registers::R1);
+                                        TnLocation::Register(store_reg)
+                                    } else {
+                                        // push r1
+                                        // We don't care about the stack frame offset since we aren't doing any stack operation besides pushing and popping the value of r1
+                                        bc.push_from_reg(Registers::R1, &mut (REGISTER_SIZE as StackOffset));
+                                        TnLocation::Stack(0)
+                                    };
+
+                                // Calculate the stack address of the target
+                                // mov r1 sbp
+                                // mov8 r2 abs(target_offset)
+                                bc.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
+                                if *target_offset < 0 {
+                                    bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (*target_offset).unsigned_abs());
+                                    // iadd
+                                    bc.add_opcode(ByteCodes::INTEGER_ADD);
+                                } else if *target_offset > 0 {
+                                    bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, *target_offset);
+                                    // isub
+                                    bc.add_opcode(ByteCodes::INTEGER_SUB);
+                                }
+                                // if target_offset is 0, don't perform the operation
+
+                                // Restore the value of r1
+                                match r1_store {
+                                    TnLocation::Register(store_reg) => {
+                                        // mov r1 store_reg
+                                        bc.add_opcode(ByteCodes::MOVE_INTO_REG_FROM_REG);
+                                        bc.add_reg(store_reg);
+                                        bc.add_reg(Registers::R1);
+                                    },
+                                    TnLocation::Stack(_) => {
+                                        // pop8 r1
+                                        bc.pop8_into_reg(Registers::R1, &mut 0);
+                                    },
+                                }
+                            },
+                        }
                     },
                     IROperator::Sub { target, left, right } => todo!(),
                     IROperator::Mul { target, left, right } => todo!(),
@@ -495,14 +737,16 @@ fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve:
                                             // mov8 r1 sbp
                                             // mov8 r2 abs(offset)
                                             bc.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                                            bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (offset).abs());
                                             if offset < 0 {
-                                                // iadd
-                                                bc.add_opcode(ByteCodes::INTEGER_ADD);
-                                            } else {
+                                                bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (offset).unsigned_abs());
                                                 // isub
                                                 bc.add_opcode(ByteCodes::INTEGER_SUB);
+                                            } else if offset > 0 {
+                                                bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, offset);
+                                                // iadd
+                                                bc.add_opcode(ByteCodes::INTEGER_ADD);
                                             }
+                                            // If the offset is exactly 0, don't perform the operation
 
                                             // Push the stack pointer to make space for the argument. stp will now point to the uninitialized arg
                                             // pushsp sizeof(arg)

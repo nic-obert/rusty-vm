@@ -813,13 +813,12 @@ impl LiteralValue {
 
 }
 
-
 impl Display for LiteralValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LiteralValue::Char(c) => write!(f, "'{}'", c),
             LiteralValue::StaticString(s) => write!(f, "\"StaticString({:?})\"", s),
-            LiteralValue::Array { element_type: dt, items } => write!(f, "[{}]: [{:?}]", dt, items),
+            LiteralValue::Array { element_type: dt, items } => write!(f, "[{}; {}]: [{:?}]", dt, items.len(), items),
             LiteralValue::Numeric(n) => write!(f, "{}", n),
             LiteralValue::Bool(b) => write!(f, "{}", b),
             LiteralValue::Ref { target, mutable } => write!(f, "&{}{:?}", if *mutable { "mut " } else { "" }, target),
