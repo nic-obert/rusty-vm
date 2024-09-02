@@ -1,4 +1,6 @@
-use std::{collections::HashMap, mem, rc::Rc};
+use std::rc::Rc;
+use std::mem;
+use std::collections::HashMap;
 
 use num_traits::ToBytes;
 use rusty_vm_lib::{assembly::ByteCode, byte_code::ByteCodes, registers::{Registers, GENERAL_PURPOSE_REGISTER_COUNT, REGISTER_SIZE}, vm::{Address, ADDRESS_SIZE}};
@@ -53,6 +55,7 @@ impl UsedGeneralPurposeRegisterTable {
 /// TODO: brobably this doesn't need to be an isize. A i32 would be good enough because stack frames aren't usually huge
 type StackOffset = isize;
 
+#[derive(Clone)]
 enum TnLocation {
 
     /// The value of the Tn is stored inside a register
@@ -63,14 +66,94 @@ enum TnLocation {
 }
 
 
+fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
+
+    fn internal(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, is_generating_array: bool) {
+
+        if !is_generating_array {
+            // Calculate the target absolute address
+            bc.calculate_address_from_stack_frame_offset(stack_frame_offset, false);
+        }
+
+        match value {
+
+            LiteralValue::Char(ch) => {
+                // mov1 [r1] ch
+                bc.move_into_addr_in_reg_from_const(CHAR_SIZE as u8, Registers::R1, *ch as u8)
+            },
+
+            LiteralValue::Bool(b) => {
+                // mov1 [r1] b
+                bc.move_into_addr_in_reg_from_const(BOOL_SIZE as u8, Registers::R1, *b as u8);
+            },
+
+            LiteralValue::Numeric(n) => {
+                // mov(sizeof(n)) [r1] n
+                bc.move_into_addr_in_reg_from_const(n.data_type().static_size().unwrap() as u8, Registers::R1, n);
+            },
+
+            LiteralValue::Array { element_type, items } => {
+                /*
+                    Sequentially initialize each array element in-place.
+                    Keep the current target address in r1 and increment it each time a new element is initialized.
+                    If the element is an array, the generation process of the item array value will increment the target address like described above.
+                */
+                let element_size = element_type.static_size().unwrap();
+                let is_element_array = matches!(element_type.as_ref(), DataType::Array { .. });
+
+                let second_last_index = items.len().checked_sub(2).unwrap_or(0);
+                for item in items[0..second_last_index].iter() {
+
+                    internal(0, item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, true);
+
+                    // If the element is an array, there's no need to update the target address because the inner array's generation process already did that
+                    // On the other hand, if the element is an array, we need to increment the target address to pass to the next item position in the array
+                    if !is_element_array {
+                        // r1 is the target address
+                        // Increment the target address by the size of the newly initialized element to pass to the next element position
+                        // mov8 r2 sizeof(item)
+                        bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, element_size);
+                        bc.add_opcode(ByteCodes::INTEGER_ADD);
+                    }
+                }
+
+                if let Some(last_item) = items.last() {
+                    internal(0, last_item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, is_generating_array);
+                    // Usually, there's no need to increment the target address if the element is the last of the array being generated
+                    // However, if this array being generated is an element of an outer array and this element is not an array itself, the target address must be incremented to pass to the next item position in the outer array
+                    if is_generating_array && !is_element_array {
+                        // r1 is the target address
+                        // Increment the target address by the size of the newly initialized element to pass to the next element position in the outer array
+                        // mov8 r2 sizeof(item)
+                        bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, element_size);
+                        bc.add_opcode(ByteCodes::INTEGER_ADD);
+                    }
+                }
+            },
+
+            LiteralValue::Ref { target, .. } => {
+                bc.move_unnamed_static_ref_into_addr_in_reg(Registers::R1, Rc::clone(target), labels_to_resolve, label_generator, unnamed_local_statics);
+            },
+
+            LiteralValue::StaticString(strind_id) => {
+                // mov8 [r1] address of static string
+                let static_addr = *static_address_map.get(strind_id).unwrap();
+                bc.move_into_addr_in_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, static_addr);
+            },
+        }
+    }
+
+    internal(stack_frame_offset, value, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, false);
+}
+
+
 /// Generate the code to construct the given value in-place on the stack.
 /// Return the amount of bytes the stack pointer was pushed to perform this operation.
 /// The generated value will be placed at the top of the stack.
 /// Based on the data type, a different approach is used to include the value into the bytecode.
 /// Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly.
-fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
-    *stack_frame_offset
-    -= match value {
+fn generate_push_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
+    let offset = match value {
 
         LiteralValue::Bool(b) => {
             // push1 b
@@ -93,7 +176,7 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
             bc.add_opcode(ByteCodes::PUSH_FROM_CONST);
             bc.add_byte(ADDRESS_SIZE as u8);
             let static_addr = *static_address_map.get(string_id).unwrap();
-            bc.extend(static_addr.to_le_bytes());
+            bc.add_const_usize(static_addr);
             ADDRESS_SIZE
         },
 
@@ -106,7 +189,7 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
                 Also, values larger than 8 bytes cannot be directly moved, so this approach is more generic
             */
             for item in items.iter().rev() {
-                generate_stack_value(item, bc, static_address_map, stack_frame_offset, unnamed_local_statics, labels_to_resolve, label_generator);
+                generate_push_stack_value(item, bc, static_address_map, stack_frame_offset, unnamed_local_statics, labels_to_resolve, label_generator);
             }
 
             // Don't modify the stack frame offset because it was already modified when pushing the array elements
@@ -127,6 +210,8 @@ fn generate_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_
             ADDRESS_SIZE
         },
     } as StackOffset;
+
+    *stack_frame_offset -= offset;
 }
 
 
@@ -170,9 +255,66 @@ trait ByteCodeOutput {
 
     fn store_r1(&mut self, target_tn: TnID, reg_table: &mut UsedGeneralPurposeRegisterTable, tn_locations: &mut HashMap<TnID, TnLocation>);
 
+    fn calculate_address_from_stack_frame_offset(&mut self, offset: StackOffset, r2_already_sbp: bool);
+
+    fn move_into_addr_in_reg_from_reg(&mut self, handled_size: u8, dest: Registers, source: Registers);
+
+    fn move_into_addr_in_reg_from_const<T>(&mut self, handled_size: u8, dest: Registers, value: T) where T: ToBytes;
+
+    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
+
 }
 
 impl ByteCodeOutput for ByteCode {
+
+    fn move_into_addr_in_reg_from_const<T>(&mut self, handled_size: u8, dest: Registers, value: T)
+    where
+        T: ToBytes
+    {
+        debug_assert_eq!(
+            AsRef::<[u8]>::as_ref(&value.to_le_bytes()).len(),
+            handled_size as usize
+        );
+
+        self.add_opcode(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
+        self.add_byte(handled_size);
+        self.add_reg(dest);
+        self.extend_from_slice(AsRef::<[u8]>::as_ref(&value.to_le_bytes()));
+    }
+
+    fn move_into_addr_in_reg_from_reg(&mut self, handled_size: u8, dest: Registers, source: Registers) {
+        self.add_opcode(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_REG);
+        self.add_byte(handled_size);
+        self.add_reg(dest);
+        self.add_reg(source);
+    }
+
+
+    /// Generate the bytecode for calculating the absolute memory address, given a signed offset from the stack frame base pointer.
+    /// The resulting absolute memory address will be stored in r1
+    /// The stack frame base pointer will be stored in r2 as a side effect, which can be used to calculate multiple absolute addresses in a row.
+    fn calculate_address_from_stack_frame_offset(&mut self, offset: StackOffset, r2_already_sbp: bool) {
+
+        if !r2_already_sbp {
+            // mov r2 sbp
+            self.move_into_reg_from_reg(Registers::R2, Registers::STACK_FRAME_BASE_POINTER);
+        }
+
+        // Use the absolute value of the offset because addresses are unsigned integers.
+        // Subtracting the usize representation of an isize may result in an overflow.
+        if offset < 0 {
+            // mov8 r1 abs(offset)
+            // isub
+            self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, offset.unsigned_abs());
+            self.add_opcode(ByteCodes::INTEGER_SUB);
+        } else {
+            // mov8 r1 offset
+            // iadd
+            self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, offset);
+        }
+        // if offset is 0, don't perform the operation
+    }
+
 
     fn add_byte(&mut self, byte: u8) {
         self.push(byte);
@@ -264,17 +406,7 @@ impl ByteCodeOutput for ByteCode {
 
             TnLocation::Stack(offset) => {
                 // Calculate the stack address of the operand
-                // mov r1 sbp
-                // mov8 r2 abs(offset)
-                self.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (*offset).abs());
-                if *offset < 0 {
-                    // isub
-                    self.add_opcode(ByteCodes::INTEGER_SUB);
-                } else {
-                    // iadd
-                    self.add_opcode(ByteCodes::INTEGER_ADD);
-                }
+                self.calculate_address_from_stack_frame_offset(*offset, false);
 
                 // Load the operand value
                 // mov(n) r1 [r1]
@@ -309,17 +441,8 @@ impl ByteCodeOutput for ByteCode {
                     };
 
                 // Calculate the stack address of the operand
-                // mov r1 sbp
-                // mov8 r2 abs(offset)
-                self.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (*offset).abs());
-                if *offset < 0 {
-                    // isub
-                    self.add_opcode(ByteCodes::INTEGER_SUB);
-                } else {
-                    // iadd
-                    self.add_opcode(ByteCodes::INTEGER_ADD);
-                }
+                self.calculate_address_from_stack_frame_offset(*offset, false);
+
                 // Load the operand value
                 // mov(n) r2 [r1]
                 self.move_into_reg_from_addr_in_reg(size as u8, Registers::R2, Registers::R1);
@@ -340,6 +463,17 @@ impl ByteCodeOutput for ByteCode {
                 }
             },
         }
+    }
+
+
+    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
+
+        let label = declare_unnamed_local_static_ref(static_value, label_generator, unnamed_local_statics);
+
+        self.add_opcode(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
+        self.add_byte(ADDRESS_SIZE as u8);
+        self.add_reg(dest);
+        self.add_placeholder_label(label, labels_to_resolve);
     }
 
 
@@ -501,19 +635,7 @@ impl ByteCodeOutput for ByteCode {
                     };
 
                 // Calculate the stack address of the target
-                // mov r1 sbp
-                // mov8 r2 abs(target_offset)
-                self.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                if *target_offset < 0 {
-                    self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (*target_offset).unsigned_abs());
-                    // iadd
-                    self.add_opcode(ByteCodes::INTEGER_ADD);
-                } else if *target_offset > 0 {
-                    self.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, *target_offset);
-                    // isub
-                    self.add_opcode(ByteCodes::INTEGER_SUB);
-                }
-                // if target_offset is 0, don't perform the operation
+                self.calculate_address_from_stack_frame_offset(*target_offset, false);
 
                 // Restore the value of r1
                 match r1_store {
@@ -602,18 +724,72 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Assign { target, source } => {
 
-                        match (tn_locations.get(&target.id).unwrap(), source) {
+                        let target_location = if let Some(target_location) = tn_locations.get(&target.id) {
+                            target_location.clone()
+                        } else {
+                            // If the tn store wasn't already created, make space for it now
+                            // TODO: we could also store tns in free registers as long as they are 8 bytes or less in size
+                            // pushsp sizeof(target)
+                            bc.push_stack_pointer_const(target.data_type.static_size().unwrap(), &mut stack_frame_offset);
+                            let location = TnLocation::Stack(stack_frame_offset);
+                            // Record that this tn is stored at that specific address
+                            tn_locations.insert(target.id, location.clone());
+                            location
+                        };
+
+                        match (target_location, source) {
 
                             (TnLocation::Register(target_reg), IRValue::Tn(source_tn)) => {
                                 match tn_locations.get(&source_tn.id).unwrap() {
-                                    TnLocation::Register(source_reg) => todo!(),
-                                    TnLocation::Stack(source_offset) => todo!(),
+                                    TnLocation::Register(source_reg) => {
+                                        // mov target_reg source_reg
+                                        bc.move_into_reg_from_reg(target_reg, *source_reg);
+                                    },
+                                    TnLocation::Stack(source_offset) => {
+                                        // Assume r1 and r2 are free
+                                        // Calculate the source tn location
+                                        bc.calculate_address_from_stack_frame_offset(*source_offset, false);
+                                        // mov(sizeof(target)) target_reg [r1]
+                                        bc.move_into_reg_from_addr_in_reg(target.data_type.static_size().unwrap() as u8, target_reg, Registers::R1);
+                                    },
                                 }
                             },
 
-                            (TnLocation::Register(target_reg), IRValue::Const(source_value)) => todo!(),
-                            (TnLocation::Stack(target_offset), IRValue::Tn(source_tn)) => todo!(),
-                            (TnLocation::Stack(target_offset), IRValue::Const(source_value)) => todo!(),
+                            (TnLocation::Register(target_reg), IRValue::Const(source_value)) => {
+                                bc.load_const(target_reg, source_value, &mut unnamed_local_statics, label_generator, labels_to_resolve, static_address_map);
+                            },
+
+                            (TnLocation::Stack(target_offset), IRValue::Tn(source_tn)) => {
+                                match tn_locations.get(&source_tn.id).unwrap() {
+                                    TnLocation::Register(source_reg) => {
+                                        bc.calculate_address_from_stack_frame_offset(target_offset, false);
+                                        // mov(sizeof(target)) [r1] source_reg
+                                        bc.move_into_addr_in_reg_from_reg(target.data_type.static_size().unwrap() as u8, Registers::R1, *source_reg);
+                                    },
+                                    TnLocation::Stack(source_offset) => {
+                                        // Calculate the source address
+                                        bc.calculate_address_from_stack_frame_offset(*source_offset, false);
+                                        // Store the source address on the stack to free r1
+                                        // TODO: storing it in a free register would be faster
+                                        bc.push_from_reg(Registers::R1, &mut stack_frame_offset);
+                                        // Calculate the target address
+                                        bc.calculate_address_from_stack_frame_offset(target_offset, true);
+                                        // Copy from source to target
+                                        // Reload the source address into r2
+                                        // pop8 r2
+                                        bc.pop8_into_reg(Registers::R2, &mut stack_frame_offset);
+                                        // The target address is already in r1
+                                        // memcpyb sizeof(target)
+                                        bc.add_opcode(ByteCodes::MEM_COPY_BLOCK_CONST);
+                                        bc.add_byte(mem::size_of::<usize>() as u8);
+                                        bc.add_const_usize(target.data_type.static_size().unwrap());
+                                    },
+                                }
+                            },
+
+                            (TnLocation::Stack(target_offset), IRValue::Const(source_value)) => {
+                                generate_stack_value_at_offset(target_offset, source_value, bc, static_address_map, &mut unnamed_local_statics, labels_to_resolve, label_generator);
+                            },
                         }
                     },
 
@@ -737,7 +913,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                                 },
 
                                 IRValue::Const(v) => {
-                                    generate_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve, label_generator);
+                                    generate_push_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve, label_generator);
                                 },
                             }
 
