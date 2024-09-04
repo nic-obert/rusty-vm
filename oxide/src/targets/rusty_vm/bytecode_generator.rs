@@ -91,7 +91,8 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
     Possible optimizations:
 
     Determine if a function performs any call to other functions. If a function doesn't perform any further function call, there's no need to increment
-    the stack pointer, since local stack variables are accessed through an offset from the stack frame base.
+    the stack pointer in the prologue, since local stack variables are accessed through an offset from the stack frame base.
+    As a result, there's also no need to pop the stack frame when returning
 
 
 */

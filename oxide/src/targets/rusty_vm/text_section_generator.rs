@@ -1,4 +1,4 @@
-use std::{collections::HashSet, rc::Rc};
+use std::rc::Rc;
 use std::mem;
 use std::collections::HashMap;
 
@@ -734,14 +734,15 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
         // This is used to keep track of where Tns' real values are located when pushed onto the stack
         let mut stack_frame_offset: StackOffset = 0;
 
-        // TODO: we need to load the function arguments, or at least keep track of where they are.
-        // defining a calling convention is thus necessary at this point.
+        // Make space for the local variables on the stack
+        let stack_frame_size = symbol_table.total_scope_size(function_graph.function_scope).expect("The function stack frame size must be known by now");
+        // pushsp stack_frame_size
+        bc.push_stack_pointer_const(stack_frame_size, &mut stack_frame_offset);
+
+        // TODO: we need to load the function arguments, or at least keep track of where they are (stack and registers).
         // This function should have access to the function's signature to determine which parameters go where
         //
-        // TODO: The stack frame should also be readily pushed to allocate space for the local variables.
-        // It's really necessary to do it all here up front because different code branches may push the stack pointer by a different amount
-        // and thus make it impossible to know statically how much to pop when returning from the function.
-        // If an instruction handler pushes onto the stack to perform some operation, it must pop from the stack after doing its operations.
+        // TODO: we need to assign a stack location to local variables, too.
 
         for block in function_graph.code_blocks {
 
@@ -914,6 +915,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::DerefCopy { target, source } => todo!(),
 
                     IROperator::Jump { target } => {
+                        // jmp target
                         bc.add_opcode(ByteCodes::JUMP);
                         bc.add_placeholder_label(*target, labels_to_resolve);
                     },
@@ -1034,15 +1036,18 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                         // mov stp sbp
                         bc.move_into_reg_from_reg(Registers::STACK_TOP_POINTER, Registers::STACK_FRAME_BASE_POINTER);
                         // Restore the prevous stack frame
+                        // pop8 sbp
                         bc.pop8_into_reg(Registers::STACK_FRAME_BASE_POINTER, &mut stack_frame_offset);
 
                         // TODO: The return value must be returned.
                         // We need access to the return tn
 
+                        // return
                         bc.add_opcode(ByteCodes::RETURN);
                     },
 
                     IROperator::Nop => {
+                        // nop
                         bc.add_opcode(ByteCodes::NO_OPERATION);
                     },
                 }
