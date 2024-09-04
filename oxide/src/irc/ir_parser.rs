@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use rusty_vm_lib::ir::SourceCode;
@@ -1236,7 +1236,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
     // Allocate at least as much hashmap slots as the maximum number of Tns that will ever be inserted.
     // This isn't a bad estimate since almost every operation assigns to a Tn.
     // Also, the memory will be freed upon returning from this function.
-    let mut read_tns: HashMap<TnID, ()> = HashMap::with_capacity(function_code.estimated_length());
+    let mut read_tns: HashSet<TnID> = HashSet::with_capacity(function_code.estimated_length());
 
     while let Some(node) = unsafe { node_ptr.as_ref() } {
 
@@ -1265,7 +1265,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
             IROperator::BitShiftRight { target, left, right }
             => {
                 // If the target is never read, the operation result is useless
-                if !read_tns.contains_key(&target.id) {
+                if !read_tns.contains(&target.id) {
                     // The target is never read, so remove the operation
                     // Save the previous node in a temporary variable because removing the node from the list invalidates it.
                     let prev = unsafe { node.prev() };
@@ -1276,11 +1276,11 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
                 // The target is read, so add the Tn operands to the list of read Tns
                 if let IRValue::Tn(tn) = left {
-                    read_tns.insert(tn.id, ());
+                    read_tns.insert(tn.id);
                 }
 
                 if let IRValue::Tn(tn) = right {
-                    read_tns.insert(tn.id, ());
+                    read_tns.insert(tn.id);
                 }
             },
 
@@ -1292,7 +1292,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
             IROperator::DerefCopy { target, source: operand }
              => {
                 // If the target is never read, the operation result is useless
-                if !read_tns.contains_key(&target.id) {
+                if !read_tns.contains(&target.id) {
                     // The target is never read, so remove the operation
                     // Save the previous node in a temporary variable because removing the node from the list invalidates it.
                     let prev = unsafe { node.prev() };
@@ -1303,13 +1303,13 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
                 // The target is read, so add the Tn operands to the list of read Tns
                 if let IRValue::Tn(tn) = operand {
-                    read_tns.insert(tn.id, ());
+                    read_tns.insert(tn.id);
                 }
             },
 
             IROperator::Ref { target, ref_ } => {
                 // If the target is never read, the operation result is useless
-                if !read_tns.contains_key(&target.id) {
+                if !read_tns.contains(&target.id) {
                     // The target is never read, so remove the operation
                     // Save the previous node in a temporary variable because removing the node from the list invalidates it.
                     let prev = unsafe { node.prev() };
@@ -1318,12 +1318,12 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
                     continue;
                 }
 
-                read_tns.insert(ref_.id, ());
+                read_tns.insert(ref_.id);
             },
 
             IROperator::JumpIf { condition, target: _ } |
             IROperator::JumpIfNot { condition, target: _ } => {
-                read_tns.insert(condition.id, ());
+                read_tns.insert(condition.id);
             },
 
             IROperator::Call { return_target: _, return_label: _, callable: _, args } => {
@@ -1332,7 +1332,7 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
 
                 for arg in args {
                     if let IRValue::Tn(tn) = arg {
-                        read_tns.insert(tn.id, ());
+                        read_tns.insert(tn.id);
                     }
                 }
             },
