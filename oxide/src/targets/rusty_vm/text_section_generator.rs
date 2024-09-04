@@ -263,9 +263,19 @@ trait ByteCodeOutput {
 
     fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
 
+    fn pop_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset);
+
 }
 
 impl ByteCodeOutput for ByteCode {
+
+    fn pop_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset) {
+        self.add_opcode(ByteCodes::POP_STACK_POINTER_CONST);
+        self.add_byte(mem::size_of::<usize>() as u8);
+        self.add_const_usize(offset);
+        *stack_frame_offset += offset as StackOffset;
+    }
+
 
     fn move_into_addr_in_reg_from_const<T>(&mut self, handled_size: u8, dest: Registers, value: T)
     where
@@ -391,7 +401,7 @@ impl ByteCodeOutput for ByteCode {
     fn push_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset) {
         self.add_opcode(ByteCodes::PUSH_STACK_POINTER_CONST);
         self.add_byte(mem::size_of::<usize>() as u8);
-        self.extend(offset.to_le_bytes());
+        self.add_const_usize(offset);
         *stack_frame_offset -= offset as StackOffset;
     }
 
@@ -675,15 +685,10 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
     for function_graph in function_graphs {
 
-        // TODO: we need to load the function arguments, or at least keep track of where they are.
-        // defining a calling convention is thus necessary at this point.
-        // This function should have access to the function's signature
-
         let mut reg_table = UsedGeneralPurposeRegisterTable::new();
 
         // Keeps track of where the actual value of Tns is stored
         // This map is populated when writing the code to load function parameters in the function prologue
-        // TODO: how about local variables that are not function parameters?
         let mut tn_locations: HashMap<TnID, TnLocation> = HashMap::new();
 
         // Save the previous stack frame and load the new one
@@ -695,6 +700,15 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
         // Keeps a record of the current offset from the stack frame base.
         // This is used to keep track of where Tns' real values are located when pushed onto the stack
         let mut stack_frame_offset: StackOffset = 0;
+
+        // TODO: we need to load the function arguments, or at least keep track of where they are.
+        // defining a calling convention is thus necessary at this point.
+        // This function should have access to the function's signature to determine which parameters go where
+        //
+        // TODO: The stack frame should also be readily pushed to allocate space for the local variables.
+        // It's really necessary to do it all here up front because different code branches may push the stack pointer by a different amount
+        // and thus make it impossible to know statically how much to pop when returning from the function.
+        // If an instruction handler pushes onto the stack to perform some operation, it must pop from the stack after doing its operations.
 
         for block in function_graph.code_blocks {
 
@@ -717,10 +731,65 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                         bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
                     },
 
-                    IROperator::Sub { target, left, right } => todo!(),
-                    IROperator::Mul { target, left, right } => todo!(),
-                    IROperator::Div { target, left, right } => todo!(),
-                    IROperator::Mod { target, left, right } => todo!(),
+                    IROperator::Sub { target, left, right } => {
+
+                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+
+                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+
+                        if target.data_type.is_float() {
+                            bc.add_opcode(ByteCodes::FLOAT_SUB);
+                        } else {
+                            bc.add_opcode(ByteCodes::INTEGER_SUB);
+                        }
+
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::Mul { target, left, right } => {
+
+                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+
+                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+
+                        if target.data_type.is_float() {
+                            bc.add_opcode(ByteCodes::FLOAT_MUL);
+                        } else {
+                            bc.add_opcode(ByteCodes::INTEGER_MUL);
+                        }
+
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::Div { target, left, right } => {
+
+                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+
+                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+
+                        if target.data_type.is_float() {
+                            bc.add_opcode(ByteCodes::FLOAT_DIV);
+                        } else {
+                            bc.add_opcode(ByteCodes::INTEGER_DIV);
+                        }
+
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::Mod { target, left, right } => {
+
+                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+
+                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+
+                        if target.data_type.is_float() {
+                            bc.add_opcode(ByteCodes::FLOAT_MOD);
+                        } else {
+                            bc.add_opcode(ByteCodes::INTEGER_MOD);
+                        }
+
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
 
                     IROperator::Assign { target, source } => {
 
@@ -920,13 +989,28 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                         }
 
                         // Clean up after the function has returned (restore previous states)
+                        // Restore previous register states, pop function arguments from the stack (popsp)
+                        // The stack top will then be the returned value, if it was returned on the stack. Otherwise, it will be located in r1
                         todo!()
                     },
 
-                    IROperator::Return => todo!(),
+                    IROperator::Return => {
+                        // "Pop" the function's stack frame
+                        // mov stp sbp
+                        bc.move_into_reg_from_reg(Registers::STACK_TOP_POINTER, Registers::STACK_FRAME_BASE_POINTER);
+                        // Restore the prevous stack frame
+                        bc.pop8_into_reg(Registers::STACK_FRAME_BASE_POINTER, &mut stack_frame_offset);
+
+                        debug_assert_eq!(stack_frame_offset, ADDRESS_SIZE as StackOffset);
+
+                        // TODO: The return value must be returned.
+                        // We need access to the return tn
+
+                        bc.add_opcode(ByteCodes::RETURN);
+                    },
 
                     &IROperator::PushScope { bytes } => {
-                        // TODO: maybe this is not needed
+                        // TODO: maybe this is not needed. Pushing and popping stack frames is done by the ir instruction call handler
                         bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, bytes);
                         bc.move_into_reg_from_reg(Registers::R2, Registers::STACK_TOP_POINTER);
                         // The stack grows downwards
@@ -946,9 +1030,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     },
                 }
             }
-        }
 
-        todo!("Restore the old stack frame. Or maybe delegate this to the ir return instruction?")
+            // The function epilogue is generated by the ir return instruction
+        }
     }
 
     // Include the unnamed local static values in the byte code
