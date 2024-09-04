@@ -23,6 +23,7 @@
 - Add the slice type &[T]. This is a wide pointer.
 - Make StringRef a wide pointer.
 - Ensure static and constant value uniqueness in the symbol table. This would require implementing Eq and Hash (or some surrogate) for Number and DataType. The challenging part would be implementing Eq and hash for the float varients of Number
+- Test the stack frame size of a function that contains another function definition in its body. Inner function definitions should not contribute to the stack frame size of the outer function.
 
 ### In Progress
 

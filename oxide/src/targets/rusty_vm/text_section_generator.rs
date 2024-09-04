@@ -619,6 +619,7 @@ impl ByteCodeOutput for ByteCode {
     }
 
 
+    /// Store the value of r1 into the target Tn
     fn store_r1(&mut self, target_tn: TnID, reg_table: &mut UsedGeneralPurposeRegisterTable, tn_locations: &mut HashMap<TnID, TnLocation>) {
         match tn_locations.get(&target_tn).unwrap() {
 
@@ -735,9 +736,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
         let mut stack_frame_offset: StackOffset = 0;
 
         // Make space for the local variables on the stack
-        let stack_frame_size = symbol_table.total_scope_size_excluding_parameters(function_graph.function_scope).expect("The function stack frame size must be known by now");
+        let stack_frame_size_excluding_parameters = symbol_table.total_scope_size_excluding_parameters(function_graph.function_scope).expect("The function stack frame size must be known by now");
         // pushsp stack_frame_size
-        bc.push_stack_pointer_const(stack_frame_size, &mut stack_frame_offset);
+        bc.push_stack_pointer_const(stack_frame_size_excluding_parameters, &mut stack_frame_offset);
 
         // TODO: we need to load the function arguments, or at least keep track of where they are (stack and registers).
         // This function should have access to the function's signature to determine which parameters go where
@@ -905,12 +906,49 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::LessEqual { target, left, right } => todo!(),
                     IROperator::Equal { target, left, right } => todo!(),
                     IROperator::NotEqual { target, left, right } => todo!(),
-                    IROperator::BitShiftLeft { target, left, right } => todo!(),
-                    IROperator::BitShiftRight { target, left, right } => todo!(),
-                    IROperator::BitNot { target, operand } => todo!(),
-                    IROperator::BitAnd { target, left, right } => todo!(),
-                    IROperator::BitOr { target, left, right } => todo!(),
-                    IROperator::BitXor { target, left, right } => todo!(),
+
+
+                    IROperator::BitShiftLeft { target, left, right } => {
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.add_opcode(ByteCodes::SHIFT_LEFT);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::BitShiftRight { target, left, right } => {
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.add_opcode(ByteCodes::SHIFT_RIGHT);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::BitNot { target, operand } => {
+                        bc.load_first_arg(operand, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.add_opcode(ByteCodes::NOT);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::BitAnd { target, left, right } => {
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.add_opcode(ByteCodes::AND);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::BitOr { target, left, right } => {
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.add_opcode(ByteCodes::OR);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
+                    IROperator::BitXor { target, left, right } => {
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.add_opcode(ByteCodes::XOR);
+                        bc.store_r1(target.id, &mut reg_table, &mut tn_locations);
+                    },
+
                     IROperator::Copy { target, source } => todo!(),
                     IROperator::DerefCopy { target, source } => todo!(),
 
