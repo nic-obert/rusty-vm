@@ -735,7 +735,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
         let mut stack_frame_offset: StackOffset = 0;
 
         // Make space for the local variables on the stack
-        let stack_frame_size = symbol_table.total_scope_size(function_graph.function_scope).expect("The function stack frame size must be known by now");
+        let stack_frame_size = symbol_table.total_scope_size_excluding_parameters(function_graph.function_scope).expect("The function stack frame size must be known by now");
         // pushsp stack_frame_size
         bc.push_stack_pointer_const(stack_frame_size, &mut stack_frame_offset);
 

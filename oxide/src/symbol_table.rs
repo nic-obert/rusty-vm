@@ -28,6 +28,11 @@ pub struct Symbol<'a> {
     /// Whether the symbol has been removed as a result of optimization.
     /// If a symbol has been removed, it should not be pushed to the stack.
     pub removed: bool,
+    /// Whether the symbol is a function paremeter or not.
+    /// This is used to differentiate between regular local symbols and function parameters,
+    /// which may be handled differently by the bytecode generator.
+    /// For example, local symbols may be included in the function's stack frame, but parameters may be placed before that.
+    pub is_function_parameter: bool
 }
 
 impl<'a> Symbol<'a> {
@@ -41,7 +46,7 @@ impl<'a> Symbol<'a> {
     }
 
 
-    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'a>>, value: SymbolValue<'a>) -> Symbol<'a> {
+    pub fn new_uninitialized(data_type: Rc<DataType>, token: Rc<SourceToken<'a>>, value: SymbolValue<'a>, is_function_parameter: bool) -> Symbol<'a> {
         Symbol {
             data_type,
             token,
@@ -49,6 +54,7 @@ impl<'a> Symbol<'a> {
             initialized: false,
             read_from: false,
             removed: false,
+            is_function_parameter
         }
     }
 
@@ -66,6 +72,7 @@ impl<'a> Symbol<'a> {
             initialized: true,
             read_from: false,
             removed: false,
+            is_function_parameter: false
         }
     }
 
@@ -347,8 +354,9 @@ impl<'a> SymbolTable<'a> {
 
 
     /// Get the size of a scope in bytes, including its children.
+    /// This calculation does not include symbols that have been optimized out and function parameters.
     #[allow(clippy::type_complexity)]
-    pub fn total_scope_size(&self, scope_id: ScopeID) -> Result<usize, Vec<(Rc<SourceToken>, Rc<DataType>)>> {
+    pub fn total_scope_size_excluding_parameters(&self, scope_id: ScopeID) -> Result<usize, Vec<(Rc<SourceToken>, Rc<DataType>)>> {
 
         let mut size = 0;
         let mut unknown_sizes = Vec::new();
@@ -359,9 +367,10 @@ impl<'a> SymbolTable<'a> {
 
             let symbol = symbol.borrow();
 
-            // Do not include removed symbols in the scope stack size calculation.
+            // Do not include removed symbols and function parameters in the scope stack size calculation.
             // Removed symbols have been optimized out.
-            if symbol.removed {
+            // Function parameters may be handled separately.
+            if symbol.removed || symbol.is_function_parameter {
                 continue;
             }
 
@@ -372,7 +381,7 @@ impl<'a> SymbolTable<'a> {
         }
 
         for child_id in &scope.children {
-            match self.total_scope_size(*child_id) {
+            match self.total_scope_size_excluding_parameters(*child_id) {
                 Ok(s) => size += s,
                 Err(e) => unknown_sizes.extend(e)
             }

@@ -661,6 +661,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                     data_type.clone(),
                                     Rc::clone(&token.source_token),
                                     SymbolValue::UninitializedStatic { mutable },
+                                    false
                                 ),
                                 block.scope_id
                             );
@@ -742,6 +743,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                     data_type.clone(),
                                     Rc::clone(&token.source_token),
                                     SymbolValue::UninitializedConstant,
+                                    false
                                 ),
                                 block.scope_id
                             );
@@ -830,6 +832,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                     data_type,
                                     Rc::clone(&token.source_token),
                                     if mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
+                                    false
                                 ),
                                 block.scope_id
                             );
@@ -992,6 +995,7 @@ fn parse_block_hierarchy<'a>(block: UnparsedScopeBlock<'a>, symbol_table: &mut S
                                         param.data_type.clone(),
                                         param.token.clone(),
                                         if param.mutable { SymbolValue::Mutable } else { SymbolValue::Immutable(None) },
+                                        true
                                     ),
                                     body.scope_id // Note that the parameters are declared in the function's body scope
                                 );
