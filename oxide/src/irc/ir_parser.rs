@@ -1158,10 +1158,8 @@ pub struct FunctionLabels {
 fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, symbol_table: &mut SymbolTable<'a>, source: &SourceCode) -> FunctionIR<'a> {
     /*
         Lstart:
-            pushscope <function_size>
             <function_code>
         Lexit:
-            popscope <function_size>
             return
     */
 
@@ -1186,27 +1184,12 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
         has_side_effects: false
     });
 
-    let function_size = match symbol_table.total_scope_size(function.code.scope_id) {
-        Ok(size) => size,
-        Err(unknowns) => error::unknown_sizes(&unknowns, source, "All local sizes should be known at compile-time.")
-    };
-
-    ir_function.push_code(IRNode {
-        op: IROperator::PushScope { bytes: function_size },
-        has_side_effects: false
-    });
-
     symbol_table.map_function_label(FunctionUUID { name: function.name, scope: function.parent_scope }, ir_function.function_labels.start);
 
     generate_block(function.code, return_tn, None, irid_gen, &mut ir_function, ir_scope, symbol_table, source);
 
     ir_function.push_code(IRNode {
         op: IROperator::Label { label: ir_function.function_labels.exit },
-        has_side_effects: false
-    });
-
-    ir_function.push_code(IRNode {
-        op: IROperator::PopScope { bytes: function_size },
         has_side_effects: false
     });
 
@@ -1340,8 +1323,6 @@ fn remove_unused_operations(ir_function: &mut FunctionIR) {
             IROperator::Jump { target: _ } |
             IROperator::Label { label: _ } |
             IROperator::Return |
-            IROperator::PushScope { bytes: _ } |
-            IROperator::PopScope { bytes: _ } |
             IROperator::Nop
              => {}
         }

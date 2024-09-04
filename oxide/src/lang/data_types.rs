@@ -29,7 +29,7 @@ pub const USIZE_SIZE: usize = ADDRESS_SIZE;
 pub const ISIZE_SIZE: usize = ADDRESS_SIZE;
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum DataType {
 
     Bool,
@@ -607,7 +607,7 @@ pub enum LiteralValue {
 
     Bool (bool),
 
-    // TODO: probably we should use a RefCell here to allow for runtime mutability when evaluating constant operations.
+    // TODO: literal mutable references should be disallowed
     Ref { target: Rc<LiteralValue>, mutable: bool }
 
 }

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 use std::mem;
 use std::collections::HashMap;
 
@@ -66,9 +66,9 @@ enum TnLocation {
 }
 
 
-fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
+fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut UnnamedLocalStaticsManager, labels_to_resolve: &mut Vec<Address>) {
 
-    fn internal(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, is_generating_array: bool) {
+    fn internal(stack_frame_offset: StackOffset, value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, unnamed_local_statics: &mut UnnamedLocalStaticsManager, labels_to_resolve: &mut Vec<Address>, is_generating_array: bool) {
 
         if !is_generating_array {
             // Calculate the target absolute address
@@ -104,7 +104,7 @@ fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &Liter
                 let second_last_index = items.len().checked_sub(2).unwrap_or(0);
                 for item in items[0..second_last_index].iter() {
 
-                    internal(0, item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, true);
+                    internal(0, item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, true);
 
                     // If the element is an array, there's no need to update the target address because the inner array's generation process already did that
                     // On the other hand, if the element is an array, we need to increment the target address to pass to the next item position in the array
@@ -118,7 +118,7 @@ fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &Liter
                 }
 
                 if let Some(last_item) = items.last() {
-                    internal(0, last_item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, is_generating_array);
+                    internal(0, last_item, bc, static_address_map, unnamed_local_statics, labels_to_resolve, is_generating_array);
                     // Usually, there's no need to increment the target address if the element is the last of the array being generated
                     // However, if this array being generated is an element of an outer array and this element is not an array itself, the target address must be incremented to pass to the next item position in the outer array
                     if is_generating_array && !is_element_array {
@@ -132,7 +132,7 @@ fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &Liter
             },
 
             LiteralValue::Ref { target, .. } => {
-                bc.move_unnamed_static_ref_into_addr_in_reg(Registers::R1, Rc::clone(target), labels_to_resolve, label_generator, unnamed_local_statics);
+                bc.move_unnamed_static_ref_into_addr_in_reg(Registers::R1, Rc::clone(target), labels_to_resolve, unnamed_local_statics);
             },
 
             LiteralValue::StaticString(strind_id) => {
@@ -143,7 +143,7 @@ fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &Liter
         }
     }
 
-    internal(stack_frame_offset, value, bc, static_address_map, unnamed_local_statics, labels_to_resolve, label_generator, false);
+    internal(stack_frame_offset, value, bc, static_address_map, unnamed_local_statics, labels_to_resolve, false);
 }
 
 
@@ -152,7 +152,7 @@ fn generate_stack_value_at_offset(stack_frame_offset: StackOffset, value: &Liter
 /// The generated value will be placed at the top of the stack.
 /// Based on the data type, a different approach is used to include the value into the bytecode.
 /// Some small values can be just be pushed with a PUSH_FROM_CONST instruction, while others need to be constructed on the fly.
-fn generate_push_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator) {
+fn generate_push_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_address_map: &StaticAddressMap, stack_frame_offset: &mut StackOffset, unnamed_local_statics: &mut UnnamedLocalStaticsManager, labels_to_resolve: &mut Vec<Address>) {
     let offset = match value {
 
         LiteralValue::Bool(b) => {
@@ -189,7 +189,7 @@ fn generate_push_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_add
                 Also, values larger than 8 bytes cannot be directly moved, so this approach is more generic
             */
             for item in items.iter().rev() {
-                generate_push_stack_value(item, bc, static_address_map, stack_frame_offset, unnamed_local_statics, labels_to_resolve, label_generator);
+                generate_push_stack_value(item, bc, static_address_map, stack_frame_offset, unnamed_local_statics, labels_to_resolve);
             }
 
             // Don't modify the stack frame offset because it was already modified when pushing the array elements
@@ -206,7 +206,7 @@ fn generate_push_stack_value(value: &LiteralValue, bc: &mut ByteCode, static_add
         },
 
         LiteralValue::Ref { target, .. } => {
-            bc.push_unnamed_static_ref(Rc::clone(target), labels_to_resolve, label_generator, unnamed_local_statics);
+            bc.push_unnamed_static_ref(Rc::clone(target), labels_to_resolve, unnamed_local_statics);
             ADDRESS_SIZE
         },
     } as StackOffset;
@@ -245,13 +245,13 @@ trait ByteCodeOutput {
 
     fn load_second_numeric_arg(&mut self, tn_location: &TnLocation, size: usize, reg_table: &mut UsedGeneralPurposeRegisterTable);
 
-    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
+    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager);
 
-    fn load_first_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, static_address_map: &StaticAddressMap);
+    fn load_first_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager, static_address_map: &StaticAddressMap);
 
-    fn load_const(&mut self, target_reg: Registers, value: &LiteralValue, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, static_address_map: &StaticAddressMap);
+    fn load_const(&mut self, target_reg: Registers, value: &LiteralValue, unnamed_local_statics: &mut UnnamedLocalStaticsManager, labels_to_resolve: &mut Vec<Address>, static_address_map: &StaticAddressMap);
 
-    fn load_second_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, static_address_map: &StaticAddressMap, reg_table: &mut UsedGeneralPurposeRegisterTable);
+    fn load_second_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager, static_address_map: &StaticAddressMap, reg_table: &mut UsedGeneralPurposeRegisterTable);
 
     fn store_r1(&mut self, target_tn: TnID, reg_table: &mut UsedGeneralPurposeRegisterTable, tn_locations: &mut HashMap<TnID, TnLocation>);
 
@@ -261,7 +261,7 @@ trait ByteCodeOutput {
 
     fn move_into_addr_in_reg_from_const<T>(&mut self, handled_size: u8, dest: Registers, value: T) where T: ToBytes;
 
-    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>);
+    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager);
 
     fn pop_stack_pointer_const(&mut self, offset: usize, stack_frame_offset: &mut StackOffset);
 
@@ -476,9 +476,9 @@ impl ByteCodeOutput for ByteCode {
     }
 
 
-    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
+    fn move_unnamed_static_ref_into_addr_in_reg(&mut self, dest: Registers, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager) {
 
-        let label = declare_unnamed_local_static_ref(static_value, label_generator, unnamed_local_statics);
+        let label = unnamed_local_statics.declare(static_value);
 
         self.add_opcode(ByteCodes::MOVE_INTO_ADDR_IN_REG_FROM_CONST);
         self.add_byte(ADDRESS_SIZE as u8);
@@ -487,9 +487,9 @@ impl ByteCodeOutput for ByteCode {
     }
 
 
-    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) {
+    fn push_unnamed_static_ref(&mut self, static_value: Rc<LiteralValue>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager) {
         // Construct the literal value somewhere alse and push on the stack its memory address
-        let label = declare_unnamed_local_static_ref(static_value, label_generator, unnamed_local_statics);
+        let label = unnamed_local_statics.declare(static_value);
 
         self.add_opcode(ByteCodes::PUSH_FROM_CONST);
         self.add_byte(ADDRESS_SIZE as u8);
@@ -498,7 +498,7 @@ impl ByteCodeOutput for ByteCode {
 
 
     /// Load the given argument into r1, assuming it's the first argument being loaded
-    fn load_first_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, static_address_map: &StaticAddressMap) {
+    fn load_first_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager, static_address_map: &StaticAddressMap) {
         match arg {
 
             IRValue::Tn(tn) => {
@@ -536,12 +536,12 @@ impl ByteCodeOutput for ByteCode {
                 }
             },
 
-            IRValue::Const(v) => self.load_const(Registers::R1, v, unnamed_local_statics, label_generator, labels_to_resolve, static_address_map)
+            IRValue::Const(v) => self.load_const(Registers::R1, v, unnamed_local_statics, labels_to_resolve, static_address_map)
         }
     }
 
 
-    fn load_second_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, static_address_map: &StaticAddressMap, reg_table: &mut UsedGeneralPurposeRegisterTable) {
+    fn load_second_arg(&mut self, arg: &IRValue, tn_locations: &mut HashMap<TnID, TnLocation>, labels_to_resolve: &mut Vec<Address>, unnamed_local_statics: &mut UnnamedLocalStaticsManager, static_address_map: &StaticAddressMap, reg_table: &mut UsedGeneralPurposeRegisterTable) {
         // Be careful because performing calculations to load the right argument into r2 will invalidate r1, which contains the left argument
         match arg {
 
@@ -579,12 +579,12 @@ impl ByteCodeOutput for ByteCode {
                 }
             },
 
-            IRValue::Const(v) => self.load_const(Registers::R2, v, unnamed_local_statics, label_generator, labels_to_resolve, static_address_map)
+            IRValue::Const(v) => self.load_const(Registers::R2, v, unnamed_local_statics, labels_to_resolve, static_address_map)
         }
     }
 
 
-    fn load_const(&mut self, target_reg: Registers, value: &LiteralValue, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>, label_generator: &mut LabelGenerator, labels_to_resolve: &mut Vec<Address>, static_address_map: &StaticAddressMap) {
+    fn load_const(&mut self, target_reg: Registers, value: &LiteralValue, unnamed_local_statics: &mut UnnamedLocalStaticsManager, labels_to_resolve: &mut Vec<Address>, static_address_map: &StaticAddressMap) {
         match value {
 
             LiteralValue::Char(ch) => {
@@ -598,7 +598,7 @@ impl ByteCodeOutput for ByteCode {
             },
 
             LiteralValue::Ref { target, .. } => {
-                let label = declare_unnamed_local_static_ref(Rc::clone(target), label_generator, unnamed_local_statics);
+                let label = unnamed_local_statics.declare(Rc::clone(target));
                 self.add_placeholder_label(label, labels_to_resolve);
             },
 
@@ -670,18 +670,51 @@ impl ByteCodeOutput for ByteCode {
 }
 
 
-fn declare_unnamed_local_static_ref(static_value: Rc<LiteralValue>, label_generator: &mut LabelGenerator, unnamed_local_statics: &mut Vec<(Rc<LiteralValue>, Label)>) -> Label {
-    let label = label_generator.next_label();
-    unnamed_local_statics.push((static_value, label));
-    label
+/// Stores the unnames local static values and the labels to their definition
+struct UnnamedLocalStaticsManager {
+    local_statics: Vec<(Rc<LiteralValue>, Label)>,
+    label_generator: LabelGenerator
+}
+
+impl UnnamedLocalStaticsManager {
+
+    pub fn new(label_generator: LabelGenerator) -> Self {
+        Self {
+            local_statics: Default::default(),
+            label_generator
+        }
+    }
+
+
+    pub fn declare(&mut self, value: Rc<LiteralValue>) -> Label {
+
+        // Ensure value uniqueness
+        // This approach is O(n), but using a HashSet or HashMap would require float fields in Number to implement Eq and Hash
+        for (sv, label) in &self.local_statics {
+            if sv.equal(&value) {
+                return *label;
+            }
+        }
+
+        // The value is not in the list
+        let label = self.label_generator.next_label();
+        self.local_statics.push((value, label));
+        label
+    }
+
+
+    pub fn into_iter(self) -> impl IntoIterator<Item = (Rc<LiteralValue>, Label)> {
+        self.local_statics.into_iter()
+    }
+
 }
 
 
 /// Generate the code section, equivalent to .text in assembly
-pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap, symbol_table: &SymbolTable, label_generator: &mut LabelGenerator) {
+pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_resolve: &mut Vec<Address>, bc: &mut ByteCode, label_address_map: &mut LabelAddressMap, static_address_map: &StaticAddressMap, symbol_table: &SymbolTable, label_generator: LabelGenerator) {
 
     // Stores the unnamed local static values. These are, concretely, constants that are created in-place and passed around as references
-    let mut unnamed_local_statics: Vec<(Rc<LiteralValue>, Label)> = Vec::new();
+    let mut unnamed_local_statics = UnnamedLocalStaticsManager::new(label_generator);
 
     for function_graph in function_graphs {
 
@@ -718,9 +751,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Add { target, left, right } => {
 
-                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
 
-                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
                             bc.add_opcode(ByteCodes::FLOAT_ADD);
@@ -733,9 +766,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Sub { target, left, right } => {
 
-                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
 
-                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
                             bc.add_opcode(ByteCodes::FLOAT_SUB);
@@ -748,9 +781,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Mul { target, left, right } => {
 
-                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
 
-                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
                             bc.add_opcode(ByteCodes::FLOAT_MUL);
@@ -763,9 +796,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Div { target, left, right } => {
 
-                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
 
-                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
                             bc.add_opcode(ByteCodes::FLOAT_DIV);
@@ -778,9 +811,9 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Mod { target, left, right } => {
 
-                        bc.load_first_arg(left, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
+                        bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
 
-                        bc.load_second_arg(right, &mut tn_locations, label_generator, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
+                        bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
                             bc.add_opcode(ByteCodes::FLOAT_MOD);
@@ -825,7 +858,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                             },
 
                             (TnLocation::Register(target_reg), IRValue::Const(source_value)) => {
-                                bc.load_const(target_reg, source_value, &mut unnamed_local_statics, label_generator, labels_to_resolve, static_address_map);
+                                bc.load_const(target_reg, source_value, &mut unnamed_local_statics, labels_to_resolve, static_address_map);
                             },
 
                             (TnLocation::Stack(target_offset), IRValue::Tn(source_tn)) => {
@@ -857,7 +890,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                             },
 
                             (TnLocation::Stack(target_offset), IRValue::Const(source_value)) => {
-                                generate_stack_value_at_offset(target_offset, source_value, bc, static_address_map, &mut unnamed_local_statics, labels_to_resolve, label_generator);
+                                generate_stack_value_at_offset(target_offset, source_value, bc, static_address_map, &mut unnamed_local_statics, labels_to_resolve);
                             },
                         }
                     },
@@ -982,7 +1015,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                                 },
 
                                 IRValue::Const(v) => {
-                                    generate_push_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve, label_generator);
+                                    generate_push_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve);
                                 },
                             }
 
@@ -995,34 +1028,18 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     },
 
                     IROperator::Return => {
+                        // Note that this ir instruction is found only once in the function's ir code
+
                         // "Pop" the function's stack frame
                         // mov stp sbp
                         bc.move_into_reg_from_reg(Registers::STACK_TOP_POINTER, Registers::STACK_FRAME_BASE_POINTER);
                         // Restore the prevous stack frame
                         bc.pop8_into_reg(Registers::STACK_FRAME_BASE_POINTER, &mut stack_frame_offset);
 
-                        debug_assert_eq!(stack_frame_offset, ADDRESS_SIZE as StackOffset);
-
                         // TODO: The return value must be returned.
                         // We need access to the return tn
 
                         bc.add_opcode(ByteCodes::RETURN);
-                    },
-
-                    &IROperator::PushScope { bytes } => {
-                        // TODO: maybe this is not needed. Pushing and popping stack frames is done by the ir instruction call handler
-                        bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, bytes);
-                        bc.move_into_reg_from_reg(Registers::R2, Registers::STACK_TOP_POINTER);
-                        // The stack grows downwards
-                        bc.add_opcode(ByteCodes::INTEGER_SUB);
-                        bc.move_into_reg_from_reg(Registers::STACK_TOP_POINTER, Registers::R1);
-                    },
-
-                    &IROperator::PopScope { bytes } => {
-                        bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R1, bytes);
-                        bc.move_into_reg_from_reg(Registers::R2, Registers::STACK_TOP_POINTER);
-                        bc.add_opcode(ByteCodes::INTEGER_ADD);
-                        bc.move_into_reg_from_reg(Registers::STACK_TOP_POINTER, Registers::R1);
                     },
 
                     IROperator::Nop => {
@@ -1036,7 +1053,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
     }
 
     // Include the unnamed local static values in the byte code
-    for (value, label) in unnamed_local_statics {
+    for (value, label) in unnamed_local_statics.into_iter() {
         // Construct the value directly in the bytecode and make it available under a label
         let address = bc.len();
         label_address_map.insert(label.0, address);

@@ -45,8 +45,6 @@ fn divide_basic_blocks<'a>(ir_function: FunctionIR<'a>, bb_table: &mut BasicBloc
             IROperator::BitXor { .. } |
             IROperator::Copy { .. } |
             IROperator::DerefCopy { .. } |
-            IROperator::PushScope { .. } |
-            IROperator::PopScope { .. } |
             IROperator::Nop => {
                 // No control flow change
                 node_ptr = unsafe { node.next() };
@@ -105,7 +103,8 @@ fn divide_basic_blocks<'a>(ir_function: FunctionIR<'a>, bb_table: &mut BasicBloc
         name: ir_function.name,
         code_blocks: basic_blocks,
         labels: ir_function.function_labels,
-        signature: ir_function.signature
+        signature: ir_function.signature,
+        function_scope: ir_function.st_top_scope
     }
 }
 
@@ -152,8 +151,6 @@ fn connect_function_graph(function_graph: &FunctionGraph, bb_table: &BasicBlockT
             IROperator::BitXor { .. } |
             IROperator::Copy { .. } |
             IROperator::DerefCopy { .. } |
-            IROperator::PushScope { .. } |
-            IROperator::PopScope { .. } |
             IROperator::Nop |
             IROperator::Label { .. } => {
 

@@ -63,7 +63,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
         Inserting or removing instructions would fuck up the jump addresses and labels.
     */
 
-    let mut label_generator = LabelGenerator::from_irid_generator(irid_generator);
+    let label_generator = LabelGenerator::from_irid_generator(irid_generator);
 
     // Map a label to an actual memory address in the bytecode
     let mut label_address_map = LabelAddressMap::new();
@@ -76,7 +76,7 @@ pub fn generate_bytecode(symbol_table: &SymbolTable, function_graphs: Vec<Functi
 
     generate_static_data_section(symbol_table, &mut static_address_map, &mut bytecode);
 
-    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map, symbol_table, &mut label_generator);
+    generate_text_section(function_graphs, &mut labels_to_resolve, &mut bytecode, &mut label_address_map, &static_address_map, symbol_table, label_generator);
 
     resolve_unresolved_addresses(labels_to_resolve, label_address_map, &mut bytecode);
 

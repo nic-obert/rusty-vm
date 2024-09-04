@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::{irc::{FunctionLabels, IRCode, LabelID}, lang::data_types::DataType};
+use crate::{irc::{FunctionLabels, IRCode, LabelID}, lang::data_types::DataType, symbol_table::ScopeID};
 
 
 /// A basic block is a sequence of instructions that always get executed together.
@@ -82,6 +82,9 @@ pub struct FunctionGraph<'a> {
 
     /// The function name as it appears in the source code
     pub name: &'a str,
+
+    /// The function's scope ID, used to calculate the stack frame size and to access local symbols
+    pub function_scope: ScopeID,
 
     /// The code of the function, split into basic blocks
     pub code_blocks: Vec<Rc<RefCell<BasicBlock>>>,

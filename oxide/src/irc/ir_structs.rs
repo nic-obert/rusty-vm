@@ -231,9 +231,6 @@ pub enum IROperator {
     Call { return_target: Option<Tn>, return_label: Label, callable: IRJumpTarget, args: Box<[IRValue]> },
     Return,
 
-    PushScope { bytes: usize },
-    PopScope { bytes: usize },
-
     #[allow(dead_code)]
     Nop,
 
@@ -269,8 +266,6 @@ impl Display for IROperator {
             IROperator::Label { label } => write!(f, "{}:", label),
             IROperator::Call { return_target, return_label, callable, args } => write!(f, "{}call {callable} {:?} (return: {return_label})", if let Some(target) = return_target { format!("{target} = ") } else { "".to_string() }, args),
             IROperator::Return => write!(f, "return"),
-            IROperator::PushScope { bytes } => write!(f, "pushscope {}", bytes),
-            IROperator::PopScope { bytes } => write!(f, "popscope {}", bytes),
             IROperator::Nop => write!(f, "nop"),
             IROperator::Copy { target, source } => write!(f, "copy {} -> {}", source, target),
             IROperator::DerefCopy { target, source } => write!(f, "copy {} -> [{}]", source, target),
@@ -311,7 +306,7 @@ pub struct FunctionIR<'a> {
     pub scope_table: ScopeTable<'a>,
 
     /// The top-level scope of the function in the symbol table.
-    /// This is used to calculate how many bytes to pop upon returning from the function.
+    /// This will be needed by the bytecode generator to access local symbols and to calculate the function's stack frame size.
     pub st_top_scope: ScopeID,
 
     /// Important labels of the function that are needed to perform a call
