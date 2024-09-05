@@ -886,7 +886,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                 });
 
                 let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-                generate_block(if_block.body, target.clone(), outer_loop, irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+                generate_block(if_block.body, target.clone(), outer_loop, irid_gen, inner_ir_scope, ir_function, symbol_table, source);
 
                 ir_function.push_code(IRNode {
                     op: IROperator::Jump {
@@ -909,7 +909,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             if let Some(else_block) = else_block {
                 let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-                generate_block(else_block, target, outer_loop, irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+                generate_block(else_block, target, outer_loop, irid_gen, inner_ir_scope, ir_function, symbol_table, source);
             }
 
             ir_function.push_code(IRNode {
@@ -956,7 +956,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             });
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-            generate_block(body, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+            generate_block(body, None, Some(&loop_labels), irid_gen, inner_ir_scope, ir_function, symbol_table, source);
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
@@ -1008,7 +1008,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             });
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-            generate_block(body, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+            generate_block(body, None, Some(&loop_labels), irid_gen, inner_ir_scope, ir_function, symbol_table, source);
 
             ir_function.push_code(IRNode {
                 op: IROperator::Jump {
@@ -1051,7 +1051,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
             });
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
-            generate_block(body, None, Some(&loop_labels), irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+            generate_block(body, None, Some(&loop_labels), irid_gen, inner_ir_scope, ir_function, symbol_table, source);
 
             ir_function.push_code(IRNode {
                 op: IROperator::Label {
@@ -1084,7 +1084,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 
             let inner_ir_scope = ir_function.scope_table.add_scope(Some(ir_scope));
 
-            generate_block(block, target, outer_loop, irid_gen, ir_function, inner_ir_scope, symbol_table, source);
+            generate_block(block, target, outer_loop, irid_gen, inner_ir_scope, ir_function, symbol_table, source);
 
             None
         },
@@ -1105,7 +1105,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
 /// This function does not take care of pushing and popping the block's scope, so manual stack managenent is required.
 /// Manual scope management is required to produce more efficient code based on the context.
 #[allow(clippy::too_many_arguments)]
-fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_function: &mut FunctionIR<'a>, ir_scope: IRScopeID, symbol_table: &mut SymbolTable, source: &SourceCode) {
+fn generate_block<'a>(mut block: ScopeBlock<'a>, target: Option<Tn>, outer_loop: Option<&LoopLabels>, irid_gen: &mut IRIDGenerator, ir_scope: IRScopeID, ir_function: &mut FunctionIR<'a>, symbol_table: &mut SymbolTable, source: &SourceCode) {
 
     // Don't generate IR code for empty blocks
     // An empty block may exist due to internal optimizations (e.g. useless code removal)
@@ -1163,20 +1163,7 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
             return
     */
 
-    let mut ir_function = FunctionIR::new(function.name, function.code.scope_id, Rc::clone(&function.signature), irid_gen);
-
-    // Create the top-level function scope
-    let ir_scope = ir_function.scope_table.add_scope(None);
-
-    // Create a Tn for the return value, if it isn't Void. Non-void return statements will assign to this Tn
-    let return_type = function.return_type();
-    let return_tn = if *return_type != DataType::Void {
-        let return_tn = Tn { id: irid_gen.next_tn(), data_type: return_type };
-        ir_function.scope_table.scopes[ir_scope.0].return_tn = Some(return_tn.clone());
-        Some(return_tn)
-    } else {
-        None
-    };
+    let mut ir_function = FunctionIR::new_with_top_scope(function.name, function.return_type(), function.code.scope_id, Rc::clone(&function.signature), irid_gen);
 
     // Put the label before pushing the function's scope
     ir_function.push_code(IRNode {
@@ -1186,7 +1173,7 @@ fn generate_function<'a>(function: Function<'a>, irid_gen: &mut IRIDGenerator, s
 
     symbol_table.map_function_label(FunctionUUID { name: function.name, scope: function.parent_scope }, ir_function.function_labels.start);
 
-    generate_block(function.code, return_tn, None, irid_gen, &mut ir_function, ir_scope, symbol_table, source);
+    generate_block(function.code, ir_function.return_tn.clone(), None, irid_gen, ir_function.ir_top_scope,  &mut ir_function, symbol_table, source);
 
     ir_function.push_code(IRNode {
         op: IROperator::Label { label: ir_function.function_labels.exit },

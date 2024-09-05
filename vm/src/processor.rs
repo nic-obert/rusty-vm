@@ -1229,7 +1229,7 @@ impl Processor {
                 }
             },
 
-            ByteCodes::CALL => {
+            ByteCodes::CALL_CONST => {
                 let jump_address = self.get_next_address();
 
                 // Push the return address onto the stack (return address is the current pc)
@@ -1238,6 +1238,16 @@ impl Processor {
                 // Jump to the subroutine
                 self.jump_to(jump_address);
             },
+
+            ByteCodes::CALL_REG => {
+                let jump_reg = Registers::from(self.get_next_byte());
+
+                let jump_address = self.registers.get(jump_reg) as Address;
+
+                self.push_stack(self.registers.pc() as u64);
+
+                self.jump_to(jump_address);
+            }
 
             ByteCodes::RETURN => {
                 // Get the return address from the stack

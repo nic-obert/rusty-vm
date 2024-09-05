@@ -108,7 +108,8 @@ declare_bytecodes! {
     JUMP_SIGN,
     JUMP_NOT_SIGN,
 
-    CALL ,
+    CALL_CONST,
+    CALL_REG,
     RETURN,
 
     COMPARE_REG_REG,

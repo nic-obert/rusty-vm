@@ -896,7 +896,8 @@ declare_asm_instructions! {
         ],
     call size:0 argc:1
         [
-            Label = CALL
+            Register = CALL_REG,
+            Label = CALL_CONST
         ],
     ret size:0 argc:0 = RETURN,
     cmp size:0 argc:2

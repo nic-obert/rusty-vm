@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use num_traits::ToBytes;
 use rusty_vm_lib::{assembly::ByteCode, byte_code::ByteCodes, registers::{Registers, GENERAL_PURPOSE_REGISTER_COUNT, REGISTER_SIZE}, vm::{Address, ADDRESS_SIZE}};
 
-use crate::{flow_analyzer::FunctionGraph, irc::{IROperator, IRValue, Label, TnID}, lang::data_types::{DataType, LiteralValue, BOOL_SIZE, CHAR_SIZE, F32_SIZE, F64_SIZE, I16_SIZE, I32_SIZE, I64_SIZE, I8_SIZE, ISIZE_SIZE, U16_SIZE, U32_SIZE, U64_SIZE, U8_SIZE, USIZE_SIZE}, symbol_table::SymbolTable};
+use crate::{flow_analyzer::FunctionGraph, irc::{IRJumpTarget, IROperator, IRValue, Label, TnID}, lang::data_types::{DataType, LiteralValue, BOOL_SIZE, CHAR_SIZE, F32_SIZE, F64_SIZE, I16_SIZE, I32_SIZE, I64_SIZE, I8_SIZE, ISIZE_SIZE, U16_SIZE, U32_SIZE, U64_SIZE, U8_SIZE, USIZE_SIZE}, symbol_table::SymbolTable};
 
 use super::{LabelAddressMap, LabelGenerator, StaticAddressMap};
 
@@ -341,6 +341,7 @@ impl ByteCodeOutput for ByteCode {
     }
 
 
+    /// Adds a placeholder value for the given label and registers the label for later resolution.
     fn add_placeholder_label(&mut self, label: Label, labels_to_resolve: &mut Vec<Address>) {
         labels_to_resolve.push(self.len());
         self.extend(label.to_le_bytes());
@@ -621,7 +622,7 @@ impl ByteCodeOutput for ByteCode {
 
     /// Store the value of r1 into the target Tn
     fn store_r1(&mut self, target_tn: TnID, reg_table: &mut UsedGeneralPurposeRegisterTable, tn_locations: &mut HashMap<TnID, TnLocation>) {
-        match tn_locations.get(&target_tn).unwrap() {
+        match tn_locations.get(&target_tn).expect(format!("Location of T{} should be known", target_tn.0).as_str()) {
 
             TnLocation::Register(target_reg) => {
                 // mov target_reg r1
@@ -740,10 +741,12 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
         // pushsp stack_frame_size
         bc.push_stack_pointer_const(stack_frame_size_excluding_parameters, &mut stack_frame_offset);
 
-        // TODO: we need to load the function arguments, or at least keep track of where they are (stack and registers).
-        // This function should have access to the function's signature to determine which parameters go where
-        //
-        // TODO: we need to assign a stack location to local variables, too.
+        if let DataType::Function { params, return_type } = function_graph.signature.as_ref() {
+            for param in params {
+                // Need to know which Tn stores which parameter
+                todo!("Assign a stack location to function parameters")
+            }
+        }
 
         for block in function_graph.code_blocks {
 
@@ -754,7 +757,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Add { target, left, right } => {
 
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
-
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
@@ -769,7 +771,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Sub { target, left, right } => {
 
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
-
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
@@ -784,7 +785,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Mul { target, left, right } => {
 
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
-
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
@@ -799,7 +799,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Div { target, left, right } => {
 
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
-
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
@@ -814,7 +813,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Mod { target, left, right } => {
 
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
-
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
 
                         if target.data_type.is_float() {
@@ -907,7 +905,6 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                     IROperator::Equal { target, left, right } => todo!(),
                     IROperator::NotEqual { target, left, right } => todo!(),
 
-
                     IROperator::BitShiftLeft { target, left, right } => {
                         bc.load_first_arg(left, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map);
                         bc.load_second_arg(right, &mut tn_locations, labels_to_resolve, &mut unnamed_local_statics, static_address_map, &mut reg_table);
@@ -969,102 +966,81 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
 
                     IROperator::Call { return_target, return_label, callable, args } => {
 
-                        let arg_registers = [
-                            Registers::R3,
-                            Registers::R4,
-                            Registers::R5,
-                            Registers::R6,
-                            Registers::R7,
-                            Registers::R8
-                        ];
+                        // Make space on the stack for the return value, if any
+                        if let Some(return_tn) = return_target {
+                            let return_size = return_tn.data_type.static_size().unwrap();
+                            bc.push_stack_pointer_const(return_size, &mut stack_frame_offset);
+                        }
 
-                        let mut arg_register_it = arg_registers.iter();
+                        let mut total_args_size = 0;
 
-                        // TODO: this may be more efficient to implement as a stack array with a fixed size of `arg_registers.len()`
-                        let mut registers_to_restore: Vec<Registers> = Vec::new();
-
-                        // Args are pushed in reverse order
+                        // Load the arguments on the stack in reverse order
                         for arg in args.iter().rev() {
-
                             match arg {
-
-                                IRValue::Tn(tn) => {
-
-                                    let arg_size = tn.data_type.static_size().expect("Size should be known by now");
-
-                                    if arg_size <= REGISTER_SIZE {
-                                        if let Some(arg_reg) = arg_register_it.next() {
-                                            // The arg will be passed through a register
-
-                                            if reg_table.is_in_use(*arg_reg) {
-                                                // If the register is currently in use, save its current state to the stack and restore it after the function has returned
-                                                registers_to_restore.push(*arg_reg);
-                                                bc.push_from_reg(*arg_reg, &mut stack_frame_offset);
-                                                // Keep track of the moved value
-                                                tn_locations.insert(tn.id, TnLocation::Stack(stack_frame_offset)).expect("Tn should exist");
-                                            }
-
+                                IRValue::Tn(arg_tn) => {
+                                    let arg_size = arg_tn.data_type.static_size().unwrap();
+                                    total_args_size += arg_size;
+                                    let arg_location = tn_locations.get(&arg_tn.id).unwrap();
+                                    match arg_location {
+                                        TnLocation::Register(arg_reg) => {
+                                            // push arg_reg
                                             bc.push_from_reg(*arg_reg, &mut stack_frame_offset);
-                                            continue;
-                                        }
-                                    }
-
-                                    // The arg must be passed on the stack because it's either too large for a register or there aren't enough registers for all args
-
-                                    match tn_locations.get(&tn.id).unwrap() {
-
-                                        &TnLocation::Register(reg) => {
-                                            // The value in the register is to be pushed onto the stack
-                                            bc.push_from_reg(reg, &mut stack_frame_offset);
                                         },
-
-                                        &TnLocation::Stack(offset) => {
-                                            // The value on the stack is to be copied onto the stack
-
-                                            // Calculate the stack address of the argument to copy
-                                            // A positive offset is required because addresses are positive and adding the usize representation of an isize to a usize would overflow
-                                            // mov8 r1 sbp
-                                            // mov8 r2 abs(offset)
-                                            bc.move_into_reg_from_reg(Registers::R1, Registers::STACK_FRAME_BASE_POINTER);
-                                            if offset < 0 {
-                                                bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, (offset).unsigned_abs());
-                                                // isub
-                                                bc.add_opcode(ByteCodes::INTEGER_SUB);
-                                            } else if offset > 0 {
-                                                bc.move_into_reg_from_const(ADDRESS_SIZE as u8, Registers::R2, offset);
-                                                // iadd
-                                                bc.add_opcode(ByteCodes::INTEGER_ADD);
-                                            }
-                                            // If the offset is exactly 0, don't perform the operation
-
-                                            // Push the stack pointer to make space for the argument. stp will now point to the uninitialized arg
-                                            // pushsp sizeof(arg)
+                                        TnLocation::Stack(source_offset) => {
+                                            let arg_size = arg_tn.data_type.static_size().unwrap();
+                                            // Make space for the arg
                                             bc.push_stack_pointer_const(arg_size, &mut stack_frame_offset);
-
-                                            // Copy the argument value on the stack into its designated place on the stack
-                                            // mov r2 r1 (r1 contains the source address of the argument, which was calculated above)
-                                            // mov r1 stp
-                                            // memcpyb8 sizeof(arg)
+                                            // Calculate the address of the argument to push and store it in r1
+                                            bc.calculate_address_from_stack_frame_offset(*source_offset, false);
+                                            // Copy the arg from source to destination using memcpyb
+                                            // TODO: a more optimal approach may be used for small values
                                             bc.move_into_reg_from_reg(Registers::R2, Registers::R1);
-                                            bc.move_into_reg_from_reg(Registers::R1, Registers::STACK_TOP_POINTER);
+                                            bc.move_into_reg_from_reg(Registers::R1, Registers::STACK_TOP_POINTER); // TODO: this requires stp to be valid (no stp optimizations)
                                             bc.add_opcode(ByteCodes::MEM_COPY_BLOCK_CONST);
-                                            bc.add_byte(8);
+                                            bc.add_byte(mem::size_of::<usize>() as u8);
                                             bc.add_const_usize(arg_size);
                                         },
                                     }
                                 },
-
-                                IRValue::Const(v) => {
-                                    generate_push_stack_value(v, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve);
+                                IRValue::Const(arg_value) => {
+                                    total_args_size += arg_value.data_type(symbol_table).static_size().unwrap();
+                                    generate_push_stack_value(arg_value, bc, static_address_map, &mut stack_frame_offset, &mut unnamed_local_statics, labels_to_resolve);
                                 },
                             }
-
                         }
 
-                        // Clean up after the function has returned (restore previous states)
-                        // Restore previous register states, pop function arguments from the stack (popsp)
-                        // The stack top will then be the returned value, if it was returned on the stack. Otherwise, it will be located in r1
-                        todo!()
+                        // Call the function
+                        match callable {
+                            IRJumpTarget::Label(jump_target_label) => {
+                                // call jump_target_label
+                                bc.add_opcode(ByteCodes::CALL_CONST);
+                                bc.add_placeholder_label(*jump_target_label, labels_to_resolve);
+                            },
+                            IRJumpTarget::Tn(jump_target_tn) => {
+                                let loc = tn_locations.get(&jump_target_tn.id).unwrap();
+                                match loc {
+                                    TnLocation::Register(jump_reg) => {
+                                        // call jump_reg
+                                        bc.add_opcode(ByteCodes::CALL_REG);
+                                        bc.add_reg(*jump_reg);
+                                    },
+                                    TnLocation::Stack(jump_stack_offset) => {
+                                        // Calculate the address of the jump address and store it in r1
+                                        bc.calculate_address_from_stack_frame_offset(*jump_stack_offset, false);
+                                        // mov8 r1 [r1]
+                                        bc.move_into_reg_from_addr_in_reg(ADDRESS_SIZE as u8, Registers::R1, Registers::R1);
+                                        // call r1
+                                        bc.add_opcode(ByteCodes::CALL_REG);
+                                        bc.add_reg(Registers::R1);
+                                    },
+                                }
+                            }
+                        }
+
+                        // Cleanup
+                        if total_args_size > 0 {
+                            bc.pop_stack_pointer_const(total_args_size, &mut stack_frame_offset);
+                        }
                     },
 
                     IROperator::Return => {
@@ -1077,8 +1053,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                         // pop8 sbp
                         bc.pop8_into_reg(Registers::STACK_FRAME_BASE_POINTER, &mut stack_frame_offset);
 
-                        // TODO: The return value must be returned.
-                        // We need access to the return tn
+                        // The ir code already took care of setting the return value
 
                         // return
                         bc.add_opcode(ByteCodes::RETURN);

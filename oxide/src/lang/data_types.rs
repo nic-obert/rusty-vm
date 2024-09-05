@@ -801,6 +801,7 @@ impl LiteralValue {
 
             LiteralValue::Char(_) => DataType::Char,
 
+            // TODO: remove the dependency on the symbol table when StringRef is made into a wide pointer
             LiteralValue::StaticString(id)
                 => DataType::StringRef { length: symbol_table.get_static_string(*id).len() },
 

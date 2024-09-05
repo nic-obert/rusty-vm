@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::{irc::{FunctionLabels, IRCode, LabelID}, lang::data_types::DataType, symbol_table::ScopeID};
-
+use crate::symbol_table::ScopeID;
+use crate::lang::data_types::DataType;
+use crate::irc::{FunctionLabels, IRCode, LabelID, Tn};
 
 /// A basic block is a sequence of instructions that always get executed together.
 ///
@@ -94,5 +95,8 @@ pub struct FunctionGraph<'a> {
 
     /// The function signature. This is used to correctly implement the calling convention.
     pub signature: Rc<DataType>,
+
+    /// The Tn the return value will be assigned to
+    pub return_tn: Option<Tn>
 
 }

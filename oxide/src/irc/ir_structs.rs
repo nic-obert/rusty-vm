@@ -313,23 +313,43 @@ pub struct FunctionIR<'a> {
     pub function_labels: FunctionLabels,
 
     /// The function signature
-    pub signature: Rc<DataType>
+    pub signature: Rc<DataType>,
 
+    pub return_tn: Option<Tn>,
+
+    pub ir_top_scope: IRScopeID
 }
 
 impl FunctionIR<'_> {
 
-    pub fn new<'a>(name: &'a str, first_scope: ScopeID, signature: Rc<DataType>, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
+    pub fn new_with_top_scope<'a>(name: &'a str, return_type: Rc<DataType>, first_scope: ScopeID, signature: Rc<DataType>, irid_gen: &mut IRIDGenerator) -> FunctionIR<'a> {
+
+        let mut scope_table = ScopeTable::new();
+
+        // Create the top-level function scope
+        let ir_scope = scope_table.add_scope(None);
+
+        // Create a Tn for the return value, if it isn't Void. Non-void return statements will assign to this Tn
+        let return_tn = if !matches!(return_type.as_ref(), DataType::Void) {
+            let return_tn = Tn { id: irid_gen.next_tn(), data_type: return_type };
+            scope_table.scopes[ir_scope.0].return_tn = Some(return_tn.clone());
+            Some(return_tn)
+        } else {
+            None
+        };
+
         FunctionIR {
             name,
             code: Default::default(),
-            scope_table: ScopeTable::new(),
+            scope_table,
             st_top_scope: first_scope,
             function_labels: FunctionLabels {
                 start: irid_gen.next_label(),
                 exit: irid_gen.next_label(),
             },
-            signature
+            signature,
+            return_tn,
+            ir_top_scope: ir_scope
         }
     }
 
