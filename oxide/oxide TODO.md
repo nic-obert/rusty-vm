@@ -24,6 +24,7 @@
 - Make StringRef a wide pointer.
 - Ensure static value uniqueness in the symbol table. This would require implementing Eq and Hash (or some surrogate) for Number and DataType. The challenging part would be implementing Eq and hash for the float varients of Number
 - Test the stack frame size of a function that contains another function definition in its body. Inner function definitions should not contribute to the stack frame size of the outer function.
+- Maybe do a complete rewrite of the oxide compiler. 1 year has passed since its creation and my coding style and skills in Rust have improved significantly. Moreover, I now know much more about compilers than before. This can be an opportinity to redo everything better and in a more strucutred manner.
 
 ### In Progress
 

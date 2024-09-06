@@ -1,11 +1,10 @@
-fn foo() -> u8 {
-    0
-}
 
 fn main() {
 
-    let i = 0;
-    let b = i + 1;
-    let c = 4 / 3;
+    foo();
+
+}
+
+fn foo() {
 
 }

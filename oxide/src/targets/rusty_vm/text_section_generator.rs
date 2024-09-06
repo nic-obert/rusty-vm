@@ -746,7 +746,7 @@ pub fn generate_text_section(function_graphs: Vec<FunctionGraph>, labels_to_reso
                 // Need to know which Tn stores which parameter
                 todo!("Assign a stack location to function parameters")
             }
-        }
+        } else { unreachable!("Function signature must be of function type") }
 
         for block in function_graph.code_blocks {
 

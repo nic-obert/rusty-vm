@@ -850,7 +850,7 @@ fn generate_node<'a>(node: SyntaxNode<'a>, target: Option<Tn>, outer_loop: Optio
                     generate_node(*expr, Some(target.clone()), outer_loop, irid_gen, ir_function, ir_scope, st_scope, symbol_table, source).unwrap();
 
                     // Just change the type of the Tn
-                    target.data_type = target_type;
+                    target.data_type = target_type; // TODO: this may introduce bugs
                     Some(target)
                 },
             }
