@@ -12,8 +12,6 @@ use super::ir_parser::{FunctionLabels, IRIDGenerator};
 
 
 /// Represents a temporary variable
-/// Tns are write-once, read-only variables. They are effectively single-assignment register variables.
-/// They have to be unique and immutable because it may be useful to store the result of one operation and re-use it later.
 #[derive(Debug, Clone)]
 pub struct Tn {
     pub id: TnID,
