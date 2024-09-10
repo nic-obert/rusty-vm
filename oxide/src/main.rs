@@ -1,3 +1,5 @@
+#![feature(os_str_display)]
+
 mod cli_parser;
 mod targets;
 mod module_manager;

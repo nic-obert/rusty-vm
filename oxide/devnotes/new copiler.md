@@ -7,11 +7,15 @@ It will also be necessary to implement namespaces.
 A namespace is an abstract named container for names.
 Names can be symbols and modules. It will be necessary to discriminate between symbols and namespaces when compiling the code.
 Namespaces could have a special store in the symbol table and a different SyntaxNodeValue
-Import statements will look and behave like Rust:
+Import statements will look and behave like Rust: NO?
 ```rust
 use module_name;
 use module_name::{symbol1, symbol2};
 pub use module_name::{symbol};
+```
+```js
+import "module_name";
+import "module/inside/dir";
 ```
 the module manager will need to keep track of exported symbols, their signatures, and eventual static values.
 The module manager will thus hold exported symbols as Rc<RefCell<Symbol<'a>>>, where 'a is the lifetime of the symbol table (and of the source code, which is the lifetime of the module manager).
