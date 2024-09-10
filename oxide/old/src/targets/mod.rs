@@ -1,11 +1,14 @@
 
 use rusty_vm_lib::assembly::ByteCode;
 
-// use crate::symbol_table::SymbolTable;
-// use crate::flow_analyzer::FunctionGraph;
-// use crate::irc::IRIDGenerator;
+use crate::symbol_table::SymbolTable;
+use crate::flow_analyzer::FunctionGraph;
+use crate::irc::IRIDGenerator;
 
 use casey::lower;
+
+
+pub mod rusty_vm;
 
 pub trait CompiledBinary {
 
@@ -57,12 +60,11 @@ macro_rules! declare_targets {
             }
 
 
-            // pub fn generate(&self, symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>, irid_gen: IRIDGenerator) -> impl CompiledBinary {
-            //     todo!()
-            //     // match self {
-            //     //     Targets::RustyVM => rusty_vm::generate_bytecode(symbol_table, function_graphs, irid_gen),
-            //     // }
-            // }
+            pub fn generate(&self, symbol_table: &SymbolTable, function_graphs: Vec<FunctionGraph>, irid_gen: IRIDGenerator) -> impl CompiledBinary {
+                match self {
+                    Targets::RustyVM => rusty_vm::generate_bytecode(symbol_table, function_graphs, irid_gen),
+                }
+            }
         }
 
     };

@@ -440,9 +440,6 @@ dependencies = [
  "clap",
  "colored",
  "indoc",
- "lazy_static",
- "num-traits",
- "regex",
  "rusty_vm_lib",
  "static_assertions",
 ]

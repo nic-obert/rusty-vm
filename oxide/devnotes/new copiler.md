@@ -27,7 +27,7 @@ enum Name<'a> {
 }
 
 struct Module<'a> {
-    name: &'a str // Owned by the source code
+    name: &'a str, // Owned by the source code
     symbol_table: SymbolTable<'a>, // Borrows symbol names from the source code
     source_code: String,
     source_lines: Box<[&'a str]>, // Owned by the source code

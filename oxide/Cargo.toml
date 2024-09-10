@@ -10,13 +10,7 @@ casey = "0.4.0"
 clap = { version = "4.5.1", features = ["derive"] }
 colored = "2.0.4"
 indoc = "2.0.4"
-lazy_static = "1.4.0"
-num-traits = "0.2.19"
-regex = "1.9.5"
 static_assertions = "1.1.0"
 
 [dependencies.rusty_vm_lib]
 path = "../rusty_vm_lib"
-
-
-
