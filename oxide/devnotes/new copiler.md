@@ -1,6 +1,63 @@
 
 The new compiler will be remade from the start while keeping in mind the overall structure and requirements
 
+bitwise and logical operators often overlap completely.
+logical or:
+0000 bit and/logical and
+0001 =
+0000
+
+0000 logical or/bit or
+0001 =
+0001
+
+0000 bit not=
+1111 --> this can be interpreted as true because 1111 != 0000
+
+0000 logical not=
+0001 --> this can be interpreted as true because 0001 != 0000
+
+boolean literal true can be represented as 0001?
+0001 logical not =
+0000 --> correct false value
+
+0001 bit not =
+1110 --> which is still a truey value because 1110 != 0000
+
+because of this, bitwise not and logical not must not be the same operator.
+
+0000 xor
+0001 =
+0001
+
+0001 xor
+0011 =
+0010
+
+maybe xor should not be implemented for booleans?
+valid boolean values may be just 0001 and 0000?
+xor for normalized booleans 0001 and 0000 is equivalent to the != operator
+oxide should allow only normalized boolean literals, so this should be ok
+1111 != 1110 = true, though
+normally, a strictly boolean value is either 0000 or 0001
+however, the programmer may perform type casts from a numeric value to a boolean.
+Rust disallows casting from a numeric value to a boolean and the compiler suggests comparing the number with zero instead.
+1111(true) != 0000(false) = true
+0000(false) != 0000(false) = false
+0001(true) != 0000(false) = true
+
+this is a good strategy that prevents undesirable behaviors when casting numeric values to booleans.
+once again, Rust does things sensibly.
+preventing direct casts ensures that boolean values are always normalized, assuming the programmer didn't do some weird shit.
+
+
+
+bitwise not and logical not are not exactly the same
+because of this, either two different operands for bits are necessary,
+or truth value cannot be assumed to be the number 1.
+truth value must then be defined in reference to the false value 0.
+
+
 This new compiler will have support for multiple modules from the start.
 The module manager owns the source code
 It will also be necessary to implement namespaces.

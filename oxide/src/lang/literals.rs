@@ -5,6 +5,7 @@ use crate::symbol_table::StaticID;
 use super::DataType;
 
 
+#[derive(Debug)]
 pub enum LiteralValue {
 
     Char (char),

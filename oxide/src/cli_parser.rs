@@ -10,7 +10,7 @@ use crate::targets::Targets;
 
 #[derive(Parser)]
 #[command(author, version, about)]
-pub struct CliParser {    
+pub struct CliParser {
 
     #[command(subcommand)]
     pub top_level_command: Option<TopLevelCommand>,
@@ -20,7 +20,7 @@ pub struct CliParser {
 
     /// The output file path to write the byte code to
     #[arg(short = 'o', requires("input_file"), )]
-    pub output: Option<String>,
+    pub output: Option<PathBuf>,
 
     /// Run the compiler in verbose mode
     #[arg(short = 'v', requires("input_file"))]
@@ -42,7 +42,11 @@ pub struct CliParser {
     /// The target to compile to
     #[arg(short = 't', requires("input_file"), conflicts_with("check"))]
     target: Option<String>,
-    
+
+    /// Additional include paths to search when looking for modules to import
+    #[arg(short = 'I', requires("input_file"))]
+    pub include_paths: Option<Vec<Box<Path>>>,
+
 }
 
 
@@ -60,8 +64,8 @@ const TURN_ON: bool = true;
 const TURN_OFF: bool = false;
 
 impl CliParser {
-    
-    pub fn optimization(&self) -> OptimizationFlags {
+
+    pub fn optimization_flags(&self) -> OptimizationFlags {
         let mut flags = OptimizationFlags::default();
 
         Self::parse_optimizations(&self.optimizations_on, TURN_ON, &mut flags);
@@ -72,7 +76,7 @@ impl CliParser {
 
 
     pub fn target(&self) -> Targets {
-        self.target.as_ref().map(|target| 
+        self.target.as_ref().map(|target|
             Targets::from_string(target)
                 .unwrap_or_else(|| {
                     println!("Unknown target: {}", target);
@@ -178,7 +182,7 @@ macro_rules! declare_optimizations {
                         }
                     }
                 }
-        
+
             }
 
         }
@@ -191,4 +195,3 @@ declare_optimizations!(
     evaluate_constants = true,
     remove_useless_code = false
 );
-

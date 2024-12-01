@@ -1,8 +1,11 @@
+use std::fmt::Display;
 use std::io;
 use std::cmp::min;
 
 use colored::Colorize;
 use indoc::printdoc;
+
+use crate::tokenizer::SourceToken;
 
 
 
@@ -50,4 +53,39 @@ pub fn io_error(error: io::Error, hint: &str) -> ! {
     );
 
     std::process::exit(1);
+}
+
+
+pub fn print_errors_and_exit(phase_name: &str, errors: &[CompilationError]) -> ! {
+
+    println!("\n{} errors occurred during the {} phase:\n", errors.len(), phase_name);
+
+    for (i, error) in errors.iter().enumerate() {
+        println!("\nError #{}\n{}\n", i+1, error);
+    }
+
+    std::process::exit(0);
+}
+
+
+pub enum ErrorKind {
+
+    InvalidEscapeSequence { invalid_character: char },
+    UnmatchedDelimiter { delimiter: char }
+
+}
+
+
+pub struct CompilationError<'a> {
+
+    pub source: Rc<SourceToken<'a>>,
+    pub kind: ErrorKind,
+    pub hint: &'a str
+
+}
+
+impl Display for CompilationError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }

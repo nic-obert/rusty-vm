@@ -13,6 +13,18 @@ pub struct SymbolTable<'a> {
     scopes: Vec<Scope<'a>>,
 }
 
+impl<'a> SymbolTable<'a> {
+
+    pub fn new() -> Self {
+        Self {
+            statics: Default::default(),
+            constants: Default::default(),
+            scopes: vec![Scope::new(None)], // Initialize the global scope
+        }
+    }
+
+}
+
 
 struct Scope<'a> {
     /// Symbols declared in this scope.
@@ -27,6 +39,20 @@ struct Scope<'a> {
     namespaces: Vec<RefCell<NameSpace<'a>>>,
 }
 
+impl<'a> Scope<'a> {
+
+    pub fn new(parent_id: Option<ScopeID>) -> Self {
+        Self {
+            parent: parent_id,
+            symbols: Default::default(),
+            types: Default::default(),
+            children: Default::default(),
+            namespaces: Default::default(),
+        }
+    }
+
+}
+
 
 pub enum Name<'a> {
     Symbol (&'a RefCell<Symbol<'a>>),
@@ -39,12 +65,14 @@ pub struct NameSpace<'a> {
 }
 
 
+#[derive(Debug)]
 pub struct SymbolID<'a> {
     name: &'a str,
     scope_id: ScopeID
 }
 
 
+#[derive(Debug)]
 pub struct StaticID (usize);
 
 
@@ -53,6 +81,7 @@ struct TypeDef<'a> {
     pub source: Rc<SourceToken<'a>>,
 }
 
+#[derive(Debug)]
 struct ScopeID(usize);
 
 

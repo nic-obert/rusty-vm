@@ -11,7 +11,9 @@ use std::fs;
 
 use clap::Parser;
 use cli_parser::{CliParser, OptimizationFlags, TopLevelCommand};
+use lang::errors::io_error;
 use targets::Targets;
+use module_manager::ModuleManager;
 
 
 
@@ -43,21 +45,16 @@ fn main() {
         }
     };
 
-    let optimization_flags = args.optimization();
+    let optimization_flags = args.optimization_flags();
 
-    let source = match fs::read_to_string(input_file) {
-        Ok(source) => source,
-        Err(e) => {
-            println!("Could not open file {}\n{}", input_file.display(), e);
-            std::process::exit(1);
-        }
-    };
+    let module_manager = ModuleManager::new(args.include_paths.unwrap_or_default());
 
-    if args.verbose {
-        println!("Read source code from {}", input_file.display());
-        println!("Optimization flags: {}", optimization_flags);
-    }
+    let parent_dir = std::env::current_dir()
+        .unwrap_or_else(|err| io_error(err, "Could not get current directory"))
+        .parent();
 
+    let module = module_manager.load_module(parent_dir, module_name)
+        .unwrap_or_else(|err| io_error(err, "Could not load source file"));
 
     // Don't emit compiled binary
     if args.check {
