@@ -1,4 +1,6 @@
 #![feature(os_str_display)]
+#![feature(str_from_raw_parts)]
+#![feature(gen_blocks)]
 
 mod cli_parser;
 mod targets;
@@ -6,15 +8,14 @@ mod module_manager;
 mod symbol_table;
 mod tokenizer;
 mod lang;
+mod statics_stable;
+mod compiler;
 
-use std::fs;
 
 use clap::Parser;
 use cli_parser::{CliParser, OptimizationFlags, TopLevelCommand};
-use lang::errors::io_error;
 use targets::Targets;
 use module_manager::ModuleManager;
-
 
 
 fn main() {
@@ -47,14 +48,9 @@ fn main() {
 
     let optimization_flags = args.optimization_flags();
 
-    let module_manager = ModuleManager::new(args.include_paths.unwrap_or_default());
+    let mut module_manager = ModuleManager::new(args.include_paths.unwrap_or_default());
 
-    let parent_dir = std::env::current_dir()
-        .unwrap_or_else(|err| io_error(err, "Could not get current directory"))
-        .parent();
-
-    let module = module_manager.load_module(parent_dir, module_name)
-        .unwrap_or_else(|err| io_error(err, "Could not load source file"));
+    let modules = compiler::prepare_modules(&mut module_manager, input_file);
 
     // Don't emit compiled binary
     if args.check {

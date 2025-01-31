@@ -7,11 +7,11 @@ use std::io;
 use std::env;
 use std::collections::HashMap;
 use std::cell::UnsafeCell;
-
-use indoc::formatdoc;
+use std::str::FromStr;
 
 use rusty_vm_lib::oxide::{LIBRARY_ENV_VARIABLE, OXIDE_FILE_EXTENSION};
 
+use crate::statics_stable::StaticsTable;
 use crate::symbol_table::{Name, SymbolTable};
 use crate::lang::errors;
 
@@ -45,7 +45,8 @@ impl<'a> ModuleManager<'a> {
 
             for include_path in env_include_paths.split(':') {
                 // Cloning here is acceptable since this is a one-time operation done at startup.
-                include_paths.push(include_path.to_owned().into());
+                let path = PathBuf::from_str(include_path).expect("Should be infallible");
+                include_paths.push(path.into_boxed_path());
             }
         }
 
@@ -57,7 +58,7 @@ impl<'a> ModuleManager<'a> {
     }
 
 
-    fn resolve_module_path(&self, module_name: &Path, parent_dir: Option<&Path>) -> Result<PathBuf, io::Error> {
+    fn resolve_module_path(&self, module_name: &Path, parent_dir: &Path) -> Result<PathBuf, io::Error> {
 
         let module_with_ext = PathBuf::from(module_name).with_extension(OXIDE_FILE_EXTENSION);
 
@@ -67,7 +68,7 @@ impl<'a> ModuleManager<'a> {
         }
 
         // If the path is relative, check if it's relative to the caller
-        if let Some(parent_dir) = parent_dir {
+        if !parent_dir.as_os_str().is_empty() {
             if let Ok(resolved_path) = parent_dir.join(&module_with_ext).canonicalize() {
                 return Ok(resolved_path);
             }
@@ -86,13 +87,8 @@ impl<'a> ModuleManager<'a> {
         } else {
             Err(io::Error::new(
                 io::ErrorKind::NotFound,
-                formatdoc!("
-                    Could not resolve module name \"{}\" from directory \"{}\".
-
-                    Include paths are:
-                    {}
-                ",
-                    module_name,
+                format!("Could not resolve module name \"{}\" from directory \"{}\".\nInclude paths are:{}",
+                    module_name.display(),
                     parent_dir.display(),
                     self.include_paths.iter().fold(String::new(), |acc, path| acc + path.to_string_lossy().as_ref() + "\n")
                 )
@@ -101,34 +97,33 @@ impl<'a> ModuleManager<'a> {
     }
 
 
-    pub fn load_module(&self, parent_dir: Option<&Path>, module_name: &Path) -> Result<Pin<&'a Module<'a>>, io::Error> {
+    pub fn load_module_if_new(&self, parent_dir: &Path, module_name: &Path) -> Result<Option<Pin<&'a Module<'a>>>, io::Error> {
 
         let module_path = self.resolve_module_path(module_name, parent_dir)?;
 
         let modules = unsafe { &mut *self.modules.get() };
         // Don't reload the module if it's already loaded
-        if modules.contains_key(module_path.as_path()) { // TODO: use if let Some() to avoid querying the hashmap twice
-            // TODO: This is very ugly, but the borrow checker couldn't understand that the immutable borrow of `modules` ends afte the if block.
-            return Ok(modules.get(module_path.as_path()).unwrap().as_ref());
+        if modules.contains_key(module_path.as_path()) {
+
+            Ok(None)
+
+        } else {
+
+            let paths = unsafe { &mut *self.paths.get() };
+            paths.push(module_path.into_boxed_path());
+            let module_path = paths.last().unwrap();
+
+            let source_code = fs::read_to_string(module_path)?;
+
+            let module = Box::pin(Module::new(source_code, module_path));
+
+            // This is safe because we are inserting a &Path, which is a wide pointer to a heap-allocated string.
+            // Moving the owners in the paths Vec does not invalidate this &Path
+            modules.insert(module_path, module);
+
+            // TODO: This is ugly and inefficient, but it satisfies the borrow checker. Find a better way
+            Ok(Some(modules.get(module_path.as_ref()).unwrap().as_ref()))
         }
-
-        let paths = unsafe { &mut *self.paths.get() };
-        paths.push(module_path.into_boxed_path());
-        let module_path = paths.last().unwrap().as_path();
-
-        let source_code = match fs::read_to_string(module_path) {
-            Ok(source_code) => source_code,
-            Err(err) => return Err(err),
-        };
-
-        let module = Box::pin(Module::new(source_code, module_path));
-
-        // This is safe because we are inserting a &Path, which is a wide pointer to a heap-allocated string.
-        // Moving the owners in the paths Vec does not invalidate this &Path
-        modules.insert(module_path, module);
-
-        // TODO: This is ugly and inefficient, but it satisfies the borrow checker. Find a better way
-        Ok(modules.get(module_path.as_path()).unwrap().as_ref())
     }
 
 
@@ -147,11 +142,14 @@ pub struct Module<'a> {
     pub path: &'a Path,
     /// Borrows symbol names from the source code.
     symbol_table: SymbolTable<'a>,
+    /// Stores static literal values. May borrow string literals from the source code.
+    statics_table: UnsafeCell<StaticsTable<'a>>,
     source_code: Pin<Box<str>>,
     /// Lines are owned by the source code.
     source_lines: Box<[NonNull<str>]>,
     /// Maps the exported name to a symbol in the symbol table.
     exports: HashMap<&'a str, &'a Name<'a>>,
+
 }
 
 impl<'a> Module<'a> {
@@ -170,6 +168,7 @@ impl<'a> Module<'a> {
         Self {
             path,
             symbol_table: SymbolTable::new(),
+            statics_table: UnsafeCell::new(StaticsTable::new()),
             source_code,
             source_lines: lines.into_boxed_slice(),
             exports: Default::default()
@@ -183,6 +182,17 @@ impl<'a> Module<'a> {
                 self.source_lines.as_ref()
             )
         }
+    }
+
+
+    pub fn raw_source(&self) -> &str {
+        &self.source_code
+    }
+
+
+    pub fn statics_table_mut(&self) -> &mut StaticsTable<'a> {
+        // self.statics_table.
+        todo!()
     }
 
 }

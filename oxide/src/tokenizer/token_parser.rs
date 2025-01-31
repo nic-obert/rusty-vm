@@ -1,106 +1,34 @@
-use core::str;
-use std::path::Path;
-use std::slice;
+use std::borrow::Cow;
+use std::rc::Rc;
+use std::str::FromStr;
+use std::mem;
 
-use regex::Regex;
-use lazy_static::lazy_static;
-
-use crate::module_manager::{self, Module};
-use crate::tokenizer::SourceToken;
+use crate::compiler::CompilationPhases;
+use crate::lang::{DataType, DataTypeName, LiteralValue, Number};
+use crate::module_manager::Module;
+use crate::tokenizer::{SourceToken, TokenList, TokenValue, Value};
 use crate::lang::errors::{print_errors_and_exit, CompilationError, ErrorKind};
 
-
-lazy_static! {
-
-    static ref TOKEN_REGEX: Regex = Regex::new(
-        r#"(?m)'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|[_a-zA-Z]\w*|-?\d+[.]\d*|-?[.]?\d+|->|==|<=|>=|!=|&&|\|\||//|/\*|\*/|[-+*/%\[\](){}=:<>!^&|~]|\S"#
-    ).expect("Regex should compile");
-
-}
+use super::{Priority, TokenPriority, Token};
 
 
-fn escape_string_copy(string_to_escape: &str, checked_until: usize, token: &SourceToken, source: &SourceCode) -> Result<String, CompilationError> {
-    // use -1 because the escape character won't be copied
-    let mut escaped_string = String::with_capacity(string_to_escape.len() - 1);
-
-    // Copy the part of the string before the escape character
-    escaped_string.push_str(&string_to_escape[..checked_until]);
-
-    let mut escape = true;
-
-    for (i, c) in string_to_escape[checked_until + 1..].chars().enumerate() {
-        if escape {
-            escape = false;
-            escaped_string.push(match c {
-                'n' => '\n',
-                'r' => '\r',
-                '0' => '\0',
-                't' => '\t',
-                '\\' => '\\',
-                c => error::invalid_escape_character(token.unit_path, c, token.column + checked_until + i + 2, token.line_index(), source, "Invalid escape character")
-            })
-        } else if c == '\\' {
-            escape = true;
-        } else {
-            escaped_string.push(c);
-        }
-    }
-
-    Ok(escaped_string)
-}
-
-
-fn escape_string<'a>(string: &'a str, token: &SourceToken, source: &SourceCode) -> Cow<'a, str> {
-    // Ignore the enclosing quote characters
-    let string = &string[1..string.len() - 1];
-
-    for (i, c) in string.chars().enumerate() {
-        if c == '\\' {
-            let copied_string = escape_string_copy(string, i, token, source);
-            return Cow::Owned(copied_string);
-        }
-    }
-
-    Cow::Borrowed(string)
-}
-
-
-fn is_numeric(c: char) -> bool {
-    c.is_numeric() || c == '-' || c == '+' || c == '.'
-}
+const SIZE_OF_QUOTE_CHAR: usize = "\"".len();
+const SIZE_OF_NEWLINE_CHAR: usize = "\n".len();
+const SIZE_OF_ESCAPE_CHAR: usize = "\\".len();
 
 
 fn may_be_expression(token: Option<&Token>) -> bool {
     token.map(|t| matches!(t.value,
-        TokenKind::ParClose |
-        TokenKind::SquareClose |
-        TokenKind::Value(_)
+        TokenValue::ParClose |
+        TokenValue::ScopeClose |
+        TokenValue::Value(_)
     )).unwrap_or(false)
 }
 
 
-fn is_symbol_name(name: &str) -> bool {
-    let mut chars = name.chars();
-
-    if let Some(c) = chars.next() {
-        if !(c.is_alphabetic() || c == '_') {
-            return false;
-        }
-    }
-
-    for c in chars {
-        if !(c.is_alphanumeric() || c == '_') {
-            return false;
-        }
-    }
-
-    true
-}
-
-
-fn is_data_type_precursor(token: &Token) -> bool {
-    matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType | TokenKind::As)
-}
+// fn is_data_type_precursor(token: &Token) -> bool {
+//     matches!(token.value, TokenKind::DataType(_) | TokenKind::ArrayTypeOpen | TokenKind::Colon | TokenKind::Arrow | TokenKind::RefType | TokenKind::As)
+// }
 
 
 /// Useful struct to keep track of the status of the tokenizer
@@ -110,7 +38,8 @@ struct TokenizerStatus {
     pub square_depth: usize,
     pub curly_depth: usize,
     pub base_priority: TokenPriority,
-    priority_delta: TokenPriority,
+    pub line_index: usize,
+    pub line_start_index: usize,
 
 }
 
@@ -118,406 +47,974 @@ impl TokenizerStatus {
 
     pub fn new() -> TokenizerStatus {
         TokenizerStatus {
-            parenthesis_depth: 1,
-            square_depth: 1,
-            curly_depth: 1,
+            parenthesis_depth: 0,
+            square_depth: 0,
+            curly_depth: 0,
             base_priority: 0,
-            priority_delta: 0,
+            line_index: 0,
+            line_start_index: 0,
         }
-    }
-
-    pub fn update(&mut self) {
-        self.base_priority += self.priority_delta;
-        self.priority_delta = 0;
     }
 
     pub fn enter_parenthesis(&mut self) {
         self.parenthesis_depth += 1;
-        self.priority_delta += Priority::Delimiter as TokenPriority;
+        self.base_priority += Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_parenthesis(&mut self) -> Result<(), ()> {
-        self.parenthesis_depth -= 1;
-        self.priority_delta -= Priority::Delimiter as TokenPriority;
-
-        if self.parenthesis_depth == 0 {
-            Err(())
-        } else {
+        self.base_priority -= Priority::Delimiter as TokenPriority;
+        if let Some(res) = self.parenthesis_depth.checked_sub(1) {
+            self.parenthesis_depth = res;
             Ok(())
+        } else {
+            Err(())
         }
     }
 
     pub fn enter_square(&mut self) {
         self.square_depth += 1;
-        self.priority_delta += Priority::Delimiter as TokenPriority;
+        self.base_priority += Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_square(&mut self) -> Result<(), ()> {
-        self.square_depth -= 1;
-        self.priority_delta -= Priority::Delimiter as TokenPriority;
-
-        if self.square_depth == 0 {
-            Err(())
-        } else {
+        self.base_priority -= Priority::Delimiter as TokenPriority;
+        if let Some(res) = self.square_depth.checked_sub(1) {
+            self.square_depth = res;
             Ok(())
+        } else {
+            Err(())
         }
     }
 
     pub fn enter_curly(&mut self) {
         self.curly_depth += 1;
-        self.priority_delta = Priority::Delimiter as TokenPriority;
+        self.base_priority = Priority::Delimiter as TokenPriority;
     }
 
     pub fn leave_curly(&mut self) -> Result<(), ()> {
-        self.curly_depth -= 1;
-        self.priority_delta = - (Priority::Delimiter as TokenPriority);
-
-        if self.curly_depth == 0 {
-            Err(())
-        } else {
+        self.base_priority -= Priority::Delimiter as TokenPriority;
+        if let Some(res) = self.curly_depth.checked_sub(1) {
+            self.curly_depth = res;
             Ok(())
+        } else {
+            Err(())
         }
+    }
+
+    pub fn newline(&mut self, newline_index: usize) {
+        self.line_index += 1;
+        self.line_start_index = newline_index + SIZE_OF_NEWLINE_CHAR;
+    }
+
+    pub fn column_index(&self, char_index: usize) -> usize {
+        char_index - self.line_start_index
     }
 
 }
 
 
-/// Divide the source code into meaningful string tokens
-fn lex<'a>(source: &[&'a str], unit_path: &'a Path) -> impl Iterator<Item = SourceToken<'a>> {
-
-    enum MultilineObject {
-        /// No multiline object is currently being parsed
-        None,
-        /// A multiline comment
-        Comment,
-        /// A potentially multiline string
-        String { token: SourceToken, token_start_ptr: *const u8 }
-    }
-
-    let mut multiline_object = MultilineObject::None;
-
-    source.iter().enumerate().flat_map(
-        move |(line_index, line)| {
-
-            if line.trim().is_empty() && !multiline_comment {
-                return Vec::new();
-            }
-
-            let mut matches = Vec::new();
-
-            for mat in TOKEN_REGEX.find_iter(line) {
-
-                match multiline_object {
-
-                    MultilineObject::None => {
-                        match mat.as_str() {
-                            "//" => break,
-                            "/*" => {
-                                multiline_object = MultilineObject::Comment;
-                            },
-                            "\"" => {
-                                multiline_object = MultilineObject::String {
-                                    token: SourceToken::new(line_index, mat.start(), "", unit_path),
-                                    token_start_ptr: mat.as_str().as_ptr()
-                                };
-                            },
-                            string => matches.push(
-                                SourceToken::new(
-                                    line_index,
-                                    mat.start(),
-                                    string,
-                                    unit_path
-                                )
-                            )
-                        }
-                    },
-
-                    MultilineObject::Comment => {
-                        if mat.as_str() == "*/" {
-                            // End of the multiline comment
-                            multiline_object = MultilineObject::None;
-                        }
-                    },
-
-                    MultilineObject::String { token, token_start_ptr } => {
-                        // Ignore all other matches because they are part of the multiline string.
-                        // A better approach should be used where the regex is applied to the whole source code
-                        // at the same time. Or one manual forward-iteration could be the solution.
-                        if mat.as_str() == "\"" {
-                            // Found the closing delimiter
-                            matches.push(SourceToken::new(
-                                token.line_index(),
-                                token.column_index,
-                                unsafe {
-                                    // Construct the string slice from the pointer to the opening delimiter
-                                    // and the pointer to its closing delimiter
-                                    let token_end_ptr = mat.as_str().as_ptr().byte_add(mat.as_str().len()) as usize;
-                                    let length_bytes = token_end_ptr - token_start_ptr as usize;
-                                    let raw_slice = slice::from_raw_parts(token_start_ptr, length_bytes);
-                                    let string = str::from_utf8(raw_slice).expect("Slice should be valid utf-8");
-                                    string
-                                },
-                                token.module_path,
-                            ));
-                            multiline_object = MultilineObject::None;
-                        }
-                    }
-                }
-            }
-            matches
-        }
-    )
+enum StringStatus {
+    Raw,
+    Escaped { string: String, escape_on: bool }
 }
 
 
-pub fn tokenize<'a>(module: &Module<'a>) -> () {
+pub fn tokenize<'a>(module: &Module<'a>) -> TokenList<'a> {
 
     let mut phase_errors: Vec<CompilationError> = Vec::new();
 
-    let raw_tokens = lex(module.lines(), module.path);
-
-    let mut tokens = TokenParsingList::new();
+    let mut tokens = TokenList::new();
 
     let mut ts = TokenizerStatus::new();
 
-    for token in raw_tokens {
+    let raw_source = module.raw_source();
+    let mut chars_iter = raw_source.char_indices().peekable();
+    let mut unget_buf: Option<(usize, char)> = None;
 
-        let token_kind = match token.string {
+    let mut token_is_negative_number: Option<usize> = None;
 
-            "->" => TokenKind::Arrow,
-            "{" => {
-                ts.enter_curly();
-                TokenKind::ScopeOpen
-            },
-            "}" => {
-                if ts.leave_curly().is_err() {
-                    phase_errors.push(CompilationError {
-                        source: Rc::new(token),
-                        kind: ErrorKind::UnmatchedDelimiter { delimiter: '}' },
-                        hint: "Unexpected closing delimiter. Did you forget a '{'?"
-                    });
-                    continue;
+    /// Useful macro that gets the next character in the stream and updates eventual tokenizer information.
+    macro_rules! get_next_char {
+        () => {{
+            if let Some(x) = unget_buf.take() {
+                Some(x)
+            } else if let Some((index, ch)) = chars_iter.next() {
+                if ch == '\n' {
+                    ts.newline(index);
+                }
+                Some((index, ch))
+            } else {
+                None
+            }
+        }};
+    }
+    macro_rules! skip_next_char {
+        () => {
+            assert!(chars_iter.next().is_some())
+        }
+    }
+    macro_rules! unget_char {
+        ($item:expr) => {
+            assert!(unget_buf.replace($item).is_none());
+        }
+    }
+    macro_rules! peek_char {
+        () => {{
+            if let Some(x) = &unget_buf {
+                Some(x)
+            } else {
+                chars_iter.peek()
+            }
+        }}
+    }
+
+    while let Some((base_char_index, ch)) = get_next_char!() {
+        match ch {
+
+            _ if ch.is_ascii_digit() => {
+                let start_line_index = ts.line_index;
+                let (base_char_index, is_negative) =
+                    if let Some(minus_index) = token_is_negative_number.take() {
+                        (minus_index, true)
+                    } else {
+                        (base_char_index, false)
+                    };
+                let start_column_index = ts.column_index(base_char_index);
+                let mut number_end_index = base_char_index + ch.len_utf8();
+                let mut is_float = false;
+
+                while let Some((number_index, digit_ch)) = get_next_char!() {
+                    if digit_ch == '.' {
+                        if is_float {
+                            // Number is already a float, so this point should be an indirection operator
+                            unget_char!((number_index, digit_ch));
+                            break;
+                        } else {
+                            is_float = true;
+                            number_end_index += digit_ch.len_utf8();
+                        }
+                    } else if !digit_ch.is_ascii_digit() {
+                        unget_char!((number_index, digit_ch));
+                        break;
+                    } else {
+                        number_end_index += digit_ch.len_utf8();
+                    }
                 }
 
-                TokenKind::ScopeClose
-            },
-            "(" => {
-                ts.enter_parenthesis();
+                let string_tok = unsafe {
+                    std::str::from_raw_parts(
+                        raw_source.as_ptr().byte_add(base_char_index),
+                        number_end_index - base_char_index
+                    )
+                };
+                let source = SourceToken::new(
+                    start_line_index,
+                    start_column_index,
+                    string_tok
+                );
 
-                let mut iter = tokens.iter_lex_tokens().rev();
-                let last = iter.next();
-
-                if may_be_expression(last) {
-
-                    // Unwrap is safe because `last_node` is an expression
-                    let last_token = last.unwrap();
-
-                    if matches!(last_token.value, TokenKind::Value(Value::Symbol { .. })) && iter.next().map(|token| matches!(token.value, TokenKind::Fn)).unwrap_or(false) {
-                        // Syntax: fn <symbol> (
-                        TokenKind::FunctionParamsOpen
+                let number =
+                    if is_float {
+                        let f = string_tok.parse::<f64>().expect("Should not fail");
+                        Number::F64(f)
+                    } else if is_negative {
+                        let n = string_tok.parse::<i64>().expect("Should not fail");
+                        Number::I64(n)
                     } else {
-                        // Syntax: <value-like> (
-                        TokenKind::FunctionCallOpen
+                        let n = string_tok.parse::<u64>().expect("Should not fail");
+                        Number::U64(n)
+                    };
+
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::Value(Value::Literal(LiteralValue::Number(number))),
+                    ts.base_priority
+                );
+            },
+
+            _ if ch.is_alphabetic() || ch == '_' => {
+                let start_line_index = ts.line_index;
+                let start_column_index = ts.column_index(base_char_index);
+                let mut symbol_end_index = base_char_index + ch.len_utf8();
+
+                while let Some((symbol_char_index, symbol_ch)) = get_next_char!() {
+                    if !symbol_ch.is_alphanumeric() && symbol_ch != '_' {
+                        symbol_end_index = symbol_char_index;
+                        unget_char!((symbol_char_index, symbol_ch));
+                        break;
+                    }
+                }
+
+                let string_tok = unsafe {
+                    std::str::from_raw_parts(
+                        raw_source.as_ptr().byte_add(base_char_index),
+                        symbol_end_index - base_char_index
+                    )
+                };
+                let source = SourceToken::new(
+                    start_line_index,
+                    start_column_index,
+                    string_tok
+                );
+                let token = match string_tok {
+
+                    // Reserved keywords
+                    "fn" => TokenValue::Fn,
+                    "return" => TokenValue::Return,
+                    "let" => TokenValue::Let,
+                    "mut" => TokenValue::Mut,
+                    "as" => TokenValue::As,
+                    "if" => TokenValue::If,
+                    "else" => TokenValue::Else,
+                    "while" => TokenValue::While,
+                    "loop" => TokenValue::Loop,
+                    "true" => TokenValue::Value(Value::Literal(LiteralValue::Bool(true))),
+                    "false" => TokenValue::Value(Value::Literal(LiteralValue::Bool(false))),
+                    "const" => TokenValue::Const,
+                    "break" => TokenValue::Break,
+                    "continue" => TokenValue::Continue,
+                    "typedef" => TokenValue::TypeDef,
+                    "do" => TokenValue::DoWhile,
+                    "static" => TokenValue::Static,
+
+                    // Data types
+                    "i8" => TokenValue::BuiltinType(DataType::I8),
+                    "i16" => TokenValue::BuiltinType(DataType::I16),
+                    "i32" => TokenValue::BuiltinType(DataType::I32),
+                    "i64" => TokenValue::BuiltinType(DataType::I64),
+                    "u8" => TokenValue::BuiltinType(DataType::U8),
+                    "u16" => TokenValue::BuiltinType(DataType::U16),
+                    "u32" => TokenValue::BuiltinType(DataType::U32),
+                    "u64" => TokenValue::BuiltinType(DataType::U64),
+                    "f32" => TokenValue::BuiltinType(DataType::F32),
+                    "f64" => TokenValue::BuiltinType(DataType::F64),
+                    "char" => TokenValue::BuiltinType(DataType::Char),
+                    "str" => TokenValue::BuiltinType(DataType::RawString),
+                    "void" => TokenValue::BuiltinType(DataType::Void),
+                    "bool" => TokenValue::BuiltinType(DataType::Bool),
+                    "usize" => TokenValue::BuiltinType(DataType::Usize),
+                    "isize" => TokenValue::BuiltinType(DataType::Isize),
+
+                    _ => TokenValue::Value(Value::Symbol(string_tok))
+                };
+                tokens.push(
+                    Rc::new(source),
+                    token,
+                    ts.base_priority
+                );
+            },
+
+            '+' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "+=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::AddAssign,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "+");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Add,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '-' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '>').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "->");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Arrow,
+                        ts.base_priority
+                    );
+                } else if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "-=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::SubAssign,
+                        ts.base_priority
+                    );
+                } else if !may_be_expression(tokens.iter_lex_tokens_rev().next()) {
+                    // Unary minus or part of a numeric token
+                    if peek_char!().map(|(_, next_ch)| next_ch.is_ascii_digit()).unwrap_or(false) {
+                        // Part of a numeric token
+                        token_is_negative_number = Some(get_next_char!().unwrap().0);
+                    } else {
+                        // Unary minus
+                        let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "-");
+                        tokens.push(
+                            Rc::new(source),
+                            TokenValue::UnaryMinus,
+                            ts.base_priority
+                        );
                     }
                 } else {
-                    // Syntax: <not-a-value> (
-                    TokenKind::ParOpen
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "-");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Sub,
+                        ts.base_priority
+                    );
                 }
             },
-            ")" => {
+
+            '*' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '*').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "*=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::MulAssign,
+                        ts.base_priority
+                    );
+                } else if may_be_expression(tokens.iter_lex_tokens_rev().next()) {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "*");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Mul,
+                        ts.base_priority
+                    );
+                } else {
+                    // Previous token is not an expression, so this is a unary dereference operator.
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "*");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Deref,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '&' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '&').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "&&");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::LogicalAnd,
+                        ts.base_priority
+                    );
+                } else if !may_be_expression(tokens.iter_lex_tokens_rev().next()) {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "&");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::TakeRef,
+                        ts.base_priority
+                    );
+                } else {
+                    // Previous token is not an expression, so this is a unary dereference operator.
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "&");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::BitAnd,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '%' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "%=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::ModAssign,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "%");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Mod,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '!' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "!=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::NotEqual,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "!");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::LogicalNot,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '|' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '|').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "||");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::LogicalOr,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "|");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::BitOr,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '<' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '<').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "<<");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::BitShiftLeft,
+                        ts.base_priority
+                    );
+                } else if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "<=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::LessEqual,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "<");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Less,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '>' => {
+                if peek_char!().map(|(_, next_ch)| *next_ch == '>').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ">>");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::BitShiftRight,
+                        ts.base_priority
+                    );
+                } else if peek_char!().map(|(_, next_ch)| *next_ch == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ">=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::GreaterEqual,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ">");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Greater,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            ',' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ",");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::Comma,
+                    ts.base_priority
+                );
+            },
+
+            ':' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ":");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::Colon,
+                    ts.base_priority
+                );
+            },
+
+            '~' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "~");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::BitNot,
+                    ts.base_priority
+                );
+            },
+
+            '^' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "^");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::BitXor,
+                    ts.base_priority
+                );
+            },
+
+            '/' => {
+                let next = peek_char!().map(|(_, next)| *next);
+                if next.map(|next| next == '/').unwrap_or(false) {
+                    skip_next_char!();
+                    // Inline comment
+                    // Skip all characters until newline and register the newline
+                    while let Some((i, next)) = get_next_char!() {
+                        if next == '\n' {
+                            ts.newline(i);
+                            break;
+                        }
+                    }
+                } else if next.map(|next| next == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(
+                        ts.line_index,
+                        ts.column_index(base_char_index),
+                        "/="
+                    );
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::DivAssign,
+                        ts.base_priority
+                    );
+                } else if next.map(|next| next == '*').unwrap_or(false) {
+                    skip_next_char!();
+                    // Mutliline comment
+                    let mut found_astherix = false;
+                    let mut comment_correctly_terminated = false;
+                    let start_line_index = ts.line_index;
+                    let start_column_index = ts.column_index(base_char_index);
+                    while let Some((i, next)) = get_next_char!() {
+
+                        if next == '\n' {
+                            ts.newline(i);
+                            found_astherix = false;
+                        } else if found_astherix {
+                            if next == '/' {
+                                // end
+                                comment_correctly_terminated = true;
+                                break;
+                            } else if next != '*' {
+                                found_astherix = false;
+                            }
+                        } else if next == '*' {
+                            found_astherix = true;
+                        }
+                    }
+                    if !comment_correctly_terminated {
+                        let source = SourceToken::new(start_line_index, start_column_index, "/*");
+                        phase_errors.push(CompilationError {
+                            source: Rc::new(source),
+                            kind: ErrorKind::UnmatchedDelimiter { delimiter: "/*" },
+                            hint: "Multiline comments must be terminated with `*/`"
+                        });
+                    }
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "/");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Div,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '=' => {
+                if peek_char!().map(|(_, next)| *next == '=').unwrap_or(false) {
+                    skip_next_char!();
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "==");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Equal,
+                        ts.base_priority
+                    );
+                } else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "=");
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Assign,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '"' => {
+                let start_line_index = ts.line_index;
+                let start_column_index = ts.column_index(base_char_index);
+                let mut found_closing_quote = false;
+                let mut status = StringStatus::Raw;
+                while let Some((string_char_index, string_ch)) = get_next_char!() {
+                    match &mut status {
+                        StringStatus::Raw => {
+                            // Copy the string until the escape character
+                            if string_ch == '\\' {
+                                status = StringStatus::Escaped {
+                                    string: String::from_str(unsafe {
+                                            std::str::from_raw_parts(
+                                                raw_source.as_ptr().byte_add(base_char_index + SIZE_OF_QUOTE_CHAR),
+                                                string_char_index - (base_char_index + SIZE_OF_ESCAPE_CHAR)
+                                            )
+                                        }).expect("Infallible"),
+                                    escape_on: true
+                                };
+                            } else if string_ch == '"' {
+                                let source = SourceToken::new(
+                                    start_line_index,
+                                    start_column_index,
+                                    unsafe {
+                                        std::str::from_raw_parts(
+                                            raw_source.as_ptr().byte_add(base_char_index),
+                                            string_char_index + SIZE_OF_QUOTE_CHAR - base_char_index
+                                        ) }
+                                );
+                                tokens.push(
+                                    Rc::new(source),
+                                    TokenValue::Value(Value::Literal(LiteralValue::StaticString(Cow::Borrowed(unsafe {
+                                        std::str::from_raw_parts( // Like the whole string token, but excluding the delimiting quotes
+                                            raw_source.as_ptr().byte_add(base_char_index + SIZE_OF_QUOTE_CHAR),
+                                            string_char_index - (base_char_index + SIZE_OF_QUOTE_CHAR)
+                                        ) })))),
+                                    ts.base_priority
+                                );
+                                found_closing_quote = true;
+                                break;
+                            }
+                        },
+                        StringStatus::Escaped { string, escape_on } => {
+                            let char_value =
+                                if *escape_on {
+                                    *escape_on = false;
+                                    let escaped_char = match string_ch {
+                                        't' => Ok('\t'),
+                                        'n' => Ok('\n'),
+                                        'r' => Ok('\r'),
+                                        '0' => Ok('\0'),
+                                        '"' => Ok('"'),
+                                        _ => Err(())
+                                    };
+                                    if let Ok(escaped_char) = escaped_char {
+                                        escaped_char
+                                    } else {
+                                        let source = SourceToken::new(ts.line_index, ts.column_index(string_char_index), "");
+                                        phase_errors.push(CompilationError {
+                                            source: Rc::new(source),
+                                            kind: ErrorKind::InvalidEscapeSequence { invalid_character: Some(string_ch) },
+                                            hint: "Valid esape sequences in string literals are: '\\t', '\\n', '\\r', '\\0', '\"'"
+                                        });
+                                        '\\'
+                                    }
+                                } else if string_ch == '"' {
+                                    let source = SourceToken::new(
+                                        start_line_index,
+                                        start_column_index,
+                                        unsafe {
+                                            std::str::from_raw_parts(
+                                                raw_source.as_ptr().byte_add(base_char_index),
+                                                string_char_index + SIZE_OF_QUOTE_CHAR - base_char_index
+                                            )
+                                        }
+                                    );
+                                    tokens.push(
+                                        Rc::new(source),
+                                        TokenValue::Value(Value::Literal(LiteralValue::StaticString(Cow::Owned(mem::take(string))))),
+                                        ts.base_priority
+                                    );
+                                    found_closing_quote = true;
+                                    break;
+                                } else {
+                                    string_ch
+                                };
+                            string.push(char_value);
+                        },
+                    }
+                }
+
+                if !found_closing_quote {
+                    let source = SourceToken::new(start_line_index, start_column_index, "");
+                    phase_errors.push(CompilationError {
+                        source: Rc::new(source),
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: "\"" },
+                        hint: "String literal must be enclosed in double quotes. Did you forget a closing '\"'?"
+                    });
+                }
+            },
+
+            '\'' => {
+                let start_line_index = ts.line_index;
+                let start_column_index = ts.column_index(base_char_index);
+
+                let Some((i_char_value, char_value)) = get_next_char!() else {
+                    let source = SourceToken::new(start_line_index, start_column_index, "");
+                    phase_errors.push(CompilationError {
+                        source: Rc::new(source), // TODO: does this need to be an Rc?
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: "'" },
+                        hint: "Invalid character literal"
+                    });
+                    continue;
+                };
+
+                let char_value =
+                    if char_value == '\\' {
+                        if let Some((i, char_to_escape)) = get_next_char!() {
+                            let escaped_char = match char_to_escape {
+                                't' => Ok('\t'),
+                                'n' => Ok('\n'),
+                                'r' => Ok('\r'),
+                                '0' => Ok('\0'),
+                                '"' => Ok('"'),
+                                _ => Err(())
+                            };
+                            if let Ok(escaped_char) = escaped_char {
+                                escaped_char
+                            } else {
+                                let source = SourceToken::new(ts.line_index, ts.column_index(i), "");
+                                phase_errors.push(CompilationError {
+                                    source: Rc::new(source),
+                                    kind: ErrorKind::InvalidEscapeSequence { invalid_character: Some(char_to_escape) },
+                                    hint: "Valid esape sequences in character literals are: '\\t', '\\n', '\\r', '\\0', '\\''"
+                                });
+                                '\\'
+                            }
+                        } else {
+                            let source = SourceToken::new(ts.line_index, ts.column_index(i_char_value), "");
+                            phase_errors.push(CompilationError {
+                                source: Rc::new(source),
+                                kind: ErrorKind::InvalidEscapeSequence { invalid_character: None },
+                                hint: "Character to escape not specified"
+                            });
+                            // Return a valid char value to continue checking
+                            '\\'
+                        }
+                    } else {
+                        char_value
+                    };
+
+                let Some((i_closing_delimiter, closing_delimiter)) = get_next_char!() else {
+                    let source = SourceToken::new(ts.line_index, ts.column_index(i_char_value), "");
+                    phase_errors.push(CompilationError {
+                        source: Rc::new(source),
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: "'" },
+                        hint: "Character literals must be enclosed in single quotes. Did you forget a closing `'`?"
+                    });
+                    continue;
+                };
+                if closing_delimiter == '\'' {
+                    let token_str = unsafe {
+                        std::str::from_raw_parts(
+                            raw_source.as_ptr().byte_add(base_char_index),
+                            i_closing_delimiter + SIZE_OF_QUOTE_CHAR - base_char_index
+                        )
+                    };
+                    let source = SourceToken::new(start_line_index, start_column_index, token_str);
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::Value(Value::Literal(LiteralValue::Char(char_value))),
+                        ts.base_priority
+                    );
+                } else {
+                    let mut found_closing_quote = false;
+                    let mut length: usize = 1;
+                    while let Some((_ ,next_ch)) = get_next_char!() {
+                        if next_ch == '\'' {
+                            found_closing_quote = true;
+                            break;
+                        } else {
+                            length += 1;
+                        }
+                    }
+                    let source = SourceToken::new(start_line_index, start_column_index, "");
+                    if found_closing_quote {
+                        phase_errors.push(CompilationError {
+                            source: Rc::new(source),
+                            kind: ErrorKind::CharLiteralTooLong { length },
+                            hint: "Character literals must be exactly one character long. Did you forget a closing `'`?"
+                        });
+                    } else {
+                        phase_errors.push(CompilationError {
+                            source: Rc::new(source),
+                            kind: ErrorKind::UnmatchedDelimiter { delimiter: "'" },
+                            hint: "Character literals must be enclosed in single quotes. Did you forget a closing `'`?"
+                        });
+                    }
+                }
+            },
+
+            ';' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ";");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::Semicolon,
+                    ts.base_priority
+                );
+            },
+
+            '(' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "(");
+
+                let token_kind = {
+                    let mut iter = tokens.iter_lex_tokens_rev();
+                    let last = iter.next();
+
+                    if may_be_expression(last) {
+
+                        // Unwrap is safe because `last` is an expression
+                        let last_token = last.unwrap();
+
+                        if matches!(last_token.value, TokenValue::Value(Value::Symbol { .. })) && iter.next().map(|token| matches!(token.value, TokenValue::Fn)).unwrap_or(false) {
+                            // Syntax: fn <symbol> (
+                            TokenValue::FunctionParamsOpen
+                        } else {
+                            // Syntax: <value-like> (
+                            TokenValue::FunctionCallOpen
+                        }
+                    } else {
+                        // Syntax: <not-a-value> (
+                        TokenValue::ParOpen
+                    }
+                };
+
+                tokens.push(
+                    Rc::new(source),
+                    token_kind,
+                    ts.base_priority
+                );
+                ts.enter_parenthesis();
+            },
+
+            ')' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), ")");
+
                 if ts.leave_parenthesis().is_err() {
                     phase_errors.push(CompilationError {
-                        source: Rc::new(token),
-                        kind: ErrorKind::UnmatchedDelimiter { delimiter: ')' },
+                        source: Rc::new(source),
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: ")" },
                         hint: "Unexpected closing delimiter. Did you forget a '('?"
                     });
-                    continue;
-                }
-
-                TokenKind::ParClose
-            },
-            "[" => {
-                ts.enter_square();
-
-                if let Some(last_token) = tokens.last_token() {
-                    if is_data_type_precursor(last_token) {
-                        // Syntax: <data-type-precursor> [
-                        TokenKind::ArrayTypeOpen
-                    } else if may_be_expression(Some(last_token)) {
-                        // Syntax: <possible-array-type> [
-                        TokenKind::ArrayIndexOpen
-                    } else {
-                        // Syntax: <not-a-data-type-precursor> [
-                        TokenKind::ArrayOpen
-                    }
                 } else {
-                    // Syntax: <nothing> [
-                    TokenKind::ArrayOpen
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::ParClose,
+                        ts.base_priority
+                    );
                 }
             },
-            "]" => {
+
+            '{' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "{");
+                tokens.push(
+                    Rc::new(source),
+                    TokenValue::ScopeOpen,
+                    ts.base_priority
+                );
+                ts.enter_curly();
+            },
+
+            '}' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "}");
+
+                if ts.leave_curly().is_err() {
+                    phase_errors.push(CompilationError {
+                        source: Rc::new(source),
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: "}" },
+                        hint: "Unexpected closing delimiter. Did you forget a '{'?"
+                    });
+                } else {
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::ScopeClose,
+                        ts.base_priority
+                    );
+                }
+            },
+
+            '[' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "[");
+
+                let token_kind = {
+                    if may_be_expression(tokens.iter_lex_tokens_rev().next()) {
+                        TokenValue::ArrayIndexOpen
+                    } else {
+                        TokenValue::ArrayOpen
+                    }
+                };
+
+                tokens.push(
+                    Rc::new(source),
+                    token_kind,
+                    ts.base_priority
+                );
+                ts.enter_square();
+            },
+
+            ']' => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "]");
+
                 if ts.leave_square().is_err() {
                     phase_errors.push(CompilationError {
-                        source: Rc::new(token),
-                        kind: ErrorKind::UnmatchedDelimiter { delimiter: ']' },
+                        source: Rc::new(source),
+                        kind: ErrorKind::UnmatchedDelimiter { delimiter: "]" },
                         hint: "Unexpected closing delimiter. Did you forget a '['?"
                     });
-                    continue;
-                }
-
-                TokenKind::SquareClose
-            },
-            ":" => TokenKind::Colon,
-            ";" => TokenKind::Semicolon,
-            "," => TokenKind::Comma,
-            "+" => TokenKind::Add,
-            "-" => TokenKind::Sub,
-            "*" => {
-                let last_token = tokens.last_token();
-                if may_be_expression(last_token) { TokenKind::Mul } else { TokenKind::Deref }
-            },
-            "/" => TokenKind::Div,
-            "%" => TokenKind::Mod,
-            "=" => TokenKind::Assign,
-            "==" => TokenKind::Equal,
-            "!=" => TokenKind::NotEqual,
-            "<" => TokenKind::Less,
-            ">" => TokenKind::Greater,
-            "<=" => TokenKind::LessEqual,
-            ">=" => TokenKind::GreaterEqual,
-            "&" => {
-                let last_token = tokens.last_token();
-                if may_be_expression(last_token) {
-                    // Syntax: <value-like> &
-                    TokenKind::BitwiseAnd
-                } else if let Some(last_token) = last_token {
-                    if is_data_type_precursor(last_token) {
-                        // Syntax: <data-type-precursor> &
-                        TokenKind::RefType
-                    } else {
-                        // Syntax: <not-a-data-type-precursor> &
-                        TokenKind::Ref
-                    }
                 } else {
-                    // Syntax: <nothing> &
-                    TokenKind::Ref
-                }
-            },
-            "^" => TokenKind::BitwiseXor,
-            "<<" => TokenKind::BitShiftLeft,
-            ">>" => TokenKind::BitShiftRight,
-            "~" => TokenKind::BitwiseNot,
-            "!" => TokenKind::LogicalNot,
-            "&&" => TokenKind::LogicalAnd,
-            "||" => TokenKind::LogicalOr,
-            "|" => TokenKind::BitwiseOr,
-
-            // Numbers
-            string if string.starts_with(is_numeric) => {
-                if string.contains('.') {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_float(string).unwrap_or_else(
-                        |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    )).into() })
-                } else if string.starts_with('-') {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_signed_int(string).unwrap_or_else(
-                        |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    )).into() })
-                } else {
-                    TokenKind::Value(Value::Literal { value: LiteralValue::Numeric(Number::try_parse_unsigned_int(string).unwrap_or_else(
-                        |e| error::invalid_number(&token, source, e.to_string().as_str())
-                    )).into() })
+                    tokens.push(
+                        Rc::new(source),
+                        TokenValue::SquareClose,
+                        ts.base_priority
+                    );
                 }
             },
 
-            // Strings within ""
-            string if string.starts_with('"') => {
-                if string.len() == 1 {
-                    error::unmatched_delimiter('"', &token, source, "Unexpected closing delimiter. Did you forget a '\"'?")
-                }
-
-                let string = escape_string(string, &token, source);
-
-                // Add the string to the static string table, store the id in the token
-                let static_id = symbol_table.add_static_string(string);
-
-                TokenKind::Value(Value::Literal {
-                    value: LiteralValue::StaticString(static_id).into()
-                })
+            ' ' | '\t' | '\n' => {
+                // Ignore these characters
             },
 
-            // Characters within ''
-            string if string.starts_with('\'') => {
-                if string.len() == 1 {
-                    error::unmatched_delimiter('\'', &token, source, "Unexpected closing delimiter. Did you forget a \"'?\"?")
-                }
-
-                let s = escape_string(string, &token, source);
-                if s.len() != 1 {
-                    error::invalid_char_literal(&s, &token, source, "Character literals can only be one character long")
-                }
-
-                TokenKind::Value(Value::Literal {
-                    value: LiteralValue::Char(s.chars().next().unwrap()).into()
-                })
-            },
-
-            // Reserved keywords
-            "fn" => TokenKind::Fn,
-            "return" => TokenKind::Return,
-            "let" => TokenKind::Let,
-            "mut" => TokenKind::Mut,
-            "as" => TokenKind::As,
-            "if" => TokenKind::If,
-            "else" => TokenKind::Else,
-            "while" => TokenKind::While,
-            "loop" => TokenKind::Loop,
-            "true" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(true).into() }),
-            "false" => TokenKind::Value(Value::Literal { value: LiteralValue::Bool(false).into() }),
-            "const" => TokenKind::Const,
-            "break" => TokenKind::Break,
-            "continue" => TokenKind::Continue,
-            "typedef" => TokenKind::TypeDef,
-            "do" => TokenKind::DoWhile,
-            "static" => TokenKind::Static,
-
-            // Data types
-            "i8" => TokenKind::DataType(DataType::I8.into()),
-            "i16" => TokenKind::DataType(DataType::I16.into()),
-            "i32" => TokenKind::DataType(DataType::I32.into()),
-            "i64" => TokenKind::DataType(DataType::I64.into()),
-            "u8" => TokenKind::DataType(DataType::U8.into()),
-            "u16" => TokenKind::DataType(DataType::U16.into()),
-            "u32" => TokenKind::DataType(DataType::U32.into()),
-            "u64" => TokenKind::DataType(DataType::U64.into()),
-            "f32" => TokenKind::DataType(DataType::F32.into()),
-            "f64" => TokenKind::DataType(DataType::F64.into()),
-            "char" => TokenKind::DataType(DataType::Char.into()),
-            "str" => TokenKind::DataType(DataType::RawString { length: 0 }.into()), // Set the length temporarily to 0
-            "String" => TokenKind::DataType(DataType::String.into()),
-            "void" => TokenKind::DataType(DataType::Void.into()),
-            "bool" => TokenKind::DataType(DataType::Bool.into()),
-            "usize" => TokenKind::DataType(DataType::Usize.into()),
-            "isize" => TokenKind::DataType(DataType::Isize.into()),
-
-            // Variable names
-            string => {
-                if !is_symbol_name(string) {
-                    error::invalid_token(&token, source, "Not a valid symbol name.")
-                }
-
-                TokenKind::Value(Value::Symbol { name: string, scope_discriminant: ScopeDiscriminant::default() })
+            _ => {
+                let source = SourceToken::new(ts.line_index, ts.column_index(base_char_index), "");
+                phase_errors.push(CompilationError {
+                    source: Rc::new(source),
+                    kind: ErrorKind::UnexpectedCharacter { ch },
+                    hint: "This character was not expected in this context"
+                });
             }
-        };
-
-        tokens.push_token(
-            Token::new(token_kind, token, ts.base_priority)
-        );
-
-        ts.update();
+        }
     }
 
     if !phase_errors.is_empty() {
-        // TODO: use a global enum with phase names?
-        print_errors_and_exit("tokenization", &phase_errors);
+        print_errors_and_exit(CompilationPhases::Tokenization, &phase_errors, module);
     }
+
+    tokens
 }
+
+//             "[" => {
+//                 ts.enter_square();
+
+//                 if let Some(last_token) = tokens.last_token() {
+//                     if is_data_type_precursor(last_token) {
+//                         // Syntax: <data-type-precursor> [
+//                         TokenKind::ArrayTypeOpen
+//                     } else if may_be_expression(Some(last_token)) {
+//                         // Syntax: <possible-array-type> [
+//                         TokenKind::ArrayIndexOpen
+//                     } else {
+//                         // Syntax: <not-a-data-type-precursor> [
+//                         TokenKind::ArrayOpen
+//                     }
+//                 } else {
+//                     // Syntax: <nothing> [
+//                     TokenKind::ArrayOpen
+//                 }
+//             },
+//

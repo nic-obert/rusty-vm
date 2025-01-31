@@ -1,19 +1,18 @@
 use std::rc::Rc;
-
-use crate::symbol_table::StaticID;
+use std::borrow::Cow;
 
 use super::DataType;
 
 
 #[derive(Debug)]
-pub enum LiteralValue {
+pub enum LiteralValue<'a> {
 
     Char (char),
-    StaticString (StaticID),
-    Array { element_type: Rc<DataType>, elements: Box<[LiteralValue]> },
+    StaticString (Cow<'a, str>),
+    Array { element_type: Rc<DataType>, elements: Box<[LiteralValue<'a>]> },
     Number (Number),
     Bool (bool),
-    StaticRef (Box<LiteralValue>)
+    StaticRef (Box<LiteralValue<'a>>)
 
 }
 

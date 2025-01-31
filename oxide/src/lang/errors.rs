@@ -1,10 +1,11 @@
-use std::fmt::Display;
 use std::io;
 use std::cmp::min;
+use std::rc::Rc;
 
 use colored::Colorize;
-use indoc::printdoc;
 
+use crate::compiler::CompilationPhases;
+use crate::module_manager::Module;
 use crate::tokenizer::SourceToken;
 
 
@@ -14,7 +15,9 @@ const SOURCE_CONTEXT_RADIUS: u8 = 4;
 
 
 /// Print the source code context around the specified line.
-fn print_source_context(source: &[&str], line_index: usize, char_pointer: usize) {
+fn print_source_context(source: &[&str], line_index: usize, column_index: usize) {
+
+    let char_pointer = column_index + 2;
 
     // Calculate the beginning of the context. Saturating subtraction is used interpret underflow as 0.
     let mut index = line_index.saturating_sub(SOURCE_CONTEXT_RADIUS as usize);
@@ -24,44 +27,37 @@ fn print_source_context(source: &[&str], line_index: usize, char_pointer: usize)
 
     // Print the source lines before the highlighted line.
     while index < line_index {
-        println!(" {:line_number_width$}  {}", index + 1, source[index]);
+        println!(" {:line_number_width$} | {}", index + 1, source[index]);
         index += 1;
     }
 
     // The highlighted line.
-    println!("{}{:line_number_width$}  {}", ">".bright_red().bold(), index + 1, source[line_index]);
+    println!("{}{:line_number_width$} | {}", ">".bright_red().bold(), index + 1, source[line_index]);
     println!(" {:line_number_width$} {:>char_pointer$}{}", "", "", "^".bright_red().bold());
     index += 1;
 
     // Lines after the highlighted line.
     while index < end_index {
-        println!(" {:line_number_width$}  {}", index + 1, source[index]);
+        println!(" {:line_number_width$} | {}", index + 1, source[index]);
         index += 1;
     }
 }
 
 
 pub fn io_error(error: io::Error, hint: &str) -> ! {
-    printdoc!("
-        IO Error
-        {}
-
-        Hint:
-        {}
-    ",
-        error, hint
-    );
+    println!("\nIO Error\n{}\nHint:\n{}", error, hint);
 
     std::process::exit(1);
 }
 
 
-pub fn print_errors_and_exit(phase_name: &str, errors: &[CompilationError]) -> ! {
+pub fn print_errors_and_exit(phase: CompilationPhases, errors: &[CompilationError], module: &Module) -> ! {
 
-    println!("\n{} errors occurred during the {} phase:\n", errors.len(), phase_name);
+    println!("\n{} error(s) occurred during the {} phase on module `{}`:\n", errors.len(), phase, module.path.display());
 
     for (i, error) in errors.iter().enumerate() {
-        println!("\nError #{}\n{}\n", i+1, error);
+        println!("\nError #{}", i+1);
+        error.print(module.lines());
     }
 
     std::process::exit(0);
@@ -70,9 +66,11 @@ pub fn print_errors_and_exit(phase_name: &str, errors: &[CompilationError]) -> !
 
 pub enum ErrorKind {
 
-    InvalidEscapeSequence { invalid_character: char },
-    UnmatchedDelimiter { delimiter: char }
-
+    InvalidEscapeSequence { invalid_character: Option<char> },
+    UnmatchedDelimiter { delimiter: &'static str },
+    EmptyCharLiteral,
+    CharLiteralTooLong { length: usize },
+    UnexpectedCharacter { ch: char },
 }
 
 
@@ -84,8 +82,24 @@ pub struct CompilationError<'a> {
 
 }
 
-impl Display for CompilationError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+impl CompilationError<'_> {
+
+    fn print(&self, source: &[&str]) {
+
+        println!("Line: {}, column: {}", self.source.line_number(), self.source.column_index);
+
+        match self.kind {
+            ErrorKind::InvalidEscapeSequence { invalid_character } => println!("Invalid escape sequence{}", if let Some(invalid_char) = invalid_character { format!(" `\\{}'", invalid_char) } else { "".to_string() }),
+            ErrorKind::UnmatchedDelimiter { delimiter } => println!("Unmatched delimiter `{}`", delimiter),
+            ErrorKind::EmptyCharLiteral => println!("Empty character literal"),
+            ErrorKind::CharLiteralTooLong { length } => println!("Characer literal too long: {} characters", length),
+            ErrorKind::UnexpectedCharacter { ch } => println!("Unexpected character {}", ch),
+        }
+        println!("\n");
+
+        print_source_context(source, self.source.line_index(), self.source.column_index);
+
+        println!("Hint:\n{}", self.hint);
     }
+
 }

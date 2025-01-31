@@ -1,9 +1,8 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::fmt::Display;
 use std::fmt;
 
 use clap::{Parser, Subcommand};
-use indoc::printdoc;
 
 use crate::targets::Targets;
 
@@ -115,10 +114,7 @@ macro_rules! declare_optimizations {
             }
 
             pub fn list_optimizations() {
-                printdoc!("
-                    Available optimizations:
-                    {}
-                    ",
+                println!("Available optimizations:\n{}",
                     concat!(
                         $("- ", stringify!($opt_name), " = ", $default, "\n"),*
                     )

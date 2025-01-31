@@ -7,9 +7,6 @@ use crate::lang::{LiteralValue, DataType};
 
 
 pub struct SymbolTable<'a> {
-    /// Indexed by StaticID
-    statics: Vec<LiteralValue>,
-    constants: Vec<()>,
     scopes: Vec<Scope<'a>>,
 }
 
@@ -17,8 +14,6 @@ impl<'a> SymbolTable<'a> {
 
     pub fn new() -> Self {
         Self {
-            statics: Default::default(),
-            constants: Default::default(),
             scopes: vec![Scope::new(None)], // Initialize the global scope
         }
     }
@@ -88,7 +83,7 @@ struct ScopeID(usize);
 pub struct Symbol<'a> {
     pub source: Rc<SourceToken<'a>>,
     pub data_type: Rc<DataType>,
-    pub symbol_value: SymbolValue,
+    pub symbol_value: SymbolValue<'a>,
     /// Whether the symbol is referenced anywhere for reading. Unread symbols may generate warnings and could be optimized out
     pub is_read: bool,
     pub is_public: bool, // ??? maybe it's not needed
@@ -100,10 +95,10 @@ pub struct Symbol<'a> {
     pub is_function_parameter: bool,
 }
 
-pub enum SymbolValue {
+pub enum SymbolValue<'a> {
     Mutable,
-    Immutable { value: Option<LiteralValue> },
-    Constant { value: LiteralValue },
+    Immutable { value: Option<LiteralValue<'a>> },
+    Constant { value: LiteralValue<'a> },
     Function {  },
     Static { mutable: bool, init_value: StaticID },
 

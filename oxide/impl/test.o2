@@ -1,10 +1,2 @@
 
-fn main() {
-
-    foo();
-
-}
-
-fn foo() {
-
-}
+fn foo1 ()

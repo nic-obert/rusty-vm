@@ -28,7 +28,7 @@ pub enum DataType {
     Array { element_type: Rc<DataType>, length: usize },
     Slice { element_type: Rc<DataType> },
     StringRef,
-    // RawString, ??
+    RawString,
     Ref,
     I8,
     I16,
@@ -48,28 +48,30 @@ pub enum DataType {
 
 impl DataType {
 
-    pub fn static_size(&self) -> usize {
+    pub fn static_size(&self) -> Option<usize> {
         match self {
-            DataType::Bool => BOOL_SIZE,
-            DataType::Char => CHAR_SIZE,
-            DataType::Array { element_type, length } => element_type.static_size() * length,
-            DataType::Slice { .. } => WIDE_POINTER_SIZE,
-            DataType::StringRef => WIDE_POINTER_SIZE,
-            DataType::Ref => ADDRESS_SIZE,
-            DataType::I8 => I8_SIZE,
-            DataType::I16 => I16_SIZE,
-            DataType::I32 => I32_SIZE,
-            DataType::I64 => I64_SIZE,
-            DataType::U8 => U8_SIZE,
-            DataType::U16 => U16_SIZE,
-            DataType::U32 => U32_SIZE,
-            DataType::U64 => U64_SIZE,
-            DataType::F32 => F32_SIZE,
-            DataType::F64 => F64_SIZE,
-            DataType::Usize => USIZE_SIZE,
-            DataType::Isize => ISIZE_SIZE,
-            DataType::Void => VOID_SIZE,
-            DataType::Function { .. } => ADDRESS_SIZE,
+            DataType::Bool => Some(BOOL_SIZE),
+            DataType::Char => Some(CHAR_SIZE),
+            DataType::Array { element_type, length } => element_type.static_size().map(|size| size * length),
+            DataType::Slice { .. } => Some(WIDE_POINTER_SIZE),
+            DataType::StringRef => Some(WIDE_POINTER_SIZE),
+            DataType::Ref => Some(ADDRESS_SIZE),
+            DataType::I8 => Some(I8_SIZE),
+            DataType::I16 => Some(I16_SIZE),
+            DataType::I32 => Some(I32_SIZE),
+            DataType::I64 => Some(I64_SIZE),
+            DataType::U8 => Some(U8_SIZE),
+            DataType::U16 => Some(U16_SIZE),
+            DataType::U32 => Some(U32_SIZE),
+            DataType::U64 => Some(U64_SIZE),
+            DataType::F32 => Some(F32_SIZE),
+            DataType::F64 => Some(F64_SIZE),
+            DataType::Usize => Some(USIZE_SIZE),
+            DataType::Isize => Some(ISIZE_SIZE),
+            DataType::Void => Some(VOID_SIZE),
+            DataType::Function { .. } => Some(ADDRESS_SIZE),
+
+            DataType::RawString => None
         }
     }
 
@@ -80,4 +82,25 @@ impl DataType {
 pub struct FunctionSignature {
     pub params: Box<[Rc<DataType>]>,
     pub return_type: Rc<DataType>
+}
+
+
+#[derive(Debug)]
+pub enum DataTypeName {
+    Bool,
+    Char,
+    RawString,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F32,
+    F64,
+    Usize,
+    Isize,
+    Void,
 }

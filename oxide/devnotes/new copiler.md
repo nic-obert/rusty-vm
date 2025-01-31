@@ -494,3 +494,15 @@ the stack pointer in the prologue, since local stack variables are accessed thro
 As a result, there's also no need to pop the stack frame when returning.
 
 No optimizations can be performed after label address resolution, as any change to the bytecode may fuck up the addresses.
+
+-----
+
+
+how symbols may be resolved and handled in a multi-modular system with static delayed imports
+
+the tokenization phase divides the raw source code into tokens
+the tokenization phase doesn't execute any active task like importing modules or declaring symbols.
+names that are not reserved keywords are simply classified as identifiers.
+
+the next phase is syntax analysis and the building of syntax trees.
+at this point identifiers may be declared in a symbol table and name scopes may become meaningful.
