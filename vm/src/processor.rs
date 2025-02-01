@@ -1822,13 +1822,13 @@ impl Processor {
                     Ok(bytes_read) => {
 
                         // Check for EOF errors
-                        if bytes_read == 0 {
+                        if bytes_read < size || bytes_read == 0 {
                             self.registers.set_error(ErrorCodes::EndOfFile);
-                            return;
+                        } else {
+                            self.registers.set_error(ErrorCodes::NoError);
                         }
 
                         self.registers.set(Registers::INPUT, bytes_read as u64);
-                        self.registers.set_error(ErrorCodes::NoError);
                     },
 
                     Err(_) => {
