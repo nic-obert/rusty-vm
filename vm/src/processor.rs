@@ -1811,6 +1811,25 @@ impl Processor {
                 }
             },
 
+            Interrupts::InputByte => {
+
+                let mut buf = [0];
+
+                match io::stdin().read_exact(&mut buf) {
+                    Ok(()) => {
+                        self.registers.set_error(ErrorCodes::NoError);
+                        self.registers.set(Registers::INPUT, buf[0] as u64);
+                    },
+                    Err(err) => {
+                        let error_code = match err.kind() {
+                            io::ErrorKind::UnexpectedEof => ErrorCodes::EndOfFile,
+                            _ => ErrorCodes::GenericError
+                        };
+                        self.registers.set_error(error_code);
+                    },
+                }
+            },
+
             Interrupts::InputString => {
 
                 let buf_addr = self.registers.get(Registers::R1) as Address;

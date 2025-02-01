@@ -12,6 +12,7 @@ pub enum Interrupts {
     PrintBytes,
     InputSignedInt,
     InputUnsignedInt,
+    InputByte,
     InputString,
     Random,
     HostTimeNanos,
@@ -33,4 +34,3 @@ impl From<u8> for Interrupts {
         }
     }
 }
-
