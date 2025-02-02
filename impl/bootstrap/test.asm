@@ -3,6 +3,7 @@
     "stdio.asm"
     "archlib.asm"
     "asmutils/functional.asm"
+    "asmutils/error_handling.asm"
 
 
 .data:
@@ -19,8 +20,7 @@
     # get string input
     mov r1 r8
     mov8 r2 =INPUT_BUF_SIZE
-    call read_word
-
+    call read_str
     !println_str stp
 
 

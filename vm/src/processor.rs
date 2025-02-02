@@ -4,17 +4,17 @@ use std::cmp::min;
 use std::io::{Read, Write};
 use std::mem;
 use std::io;
+use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
+use libc::{poll, POLLIN, pollfd};
 
 use rusty_vm_lib::assembly;
 use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 use rusty_vm_lib::interrupts::Interrupts;
-
-
 
 use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};
@@ -1756,6 +1756,7 @@ impl Processor {
             },
 
             Interrupts::InputSignedInt => {
+                todo!("rewrite with libc");
                 let mut input = String::new();
 
                 match io::stdin().read_line(&mut input) {
@@ -1784,6 +1785,7 @@ impl Processor {
             },
 
             Interrupts::InputUnsignedInt => {
+                todo!("rewrite with libc");
                 let mut input = String::new();
 
                 match io::stdin().read_line(&mut input) {
@@ -1812,21 +1814,18 @@ impl Processor {
             },
 
             Interrupts::InputByte => {
-
-                let mut buf = [0];
-
-                match io::stdin().read_exact(&mut buf) {
-                    Ok(()) => {
-                        self.registers.set_error(ErrorCodes::NoError);
-                        self.registers.set(Registers::INPUT, buf[0] as u64);
-                    },
-                    Err(err) => {
-                        let error_code = match err.kind() {
-                            io::ErrorKind::UnexpectedEof => ErrorCodes::EndOfFile,
-                            _ => ErrorCodes::GenericError
-                        };
-                        self.registers.set_error(error_code);
-                    },
+                // Use libc because Rust's io functions alter the stdin events
+                const BUF_SIZE: usize = 1;
+                let mut buf: [u8; BUF_SIZE] = [0];
+                let fd = io::stdin().as_raw_fd();
+                let bytes_read = unsafe {
+                    libc::read(fd, buf.as_mut_ptr() as _, BUF_SIZE)
+                };
+                if bytes_read == BUF_SIZE as isize {
+                    self.registers.set_error(ErrorCodes::NoError);
+                    self.registers.set(Registers::INPUT, buf[0] as u64);
+                } else {
+                    self.registers.set_error(ErrorCodes::EndOfFile);
                 }
             },
 
@@ -1837,23 +1836,59 @@ impl Processor {
 
                 let buf = self.memory.get_bytes_mut(buf_addr, size);
 
-                match io::stdin().read(buf) {
-                    Ok(bytes_read) => {
+                let fd = io::stdin().as_raw_fd();
+                let bytes_read = unsafe {
+                    libc::read(fd, buf.as_mut_ptr() as _, size)
+                };
 
-                        // Check for EOF errors
-                        if bytes_read < size || bytes_read == 0 {
-                            self.registers.set_error(ErrorCodes::EndOfFile);
-                        } else {
-                            self.registers.set_error(ErrorCodes::NoError);
-                        }
-
-                        self.registers.set(Registers::INPUT, bytes_read as u64);
-                    },
-
-                    Err(_) => {
-                        self.registers.set_error(ErrorCodes::GenericError);
-                    },
+                assert!(bytes_read >= -1);
+                if bytes_read == -1 {
+                    // Unexpected error occurred
+                    let errno = unsafe {
+                        libc::__errno_location().read()
+                    };
+                    panic!("Failed to read from stdin. Errno: {}", errno);
+                } else if (bytes_read as usize) < size || bytes_read == 0 {
+                    self.registers.set_error(ErrorCodes::EndOfFile);
+                } else {
+                    self.registers.set_error(ErrorCodes::NoError);
                 }
+
+                self.registers.set(Registers::INPUT, bytes_read as u64);
+
+                // match io::stdin().read(buf) {
+                //     Ok(bytes_read) => {
+
+                //         // Check for EOF errors
+                //         if bytes_read < size || bytes_read == 0 {
+                //             self.registers.set_error(ErrorCodes::EndOfFile);
+                //         } else {
+                //             self.registers.set_error(ErrorCodes::NoError);
+                //         }
+
+                //         self.registers.set(Registers::INPUT, bytes_read as u64);
+                //     },
+
+                //     Err(_) => {
+                //         self.registers.set_error(ErrorCodes::GenericError);
+                //     },
+                // }
+            },
+
+            Interrupts::StdinHasData => {
+                let fd = io::stdin().as_raw_fd();
+                const PFD_STRUCTURE_COUNT: u64 = 1;
+                const POLL_TIMEOUT: i32 = 0;
+                let mut pfd = pollfd {
+                    fd,
+                    events: POLLIN,
+                    revents: 0
+                };
+                let _ = unsafe {
+                    poll(&mut pfd, PFD_STRUCTURE_COUNT, POLL_TIMEOUT)
+                };
+                let stdin_is_empty = (pfd.revents & POLLIN) != 0;
+                self.registers.set(Registers::R1, stdin_is_empty as u64);
             },
 
             Interrupts::Random => {

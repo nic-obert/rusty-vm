@@ -14,6 +14,7 @@ pub enum Interrupts {
     InputUnsignedInt,
     InputByte,
     InputString,
+    StdinHasData,
     Random,
     HostTimeNanos,
     ElapsedTimeNanos,

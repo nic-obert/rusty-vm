@@ -44,6 +44,7 @@ fn main() {
     %%- INPUT_UNSIGNED: {INPUT_UNSIGNED_CODE}
     %%- INPUT_BYTE: {INPUT_BYTE_CODE}
     %%- INPUT_STRING: {INPUT_STRING_CODE}
+    %%- STDIN_HAS_DATA: {STDIN_HAS_DATA_CODE}
 
     %%- RANDOM: {RANDOM_CODE}
 
@@ -93,6 +94,7 @@ fn main() {
         INPUT_UNSIGNED_CODE = Interrupts::InputUnsignedInt as u8,
         INPUT_BYTE_CODE = Interrupts::InputByte as u8,
         INPUT_STRING_CODE = Interrupts::InputString as u8,
+        STDIN_HAS_DATA_CODE = Interrupts::StdinHasData as u8,
         RANDOM_CODE = Interrupts::Random as u8,
         HOST_TIME_NANOS_CODE = Interrupts::HostTimeNanos as u8,
         ELAPSED_TIME_NANOS_CODE = Interrupts::ElapsedTimeNanos as u8,

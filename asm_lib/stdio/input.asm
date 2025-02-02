@@ -133,3 +133,31 @@
     !restore_reg_state r1
 
     ret
+
+
+%% stdin_has_data:
+
+    mov1 int =STDIN_HAS_DATA
+    intr
+
+%endmacro
+
+
+@@ flush_stdin
+
+    !save_reg_state r1
+
+    @flushing
+
+        !stdin_has_data
+        cmp8 r1 0
+        jmpz finish_flushing
+
+        !read_byte
+        !jmpnoerr flushing
+
+    @finish_flushing
+
+    !restore_reg_state r1
+
+    ret
