@@ -13,12 +13,13 @@
         cmp1 r1 '\t'
         jmpz char_is_blank
 
+        cmp1 r1 '\n'
+        jmpz char_is_blank
+
         mov1 r1 0
         ret
 
-    @ char_is_blank
+        @ char_is_blank
 
-        mov1 r1 1
-        ret
-        
-        
+            mov1 r1 1
+            ret

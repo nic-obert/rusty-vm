@@ -12,6 +12,5 @@
     @@ "string/memcpy.asm"
     @@ "string/memmove.asm"
     @@ "string/memswap.asm"
-    # @@ "string/str_from_int.asm" DEPRECATED
     @@ "string/memset.asm"
-
+    @@ "string/strtok.asm"
