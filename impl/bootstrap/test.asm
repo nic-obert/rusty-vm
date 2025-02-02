@@ -20,7 +20,11 @@
     # get string input
     mov r1 r8
     mov8 r2 =INPUT_BUF_SIZE
-    call read_str
+    call read_word
+    !println_str stp
+    call flush_stdin
+
+    call read_word
     !println_str stp
 
 

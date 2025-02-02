@@ -1,7 +1,7 @@
 #![allow(clippy::no_effect)]
 
 use std::cmp::min;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::mem;
 use std::io;
 use std::os::fd::AsRawFd;
@@ -460,6 +460,7 @@ impl Processor {
     fn run_interactive(&mut self, byte_code_size: usize) {
 
         println!("Running VM in interactive mode");
+        println!("Warning: interactive mode reads lines from stdin to advence the program counter.");
         println!("Byte code size is {} bytes", byte_code_size);
         println!("Start address is: {}", self.registers.pc());
         println!();
@@ -1855,24 +1856,6 @@ impl Processor {
                 }
 
                 self.registers.set(Registers::INPUT, bytes_read as u64);
-
-                // match io::stdin().read(buf) {
-                //     Ok(bytes_read) => {
-
-                //         // Check for EOF errors
-                //         if bytes_read < size || bytes_read == 0 {
-                //             self.registers.set_error(ErrorCodes::EndOfFile);
-                //         } else {
-                //             self.registers.set_error(ErrorCodes::NoError);
-                //         }
-
-                //         self.registers.set(Registers::INPUT, bytes_read as u64);
-                //     },
-
-                //     Err(_) => {
-                //         self.registers.set_error(ErrorCodes::GenericError);
-                //     },
-                // }
             },
 
             Interrupts::StdinHasData => {
