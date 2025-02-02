@@ -1,11 +1,13 @@
 #![allow(clippy::no_effect)]
 
 use std::cmp::min;
+use std::ffi::CString;
 use std::io::Write;
 use std::mem;
 use std::io;
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
+use std::ptr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 use libc::{poll, POLLIN, pollfd};
@@ -24,6 +26,26 @@ use crate::modules::CPUModules;
 use crate::register::CPURegisters;
 use crate::storage::Storage;
 use crate::terminal::Terminal;
+
+
+fn libc_read_line() -> String {
+
+    let fd = io::stdin().as_raw_fd();
+
+    let mut line_ptr = ptr::null_mut();
+    let mut line_size = 0;
+    const FILE_OPEN_MODE: *const i8 = c"r".as_ptr();
+
+    unsafe {
+
+        let file = libc::fdopen(fd, FILE_OPEN_MODE);
+        assert!(!file.is_null());
+
+        let _ = libc::getline(&mut line_ptr, &mut line_size, file);
+
+        CString::from_raw(line_ptr).into_string().unwrap()
+    }
+}
 
 
 /// Return whether the most significant bit of the given value is set
@@ -1686,7 +1708,7 @@ impl Processor {
             },
 
             ByteCodes::EXIT => {
-                let exit_code_n = self.registers.get(Registers::EXIT) as u8;
+                let exit_code_n = self.registers.get(Registers::ERROR) as u8;
                 let exit_code = ErrorCodes::from(exit_code_n);
 
                 if !self.quiet_exit {
@@ -1757,60 +1779,50 @@ impl Processor {
             },
 
             Interrupts::InputSignedInt => {
-                todo!("rewrite with libc");
-                let mut input = String::new();
 
-                match io::stdin().read_line(&mut input) {
-                    Ok(bytes_read) => {
+                let line  = libc_read_line();
 
-                        // Check for EOF errors
-                        if bytes_read == 0 {
-                            self.registers.set_error(ErrorCodes::EndOfFile);
-                            return;
-                        }
+                // Check for EOF errors
+                if line.is_empty() {
+                    self.registers.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
 
-                        match input.trim().parse::<i64>() {
-                            Ok(value) => {
-                                self.registers.set(Registers::INPUT, value as u64);
-                                self.registers.set_error(ErrorCodes::NoError);
-                            },
-                            Err(_) => {
-                                self.registers.set_error(ErrorCodes::InvalidInput);
-                            }
-                        }
+                match line.as_str().trim().parse::<i64>() {
+                    Ok(value) => {
+                        self.registers.set(Registers::INPUT, value as u64);
+                        self.registers.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
-                        self.registers.set_error(ErrorCodes::GenericError);
-                    },
+                        self.registers.set_error(ErrorCodes::InvalidInput);
+                    }
                 }
+
             },
 
             Interrupts::InputUnsignedInt => {
-                todo!("rewrite with libc");
-                let mut input = String::new();
 
-                match io::stdin().read_line(&mut input) {
-                    Ok(bytes_read) => {
+                let line  = libc_read_line();
 
-                        // Check for EOF errors
-                        if bytes_read == 0 {
-                            self.registers.set_error(ErrorCodes::EndOfFile);
-                            return;
-                        }
+                // Check for EOF errors
+                if line.is_empty() {
+                    self.registers.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
 
-                        match input.trim().parse::<u64>() {
-                            Ok(value) => {
-                                self.registers.set(Registers::INPUT, value);
-                                self.registers.set_error(ErrorCodes::NoError);
-                            },
-                            Err(_) => {
-                                self.registers.set_error(ErrorCodes::InvalidInput);
-                            }
-                        }
+                if line.is_empty() {
+                    self.registers.set_error(ErrorCodes::EndOfFile);
+                    return;
+                }
+
+                match line.as_str().trim().parse::<u64>() {
+                    Ok(value) => {
+                        self.registers.set(Registers::INPUT, value);
+                        self.registers.set_error(ErrorCodes::NoError);
                     },
                     Err(_) => {
-                        self.registers.set_error(ErrorCodes::GenericError);
-                    },
+                        self.registers.set_error(ErrorCodes::InvalidInput);
+                    }
                 }
             },
 

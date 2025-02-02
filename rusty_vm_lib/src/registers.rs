@@ -70,7 +70,6 @@ declare_registers! {
     R7 r7,
     R8 r8,
 
-    EXIT exit,
     INPUT input,
     ERROR error,
     PRINT print,
