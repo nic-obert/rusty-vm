@@ -16,9 +16,9 @@ struct LabelExport<'a> {
     def: LabelDef<'a>
 }
 
-impl<'a> Into<(&'a str, LabelDef<'a>)> for LabelExport<'a> {
-    fn into(self) -> (&'a str, LabelDef<'a>) {
-        (self.name, self.def)
+impl<'a> From<LabelExport<'a>> for (&'a str, LabelDef<'a>) {
+    fn from(val: LabelExport<'a>) -> Self {
+        (val.name, val.def)
     }
 }
 
@@ -29,9 +29,9 @@ struct InlineMacroExport<'a> {
     def: InlineMacroDef<'a>
 }
 
-impl<'a> Into<(&'a str, InlineMacroDef<'a>)> for InlineMacroExport<'a> {
-    fn into(self) -> (&'a str, InlineMacroDef<'a>) {
-        (self.name, self.def)
+impl<'a> From<InlineMacroExport<'a>> for (&'a str, InlineMacroDef<'a>) {
+    fn from(val: InlineMacroExport<'a>) -> Self {
+        (val.name, val.def)
     }
 }
 
@@ -41,9 +41,9 @@ struct FunctionMacroExport<'a> {
     def: FunctionMacroDef<'a>
 }
 
-impl<'a> Into<(&'a str, FunctionMacroDef<'a>)> for FunctionMacroExport<'a> {
-    fn into(self) -> (&'a str, FunctionMacroDef<'a>) {
-        (self.name, self.def)
+impl<'a> From<FunctionMacroExport<'a>> for (&'a str, FunctionMacroDef<'a>) {
+    fn from(val: FunctionMacroExport<'a>) -> Self {
+        (val.name, val.def)
     }
 }
 
@@ -124,7 +124,7 @@ impl<'a> SymbolTable<'a> {
         for import in &imports.inline_macros {
 
             let new_source = Rc::clone(&import.def.source);
-            
+
             if let Some(old_def) = inline_macros.insert(import.name, import.def.clone()) {
                 error::symbol_redeclaration(&old_def.source, &new_source, module_manager, "Imported inline macro conflicts with existing symbol")
             }
@@ -148,9 +148,9 @@ impl<'a> SymbolTable<'a> {
 
             labels: unsafe { &*self.export_labels.get() }
                 .iter()
-                .map(|name| 
+                .map(|name|
                     LabelExport {
-                        name, 
+                        name,
                         def: self.labels.get_mut().remove(name).unwrap()
                     }
                 )
@@ -159,7 +159,7 @@ impl<'a> SymbolTable<'a> {
 
             inline_macros: unsafe { &*self.export_inline_macros.get() }
                 .iter()
-                .map(|name| 
+                .map(|name|
                     InlineMacroExport {
                         name,
                         def: self.inline_macros.get_mut().remove(name).unwrap()
@@ -170,7 +170,7 @@ impl<'a> SymbolTable<'a> {
 
             function_macros: unsafe { &*self.export_function_macros.get() }
                 .iter()
-                .map(|name| 
+                .map(|name|
                     FunctionMacroExport {
                         name,
                         def: self.function_macros.get_mut().remove(name).unwrap()
@@ -244,7 +244,7 @@ impl<'a> SymbolTable<'a> {
         let labels = unsafe { &mut *self.labels.get() };
 
         labels.get_mut(name)
-            .expect(format!("Label `{name}` should already be declared").as_str())
+            .unwrap_or_else(|| panic!("Label `{name}` should already be declared"))
             .value = Some(value);
     }
 
@@ -267,7 +267,7 @@ impl<'a> SymbolTable<'a> {
     pub fn inline_macros(&self) -> impl Iterator<Item = &'a str> {
         let macros = unsafe { &*self.inline_macros.get() };
 
-        macros.keys().map(|a| *a)
+        macros.keys().copied()
     }
 
 
@@ -281,8 +281,7 @@ impl<'a> SymbolTable<'a> {
     pub fn function_macros(&self) -> impl Iterator<Item = &'a str> {
         let macros = unsafe { &*self.function_macros.get() };
 
-        macros.keys().map(|a| *a)
+        macros.keys().copied()
     }
 
 }
-

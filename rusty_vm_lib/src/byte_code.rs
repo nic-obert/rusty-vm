@@ -156,10 +156,9 @@ impl fmt::Display for ByteCodes {
 
 
 impl std::convert::From<u8> for ByteCodes {
-
     fn from(value: u8) -> Self {
         if value < BYTE_CODE_COUNT as u8 {
-            unsafe { std::mem::transmute(value) }
+            unsafe { std::mem::transmute::<u8, ByteCodes>(value) }
         } else {
             panic!("Invalid byte code: {}", value);
         }

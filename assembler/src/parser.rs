@@ -176,14 +176,15 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
                 source: main_operator.source
             });
 
-            symbol_table.declare_label(
-                label,
-                Rc::clone(&label_op.source),
-                export
-            )
-            .err().map(
-                |old_def| error::symbol_redeclaration(&old_def.source, &label_op.source, module_manager, "Label already declared")
-            );
+            if let Some(old_def) = symbol_table.declare_label(
+                    label,
+                    Rc::clone(&label_op.source),
+                    export
+                )
+                .err()
+            {
+                error::symbol_redeclaration(&old_def.source, &label_op.source, module_manager, "Label already declared");
+            }
         },
 
         TokenValue::Instruction(instruction) => {
@@ -721,14 +722,15 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
     assert_empty_line!();
 
     // Declare the section label so that it can be used. Section labels are not exportable.
-    symbol_table.declare_label(
-        name,
-        Rc::clone(&name_token.source),
-        false
-    )
-    .err().map(
-        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Label already declared")
-    );
+    if let Some(old_def) = symbol_table.declare_label(
+            name,
+            Rc::clone(&name_token.source),
+            false
+        )
+        .err()
+    {
+        error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Label already declared");
+    }
 
     nodes.push(AsmNode {
         value: AsmNodeValue::Label(name),
@@ -839,7 +841,7 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
 
                 let mut group = vec![token as *const Token];
 
-                while let Some(inner) = iter.next() {
+                for inner in iter.by_ref() {
 
                     group.push(inner);
 
@@ -869,7 +871,6 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
             },
 
             // Inline macros are expanded before the operators are evaluated
-            TokenValue::Equals |
             _ => groups.push(MacroArgGroup::from([token as *const Token]))
 
         }
@@ -893,7 +894,7 @@ fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'
         || error::undefined_macro(&macro_name_op.source, module_manager, symbol_table.function_macros())
     );
 
-    let args = group_macro_args(&line);
+    let args = group_macro_args(line);
 
     if args.len() != macro_def.params.len() {
         error::parsing_error(&main_op, module_manager, format!("Mismatched argument count in macro call: Expected {}, got {}", macro_def.params.len(), args.len()).as_str())
@@ -1046,14 +1047,15 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
         body: body.into_boxed_slice(),
     };
 
-    symbol_table.declare_function_macro(
-        name,
-        macro_def,
-        export
-    )
-    .err().map(
-        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Function macro name already declared")
-    );
+    if let Some(old_def) = symbol_table.declare_function_macro(
+            name,
+            macro_def,
+            export
+        )
+        .err()
+    {
+        error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Function macro name already declared");
+    }
 }
 
 
@@ -1077,12 +1079,13 @@ fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<
         def: line.drain(..).collect::<Vec<Token>>().into_boxed_slice()
     };
 
-    symbol_table.declare_inline_macro(
-        name,
-        macro_def,
-        export
-    )
-    .err().map(
-        |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Inline macro name already declared")
-    );
+    if let Some(old_def) = symbol_table.declare_inline_macro(
+            name,
+            macro_def,
+            export
+        )
+        .err()
+    {
+        error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Inline macro name already declared");
+    }
 }

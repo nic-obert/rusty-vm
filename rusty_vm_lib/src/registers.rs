@@ -91,7 +91,7 @@ declare_registers! {
 impl std::convert::From<u8> for Registers {
     fn from(value: u8) -> Self {
         if value < REGISTER_COUNT as u8 {
-            unsafe { std::mem::transmute(value) }
+            unsafe { std::mem::transmute::<u8, Registers>(value) }
         } else {
             panic!("Invalid register number: {}", value);
         }

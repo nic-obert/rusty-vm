@@ -36,7 +36,7 @@ pub fn assemble_included_unit<'a>(unit_path: UnitPath<'a>, module_manager: &'a M
 
     let symbol_table = SymbolTable::new();
 
-    let asm = if let Some(asm) = load_unit_asm(unit_path, &symbol_table, &module_manager, bytecode) {
+    let asm = if let Some(asm) = load_unit_asm(unit_path, &symbol_table, module_manager, bytecode) {
         asm
     } else {
         return module_manager.get_unit_exports(unit_path);
@@ -51,18 +51,18 @@ pub fn assemble_included_unit<'a>(unit_path: UnitPath<'a>, module_manager: &'a M
 
 /// Recursively assemble the given ASM unit and all the included units
 pub fn assemble_all(caller_directory: &Path, unit_path: &Path, include_paths: Vec<PathBuf>) -> ByteCode {
-    
+
     let module_manager = ModuleManager::new(include_paths);
-    
+
     // Shadow the previous `unit_path` to avoid confusion with the variables
     let unit_path = module_manager.resolve_include_path(caller_directory, unit_path)
-        .unwrap_or_else(|err| 
+        .unwrap_or_else(|err|
             error::io_error(err, None, format!("Failed to resolve path \"{}\"", unit_path.display()).as_str()
         )
     );
 
     let symbol_table = SymbolTable::new();
-    
+
     let mut bytecode = ByteCode::new();
 
     let asm = load_unit_asm(unit_path, &symbol_table, &module_manager, &mut bytecode)
@@ -83,4 +83,3 @@ pub fn assemble_all(caller_directory: &Path, unit_path: &Path, include_paths: Ve
 
     bytecode
 }
-
