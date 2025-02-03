@@ -1,26 +1,45 @@
 .include:
 
     "stdio.asm"
-    "archlib.asm"
     "string.asm"
 
 
 .data:
 
-    @line
-    ds "  \0store \0 v1 4\0"
+    @program_start
+    ds "store v1 4\0"
+    ds "print hello world\0"
+    ds "exit\0"
+
+    @exit_command
+    ds "exit\0"
 
 .text:
 
-    mov8 r1 line
-    call strtok
+    %- PC: r8
 
-    # Calculate the size of the first token
-    mov r3 r1
-    mov r1 r2
-    mov r2 r3
-    isub
+    mov8 =PC program_start
 
-    !println_uint r1
+    @executing
+
+        !println_str =PC
+
+        # Interpret command
+        mov r2 =PC
+        mov8 r1 exit_command
+        call strcmp
+        cmp1 r1 1
+        jmpz terminate
+
+        # Update program counter
+        !strlen =PC
+        mov r2 =PC
+        iadd
+        inc r1
+        mov =PC r1
+
+        jmp executing
+
+    @terminate
 
     exit
