@@ -209,11 +209,11 @@ impl RuntimeOp<'_> {
                 let array_value = array.known_literal_value(scope_id, symbol_table).unwrap();
                 let (_data_type, elements) = array_value.assume_array();
 
-                if index as usize >= elements.len() {
+                if index >= elements.len() {
                     return Err("Index out of bounds");
                 }
 
-                Ok(elements[index as usize].clone())
+                Ok(elements[index].clone())
             },
 
             RuntimeOp::ArrayIndexRef { array_ref, index } => {
@@ -222,11 +222,11 @@ impl RuntimeOp<'_> {
                 let (ref_target, mutable) = array_ref_value.assume_ref();
                 let (_element_type, elements) = ref_target.assume_array();
 
-                if index as usize >= elements.len() {
+                if index >= elements.len() {
                     return Err("Index out of bounds");
                 }
 
-                let element = elements[index as usize].clone();
+                let element = elements[index].clone();
 
                 Ok(LiteralValue::Ref { target: element, mutable }.into())
             }

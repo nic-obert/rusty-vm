@@ -14,7 +14,7 @@ use crate::lang::{AsmNode, AsmNodeValue};
 
 
 pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>, bytecode: &mut ByteCode) {
-    
+
     /// A placeholder for the real address of a label. Used as a placeholder for unresolved labels.
     const LABEL_PLACEHOLDER: [u8; ADDRESS_SIZE] = (0 as Address).to_le_bytes();
 
@@ -54,7 +54,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
             AsmNodeValue::Label(name)
                 => symbol_table.define_label(name, current_pos!()),
-            
+
             AsmNodeValue::Instruction(ref instruction) => {
 
                 let instruction_code = instruction.byte_code();
@@ -82,7 +82,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                         AsmValue::AddressLiteral(addr)
                             => push_bytes!(addr.as_bytes()),
 
-                        AsmValue::Label(label) | 
+                        AsmValue::Label(label) |
                         AsmValue::AddressAtLabel(label)
                         => {
                             if let Some(label) = symbol_table.get_resolved_label(label) {
@@ -98,7 +98,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                             }
                         }
                     }
-                }   
+                }
 
                 // Check that the size of the arguments is coherent
                 if cfg!(debug_assertions) {
@@ -120,7 +120,12 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
                     PseudoInstructionNode::DefineString { string }
                         => push_bytes!(string.0.as_bytes()),
-                    
+
+                    PseudoInstructionNode::DefineCString { string } => {
+                        push_bytes!(string.0.as_bytes());
+                        push_byte!(b'\0');
+                    },
+
                     PseudoInstructionNode::DefineBytes { bytes }
                         => push_bytes!(bytes.0),
 
@@ -137,7 +142,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                         => push_bytes!(array.0.to_le_bytes()),
 
                     PseudoInstructionNode::PrintString { string } => {
-                        
+
                         // jmp <after the string>
                         push_byte!(ByteCodes::JUMP);
                         let after = current_pos!() + string.0.len() + ADDRESS_SIZE;
@@ -189,4 +194,3 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
     }
 
 }
-

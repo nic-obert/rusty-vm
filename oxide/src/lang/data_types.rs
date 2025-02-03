@@ -243,13 +243,13 @@ impl DataType {
 
                 DataType::I16 => matches!(self, DataType::I8 | DataType::U8)
                     || self_value.map(|value| match value {
-                        LiteralValue::Numeric(Number::U16(n)) => *n <= std::i16::MAX as u16,
+                        LiteralValue::Numeric(Number::U16(n)) => *n <= i16::MAX as u16,
                         _ => false
                     }).unwrap_or(false),
 
                 DataType::I32 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16)
                     || self_value.map(|value| match value {
-                        LiteralValue::Numeric(Number::U32(n)) => *n <= std::i32::MAX as u32,
+                        LiteralValue::Numeric(Number::U32(n)) => *n <= i32::MAX as u32,
                         _ => false
                     }).unwrap_or(false),
 
@@ -257,7 +257,7 @@ impl DataType {
                 DataType::I64
                 => matches!(self, DataType::I8 | DataType::U8 | DataType::I16 | DataType::U16 | DataType::I32 | DataType::U32)
                     || self_value.map(|value| match value {
-                        LiteralValue::Numeric(Number::U64(n)) => *n <= std::i64::MAX as u64,
+                        LiteralValue::Numeric(Number::U64(n)) => *n <= i64::MAX as u64,
                         _ => false
                     }).unwrap_or(false),
 

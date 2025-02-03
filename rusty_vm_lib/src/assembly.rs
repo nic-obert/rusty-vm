@@ -13,12 +13,12 @@ use static_assertions::const_assert;
 
 pub type ByteCode = Vec<u8>;
 
-pub const LIBRARY_ENV_VARIABLE: &'static str = "RUSTYVM_ASM_LIB";
+pub const LIBRARY_ENV_VARIABLE: &str = "RUSTYVM_ASM_LIB";
 
 
-pub const ENTRY_SECTION_NAME: &'static str = "text";
-pub const INCLUDE_SECTION_NAME: &'static str = "include";
-pub const CURRENT_POSITION_TOKEN: &'static str = "$";
+pub const ENTRY_SECTION_NAME: &str = "text";
+pub const INCLUDE_SECTION_NAME: &str = "include";
+pub const CURRENT_POSITION_TOKEN: &str = "$";
 
 
 macro_rules! asm_arg_size {
@@ -51,6 +51,16 @@ macro_rules! asm_arg_size {
 
 
 const DO_INCREASE_I: () = ();
+
+
+#[derive(Debug)]
+pub struct InvalidASMArgsError {}
+impl fmt::Display for InvalidASMArgsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid ASM argument")
+    }
+}
+impl std::error::Error for InvalidASMArgsError { }
 
 
 macro_rules! parse_asm_arg {
@@ -389,7 +399,7 @@ pub fn parse_bytecode_args(instruction: ByteCodes, bytecode_after: &[u8]) -> Res
 }
 
 
-pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Result<usize, ()> {
+pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Result<usize, InvalidASMArgsError> {
 
     Ok(match instruction {
         // For every opcode
@@ -413,7 +423,7 @@ pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Resu
                                 let (base_arg_size, actual_handled_size) = if $handled_size > 0 {
                                     (
                                         HANDLED_SIZE_SPECIFIER,
-                                        *bytecode_after.get(0).ok_or(())? as usize
+                                        *bytecode_after.get(0).ok_or(InvalidASMArgsError {})? as usize
                                     )
                                 } else {
                                     (0, 0)
@@ -435,7 +445,7 @@ pub fn bytecode_args_size(instruction: ByteCodes, bytecode_after: &[u8]) -> Resu
                             let (base_arg_size, actual_handled_size) = if $handled_size > 0 {
                                 (
                                     HANDLED_SIZE_SPECIFIER,
-                                    *bytecode_after.get(0).ok_or(())? as usize
+                                    *bytecode_after.get(0).ok_or(InvalidASMArgsError {})? as usize
                                 )
                             } else {
                                 (0, 0)
@@ -1128,12 +1138,13 @@ pub enum PseudoInstructionNode<'a> {
 
 declare_pseudo_instructions! {
 
-    DefineNumber "dn"         { size: NumberSize, number: Number },
-    DefineBytes  "db"         { bytes: Box<[u8]> },
-    DefineString "ds"         { string: Cow<'a, str> },
-    DefineArray  "da"         { array: ArrayData },
-    OffsetFrom   "offsetfrom" { label: &'a str },
-    PrintString  "printstr"   { string: Cow<'a, str> }
+    DefineNumber  "dn"         { size: NumberSize, number: Number },
+    DefineBytes   "db"         { bytes: Box<[u8]> },
+    DefineString  "ds"         { string: Cow<'a, str> },
+    DefineCString "dcs"        { string: Cow<'a, str> },
+    DefineArray   "da"         { array: ArrayData },
+    OffsetFrom    "offsetfrom" { label: &'a str },
+    PrintString   "printstr"   { string: Cow<'a, str> }
 
 }
 
@@ -1339,7 +1350,7 @@ impl Number {
             1 => Ok(Self::UnsignedInt(bytes[0] as u64)),
             2 => Ok(Self::UnsignedInt(u16::from_le_bytes([bytes[0], bytes[1]]) as u64)),
             4 => Ok(Self::UnsignedInt(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64)),
-            8 => Ok(Self::UnsignedInt(u64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]) as u64)),
+            8 => Ok(Self::UnsignedInt(u64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]))),
             n => Err(format!("Cannot construct a uint from buffer {:?} of {n} bytes", bytes))
         }
     }
@@ -1404,13 +1415,13 @@ impl UnitPath<'_> {
 
     /// Construct a new `UnitPath` from a canonicalized path.
     /// This function assumes that `path` is correctly canonicalized.
-    pub fn new_canonicalized<'a>(path: &'a Path) -> UnitPath<'a> {
+    pub fn new_canonicalized(path: &Path) -> UnitPath<'_> {
         UnitPath {
             path
         }
     }
 
-    pub fn as_path<'a>(&'a self) -> &'a Path {
+    pub fn as_path(&self) -> &Path {
         self.path
     }
 

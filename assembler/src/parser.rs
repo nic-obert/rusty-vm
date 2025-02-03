@@ -49,7 +49,7 @@ fn expand_inline_macros<'a>(tokens: &mut TokenList<'a>, symbol_table: &SymbolTab
                     %- FOO: r1
                     %- BAR: =FOO 90
                     mov8 =BAR
-                
+
                 Which should expand to
 
                     mov8 r1 90
@@ -78,11 +78,11 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
         }
 
         match token.value {
-            
+
             TokenValue::Number(n) => push_op!(AsmValue::Number(n.clone()), token),
-            
+
             TokenValue::Identifier(id) => push_op!(AsmValue::Label(id), token),
-            
+
             TokenValue::Register(reg) => push_op!(AsmValue::Register(reg), token),
 
             TokenValue::SquareOpen => {
@@ -92,19 +92,19 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
 
                 let closing_square = tokens.pop_front().unwrap_or_else(
                     || error::parsing_error(&token.source, module_manager, "Missing closing `]`."));
-                
+
                 if !matches!(closing_square.value, TokenValue::SquareClose) {
                     error::parsing_error(&closing_square.source, module_manager, "Expected a closing `]`.");
                 }
 
                 match addr_operand.value {
-                    
+
                     TokenValue::Register(reg) => push_op!(AsmValue::AddressInRegister(reg), token),
 
                     TokenValue::Number(n) => push_op!(AsmValue::AddressLiteral(n), token),
 
                     TokenValue::Identifier(name) => push_op!(AsmValue::AddressAtLabel(name), token),
-                    
+
                     TokenValue::LabelDef { .. } |
                     TokenValue::FunctionMacroDef { .. } |
                     TokenValue::InlineMacroDef { .. } |
@@ -118,15 +118,15 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
                     TokenValue::StringLiteral(_) |
                     TokenValue::Instruction(_) |
                     TokenValue::PseudoInstruction(_) |
-                    TokenValue::Colon 
+                    TokenValue::Colon
                         => error::parsing_error(&addr_operand.source, module_manager, "Cannot address this token"),
 
                     TokenValue::Bang |
-                    TokenValue::Equals 
+                    TokenValue::Equals
                         => unreachable!("Macros are expanded before the main parsing")
                 }
             },
-            
+
             TokenValue::Instruction(_) |
             TokenValue::PseudoInstruction(_) |
             TokenValue::Dot |
@@ -140,7 +140,7 @@ fn parse_operands<'a>(mut tokens: TokenList<'a>, module_manager: &ModuleManager<
             TokenValue::StringLiteral(_) |
             TokenValue::Colon
                 => error::parsing_error(&token.source, module_manager, "Token cannot be used as here."),
-            
+
             TokenValue::Bang |
             TokenValue::Equals |
             TokenValue::CurlyOpen
@@ -170,15 +170,15 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
             let AsmValue::Label(label) = label_op.value else {
                 error::parsing_error(&label_op.source, module_manager, format!("Operator `{}` expects an identifier argument", main_operator.source.string).as_str())
             };
-            
+
             nodes.push(AsmNode {
                 value: AsmNodeValue::Label(label),
                 source: main_operator.source
             });
 
             symbol_table.declare_label(
-                label, 
-                Rc::clone(&label_op.source), 
+                label,
+                Rc::clone(&label_op.source),
                 export
             )
             .err().map(
@@ -195,7 +195,7 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
                 Err((faulty_token, hint))
                     => error::parsing_error(&faulty_token.unwrap_or(main_operator.source), module_manager, &hint)
             };
-            
+
             nodes.push(AsmNode {
                 value: AsmNodeValue::Instruction(node),
                 source: main_operator.source
@@ -214,22 +214,22 @@ fn parse_line<'a>(main_operator: Token<'a>, operands: Box<[AsmOperand<'a>]>, nod
         TokenValue::StringLiteral(_) |
         TokenValue::Colon
             => error::parsing_error(&main_operator.source, module_manager, "Token cannot be used as a main operator"),
-        
+
         TokenValue::Dot |
         TokenValue::PseudoInstruction(_) |
         TokenValue::InlineMacroDef { .. } |
         TokenValue::FunctionMacroDef { .. } |
         TokenValue::Equals |
         TokenValue::Bang
-            => unreachable!("Should have been handled before as special cases") 
+            => unreachable!("Should have been handled before as special cases")
     }
-    
+
 }
 
 
 pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>, module_manager: &'a ModuleManager<'a>, bytecode: &mut ByteCode) -> Box<[AsmNode<'a>]> {
 
-    // A good estimate for the number of nodes is the number of assembly lines. This is because an assembly line 
+    // A good estimate for the number of nodes is the number of assembly lines. This is because an assembly line
     // usually translates to a single instruction. This should avoid reallocations in most cases.
     let mut nodes = Vec::with_capacity(token_lines.len());
 
@@ -282,7 +282,7 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
                     /*
                         Handle pseudo instructions separately.
                         Some pseudo instructions may work with a non-assembly-like syntax,
-                        which would be a waste to include in the generic operand parser since it's only used 
+                        which would be a waste to include in the generic operand parser since it's only used
                         with pseudo instructions
                     */
                     parse_pseudo_instruction(instruction, main_operator.source, &mut line, &mut nodes, module_manager);
@@ -302,25 +302,25 @@ pub fn parse<'a>(mut token_lines: TokenLines<'a>, symbol_table: &SymbolTable<'a>
 
 
 macro_rules! declare_parsing_utils {
-    
+
     ($module_manager:ident, $line:ident, $main_op:ident) => {
 
         macro_rules! pop_next {
 
             (let $token_symbol:ident => $missing_err:expr, let $required_pat:pat => $wrong_type_err:expr) => {
-    
+
                 pop_next!(
                     let $token_symbol => $missing_err
                 );
-                
+
                 let $required_pat = $token_symbol.value else {
                     error::parsing_error(&$token_symbol.source, $module_manager, $wrong_type_err);
                 };
-    
+
             };
-    
+
             (let $token_symbol:ident => $missing_err:expr) => {
-    
+
                 let $token_symbol = $line.pop_front().unwrap_or_else(
                     || error::parsing_error(&$main_op, $module_manager, $missing_err)
                 );
@@ -377,9 +377,9 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
             // The number size will be checked later, at code generation
 
-            push_pseudo!(PseudoInstructionNode::DefineNumber { 
-                size: (size, size_token.source), 
-                number: (number, number_token.source) 
+            push_pseudo!(PseudoInstructionNode::DefineNumber {
+                size: (size, size_token.source),
+                number: (number, number_token.source)
             });
         },
 
@@ -398,6 +398,21 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             });
         },
 
+        PseudoInstructions::DefineCString => {
+            // dcs <string>
+
+            pop_next!(
+                let string_token => "Missing string data in static data declaration",
+                let TokenValue::StringLiteral(string) => "Expected a string literal in static data declaration"
+            );
+
+            assert_empty_line!();
+
+            push_pseudo!(PseudoInstructionNode::DefineCString {
+                string: (string, string_token.source)
+            });
+        },
+
         PseudoInstructions::DefineBytes => {
             // db <byte array>
 
@@ -412,7 +427,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                     [43 54 0 1]
                 `
                 The -1 is because we don't count the closing square bracket in the
-                number of array elements. 
+                number of array elements.
                 Note that the opening square bracket has already been popped.
             */
             let mut bytes: Vec<u8> = Vec::with_capacity(line.len() - 1);
@@ -424,7 +439,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                 );
 
                 match token.value {
-                    
+
                     TokenValue::Number(number) => {
 
                         let Number::UnsignedInt(value) = number else {
@@ -454,7 +469,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
 
         PseudoInstructions::OffsetFrom => {
             // offsetfrom <label>
-            
+
             pop_next!(
                 let label_token => "Missing label name",
                 let TokenValue::Identifier(label) => "Expected an identifier as label name"
@@ -477,7 +492,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
             */
 
             let element_type = parse_data_type(&main_op, line, module_manager);
-            
+
             let array = parse_array_literal(element_type.0, &main_op, None, None, line, module_manager);
 
             assert_empty_line!();
@@ -486,7 +501,7 @@ fn parse_pseudo_instruction<'a>(instruction: PseudoInstructions, main_op: Rc<Sou
                 array
             });
         },
-        
+
         PseudoInstructions::PrintString => {
             /*
                 printstr <string literal>
@@ -527,7 +542,7 @@ fn parse_array_literal<'a>(element_type: DataType, main_op: &SourceToken<'a>, op
     let mut array_elements = Vec::with_capacity(expected_len.unwrap_or_default());
 
     let mut needs_comma = false;
-    
+
     loop {
 
         pop_next!(
@@ -547,7 +562,7 @@ fn parse_array_literal<'a>(element_type: DataType, main_op: &SourceToken<'a>, op
                 let DataType::Array { element_type: ref inner_elem_type, len } = element_type else {
                     error::parsing_error(&token.source, module_manager, format!("Expected element of type {element_type}, got an array").as_str())
                 };
-                
+
                 let inner_array = parse_array_literal(*inner_elem_type.clone(), main_op, Some(token.source), Some(len), line, module_manager);
 
                 array_elements.push(PrimitiveData::Array(inner_array.0));
@@ -644,9 +659,9 @@ fn parse_data_type<'a>(main_op: &SourceToken<'a>, line: &mut TokenList<'a>, modu
     pop_next!(
         let dt_token => "Missing data dype"
     );
-    
+
     let data_type = match dt_token.value {
-    
+
         TokenValue::Identifier(name) => {
             DataType::from_name_not_array(name).unwrap_or_else(
                 || error::parsing_error(&dt_token.source, module_manager, "Invalid data type name")
@@ -690,7 +705,7 @@ fn parse_data_type<'a>(main_op: &SourceToken<'a>, line: &mut TokenList<'a>, modu
 
 
 fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &'a ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, bytecode: &mut ByteCode) {
-    
+
     declare_parsing_utils!(module_manager, line, main_op);
 
     pop_next!(
@@ -702,12 +717,12 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
         let colon_token => "Expected a trailing colon after section name in section delcaration.",
         let TokenValue::Colon => "Expected a trailing colon after section name in section delcaration."
     );
-    
+
     assert_empty_line!();
 
     // Declare the section label so that it can be used. Section labels are not exportable.
     symbol_table.declare_label(
-        name, 
+        name,
         Rc::clone(&name_token.source),
         false
     )
@@ -724,7 +739,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
 
         // Each line in the .include section is a string path to include
         while let Some(mut include_line) = token_lines.pop_front() {
-            
+
             // Assume the line cannot be empty because macros aren't expanded in the .include section and empty lines are discarded by the tokenizer.
             if let Token { value: TokenValue::Dot, .. } = include_line.front().unwrap() {
                 /*
@@ -741,7 +756,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
 
             let to_re_export = if let Some(token) = include_line.front() {
                 // `@@` in front of the include path
-                if matches!(token.value, TokenValue::LabelDef { export: true }) { 
+                if matches!(token.value, TokenValue::LabelDef { export: true }) {
                     include_line.pop_front();
                     true
                 } else {
@@ -775,7 +790,7 @@ fn parse_section<'a>(nodes: &mut Vec<AsmNode<'a>>, line: &mut TokenList<'a>, mai
                 main_op.unit_path.as_path().parent().unwrap_or(Path::new("")),
                 include_path
             )
-            .unwrap_or_else(|err| 
+            .unwrap_or_else(|err|
                 error::io_error(err, Some(main_op.unit_path), format!("Failed to resolve path \"{}\"", include_path.display()).as_str())
             );
 
@@ -805,12 +820,12 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
     while let Some(token) = iter.next() {
 
         match token.value {
-            
+
             TokenValue::SquareOpen => {
                 /*
                     If the square brackets enclose some tokens, handle the whole brackets and content as a single arg group:
                     `
-                        !println_int [ADDR]       
+                        !println_int [ADDR]
                     `
                     In other cases, push each token as a separate arg group:
                     `
@@ -833,7 +848,7 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
                     }
                 }
 
-                if let TokenValue::SquareClose = unsafe { 
+                if let TokenValue::SquareClose = unsafe {
                                                     &**group.last()
                                                         .expect("Always has at least one element (the opening `[` token)")
                                                 }.value
@@ -852,7 +867,7 @@ fn group_macro_args<'a>(args: &TokenList<'a>) -> Box<[MacroArgGroup<'a>]> {
                     );
                 }
             },
-            
+
             // Inline macros are expanded before the operators are evaluated
             TokenValue::Equals |
             _ => groups.push(MacroArgGroup::from([token as *const Token]))
@@ -891,9 +906,9 @@ fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'
             let mut expanded_line = TokenList::with_capacity(original_line.len());
 
             let mut i = 0;
-            
+
             while let Some(token) = original_line.get(i) {
-                
+
                 // Start of a macro parameter. Syntax: `{param}`
                 if matches!(token.value, TokenValue::CurlyOpen) {
 
@@ -942,7 +957,7 @@ fn expand_function_macro<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'
 
 
 fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, token_lines: &mut VecDeque<VecDeque<Token<'a>>>, symbol_table: &SymbolTable<'a>, export: bool) {
-    
+
     declare_parsing_utils!(module_manager, line, main_op);
 
     pop_next!(
@@ -989,7 +1004,7 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
             `
                 %- SOME_INLINE_MACRO: 43
 
-                %%- EXPORTED_FUNCTION_MACRO: 
+                %%- EXPORTED_FUNCTION_MACRO:
 
                     mov1 r1 =SOME_INLINE_MACRO
 
@@ -1043,14 +1058,14 @@ fn parse_function_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToke
 
 
 fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<'a>>, module_manager: &ModuleManager<'a>, symbol_table: &SymbolTable<'a>, export: bool) {
-    
+
     declare_parsing_utils!(module_manager, line, main_op);
 
     pop_next!(
         let name_token => "Missing macro name in macro declaration",
         let TokenValue::Identifier(name) => "Expected an identifier as macro name in macro declaration"
     );
-    
+
     pop_next!(
         let colon_token => "Missing a colon `:` after macro name in macro declaration",
         let TokenValue::Colon => "Expected a colon `:` after macro name in macro declaration"
@@ -1071,4 +1086,3 @@ fn parse_inline_macro_def<'a>(line: &mut TokenList<'a>, main_op: Rc<SourceToken<
         |old_def| error::symbol_redeclaration(&old_def.source, &name_token.source, module_manager, "Inline macro name already declared")
     );
 }
-

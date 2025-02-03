@@ -7,12 +7,12 @@
 .data:
 
     @program_start
-    ds "store v1 4\0"
-    ds "print hello world\0"
-    ds "exit\0"
+    dcs "store v1 4"
+    dcs "print hello world"
+    dcs "exit"
 
     @exit_command
-    ds "exit\0"
+    dcs "exit"
 
 .text:
 
