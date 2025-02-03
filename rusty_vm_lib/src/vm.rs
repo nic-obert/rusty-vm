@@ -35,10 +35,9 @@ impl Display for ErrorCodes {
 
 
 impl From<u8> for ErrorCodes {
-
     fn from(code: u8) -> ErrorCodes {
         if code < ERROR_CODES_COUNT as u8 {
-            unsafe { mem::transmute(code) }
+            unsafe { mem::transmute::<u8, ErrorCodes>(code) }
         } else {
             panic!("Invalid error code: {}", code);
         }
@@ -123,7 +122,7 @@ impl From<io::Error> for ErrorCodes {
             ErrorKind::OutOfMemory => ErrorCodes::OutOfMemory,
 
             ErrorKind::Other => ErrorCodes::GenericError,
-            
+
             _ => ErrorCodes::GenericError,
         }
     }
@@ -132,7 +131,6 @@ impl From<io::Error> for ErrorCodes {
 
 
 impl<T: Any> From<io::Result<T>> for ErrorCodes {
-
     fn from(value: io::Result<T>) -> Self {
         match value {
             Ok(_) => ErrorCodes::NoError,
@@ -141,4 +139,3 @@ impl<T: Any> From<io::Result<T>> for ErrorCodes {
     }
 
 }
-

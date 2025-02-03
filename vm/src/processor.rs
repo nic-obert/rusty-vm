@@ -168,6 +168,22 @@ impl Processor {
     }
 
 
+    fn compare(&mut self, left: u64, right: u64) {
+        let (result, carry) = match left.checked_sub(right) {
+            Some(result) => (result, false),
+            None => (left.wrapping_sub(right), true)
+        };
+
+        self.set_arithmetical_flags(
+            result == 0,
+            is_msb_set(result),
+            0,
+            carry,
+            carry ^ is_msb_set(result)
+        );
+    }
+
+
     /// Return the length of a null-terminated string
     fn strlen(&self, address: Address) -> usize {
         let mut length = 0;
@@ -1285,94 +1301,56 @@ impl Processor {
             ByteCodes::COMPARE_REG_REG => {
                 let left_reg = Registers::from(self.get_next_byte());
                 let right_reg = Registers::from(self.get_next_byte());
+                let left = self.registers.get(left_reg);
+                let right = self.registers.get(right_reg);
 
-                let result = self.registers.get(left_reg) as i64
-                    - self.registers.get(right_reg) as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_REG_REG_SIZED => {
                 let size = self.get_next_byte();
                 let left_reg = Registers::from(self.get_next_byte());
                 let right_reg = Registers::from(self.get_next_byte());
+                let left = self.registers.get_masked(left_reg, size);
+                let right = self.registers.get_masked(right_reg, size);
 
-                let result = self.registers.get_masked(left_reg, size) as i64
-                    - self.registers.get_masked(right_reg, size) as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             }
 
             ByteCodes::COMPARE_REG_ADDR_IN_REG => {
                 let size = self.get_next_byte();
 
                 let left_reg = Registers::from(self.get_next_byte());
-                let left_value = self.registers.get(left_reg);
+                let left = self.registers.get(left_reg);
 
                 let right_address_reg = Registers::from(self.get_next_byte());
                 let right_address = self.registers.get(right_address_reg) as Address;
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_REG_CONST => {
                 let size = self.get_next_byte();
 
                 let left_reg = Registers::from(self.get_next_byte());
-                let left_value = self.registers.get(left_reg);
+                let left = self.registers.get(left_reg);
 
-                let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
+                let right = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_REG_ADDR_LITERAL => {
                 let size = self.get_next_byte();
 
                 let left_reg = Registers::from(self.get_next_byte());
-                let left_value = self.registers.get(left_reg);
+                let left = self.registers.get(left_reg);
 
                 let right_address = self.get_next_address();
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_REG => {
@@ -1380,20 +1358,12 @@ impl Processor {
 
                 let left_address_reg = Registers::from(self.get_next_byte());
                 let left_address = self.registers.get(left_address_reg) as Address;
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_reg = Registers::from(self.get_next_byte());
-                let right_value = self.registers.get(right_reg);
+                let right = self.registers.get(right_reg);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG => {
@@ -1401,21 +1371,13 @@ impl Processor {
 
                 let left_address_reg = Registers::from(self.get_next_byte());
                 let left_address = self.registers.get(left_address_reg) as Address;
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_address_reg = Registers::from(self.get_next_byte());
                 let right_address = self.registers.get(right_address_reg) as Address;
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_CONST => {
@@ -1423,19 +1385,11 @@ impl Processor {
 
                 let left_address_reg = Registers::from(self.get_next_byte());
                 let left_address = self.registers.get(left_address_reg) as Address;
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
-                let right_value = bytes_to_int(self.get_next_bytes(size as usize), size);
+                let right = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL => {
@@ -1443,182 +1397,110 @@ impl Processor {
 
                 let left_address_reg = Registers::from(self.get_next_byte());
                 let left_address = self.registers.get(left_address_reg) as Address;
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_address = self.get_next_address();
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_CONST_REG => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_bytes(size as usize);
-                let left_value = bytes_to_int(left_address, size);
+                let left = bytes_to_int(left_address, size);
 
                 let right_reg = Registers::from(self.get_next_byte());
-                let right_value = self.registers.get(right_reg);
+                let right = self.registers.get(right_reg);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_CONST_ADDR_IN_REG => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_bytes(size as usize);
-                let left_value = bytes_to_int(left_address, size);
+                let left = bytes_to_int(left_address, size);
 
                 let right_address_reg = Registers::from(self.get_next_byte());
                 let right_address = self.registers.get(right_address_reg) as Address;
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_CONST_CONST => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_bytes(size as usize);
-                let left_value = bytes_to_int(left_address, size);
+                let left = bytes_to_int(left_address, size);
 
                 let right_address = self.get_next_bytes(size as usize);
-                let right_value = bytes_to_int(right_address, size);
+                let right = bytes_to_int(right_address, size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_CONST_ADDR_LITERAL => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_bytes(size as usize);
-                let left_value = bytes_to_int(left_address, size);
+                let left = bytes_to_int(left_address, size);
 
                 let right_address = self.get_next_address();
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_REG => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_address();
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_reg = Registers::from(self.get_next_byte());
-                let right_value = self.registers.get(right_reg);
+                let right = self.registers.get(right_reg);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_address();
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_address_reg = Registers::from(self.get_next_byte());
                 let right_address = self.registers.get(right_address_reg) as Address;
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_CONST => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_address();
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_address = self.get_next_bytes(size as usize);
-                let right_value = bytes_to_int(right_address, size);
+                let right = bytes_to_int(right_address, size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL => {
                 let size = self.get_next_byte();
 
                 let left_address = self.get_next_address();
-                let left_value = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
+                let left = bytes_to_int(self.memory.get_bytes(left_address, size as usize), size);
 
                 let right_address = self.get_next_address();
-                let right_value = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
+                let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                let result = left_value as i64 - right_value as i64;
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result as u64),
-                    0,
-                    false,
-                    false
-                );
+                self.compare(left, right);
             },
 
             ByteCodes::AND => {
