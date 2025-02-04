@@ -169,6 +169,10 @@ impl Processor {
 
 
     fn compare(&mut self, left: u64, right: u64) {
+
+        // TODO: checked_sub may not be the right choice here
+        // Results seem to be wrong
+
         let (result, carry) = match left.checked_sub(right) {
             Some(result) => (result, false),
             None => (left.wrapping_sub(right), true)
@@ -179,7 +183,7 @@ impl Processor {
             is_msb_set(result),
             0,
             carry,
-            carry ^ is_msb_set(result)
+            carry | is_msb_set(result)
         );
     }
 
@@ -306,7 +310,7 @@ impl Processor {
             is_msb_set(result),
             0,
             carry,
-            carry ^ is_msb_set(result)
+            carry | is_msb_set(result)
         );
     }
 
@@ -382,7 +386,7 @@ impl Processor {
             is_msb_set(result),
             0,
             carry,
-            carry ^ is_msb_set(result)
+            carry | is_msb_set(result)
         );
     }
 
@@ -578,7 +582,7 @@ impl Processor {
                     is_msb_set(result),
                     0,
                     carry,
-                    carry ^ is_msb_set(result)
+                    carry | is_msb_set(result)
                 );
             },
 
@@ -598,7 +602,7 @@ impl Processor {
                     is_msb_set(result),
                     0,
                     carry,
-                    carry ^ is_msb_set(result)
+                    carry | is_msb_set(result)
                 );
             },
 
@@ -618,7 +622,7 @@ impl Processor {
                     is_msb_set(result),
                     0,
                     carry,
-                    carry ^ is_msb_set(result)
+                    carry | is_msb_set(result)
                 );
             },
 
@@ -773,7 +777,7 @@ impl Processor {
                     is_msb_set(result),
                     0,
                     carry,
-                    carry ^ is_msb_set(result)
+                    carry | is_msb_set(result)
                 );
             },
 
@@ -808,7 +812,7 @@ impl Processor {
                     is_msb_set(result),
                     0,
                     carry,
-                    carry ^ is_msb_set(result)
+                    carry | is_msb_set(result)
                 );
             },
 
@@ -1189,8 +1193,9 @@ impl Processor {
             ByteCodes::JUMP_GREATER => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG)
-                    && self.registers.get(Registers::ZERO_FLAG) == 0 {
+                if self.registers.get(Registers::SIGN_FLAG) == 0
+                    && self.registers.get(Registers::ZERO_FLAG) == 0
+                {
                     self.jump_to(jump_address);
                 }
             },
@@ -1198,7 +1203,7 @@ impl Processor {
             ByteCodes::JUMP_LESS => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG) {
+                if self.registers.get(Registers::SIGN_FLAG) == 1 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1206,7 +1211,7 @@ impl Processor {
             ByteCodes::JUMP_GREATER_OR_EQUAL => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) == self.registers.get(Registers::OVERFLOW_FLAG) {
+                if self.registers.get(Registers::SIGN_FLAG) == 0 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1214,8 +1219,9 @@ impl Processor {
             ByteCodes::JUMP_LESS_OR_EQUAL => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) != self.registers.get(Registers::OVERFLOW_FLAG)
-                    || self.registers.get(Registers::ZERO_FLAG) == 1 {
+                if self.registers.get(Registers::SIGN_FLAG) == 1
+                    || self.registers.get(Registers::ZERO_FLAG) == 1
+                {
                     self.jump_to(jump_address);
                 }
             },
@@ -1606,6 +1612,9 @@ impl Processor {
     /// Set the arithmetical flags
     #[inline]
     fn set_arithmetical_flags(&mut self, zf: bool, sf: bool, rf: u64, cf: bool, of: bool) {
+        // TODO: group the flags into a single immutable register.
+        // This may increase performance since operations on flags remain in registers instead of
+        // going to memory every time.
         self.registers.set(Registers::ZERO_FLAG, zf as u64);
         self.registers.set(Registers::SIGN_FLAG, sf as u64);
         self.registers.set(Registers::REMAINDER_FLAG, rf);

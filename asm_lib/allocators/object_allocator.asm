@@ -20,8 +20,8 @@
 
 .data:
 
-    @heap_overflow_message
-    dcs "Heap overflow"
+    @out_of_memory_message
+    dcs "No free cell for allocation"
 
     @double_free_message
     dcs "Double free"
@@ -31,6 +31,12 @@
 
     @misaligned_free_message
     dcs "Misaligned free"
+
+    @zero_size_obj_message
+    dcs "Attempting to initialize an object allocator with objects of size 0"
+
+    @zero_obj_count_message
+    dcs "Attempting to initialize an object allocator with a maximum of 0 objects"
 
 
 .text:
@@ -45,30 +51,25 @@
     # r1: non-zero object size
     # r2: non-zero max object count
     #
+    # Panics if inputs are invalid
     @@ init_object_allocator
 
         # Check r1 != 0 && r2 != 0
         cmp8 r1 0
-        jmpnz r1_ok
-            mov1 error =INVALID_INPUT
-            ret
-        @r1_ok
+        jmpz panic_zero_size
         cmp8 r2 0
-        jmpnz r2_ok
-            mov1 error =INVALID_INPUT
-            ret
-        @r2_ok
+        jmpz panic_zero_count
 
-        !save_reg_sate r1
+        !save_reg_state r1
         !save_reg_state r2
         !save_reg_state r3
         !save_reg_state r4
 
         %- OBJ_SIZE: r3
-        %- OBJ_COUNT: r4
+        %- OBJ_TO_INITIALIZE: r4
 
         mov =OBJ_SIZE r1
-        mov =OBJ_COUNT r2
+        mov =OBJ_TO_INITIALIZE r2
 
         mov8 r1 =HEAP_START
 
@@ -79,17 +80,10 @@
             mov8 r2 =OBJ_SIZE
             iadd
 
-            dec =OBJ_COUNT
+            dec =OBJ_TO_INITIALIZE
             jmpnz initializing
 
         # Write the heap end ptr to heap metadata
-        # (obj_size + cell_meta_size) * cell_count + heap_start
-        mov r1 =OBJ_SIZE
-        inc r1
-        mov r2 =OBJ_COUNT
-        imul
-        mov8 r2 =HEAP_START
-        iadd
         mov8 [=META_HEAP_END_PTR] r1
 
         # Write object size to heap metadata
@@ -112,20 +106,30 @@
 
         # Linear search for free cells
 
+        !save_reg_state r2
+
         %- CURSOR: r1
 
         mov8 =CURSOR =HEAP_START
 
         @searching
 
-            # Check for heap overflow
-            cmp8 =CURSOR [=HEAP_META_END_PTR]
-            jmpge panic_heap_overflow
+            # Check if we ran out of cells
+            cmp8 =CURSOR [=META_HEAP_END_PTR]
+            jmpge panic_out_of_memory
 
-            # If cell is occupied, continue search
-            cmp1 [=CURSOR] =CELL_OCCUPIED
-            jmpnz searching
+            # If cell is free, end search
+            cmp1 [=CURSOR] =CELL_FREE
+            jmpz end_search
 
+            # Calculate the new cursor
+            mov8 r2 [=META_OBJ_SIZE_PTR]
+            # Note =CURSOR is r1
+            iadd
+            inc =CURSOR
+            jmp searching
+
+        @end_search
         # Found free cell
         # Mark as occupied
         mov1 [=CURSOR] =CELL_OCCUPIED
@@ -133,6 +137,8 @@
         inc =CURSOR
 
         # Remember that r1 is =CURSOR, so the result is already in r1
+
+        !restore_reg_state r2
 
         ret
 
@@ -145,18 +151,83 @@
     #
     @@ free_object
 
-        # Check r1 > heap_start && r1 < heap_end && r1 % (obj_size + cell_meta_size) == 0
-        # r1 > heap_start
-        cmp8 r1 [=META_HEAP_START]
-        jmpgr
+        %- ADDR: r3
+        %- TMP_NORMALIZED_ADDR: r4
+
+        !save_reg_state r1
+        !save_reg_state r2
+        !save_reg_state r3
+        !save_reg_state r4
+
+        mov =ADDR r1
+
+        # Check addr > heap_start && addr < heap_end && (addr - heap_start) % (obj_size + cell_meta_size) == 0
+        #
+        # addr > heap_start
+        cmp8 =ADDR =HEAP_START
+        jmple panic_free_out_of_heap
+
+        # addr < heap_end
+        cmp8 =ADDR [=META_HEAP_END_PTR]
+        jmpge panic_free_out_of_heap
+
+        # (addr - heap_start - cell_meta_size) % (obj_size + cell_meta_size) == 0
+        #mov r1 =ADDR
+        mov8 r2 =HEAP_START
+        isub
+        dec r1
+        mov =TMP_NORMALIZED_ADDR r1
+        mov8 r1 [=META_OBJ_SIZE_PTR]
+        inc r1
+        mov r2 r1
+        mov r1 =TMP_NORMALIZED_ADDR
+        imod
+        jmpnz panic_misaligned_free
+
+        # Actual free algorithm
+
+        mov r1 =ADDR
+        dec r1
+        cmp1 [r1] =CELL_FREE
+        jmpz panic_double_free
+
+        mov1 [r1] =CELL_FREE
 
 
+        !restore_reg_state r4
+        !restore_reg_state r3
+        !restore_reg_state r2
+        !restore_reg_state r1
 
         ret
 
 
-    @ panic_heap_overflow
-
-        !println_str heap_overflow_message
+    @ panic_out_of_memory
+        !println_str out_of_memory_message
         mov1 error =OUT_OF_MEMORY
+        exit
+
+    @ panic_free_out_of_heap
+        !println_str free_out_of_heap_message
+        mov1 error =OUT_OF_BOUNDS
+        exit
+
+    @ panic_double_free
+        !println_str double_free_message
+        mov1 error =INVALID_INPUT
+        exit
+
+    @ panic_misaligned_free
+        !println_str misaligned_free_message
+        mov1 error =INVALID_INPUT
+        exit
+
+    @ panic_zero_size
+        !println_str zero_size_obj_message
+        mov1 error =INVALID_INPUT
+        exit
+
+    @ panic_zero_count
+        !println_str zero_obj_count_message
+        mov1 error =INVALID_INPUT
         exit

@@ -1,8 +1,7 @@
 .include:
 
     "stdio.asm"
-    "asmutils/functional.asm"
-
+    "allocators/object_allocator.asm"
 
 
 .data:
@@ -10,16 +9,22 @@
 
 .text:
 
-    mov8 r1 3
-    mov8 r2 3
-    cmp r1 r2
+    mov8 r1 8
+    mov8 r2 1
+    call init_object_allocator
 
-    jmpgr less
+    call alloc_object
+    call alloc_object
+
+    call free_object
 
 
-    exit
+    call free_object
 
 
-@less
-    printstr "less\n"
+   exit
+
+
+@ok
+    printstr "ok\n"
     ret
