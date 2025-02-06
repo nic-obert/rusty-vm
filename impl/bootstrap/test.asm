@@ -9,6 +9,12 @@
     @program_start
     dcs "store v1 4"
     dcs "print hello world"
+
+    dcs "if v1"
+    dn 8 endif
+    dcs     "store v2 1"
+    @endif
+
     dcs "exit"
 
     @exit_command

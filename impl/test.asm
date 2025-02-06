@@ -9,8 +9,8 @@
 
 .text:
 
-    mov8 r1 1
-    mov8 r2 18446744073709551615
+    mov8 r1 -9
+    mov8 r2 -1
     isub
 
    exit
