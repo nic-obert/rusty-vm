@@ -634,6 +634,7 @@ dependencies = [
  "colored",
  "indoc",
  "libc",
+ "num-traits",
  "rand",
  "rusty_vm_lib",
  "termion",

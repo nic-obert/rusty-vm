@@ -38,6 +38,11 @@ impl Memory {
     }
 
 
+    pub fn set_byte(&mut self, address: Address, data: Byte) {
+        self.memory[address] = data;
+    }
+
+
     /// Copy `size` bytes from `src_address` to `dest_address`.
     /// Implements safe buffred copying for overlapping memory regions.
     pub fn memcpy(&mut self, src_address: Address, dest_address: Address, size: usize) {
@@ -108,7 +113,6 @@ mod tests {
         memory.memory = vec![0, 1, 2, 3, 4, 5, 6, 7].into_boxed_slice();
         memory.memcpy(0, 2, 4);
         assert_eq!(memory.memory, vec![0, 1, 0, 1, 2, 3, 6, 7].into_boxed_slice());
-    }    
+    }
 
 }
-

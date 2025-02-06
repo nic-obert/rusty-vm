@@ -8,6 +8,7 @@ clap = { version = "4.4.4", features = ["derive"] }
 colored = "2.0.4"
 indoc = "2.0.3"
 libc = "0.2.169"
+num-traits = "0.2.19"
 rand = "0.8.5"
 rusty_vm_lib = { path = "../rusty_vm_lib" }
 termion = "2.0.1"

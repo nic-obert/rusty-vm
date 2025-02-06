@@ -5,10 +5,15 @@ use std::ffi::CString;
 use std::io::Write;
 use std::mem;
 use std::io;
+use std::ops::BitAnd;
+use std::ops::Shl;
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::ptr;
 use std::time::{SystemTime, UNIX_EPOCH};
+use num_traits::ops::overflowing::OverflowingAdd;
+use num_traits::ops::overflowing::OverflowingSub;
+use num_traits::Num;
 use rand::Rng;
 use libc::{poll, POLLIN, pollfd};
 
@@ -48,10 +53,17 @@ fn libc_read_line() -> String {
 }
 
 
-/// Return whether the most significant bit of the given value is set
+trait UnsignedInt: Num + OverflowingSub + OverflowingAdd + BitAnd<Self, Output = Self> + Shl<usize, Output = Self> + Copy {}
+impl UnsignedInt for u8 {}
+impl UnsignedInt for u16 {}
+impl UnsignedInt for u32 {}
+impl UnsignedInt for u64 {}
+
 #[inline]
-fn is_msb_set(value: u64) -> bool {
-    value & (1 << 63) != 0
+fn is_msb_set<T>(value: T) -> bool
+where T: UnsignedInt // + BitAnd<T, Output = T> + Num + Shl<usize, Output = T>
+{
+    !(value & (T::one() << (mem::size_of::<T>()*8-1))).is_zero()
 }
 
 
@@ -82,7 +94,7 @@ unsafe fn bytes_as_address(bytes: &[Byte]) -> Address {
 pub struct Processor {
 
     registers: CPURegisters,
-    pub(super) memory: Memory,
+    memory: Memory,
     start_time: SystemTime,
     quiet_exit: bool,
     modules: CPUModules,
@@ -164,27 +176,65 @@ impl Processor {
             ExecutionMode::Verbose => self.run_verbose(),
             ExecutionMode::Interactive => self.run_interactive(byte_code.len()),
         }
-
     }
 
 
-    fn compare(&mut self, left: u64, right: u64) {
+    #[must_use]
+    fn subtract_set_flags<T>(&mut self, left: T, right: T) -> T
+    where T: UnsignedInt
+    {
+        let (result, carry) = left.overflowing_sub(&right);
 
-        // TODO: checked_sub may not be the right choice here
-        // Results seem to be wrong
+        let sign_left = is_msb_set(left);
+        let sign_right = is_msb_set(right);
+        let sign_result = is_msb_set(result);
 
-        let (result, carry) = match left.checked_sub(right) {
-            Some(result) => (result, false),
-            None => (left.wrapping_sub(right), true)
+        let overflow = {
+            !sign_left && sign_right && sign_result
+            || sign_left && !sign_right && !sign_result
         };
 
         self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
+            result.is_zero(),
+            sign_result,
             0,
             carry,
-            carry | is_msb_set(result)
+            overflow
         );
+
+        result
+    }
+
+
+    #[must_use]
+    fn add_set_flags<T>(&mut self, left: T, right: T) -> T
+    where T: UnsignedInt
+    {
+        let (result, carry) = left.overflowing_add(&right);
+
+        let sign_left = is_msb_set(left);
+        let sign_right = is_msb_set(right);
+        let sign_result = is_msb_set(result);
+
+        let overflow = {
+            !sign_left && !sign_right && sign_result
+            || sign_left && sign_right && !sign_result
+        };
+
+        self.set_arithmetical_flags(
+            result.is_zero(),
+            sign_result,
+            0,
+            carry,
+            overflow
+        );
+
+        result
+    }
+
+
+    fn compare_set_flags(&mut self, left: u64, right: u64) {
+        let _ = self.subtract_set_flags(left, right);
     }
 
 
@@ -242,152 +292,72 @@ impl Processor {
     /// Increment the `size`-sized value at the given address
     fn increment_bytes(&mut self, address: Address, size: Byte) {
 
-        let bytes = self.memory.get_bytes_mut(address, size as usize);
+        let bytes = self.memory.get_bytes(address, size as usize);
 
-        let (result, carry) = match size {
+        match size {
 
             1 => {
                 let value = bytes[0];
-                let (res, carry) = {
-                    if let Some(res) = value.checked_add(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_add(1), true)
-                    }
-                };
-                bytes[0] = res;
-
-                (res as u64, carry)
+                let res = self.add_set_flags(value, 1);
+                self.memory.set_byte(address, res);
             },
 
             2 => {
                 let value = u16::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_add(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_add(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res as u64, carry)
+                let res = self.add_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             4 => {
                 let value = u32::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_add(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_add(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res as u64, carry)
+                let res = self.add_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             8 => {
                 let value = u64::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_add(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_add(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res, carry)
+                let res = self.add_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             _ => error::error(format!("Invalid size for incrementing bytes: {}.", size).as_str()),
         };
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry | is_msb_set(result)
-        );
     }
 
 
     /// Decrement the `size`-sized value at the given address
     fn decrement_bytes(&mut self, address: Address, size: Byte) {
 
-        let bytes = self.memory.get_bytes_mut(address, size as usize);
+        let bytes = self.memory.get_bytes(address, size as usize);
 
-        let (result, carry) = match size {
+        match size {
 
             1 => {
                 let value = bytes[0];
-                let (res, carry) = {
-                    if let Some(res) = value.checked_sub(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_sub(1), true)
-                    }
-                };
-                bytes[0] = res;
-
-                (res as u64, carry)
+                let res = self.subtract_set_flags(value, 1);
+                self.memory.set_byte(address, res);
             },
 
             2 => {
                 let value = u16::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_sub(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_sub(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res as u64, carry)
+                let res = self.subtract_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             4 => {
                 let value = u32::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_sub(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_sub(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res as u64, carry)
+                let res = self.subtract_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             8 => {
                 let value = u64::from_le_bytes(bytes.try_into().unwrap());
-                let (res, carry) = {
-                    if let Some(res) = value.checked_sub(1) {
-                        (res, false)
-                    } else {
-                        (value.wrapping_sub(1), true)
-                    }
-                };
-                bytes.copy_from_slice(&res.to_le_bytes());
-
-                (res, carry)
+                let res = self.subtract_set_flags(value, 1);
+                self.memory.set_bytes(address, &res.to_le_bytes());
             },
 
             _ => error::error(format!("Invalid size for decrementing bytes: {}.", size).as_str()),
         };
-
-        self.set_arithmetical_flags(
-            result == 0,
-            is_msb_set(result),
-            0,
-            carry,
-            carry | is_msb_set(result)
-        );
     }
 
 
@@ -570,59 +540,41 @@ impl Processor {
                 let r1 = self.registers.get(Registers::R1);
                 let r2 = self.registers.get(Registers::R2);
 
-                let (result, carry) = match r1.checked_add(r2) {
-                    Some(result) => (result, false),
-                    None => (r1.wrapping_add(r2), true)
-                };
-
+                let result = self.add_set_flags(r1, r2);
                 self.registers.set(Registers::R1, result);
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result),
-                    0,
-                    carry,
-                    carry | is_msb_set(result)
-                );
             },
 
             ByteCodes::INTEGER_SUB => {
                 let r1 = self.registers.get(Registers::R1);
                 let r2 = self.registers.get(Registers::R2);
 
-                let (result, carry) = match r1.checked_sub(r2) {
-                    Some(result) => (result, false),
-                    None => (r1.wrapping_sub(r2), true)
-                };
-
+                let result = self.subtract_set_flags(r1, r2);
                 self.registers.set(Registers::R1, result);
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result),
-                    0,
-                    carry,
-                    carry | is_msb_set(result)
-                );
             },
 
             ByteCodes::INTEGER_MUL => {
                 let r1 = self.registers.get(Registers::R1);
                 let r2 = self.registers.get(Registers::R2);
 
-                let (result, carry) = match r1.checked_mul(r2) {
-                    Some(result) => (result, false),
-                    None => (r1.wrapping_mul(r2), true)
+                let (result, carry) = r1.overflowing_mul(r2);
+
+                let sign_left = is_msb_set(r1);
+                let sign_right = is_msb_set(r2);
+                let sign_result = is_msb_set(result);
+
+                let overflow = {
+                    (sign_left != sign_right) && !sign_result
+                    || (sign_left == sign_right) && sign_result
                 };
 
                 self.registers.set(Registers::R1, result);
 
                 self.set_arithmetical_flags(
                     result == 0,
-                    is_msb_set(result),
+                    sign_result,
                     0,
                     carry,
-                    carry | is_msb_set(result)
+                    overflow
                 );
             },
 
@@ -765,20 +717,8 @@ impl Processor {
                 let dest_reg = Registers::from(self.get_next_byte());
                 let value = self.registers.get(dest_reg);
 
-                let (result, carry) = match value.checked_add(1) {
-                    Some(result) => (result, false),
-                    None => (value.saturating_add(1), true)
-                };
-
+                let result = self.add_set_flags(value, 1);
                 self.registers.set(dest_reg, result);
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result),
-                    0,
-                    carry,
-                    carry | is_msb_set(result)
-                );
             },
 
             ByteCodes::INC_ADDR_IN_REG => {
@@ -800,20 +740,8 @@ impl Processor {
                 let dest_reg = Registers::from(self.get_next_byte());
                 let value = self.registers.get(dest_reg);
 
-                let (result, carry) = match value.checked_sub(1) {
-                    Some(result) => (result, false),
-                    None => (value.wrapping_sub(1), true)
-                };
-
+                let result = self.subtract_set_flags(value, 1);
                 self.registers.set(dest_reg, result);
-
-                self.set_arithmetical_flags(
-                    result == 0,
-                    is_msb_set(result),
-                    0,
-                    carry,
-                    carry | is_msb_set(result)
-                );
             },
 
             ByteCodes::DEC_ADDR_IN_REG => {
@@ -1310,7 +1238,7 @@ impl Processor {
                 let left = self.registers.get(left_reg);
                 let right = self.registers.get(right_reg);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_REG_REG_SIZED => {
@@ -1320,7 +1248,7 @@ impl Processor {
                 let left = self.registers.get_masked(left_reg, size);
                 let right = self.registers.get_masked(right_reg, size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             }
 
             ByteCodes::COMPARE_REG_ADDR_IN_REG => {
@@ -1333,7 +1261,7 @@ impl Processor {
                 let right_address = self.registers.get(right_address_reg) as Address;
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_REG_CONST => {
@@ -1344,7 +1272,7 @@ impl Processor {
 
                 let right = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_REG_ADDR_LITERAL => {
@@ -1356,7 +1284,7 @@ impl Processor {
                 let right_address = self.get_next_address();
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_REG => {
@@ -1369,7 +1297,7 @@ impl Processor {
                 let right_reg = Registers::from(self.get_next_byte());
                 let right = self.registers.get(right_reg);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_IN_REG => {
@@ -1383,7 +1311,7 @@ impl Processor {
                 let right_address = self.registers.get(right_address_reg) as Address;
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_CONST => {
@@ -1395,7 +1323,7 @@ impl Processor {
 
                 let right = bytes_to_int(self.get_next_bytes(size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_IN_REG_ADDR_LITERAL => {
@@ -1408,7 +1336,7 @@ impl Processor {
                 let right_address = self.get_next_address();
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_CONST_REG => {
@@ -1420,7 +1348,7 @@ impl Processor {
                 let right_reg = Registers::from(self.get_next_byte());
                 let right = self.registers.get(right_reg);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_CONST_ADDR_IN_REG => {
@@ -1433,7 +1361,7 @@ impl Processor {
                 let right_address = self.registers.get(right_address_reg) as Address;
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_CONST_CONST => {
@@ -1445,7 +1373,7 @@ impl Processor {
                 let right_address = self.get_next_bytes(size as usize);
                 let right = bytes_to_int(right_address, size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_CONST_ADDR_LITERAL => {
@@ -1457,7 +1385,7 @@ impl Processor {
                 let right_address = self.get_next_address();
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_REG => {
@@ -1469,7 +1397,7 @@ impl Processor {
                 let right_reg = Registers::from(self.get_next_byte());
                 let right = self.registers.get(right_reg);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_IN_REG => {
@@ -1482,7 +1410,7 @@ impl Processor {
                 let right_address = self.registers.get(right_address_reg) as Address;
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_CONST => {
@@ -1494,7 +1422,7 @@ impl Processor {
                 let right_address = self.get_next_bytes(size as usize);
                 let right = bytes_to_int(right_address, size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::COMPARE_ADDR_LITERAL_ADDR_LITERAL => {
@@ -1506,7 +1434,7 @@ impl Processor {
                 let right_address = self.get_next_address();
                 let right = bytes_to_int(self.memory.get_bytes(right_address, size as usize), size);
 
-                self.compare(left, right);
+                self.compare_set_flags(left, right);
             },
 
             ByteCodes::AND => {
