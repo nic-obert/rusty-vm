@@ -1,5 +1,3 @@
-#![allow(clippy::no_effect)]
-
 use std::cmp::min;
 use std::ffi::CString;
 use std::io::Write;

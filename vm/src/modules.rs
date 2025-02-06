@@ -3,7 +3,6 @@ use crate::storage::Storage;
 use crate::host_fs::HostFS;
 
 
-
 pub struct CPUModules {
 
     pub storage: Option<Storage>,
@@ -11,7 +10,6 @@ pub struct CPUModules {
     pub host_fs: HostFS
 
 }
-
 
 impl CPUModules {
 
@@ -24,4 +22,3 @@ impl CPUModules {
     }
 
 }
-

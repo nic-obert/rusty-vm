@@ -10,7 +10,6 @@ use crate::register::CPURegisters;
 
 pub struct HostFS;
 
-
 impl HostFS {
 
     pub fn new() -> Self {
@@ -138,4 +137,3 @@ const CODE_HANDLERS: [CodeHanlder; 5] = [
     handle_create_file, //3
     handle_create_dir, // 4
 ];
-
