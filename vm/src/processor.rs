@@ -8,6 +8,9 @@ use std::ops::Shl;
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::ptr;
+use std::ptr::NonNull;
+use std::thread;
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use num_traits::ops::overflowing::OverflowingAdd;
 use num_traits::ops::overflowing::OverflowingSub;
@@ -20,6 +23,7 @@ use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 use rusty_vm_lib::interrupts::Interrupts;
+use shared_memory::ShmemConf;
 
 use crate::host_fs::HostFS;
 use crate::memory::{Memory, Byte};
@@ -96,7 +100,7 @@ pub struct Processor {
     start_time: SystemTime,
     modules: CPUModules,
     quiet_exit: bool,
-    debug_mode: bool,
+    debug_mode_running: Option<*mut bool>,
 
 }
 
@@ -145,7 +149,7 @@ impl Processor {
                 Terminal::new(),
                 HostFS::new()
             ),
-            debug_mode: false,
+            debug_mode_running: None,
         }
     }
 
@@ -176,7 +180,6 @@ impl Processor {
             ExecutionMode::Verbose => self.run_verbose(),
             ExecutionMode::Interactive => self.run_interactive(byte_code.len()),
             ExecutionMode::Debug => {
-                self.debug_mode = true;
                 self.run_debug();
             }
         }
@@ -184,7 +187,76 @@ impl Processor {
 
 
     fn run_debug(&mut self) {
-        todo!()
+
+        const DEBUGGER_ATTACH_SLEEP: Duration = Duration::from_millis(200);
+        const DEBUGGER_COMMAND_WAIT_SLEEP: Duration = Duration::from_millis(50);
+
+        const RUNNING_FLAG_OFFSET: usize = 0;
+        const TERMINATE_COMMAND_OFFSET: usize = RUNNING_FLAG_OFFSET + mem::size_of::<bool>();
+        const VM_UPDATED_COUNTER_OFFSET: usize = TERMINATE_COMMAND_OFFSET + mem::size_of::<bool>();
+        const CPU_REGISTERS_OFFSET: usize = VM_UPDATED_COUNTER_OFFSET + mem::size_of::<u8>();
+        const VM_MEM_OFFSET: usize = CPU_REGISTERS_OFFSET + mem::size_of::<CPURegisters>();
+
+        let shmem_size = VM_MEM_OFFSET + self.memory.size_bytes();
+
+        let shmem = ShmemConf::new()
+            .size(shmem_size)
+            .create()
+            .unwrap();
+
+        unsafe {
+            let new_vm_mem = NonNull::slice_from_raw_parts(
+                NonNull::new(shmem.as_ptr().byte_add(VM_MEM_OFFSET)).expect("Should be valid"),
+                self.memory.size_bytes()
+            );
+
+            self.memory.set_shared_buffer(new_vm_mem);
+        };
+        let running_flag = unsafe { shmem.as_ptr().byte_add(RUNNING_FLAG_OFFSET).cast::<bool>() };
+        let terminate_command = unsafe { shmem.as_ptr().byte_add(TERMINATE_COMMAND_OFFSET).cast::<bool>() };
+        let vm_updated_counter = unsafe { shmem.as_ptr().byte_add(VM_UPDATED_COUNTER_OFFSET) };
+        let cpu_registers = unsafe { shmem.as_ptr().byte_add(CPU_REGISTERS_OFFSET).cast::<CPURegisters>() };
+
+        self.debug_mode_running = Some(running_flag);
+
+        unsafe {
+            running_flag.write_volatile(false);
+            terminate_command.write_volatile(false);
+            vm_updated_counter.write_volatile(0);
+            cpu_registers.write_volatile(self.registers.clone());
+        }
+
+        // TODO: launch debugger process and wait until it's initialized
+        // the debugger process will then set the running flag to true to start the vm execution
+
+        // Wait for the debugger to be ready
+        while unsafe { !running_flag.read_volatile() } {
+            thread::sleep(DEBUGGER_ATTACH_SLEEP);
+        }
+
+        while unsafe { !terminate_command.read_volatile() } {
+
+            if unsafe { running_flag.read_volatile() } {
+
+                let opcode = self.get_next_item();
+                self.handle_instruction(opcode);
+
+            } else {
+
+                unsafe {
+                    // When the VM is stopped, communicate the current registers state to the debugger
+                    cpu_registers.write_volatile(self.registers.clone());
+                    // Tell the debugger the VM has finished sending data
+                    vm_updated_counter.write_volatile(vm_updated_counter.read_volatile().wrapping_add(1));
+                }
+
+                // Wait until execution is resumed by the debugger
+                while unsafe { !running_flag.read_volatile() } {
+                    thread::sleep(DEBUGGER_COMMAND_WAIT_SLEEP);
+                }
+            }
+
+        }
     }
 
 
@@ -1533,8 +1605,10 @@ impl Processor {
             },
 
             ByteCodes::BREAKPOINT => {
-                if self.debug_mode {
-                    todo!()
+                if let Some(debug_running) = self.debug_mode_running {
+                    unsafe {
+                        debug_running.write_volatile(false);
+                    }
                 } else {
                     println!("Breakpoint debug instruction encountered in non-debug execution mode.");
                     self.registers.set_error(ErrorCodes::PermissionDenied);

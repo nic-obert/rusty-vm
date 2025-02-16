@@ -1,3 +1,6 @@
+#![feature(non_null_from_ref)]
+#![feature(slice_ptr_get)]
+
 mod processor;
 mod memory;
 mod files;
@@ -18,7 +21,7 @@ use processor::StorageOptions;
 
 
 fn main() {
- 
+
     let args = CliParser::parse();
 
     let main_path = Path::new(&args.input_file).canonicalize().unwrap_or_else(
@@ -49,4 +52,3 @@ fn main() {
     processor.execute(&byte_code, args.mode);
 
 }
-

@@ -17,6 +17,7 @@ The VM already sets the pc to the address specified by the last 8 bytes of the b
 - continue execution while retaining the previous breakpoint, if present
 - perform a core dump
 - view the history of registers up to a limit (separate window?) (implemented in the debugger UI)
+- close everything, stop debugging and terminate both the debugger and the vm processes
 
 ---
 
@@ -73,3 +74,18 @@ The breakpoint disabling feature is implemented by the debugger UI process via s
 This instruction shall be part of the VM instruction set.
 When executed, the breakpoint instruction shall stop execution at the next cycle and notify the debugger.
 The VM process may also communicate the current state of CPU registers to the debugger UI process.
+
+## Shared memory
+Shared memory shall be implemented via the operating system.
+The VM process, when launched in debug mode, creates a memory mapping that will be shared with the debugger process.
+The shared memory shall be organized this way:
+
+LOW ---> HIGH
+[Running 1 byte] [Terminate command 1 byte] [VM updated counter 1 byte] [CPU registers, manual update on VM stop] [VM memory, mapped via the OS]
+
+- The running flag tells the VM to stop or continue execution.
+- The terminate command tells the VM process to terminate itself.
+- The VM updated counter is used to signal that an update was performed by the VM process.
+For instance, if the debugger stops VM execution and wants to read the registers state, it shall wait until the VM updated counter is incremented.
+The updated counter shall be the last field to be updated when changes to shared memory are made by the VM process.
+This counter is necessary so that the debugger process knows whether the VM process has received the message and when it has finished responding.

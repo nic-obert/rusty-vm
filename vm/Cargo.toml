@@ -11,4 +11,5 @@ libc = "0.2.169"
 num-traits = "0.2.19"
 rand = "0.8.5"
 rusty_vm_lib = { path = "../rusty_vm_lib" }
+shared_memory = "0.12.4"
 termion = "2.0.1"
