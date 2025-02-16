@@ -94,8 +94,9 @@ pub struct Processor {
     registers: CPURegisters,
     memory: Memory,
     start_time: SystemTime,
-    quiet_exit: bool,
     modules: CPUModules,
+    quiet_exit: bool,
+    debug_mode: bool,
 
 }
 
@@ -144,6 +145,7 @@ impl Processor {
                 Terminal::new(),
                 HostFS::new()
             ),
+            debug_mode: false,
         }
     }
 
@@ -173,7 +175,16 @@ impl Processor {
             ExecutionMode::Normal => self.run(),
             ExecutionMode::Verbose => self.run_verbose(),
             ExecutionMode::Interactive => self.run_interactive(byte_code.len()),
+            ExecutionMode::Debug => {
+                self.debug_mode = true;
+                self.run_debug();
+            }
         }
+    }
+
+
+    fn run_debug(&mut self) {
+        todo!()
     }
 
 
@@ -1519,6 +1530,16 @@ impl Processor {
                 let intr_code = self.registers.get(Registers::INTERRUPT) as u8;
 
                 self.handle_interrupt(intr_code);
+            },
+
+            ByteCodes::BREAKPOINT => {
+                if self.debug_mode {
+                    todo!()
+                } else {
+                    println!("Breakpoint debug instruction encountered in non-debug execution mode.");
+                    self.registers.set_error(ErrorCodes::PermissionDenied);
+                    self.handle_instruction(ByteCodes::EXIT);
+                }
             },
 
             ByteCodes::EXIT => {

@@ -1,5 +1,7 @@
 # Rusty Virtual Machine
 
+# **OUTDATED**
+
 - [Rusty Virtual Machine](#rusty-virtual-machine)
   - [Introduction](#introduction)
   - [Basic usage](#basic-usage)
@@ -10,7 +12,7 @@
 
 This virtual machine is a stack-based processor with extended functionalities. It has a comprehensive instruction set and a small number of registers. It's designed to be simple to use and easy to understand.
 
-The VM can interact with the host system through the use of system calls.  
+The VM can interact with the host system through the use of system calls.
 The VM also provides a built-in primitive memory allocator that does not require an operating system.
 
 ## Basic usage
@@ -52,6 +54,6 @@ The virtual machine has 17 8-byte registers. Registers are identified by their n
 
 ## Instruction Set
 
-The virtual machine currently has 87 instructions. More may be added in the future.  
-For a full list of instructions, see the source file ['byte_code.rs'](../rusty_vm_lib/src/byte_code.rs).  
+The virtual machine currently has 87 instructions. More may be added in the future.
+For a full list of instructions, see the source file ['byte_code.rs'](../rusty_vm_lib/src/byte_code.rs).
 The effect of each instruction is clearly shown in the source code file ['processor.rs'](src/processor.rs).

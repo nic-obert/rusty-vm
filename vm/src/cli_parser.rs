@@ -41,6 +41,7 @@ pub enum ExecutionMode {
     Normal,
     Verbose,
     Interactive,
+    Debug,
 }
 
 
@@ -53,6 +54,8 @@ impl ValueEnum for ExecutionMode {
             "v" => Ok(ExecutionMode::Verbose),
 
             "i" => Ok(ExecutionMode::Interactive),
+
+            "d" => Ok(ExecutionMode::Debug),
 
             _ => Err(format!("Invalid execution mode: {}", input)),
         }
@@ -67,14 +70,14 @@ impl ValueEnum for ExecutionMode {
         ]
     }
 
-    
+
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         match self {
             ExecutionMode::Normal => Some(clap::builder::PossibleValue::new("n")),
             ExecutionMode::Verbose => Some(clap::builder::PossibleValue::new("v")),
             ExecutionMode::Interactive => Some(clap::builder::PossibleValue::new("i")),
+            ExecutionMode::Debug => Some(clap::builder::PossibleValue::new("d")),
         }
     }
-    
-}
 
+}

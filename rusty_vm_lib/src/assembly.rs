@@ -1089,6 +1089,7 @@ declare_asm_instructions! {
     shr size:0 argc:0 = SHIFT_RIGHT,
     swpe size:0 argc:0 = SWAP_BYTES_ENDIANNESS,
     intr size:0 argc:0 = INTERRUPT,
+    breakpoint size:0 argc:0 = BREAKPOINT,
     exit size:0 argc:0 = EXIT
 
 }

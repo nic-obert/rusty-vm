@@ -139,6 +139,7 @@ declare_bytecodes! {
     SWAP_BYTES_ENDIANNESS,
 
     INTERRUPT,
+    BREAKPOINT,
 
     EXIT
 
