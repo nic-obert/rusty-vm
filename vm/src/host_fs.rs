@@ -1,11 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::registers::{Registers, CPURegisters};
 use rusty_vm_lib::vm::{ErrorCodes, Address};
 
 use crate::memory::Memory;
-use crate::register::CPURegisters;
 
 
 pub struct HostFS;

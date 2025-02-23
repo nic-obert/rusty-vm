@@ -81,7 +81,7 @@ The VM process, when launched in debug mode, creates a memory mapping that will 
 The shared memory shall be organized this way:
 
 LOW ---> HIGH
-[Running 1 byte] [Terminate command 1 byte] [VM updated counter 1 byte] [CPU registers, manual update on VM stop] [VM memory, mapped via the OS]
+[CPU registers, manual update on VM stop] [Running 1 byte] [Terminate command 1 byte] [VM updated counter 1 byte] [VM memory, mapped via the OS]
 
 - The running flag tells the VM to stop or continue execution.
 - The terminate command tells the VM process to terminate itself.
@@ -89,3 +89,5 @@ LOW ---> HIGH
 For instance, if the debugger stops VM execution and wants to read the registers state, it shall wait until the VM updated counter is incremented.
 The updated counter shall be the last field to be updated when changes to shared memory are made by the VM process.
 This counter is necessary so that the debugger process knows whether the VM process has received the message and when it has finished responding.
+
+The CPU registers region is placed first to keep it aligned to the size of a register entry (8 bytes).

@@ -10,7 +10,6 @@ use std::path::PathBuf;
 use std::ptr;
 use std::ptr::NonNull;
 use std::thread;
-use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use num_traits::ops::overflowing::OverflowingAdd;
 use num_traits::ops::overflowing::OverflowingSub;
@@ -19,7 +18,15 @@ use rand::Rng;
 use libc::{poll, POLLIN, pollfd};
 
 use rusty_vm_lib::assembly;
-use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::debugger::CPU_REGISTERS_OFFSET;
+use rusty_vm_lib::debugger::DEBUGGER_ATTACH_SLEEP;
+use rusty_vm_lib::debugger::DEBUGGER_COMMAND_WAIT_SLEEP;
+use rusty_vm_lib::debugger::DEBUGGER_PATH_ENV;
+use rusty_vm_lib::debugger::RUNNING_FLAG_OFFSET;
+use rusty_vm_lib::debugger::TERMINATE_COMMAND_OFFSET;
+use rusty_vm_lib::debugger::VM_MEM_OFFSET;
+use rusty_vm_lib::debugger::VM_UPDATED_COUNTER_OFFSET;
+use rusty_vm_lib::registers::{Registers, CPURegisters};
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE, ErrorCodes};
 use rusty_vm_lib::interrupts::Interrupts;
@@ -30,7 +37,6 @@ use crate::memory::{Memory, Byte};
 use crate::cli_parser::ExecutionMode;
 use crate::error::{self, error};
 use crate::modules::CPUModules;
-use crate::register::CPURegisters;
 use crate::storage::Storage;
 use crate::terminal::Terminal;
 
@@ -139,7 +145,7 @@ impl Processor {
         };
 
         Self {
-            registers: CPURegisters::new(),
+            registers: CPURegisters::default(),
             memory: Memory::new(max_memory_size),
             // Initialize temporarily, will be reinitialized in `execute`
             start_time: SystemTime::now(),
@@ -188,14 +194,7 @@ impl Processor {
 
     fn run_debug(&mut self) {
 
-        const DEBUGGER_ATTACH_SLEEP: Duration = Duration::from_millis(200);
-        const DEBUGGER_COMMAND_WAIT_SLEEP: Duration = Duration::from_millis(50);
-
-        const RUNNING_FLAG_OFFSET: usize = 0;
-        const TERMINATE_COMMAND_OFFSET: usize = RUNNING_FLAG_OFFSET + mem::size_of::<bool>();
-        const VM_UPDATED_COUNTER_OFFSET: usize = TERMINATE_COMMAND_OFFSET + mem::size_of::<bool>();
-        const CPU_REGISTERS_OFFSET: usize = VM_UPDATED_COUNTER_OFFSET + mem::size_of::<u8>();
-        const VM_MEM_OFFSET: usize = CPU_REGISTERS_OFFSET + mem::size_of::<CPURegisters>();
+        let debugger_path = std::env::var(DEBUGGER_PATH_ENV).expect("Missing debugger");
 
         let shmem_size = VM_MEM_OFFSET + self.memory.size_bytes();
 
@@ -226,8 +225,11 @@ impl Processor {
             cpu_registers.write_volatile(self.registers.clone());
         }
 
-        // TODO: launch debugger process and wait until it's initialized
-        // the debugger process will then set the running flag to true to start the vm execution
+        // Launch the debugger process
+        let mut debugger_process = std::process::Command::new(debugger_path)
+            .arg(shmem.get_os_id())
+            .spawn()
+            .expect("Failed to start debugger process");
 
         // Wait for the debugger to be ready
         while unsafe { !running_flag.read_volatile() } {
@@ -257,6 +259,13 @@ impl Processor {
             }
 
         }
+
+        match debugger_process.wait() {
+            Ok(status) => println!("Debugger exited with {}", status),
+            Err(err) => println!("Error waiting debugger process: {}", err),
+        }
+
+
     }
 
 

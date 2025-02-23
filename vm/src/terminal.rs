@@ -4,7 +4,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use rusty_vm_lib::vm::{ErrorCodes, Address};
-use rusty_vm_lib::registers::Registers;
+use rusty_vm_lib::registers::{Registers, CPURegisters};
 
 use termion::cursor;
 use termion::input::TermRead;
@@ -13,7 +13,6 @@ use termion::cursor::DetectCursorPos;
 
 use crate::error;
 use crate::memory::Memory;
-use crate::register::CPURegisters;
 
 
 const KEY_DATA_SIZE: usize = 2;
@@ -37,7 +36,7 @@ impl Terminal {
             key_listener: None,
         }
     }
- 
+
 
     pub fn handle_code(&mut self, code: usize, registers: &mut CPURegisters, memory: &mut Memory) -> ErrorCodes {
         match Self::CODE_HANDLERS[code](self, registers, memory) {
@@ -253,7 +252,7 @@ impl Terminal {
     /// Start a thread that listens for key events and writes them to the given address.
     /// A key event is 2 bytes: the first byte is the modifier code, the second byte is the key code
     fn handle_get_key_listener(&mut self, registers: &mut CPURegisters, memory: &mut Memory) -> io::Result<()> {
-        
+
         // Check if a listener is already active
         if self.key_listener.is_some() {
             return Err(io::ErrorKind::AlreadyExists.into());
@@ -261,7 +260,7 @@ impl Terminal {
 
         let key_store_address = registers.get(Registers::R1) as Address;
         let key_data_slice = memory.get_bytes_mut(key_store_address, KEY_DATA_SIZE).as_mut_ptr() as Address;
-        
+
         let (tx, rx) = mpsc::channel::<()>();
 
         let join_handle = thread::spawn(move || {
@@ -273,7 +272,7 @@ impl Terminal {
 
             let mut key_events = termion::async_stdin().keys();
             let _stdout = io::stdout().into_raw_mode().unwrap();
-            
+
             loop {
 
                 // Check for the stop signal
@@ -304,7 +303,7 @@ impl Terminal {
                         Key::Esc => [18, 0],
                         Key::__IsNotComplete => [19, 0],
                     };
-    
+
                     key_data_slice.copy_from_slice(&key_data);
                 }
 
@@ -369,4 +368,3 @@ impl Terminal {
     ];
 
 }
-

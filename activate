@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export RUSTYVM_ASM_LIB="$PWD/asm_lib"
+export RUSTYVM_DEBUGGER="$PWD/debugger.sh"

@@ -67,6 +67,7 @@ impl ValueEnum for ExecutionMode {
             ExecutionMode::Normal,
             ExecutionMode::Verbose,
             ExecutionMode::Interactive,
+            ExecutionMode::Debug
         ]
     }
 
