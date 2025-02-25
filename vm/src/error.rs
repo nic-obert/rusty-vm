@@ -1,37 +1,14 @@
 use std::path::Path;
 
-use indoc::{printdoc, formatdoc};
-use colored::Colorize;
-
 
 pub fn io_error(path: &Path, error: &std::io::Error, hint: &str) -> ! {
-    printdoc!("
-        ❌ Error in file \"{}\"
-
-        {}
-        {}
-        ",
+    println!("❌ Error in file \"{}\"\n\n{}\n{}\n",
         path.display(), error, hint
     );
     std::process::exit(1);
 }
 
-
-pub fn warn(message: &str) {
-    println!("{}", formatdoc!("
-        ⚠️  Warning: {}
-        ",
-        message
-    ).bright_yellow());
-}
-
-
 pub fn error(message: &str) -> ! {
-    printdoc!("
-        ❌ Error: {}
-
-        ",
-        message
-    );
+    println!("❌ Error: {}\n", message);
     std::process::exit(1);
 }

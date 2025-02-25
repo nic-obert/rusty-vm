@@ -1,0 +1,23 @@
+import { TextEdit, ListView, ScrollView } from "std-widgets.slint";
+
+component InstructionLine {
+    Text {
+        text: "mov r1 r2";
+    }
+}
+
+export component InstructionsArea {
+
+    VerticalLayout {
+        Text {
+            text: "Instructions";
+        }
+        ScrollView {
+
+            for i in 6: InstructionLine {
+
+            }
+        }
+    }
+
+}

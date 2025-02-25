@@ -1,0 +1,38 @@
+import { ListView, ScrollView, LineEdit } from "std-widgets.slint";
+
+global Shared {
+    out property <[string]> reg-names: ["r1", "r2", "r3", "r4"];
+}
+
+component RegisterSet {
+
+    in property <[int]> registers;
+
+    VerticalLayout {
+        for name[i] in Shared.reg-names : HorizontalLayout {
+            Text {
+                text: name;
+            }
+            LineEdit {
+                read-only: true;
+                text: registers[i];
+            }
+        }
+    }
+}
+
+export component RegistersArea {
+
+    VerticalLayout {
+        Text {
+            text: "Registers";
+        }
+        ScrollView {
+            for i in 4: RegisterSet {
+                registers: [1,2,3,4];
+            }
+        }
+    }
+
+
+}

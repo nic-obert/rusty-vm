@@ -7,6 +7,10 @@ pub struct CliParser {
 
     /// ID of the shared memory region containing the loaded program to debug and controls
     #[clap(required = true)]
-    pub shmem_id: String
+    pub shmem_id: String,
+
+    /// Launch the application in debug mode
+    #[clap(short='d')]
+    pub debug_mode: bool,
 
 }

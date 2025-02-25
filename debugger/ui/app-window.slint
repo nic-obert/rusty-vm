@@ -1,0 +1,33 @@
+import { ActionButtons } from "action_buttons.slint";
+import { MemoryArea } from "memory.slint";
+import { BreakpointArea } from "breakpoints.slint";
+import { RegistersArea } from "registers.slint";
+import { InstructionsArea } from "instructions.slint";
+import { Styling } from "styling.slint";
+
+
+export component MainWindow inherits Window {
+
+    VerticalLayout {
+
+        spacing: Styling.inter-area-spacing;
+
+        HorizontalLayout {
+
+            spacing: Styling.inter-area-spacing;
+
+            MemoryArea {}
+            BreakpointArea {}
+            RegistersArea {}
+        }
+
+        HorizontalLayout {
+
+            spacing: Styling.inter-area-spacing;
+
+            InstructionsArea {}
+            ActionButtons {}
+        }
+    }
+
+}

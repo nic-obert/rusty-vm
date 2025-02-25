@@ -1,0 +1,50 @@
+import { TextEdit, ScrollView } from "std-widgets.slint";
+
+
+export component MemoryArea {
+
+    VerticalLayout {
+        Text {
+            text: "Memory";
+        }
+        ScrollView {
+
+            // TODO: maybe change this
+            min-height: 5rem;
+
+            HorizontalLayout {
+
+                alignment: start;
+                spacing: 1rem;
+
+                TextInput {
+                    read-only: true;
+                    single-line: false;
+                    text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
+                }
+
+                TextInput {
+                    read-only: true;
+                    single-line: false;
+                    text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
+                }
+            }
+        }
+
+        HorizontalLayout {
+            Text {
+                text: "Start:";
+            }
+            TextInput {
+                text: "0x00";
+            }
+            Text {
+                text: "Span:";
+            }
+            TextInput {
+                text: "0xff";
+            }
+        }
+    }
+
+}

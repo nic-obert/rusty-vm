@@ -1,0 +1,62 @@
+import { ListView, Button, CheckBox, StandardButton } from "std-widgets.slint";
+
+
+component BreakpointLine {
+
+    in-out property <bool> active;
+    in-out property <string> location;
+    in-out property <string> name;
+
+    HorizontalLayout {
+
+        alignment: space-between;
+
+        Text {
+            text: name;
+        }
+        Text {
+            text: location;
+        }
+
+        HorizontalLayout {
+
+            CheckBox {
+                checked: active;
+            }
+            Button {
+                text: "X";
+            }
+        }
+    }
+
+}
+
+export component BreakpointArea {
+
+    VerticalLayout {
+
+        Text {
+            text: "Breakpoints";
+        }
+
+        ListView {
+            for x in 17: BreakpointLine {
+                active: true;
+                name: "NAME";
+                location: "LOCATION";
+            }
+        }
+
+        HorizontalLayout {
+            Button {
+                text: "Add here";
+            }
+            Button {
+                text: "Add at label";
+            }
+        }
+
+
+    }
+
+}
