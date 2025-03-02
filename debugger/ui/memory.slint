@@ -1,4 +1,5 @@
 import { TextEdit, ScrollView } from "std-widgets.slint";
+import { SelectableText } from "utils.slint";
 
 
 export component MemoryArea {
@@ -17,15 +18,13 @@ export component MemoryArea {
                 alignment: start;
                 spacing: 1rem;
 
-                TextInput {
-                    read-only: true;
-                    single-line: false;
+                SelectableText {
+                    multiline: true;
                     text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
                 }
 
-                TextInput {
-                    read-only: true;
-                    single-line: false;
+                SelectableText {
+                    multiline: true;
                     text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
                 }
             }

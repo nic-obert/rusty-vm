@@ -1,7 +1,9 @@
 import { ListView, ScrollView, LineEdit } from "std-widgets.slint";
+import { SelectableText } from "utils.slint";
 
 global Shared {
-    out property <[string]> reg-names: ["r1", "r2", "r3", "r4"];
+    // Ordering matters
+    out property <[string]> reg-names: ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "input", "error", "print", "int", "stp", "pc", "sbp", "zf", "sf", "rf", "cf", "of"];
 }
 
 component RegisterSet {
@@ -9,12 +11,22 @@ component RegisterSet {
     in property <[int]> registers;
 
     VerticalLayout {
+
+        Rectangle {
+            height: 2px;
+            background: gray;
+        }
+        Rectangle {height: 5px;}
+
         for name[i] in Shared.reg-names : HorizontalLayout {
+            alignment: start;
             Text {
+                font-weight: 800;
                 text: name;
             }
-            LineEdit {
-                read-only: true;
+            Rectangle {width: 10px;}
+            SelectableText {
+                height: 2rem;
                 text: registers[i];
             }
         }
@@ -27,7 +39,7 @@ export component RegistersArea {
         Text {
             text: "Registers";
         }
-        ScrollView {
+        ListView {
             for i in 4: RegisterSet {
                 registers: [1,2,3,4];
             }

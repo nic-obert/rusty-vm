@@ -3,27 +3,30 @@ import { Button } from "std-widgets.slint";
 
 export component ActionButtons {
 
-    GridLayout {
+    property <length> button-padding: 10px;
 
-        Row {
-            Button {
-                text: "Dump core";
-            }
-            Button {
-                text: "View debug header";
-            }
+    VerticalLayout {
+
+        Button {
+            width: self.min-width + button-padding;
+            text: "Dump core";
+        }
+        Button {
+            width: self.min-width + button-padding;
+            text: "View debug header";
         }
 
-        Row {
-            Button {
-                text: "Advance";
-            }
-            Button {
-                text: "Continue";
-            }
-            Button {
-                text: "Stop";
-            }
+        Button {
+            width: self.min-width + button-padding;
+            text: "Advance";
+        }
+        Button {
+            width: self.min-width + button-padding;
+            text: "Continue";
+        }
+        Button {
+            width: self.min-width + button-padding;
+            text: "Stop";
         }
 
     }

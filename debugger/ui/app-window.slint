@@ -4,6 +4,7 @@ import { BreakpointArea } from "breakpoints.slint";
 import { RegistersArea } from "registers.slint";
 import { InstructionsArea } from "instructions.slint";
 import { Styling } from "styling.slint";
+// import { HorizontalSplitter } from "utils.slint";
 
 
 export component MainWindow inherits Window {
@@ -14,20 +15,35 @@ export component MainWindow inherits Window {
 
         HorizontalLayout {
 
+            height: 400px;
             spacing: Styling.inter-area-spacing;
 
             MemoryArea {}
             BreakpointArea {}
             RegistersArea {}
+
         }
+
 
         HorizontalLayout {
 
-            spacing: Styling.inter-area-spacing;
+            instructions-area := InstructionsArea {
+                // width: splitter.x;
+            }
 
-            InstructionsArea {}
-            ActionButtons {}
+            action-buttons := ActionButtons {
+                // width: root.width - splitter.x;
+            }
         }
     }
+
+    // splitter := HorizontalSplitter {
+
+    //     height: 100%;
+    //     y: instructions-area.absolute-position.y;
+    //     min-x: root.x + instructions-area.min-width;
+    //     max-x: root.width - action-buttons.min-width;
+
+    // }
 
 }

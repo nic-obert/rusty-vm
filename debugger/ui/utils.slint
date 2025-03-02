@@ -1,0 +1,28 @@
+
+export component HorizontalSplitter inherits TouchArea {
+    in property <length> max-x;
+    in property <length> min-x;
+
+    width: 4px;
+    mouse-cursor: ew-resize;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: blue;
+    }
+
+    moved => {
+        self.x = min(max-x, max(self.x + self.mouse-x - self.pressed-x, min-x));
+    }
+}
+
+
+export component SelectableText inherits TextInput {
+
+    in property <bool> multiline: false;
+
+    read-only: false;
+    single-line: !multiline;
+
+}
