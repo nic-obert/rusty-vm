@@ -6,6 +6,7 @@ use crate::registers::CPURegisters;
 
 pub const DEBUGGER_ATTACH_SLEEP: Duration = Duration::from_millis(200);
 pub const DEBUGGER_COMMAND_WAIT_SLEEP: Duration = Duration::from_millis(50);
+pub const DEBUGGER_UPDATE_WAIT_SLEEP: Duration = Duration::from_millis(10);
 
 pub const CPU_REGISTERS_OFFSET: usize = 0;
 pub const RUNNING_FLAG_OFFSET: usize = CPU_REGISTERS_OFFSET + mem::size_of::<bool>();

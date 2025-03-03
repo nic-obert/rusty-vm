@@ -30,7 +30,7 @@ pub const GENERAL_PURPOSE_REGISTER_COUNT: usize = {
 
 impl Registers {
 
-    pub  const fn to_bytes(&self) -> [u8; REGISTER_ID_SIZE] {
+    pub const fn to_bytes(&self) -> [u8; REGISTER_ID_SIZE] {
         [*self as u8]
     }
 
@@ -109,6 +109,15 @@ pub struct CPURegisters([RegisterContentType; REGISTER_COUNT]);
 
 impl CPURegisters {
 
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(
+                self.0.as_ptr().cast::<u8>(),
+                mem::size_of::<CPURegisters>()
+            )
+        }
+    }
+
     /// Get the value of the given register
     #[inline]
     pub fn get(&self, register: Registers) -> u64 {
@@ -161,6 +170,31 @@ impl CPURegisters {
 
     pub fn iter(&self) -> std::slice::Iter<'_, u64> {
         self.0.iter()
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn cpu_registers_as_bytes() {
+
+        let mut regs = CPURegisters::default();
+
+        regs.set(Registers::R1, 57812);
+        regs.set(Registers::R2, 0);
+
+        let bytes = regs.as_bytes();
+
+        let r1 = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let r2 = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+
+        assert_eq!(r1, 57812);
+        assert_eq!(r2, 0);
     }
 
 }

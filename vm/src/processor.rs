@@ -232,10 +232,11 @@ impl Processor {
             .expect("Failed to start debugger process");
 
         // Wait for the debugger to be ready
+        println!("Waiting for debugger");
         while unsafe { !running_flag.read_volatile() } {
             thread::sleep(DEBUGGER_ATTACH_SLEEP);
         }
-
+        println!("Debugger connected");
         while unsafe { !terminate_command.read_volatile() } {
 
             if unsafe { running_flag.read_volatile() } {

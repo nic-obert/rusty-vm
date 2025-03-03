@@ -1,4 +1,5 @@
 import { Button } from "std-widgets.slint";
+import { Backend } from "backend.slint";
 
 
 export component ActionButtons {
@@ -7,26 +8,40 @@ export component ActionButtons {
 
     VerticalLayout {
 
-        Button {
+        dump-core-btn := Button {
             width: self.min-width + button-padding;
             text: "Dump core";
+            clicked => {
+                Backend.dump-core();
+            }
         }
-        Button {
+        view-debug-header-btn := Button {
             width: self.min-width + button-padding;
             text: "View debug header";
+            clicked => {
+                Backend.view-debug-header();
+            }
         }
-
-        Button {
+        advance-btn := Button {
             width: self.min-width + button-padding;
             text: "Advance";
+            clicked => {
+                Backend.advance();
+            }
         }
-        Button {
+        continue-btn := Button {
             width: self.min-width + button-padding;
             text: "Continue";
+            clicked => {
+                Backend.continue();
+            }
         }
-        Button {
+        stop-btn := Button {
             width: self.min-width + button-padding;
             text: "Stop";
+            clicked => {
+                Backend.stop();
+            }
         }
 
     }
