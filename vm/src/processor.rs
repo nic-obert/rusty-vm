@@ -233,7 +233,7 @@ impl Processor {
 
         // Wait for the debugger to be ready
         println!("Waiting for debugger");
-        while unsafe { !running_flag.read_volatile() } {
+        while unsafe { !running_flag.read_volatile() && !terminate_command.read_volatile() } {
             thread::sleep(DEBUGGER_ATTACH_SLEEP);
         }
         println!("Debugger connected");
@@ -254,7 +254,7 @@ impl Processor {
                 }
 
                 // Wait until execution is resumed by the debugger
-                while unsafe { !running_flag.read_volatile() } {
+                while unsafe { !running_flag.read_volatile() || !terminate_command.read_volatile() } {
                     thread::sleep(DEBUGGER_COMMAND_WAIT_SLEEP);
                 }
             }

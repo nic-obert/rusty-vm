@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use rfd::FileDialog;
+use slint::CloseRequestResponse;
 
 use crate::debugger::Debugger;
 
@@ -40,5 +41,11 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     main_window.global::<Backend>().on_continue(move || {
         debugger_ref.resume_vm();
         // TODO: deal with eventual breakpoints when they're implemented
+    });
+
+    let debugger_ref = Rc::clone(&debugger);
+    main_window.window().on_close_requested(move|| {
+        debugger_ref.close();
+        CloseRequestResponse::HideWindow
     });
 }

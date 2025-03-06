@@ -44,6 +44,13 @@ impl Debugger {
     }
 
 
+    pub fn close(&self) {
+        unsafe {
+            self.terminate_command.write(true);
+        }
+    }
+
+
     /// The returned slice is not guaranteed to be consistent when the VM is running
     pub fn read_vm_memory(&self) -> &[u8] {
         unsafe {
