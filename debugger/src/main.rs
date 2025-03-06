@@ -1,3 +1,6 @@
+#![feature(new_range_api)]
+#![feature(array_chunks)]
+#![feature(iter_next_chunk)]
 mod cli_parser;
 mod ui;
 mod debugger;

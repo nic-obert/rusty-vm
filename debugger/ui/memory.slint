@@ -4,6 +4,11 @@ import { SelectableText } from "utils.slint";
 
 export component MemoryArea {
 
+    in property <string> memory-lines;
+    in property <string> memory-view;
+    in-out property <int> memory-start;
+    in-out property <int> memory-span;
+
     VerticalLayout {
         Text {
             text: "Memory";
@@ -20,12 +25,12 @@ export component MemoryArea {
 
                 SelectableText {
                     multiline: true;
-                    text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
+                    text: memory-lines;
                 }
 
                 SelectableText {
                     multiline: true;
-                    text: "aa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\naa bb cc dd\n";
+                    text: memory-view;
                 }
             }
         }
@@ -35,13 +40,13 @@ export component MemoryArea {
                 text: "Start:";
             }
             TextInput {
-                text: "0x00";
+                text: memory-start;
             }
             Text {
                 text: "Span:";
             }
             TextInput {
-                text: "0xff";
+                text: memory-span;
             }
         }
     }

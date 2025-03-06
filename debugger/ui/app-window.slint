@@ -11,6 +11,12 @@ export { Backend } from "backend.slint";
 
 export component MainWindow inherits Window {
 
+    in-out property <string> memory-view <=> memory-area.memory-view;
+    in-out property <string> memory-lines <=> memory-area.memory-lines;
+    in-out property <int> memory-start <=> memory-area.memory-start;
+    in-out property <int> memory-span <=> memory-area.memory-span;
+
+
     VerticalLayout {
 
         spacing: Styling.inter-area-spacing;
@@ -20,7 +26,7 @@ export component MainWindow inherits Window {
             height: 400px;
             spacing: Styling.inter-area-spacing;
 
-            MemoryArea {}
+            memory-area := MemoryArea {}
             BreakpointArea {}
             RegistersArea {}
 
