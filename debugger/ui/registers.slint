@@ -3,12 +3,12 @@ import { SelectableText } from "utils.slint";
 
 global Shared {
     // Ordering matters
-    out property <[string]> reg-names: ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "input", "error", "print", "int", "stp", "pc", "sbp", "zf", "sf", "rf", "cf", "of"];
+    out property <[string]> reg_names: ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "input", "error", "print", "int", "stp", "pc", "sbp", "zf", "sf", "rf", "cf", "of"];
 }
 
 component RegisterSet {
 
-    in property <[int]> registers;
+    in property <[string]> registers;
 
     VerticalLayout {
 
@@ -18,7 +18,7 @@ component RegisterSet {
         }
         Rectangle {height: 5px;}
 
-        for name[i] in Shared.reg-names : HorizontalLayout {
+        for name[i] in Shared.reg_names : HorizontalLayout {
             alignment: start;
             Text {
                 font-weight: 800;
@@ -35,16 +35,17 @@ component RegisterSet {
 
 export component RegistersArea {
 
+    in-out property <[[string]]> register_sets;
+
     VerticalLayout {
         Text {
             text: "Registers";
         }
         ListView {
-            for i in 4: RegisterSet {
-                registers: [1,2,3,4];
+            for reg_set in register_sets: RegisterSet {
+                registers: reg_set;
             }
         }
     }
-
 
 }

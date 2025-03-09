@@ -4,7 +4,10 @@ export global Backend {
     callback stop();
     callback continue();
     callback advance();
-    callback view-debug-header();
-    callback dump-core();
+    callback view_debug_header();
+    callback dump_core();
+
+    callback memory_start_changed();
+    callback memory_span_changed();
 
 }

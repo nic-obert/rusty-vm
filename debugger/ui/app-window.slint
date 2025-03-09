@@ -11,10 +11,13 @@ export { Backend } from "backend.slint";
 
 export component MainWindow inherits Window {
 
-    in-out property <string> memory-view <=> memory-area.memory-view;
-    in-out property <string> memory-lines <=> memory-area.memory-lines;
-    in-out property <int> memory-start <=> memory-area.memory-start;
-    in-out property <int> memory-span <=> memory-area.memory-span;
+    in-out property <string> memory_view <=> memory_area.memory_view;
+    in-out property <string> memory_lines <=> memory_area.memory_lines;
+    in-out property <string> memory_start <=> memory_area.memory_start;
+    in-out property <string> memory_span <=> memory_area.memory_span;
+    in-out property <bool> memory_span_valid <=> memory_area.mem_span_valid;
+    in-out property <bool> memory_start_valid <=> memory_area.mem_start_valid;
+    in-out property <[[string]]> register_sets <=> registers_area.register_sets;
 
 
     VerticalLayout {
@@ -26,20 +29,20 @@ export component MainWindow inherits Window {
             height: 400px;
             spacing: Styling.inter-area-spacing;
 
-            memory-area := MemoryArea {}
+            memory_area := MemoryArea {}
             BreakpointArea {}
-            RegistersArea {}
+            registers_area := RegistersArea {}
 
         }
 
 
         HorizontalLayout {
 
-            instructions-area := InstructionsArea {
+            instructions_area := InstructionsArea {
                 // width: splitter.x;
             }
 
-            action-buttons := ActionButtons {
+            action_buttons := ActionButtons {
                 // width: root.width - splitter.x;
             }
         }

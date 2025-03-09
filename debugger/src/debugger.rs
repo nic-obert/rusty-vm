@@ -62,6 +62,14 @@ impl Debugger {
     }
 
 
+    pub fn read_registers(&self) -> CPURegisters {
+        assert!(!self.is_running(), "Should not read registers while the VM is running");
+        unsafe {
+            self.cpu_registers.read_volatile()
+        }
+    }
+
+
     pub fn stop_vm(&self) {
 
         // Don't stop the VM if it's not running

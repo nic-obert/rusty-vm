@@ -2,7 +2,8 @@ use core::range::Range;
 use std::rc::Rc;
 
 use rfd::FileDialog;
-use slint::CloseRequestResponse;
+use rusty_vm_lib::registers::CPURegisters;
+use slint::{CloseRequestResponse, Model, ModelRc, SharedString, SharedVector, ToSharedString, VecModel};
 
 use crate::debugger::Debugger;
 
@@ -21,6 +22,10 @@ pub fn run_ui(debugger: Rc<Debugger>) -> Result<(), slint::PlatformError> {
 
 fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
 
+    // let reg_sets: Rc<VecModel<SharedVector<SharedString>>> = Rc::new(VecModel::from(vec![]));
+    // let reg_sets = ModelRc::from(reg_sets.clone());
+    // main_window.set_register_sets(reg_sets);
+
     let debugger_ref = Rc::clone(&debugger);
     main_window.global::<Backend>().on_dump_core(move || {
 
@@ -34,8 +39,14 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     });
 
     let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_stop(move || {
+        let window = window_weak.unwrap();
         debugger_ref.stop_vm();
+        let current_regs = debugger_ref.read_registers();
+        let reg_sets: ModelRc<ModelRc<SharedString>> = window.get_register_sets();
+        let vec_model = reg_sets.as_any().downcast_ref::<VecModel<VecModel<SharedString>>>().unwrap();
+
     });
 
     let debugger_ref = Rc::clone(&debugger);
@@ -45,19 +56,71 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     });
 
     let debugger_ref = Rc::clone(&debugger);
-    main_window.window().on_close_requested(move|| {
+    main_window.window().on_close_requested(move || {
         debugger_ref.close();
         CloseRequestResponse::HideWindow
     });
+
+    let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    main_window.global::<Backend>().on_memory_start_changed(move || {
+        let window = window_weak.unwrap();
+        memory_view_changed(&window, &debugger_ref);
+    });
+
+    let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    main_window.global::<Backend>().on_memory_span_changed(move || {
+        let window = window_weak.unwrap();
+        memory_view_changed(&window, &debugger_ref);
+    });
+
 }
 
 
-fn generate_memory_strings(memory: &[u8], range: Range<usize>) -> Option<(String, String)> {
+fn memory_view_changed(window: &MainWindow, debugger: &Debugger) {
+    let mem_start = window.get_memory_start();
+    let mem_span = window.get_memory_span();
+
+    let mem_start = usize::from_str_radix(mem_start.as_str(), 16);
+    let mem_span = usize::from_str_radix(mem_span.as_str(), 16);
+
+    window.set_memory_span_valid(mem_span.is_ok());
+    window.set_memory_start_valid(mem_start.is_ok());
+
+    if let (Ok(mem_start), Ok(mem_span)) = (mem_start, mem_span) {
+        let vm_mem = debugger.read_vm_memory();
+        let mem_range = Range { start: mem_start, end: mem_start + mem_span };
+        let (lines_str, mem_str) = {
+            if let Some((lines_str, mem_str)) = generate_memory_strings(vm_mem, mem_range) {
+                (lines_str.to_shared_string(), mem_str.to_shared_string())
+            } else {
+                let string = SharedString::from("Memory range outside bounds");
+                (string.clone(), string)
+            }
+        };
+        window.set_memory_lines(lines_str);
+        window.set_memory_view(mem_str);
+    }
+}
+
+
+fn generate_registers_strings(regs: &CPURegisters) -> () {
+
+}
+
+
+fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(String, String)> {
+    // TODO: optimize this to reuse the old string buffers when they're the same size.
+    // It seems however to be fast enough, for now.
 
     const BYTES_PER_ROW: usize = 16;
 
     if memory.len() < range.end {
-        return None;
+        range.end = memory.len();
+        if range.start > range.end {
+            return None;
+        }
     }
 
     let mem_view = &memory[range.start..range.end];
@@ -68,7 +131,7 @@ fn generate_memory_strings(memory: &[u8], range: Range<usize>) -> Option<(String
     let mut lines_str = String::new();
     // The *2 considers a space or newline character after every byte
     let mut mem_str = String::with_capacity(line_count * BYTES_PER_ROW * 2);
-    let mut row_index: usize = 0;
+    let mut row_index: usize = range.start;
 
     let mut mem_rows = mem_view.array_chunks::<BYTES_PER_ROW>();
     for full_row in mem_rows.by_ref() {

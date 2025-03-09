@@ -4,40 +4,40 @@ import { Backend } from "backend.slint";
 
 export component ActionButtons {
 
-    property <length> button-padding: 10px;
+    property <length> button_padding: 10px;
 
     VerticalLayout {
 
         dump-core-btn := Button {
-            width: self.min-width + button-padding;
+            width: self.min-width + button_padding;
             text: "Dump core";
             clicked => {
-                Backend.dump-core();
+                Backend.dump_core();
             }
         }
         view-debug-header-btn := Button {
-            width: self.min-width + button-padding;
+            width: self.min-width + button_padding;
             text: "View debug header";
             clicked => {
-                Backend.view-debug-header();
+                Backend.view_debug_header();
             }
         }
         advance-btn := Button {
-            width: self.min-width + button-padding;
+            width: self.min-width + button_padding;
             text: "Advance";
             clicked => {
                 Backend.advance();
             }
         }
         continue-btn := Button {
-            width: self.min-width + button-padding;
+            width: self.min-width + button_padding;
             text: "Continue";
             clicked => {
                 Backend.continue();
             }
         }
         stop-btn := Button {
-            width: self.min-width + button-padding;
+            width: self.min-width + button_padding;
             text: "Stop";
             clicked => {
                 Backend.stop();

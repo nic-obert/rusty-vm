@@ -1,13 +1,17 @@
-import { TextEdit, ScrollView } from "std-widgets.slint";
+import { TextEdit, ScrollView, LineEdit } from "std-widgets.slint";
 import { SelectableText } from "utils.slint";
+import { Backend } from "backend.slint";
 
 
 export component MemoryArea {
 
-    in property <string> memory-lines;
-    in property <string> memory-view;
-    in-out property <int> memory-start;
-    in-out property <int> memory-span;
+    in-out property <string> memory_lines;
+    in-out property <string> memory_view;
+    in-out property <string> memory_start <=> mem_start_input.text;
+    in-out property <string> memory_span <=> mem_span_input.text;
+    in-out property <bool> mem_span_valid: true;
+    in-out property <bool> mem_start_valid: true;
+
 
     VerticalLayout {
         Text {
@@ -25,28 +29,49 @@ export component MemoryArea {
 
                 SelectableText {
                     multiline: true;
-                    text: memory-lines;
+                    text: memory_lines;
                 }
 
                 SelectableText {
                     multiline: true;
-                    text: memory-view;
+                    text: memory_view;
                 }
             }
         }
 
         HorizontalLayout {
+            spacing: 0;
+            alignment: start;
+
             Text {
                 text: "Start:";
             }
-            TextInput {
-                text: memory-start;
+            Rectangle {width: 1rem;}
+            Text {
+                text: "0x";
             }
+            mem_start_input := TextInput {
+                min-width: 4rem;
+                horizontal-alignment: left;
+                color: mem_start_valid ? Colors.black : Colors.red;
+                accepted => {
+                    Backend.memory_start_changed();
+                }
+            }
+            Rectangle {width: 10px;}
             Text {
                 text: "Span:";
             }
-            TextInput {
-                text: memory-span;
+            Rectangle {width: 1rem;}
+            Text {
+                text: "0x";
+            }
+            mem_span_input := TextInput {
+                min-width: 4rem;
+                color: mem_span_valid ? Colors.black : Colors.red;
+                accepted => {
+                    Backend.memory_span_changed();
+                }
             }
         }
     }
