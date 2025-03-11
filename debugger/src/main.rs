@@ -1,9 +1,11 @@
 #![feature(new_range_api)]
 #![feature(array_chunks)]
 #![feature(iter_next_chunk)]
+#![feature(slice_as_chunks)]
 mod cli_parser;
 mod ui;
 mod debugger;
+mod queue_model;
 
 use std::rc::Rc;
 

@@ -6,7 +6,8 @@ global Shared {
     out property <[string]> reg_names: ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "input", "error", "print", "int", "stp", "pc", "sbp", "zf", "sf", "rf", "cf", "of"];
 }
 
-component RegisterSet {
+
+component RegisterSetView {
 
     in property <[string]> registers;
 
@@ -42,7 +43,7 @@ export component RegistersArea {
             text: "Registers";
         }
         ListView {
-            for reg_set in register_sets: RegisterSet {
+            for reg_set in register_sets: RegisterSetView {
                 registers: reg_set;
             }
         }

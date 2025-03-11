@@ -1,6 +1,7 @@
 import { TextEdit, ScrollView, LineEdit } from "std-widgets.slint";
 import { SelectableText } from "utils.slint";
 import { Backend } from "backend.slint";
+import { Styling } from "styling.slint";
 
 
 export component MemoryArea {
@@ -53,7 +54,7 @@ export component MemoryArea {
             mem_start_input := TextInput {
                 min-width: 4rem;
                 horizontal-alignment: left;
-                color: mem_start_valid ? Colors.black : Colors.red;
+                color: mem_start_valid ? Styling.valid_data_color : Styling.invalid_data_color;
                 accepted => {
                     Backend.memory_start_changed();
                 }
@@ -68,7 +69,7 @@ export component MemoryArea {
             }
             mem_span_input := TextInput {
                 min-width: 4rem;
-                color: mem_span_valid ? Colors.black : Colors.red;
+                color: mem_span_valid ? Styling.valid_data_color : Styling.invalid_data_color;
                 accepted => {
                     Backend.memory_span_changed();
                 }

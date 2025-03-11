@@ -2,13 +2,20 @@ use core::range::Range;
 use std::rc::Rc;
 
 use rfd::FileDialog;
-use rusty_vm_lib::registers::CPURegisters;
-use slint::{CloseRequestResponse, Model, ModelRc, SharedString, SharedVector, ToSharedString, VecModel};
+use slint::{CloseRequestResponse, Model, ModelRc, SharedString, ToSharedString, VecModel};
 
-use crate::debugger::Debugger;
+use rusty_vm_lib::registers::REGISTER_SIZE;
+
+use crate::{debugger::Debugger, queue_model::QueueModel};
 
 
 slint::include_modules!();
+
+
+/// How many bytes to show for every row in the memory inspector area.
+const BYTES_PER_MEMORY_ROW: usize = 16;
+/// How many register sets to keep in the registers area.
+const REGISTERS_HISTORY_LIMIT: usize = 10;
 
 
 pub fn run_ui(debugger: Rc<Debugger>) -> Result<(), slint::PlatformError> {
@@ -22,10 +29,18 @@ pub fn run_ui(debugger: Rc<Debugger>) -> Result<(), slint::PlatformError> {
 
 fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
 
-    // let reg_sets: Rc<VecModel<SharedVector<SharedString>>> = Rc::new(VecModel::from(vec![]));
-    // let reg_sets = ModelRc::from(reg_sets.clone());
-    // main_window.set_register_sets(reg_sets);
+    // Initialize the register model
+    let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::from(vec![]));
+    let regs_model = ModelRc::from(regs);
+    main_window.set_register_sets(regs_model);
 
+
+    // Initialize the models with initial values
+    //
+    update_registers(main_window, &debugger);
+
+    // Bind UI to backend functionality
+    //
     let debugger_ref = Rc::clone(&debugger);
     main_window.global::<Backend>().on_dump_core(move || {
 
@@ -43,10 +58,7 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     main_window.global::<Backend>().on_stop(move || {
         let window = window_weak.unwrap();
         debugger_ref.stop_vm();
-        let current_regs = debugger_ref.read_registers();
-        let reg_sets: ModelRc<ModelRc<SharedString>> = window.get_register_sets();
-        let vec_model = reg_sets.as_any().downcast_ref::<VecModel<VecModel<SharedString>>>().unwrap();
-
+        update_registers(&window, &debugger_ref);
     });
 
     let debugger_ref = Rc::clone(&debugger);
@@ -78,6 +90,27 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
 }
 
 
+fn update_registers(window: &MainWindow, debugger: &Debugger) {
+    let current_regs = debugger.read_registers();
+    let reg_sets_model: ModelRc<ModelRc<SharedString>> = window.get_register_sets();
+    let reg_sets_queue = reg_sets_model.as_any().downcast_ref::<QueueModel<ModelRc<SharedString>>>().unwrap();
+
+    let new_reg_set: VecModel<SharedString> = current_regs
+        .as_bytes()
+        .as_chunks::<REGISTER_SIZE>()
+        .0
+        .iter()
+        .map(|bytes| usize::from_le_bytes(*bytes).to_shared_string())
+        .collect();
+    let new_reg_set_model = ModelRc::from(Rc::new(new_reg_set));
+
+    if reg_sets_queue.len() >= REGISTERS_HISTORY_LIMIT-1 {
+        reg_sets_queue.pop_front();
+    }
+    reg_sets_queue.push_back(new_reg_set_model);
+}
+
+
 fn memory_view_changed(window: &MainWindow, debugger: &Debugger) {
     let mem_start = window.get_memory_start();
     let mem_span = window.get_memory_span();
@@ -105,16 +138,9 @@ fn memory_view_changed(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn generate_registers_strings(regs: &CPURegisters) -> () {
-
-}
-
-
 fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(String, String)> {
     // TODO: optimize this to reuse the old string buffers when they're the same size.
     // It seems however to be fast enough, for now.
-
-    const BYTES_PER_ROW: usize = 16;
 
     if memory.len() < range.end {
         range.end = memory.len();
@@ -125,24 +151,24 @@ fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(St
 
     let mem_view = &memory[range.start..range.end];
 
-    let line_count = mem_view.len() / BYTES_PER_ROW + (mem_view.len() % BYTES_PER_ROW != 0) as usize;
+    let line_count = mem_view.len() / BYTES_PER_MEMORY_ROW + (mem_view.len() % BYTES_PER_MEMORY_ROW != 0) as usize;
 
     // TODO: pre-allocate the string
     let mut lines_str = String::new();
     // The *2 considers a space or newline character after every byte
-    let mut mem_str = String::with_capacity(line_count * BYTES_PER_ROW * 2);
+    let mut mem_str = String::with_capacity(line_count * BYTES_PER_MEMORY_ROW * 2);
     let mut row_index: usize = range.start;
 
-    let mut mem_rows = mem_view.array_chunks::<BYTES_PER_ROW>();
+    let mut mem_rows = mem_view.array_chunks::<BYTES_PER_MEMORY_ROW>();
     for full_row in mem_rows.by_ref() {
-        for byte in &full_row[..BYTES_PER_ROW-1] {
+        for byte in &full_row[..BYTES_PER_MEMORY_ROW-1] {
             mem_str.push_str(format!("{:02X}", *byte).as_str());
             mem_str.push(' ');
         }
-        mem_str.push_str(format!("{:02X}", full_row[BYTES_PER_ROW-1]).as_str());
+        mem_str.push_str(format!("{:02X}", full_row[BYTES_PER_MEMORY_ROW-1]).as_str());
         mem_str.push('\n');
         lines_str.push_str(format!("{:#X}\n", row_index).as_str());
-        row_index += BYTES_PER_ROW;
+        row_index += BYTES_PER_MEMORY_ROW;
     }
 
     let remainder_row = mem_rows.remainder();
