@@ -6,7 +6,8 @@ use slint::{CloseRequestResponse, Model, ModelRc, SharedString, ToSharedString, 
 
 use rusty_vm_lib::registers::REGISTER_SIZE;
 
-use crate::{debugger::Debugger, queue_model::QueueModel};
+use crate::queue_model::QueueModel;
+use crate::debugger::Debugger;
 
 
 slint::include_modules!();
@@ -37,7 +38,7 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
 
     // Initialize the models with initial values
     //
-    update_registers(main_window, &debugger);
+    update_register_view(main_window, &debugger);
 
     // Bind UI to backend functionality
     //
@@ -58,7 +59,7 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     main_window.global::<Backend>().on_stop(move || {
         let window = window_weak.unwrap();
         debugger_ref.stop_vm();
-        update_registers(&window, &debugger_ref);
+        update_register_view(&window, &debugger_ref);
     });
 
     let debugger_ref = Rc::clone(&debugger);
@@ -77,20 +78,27 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_start_changed(move || {
         let window = window_weak.unwrap();
-        memory_view_changed(&window, &debugger_ref);
+        update_memory_view(&window, &debugger_ref);
     });
 
     let debugger_ref = Rc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_span_changed(move || {
         let window = window_weak.unwrap();
-        memory_view_changed(&window, &debugger_ref);
+        update_memory_view(&window, &debugger_ref);
+    });
+
+    let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    main_window.global::<Backend>().on_memory_refresh(move || {
+        let window = window_weak.unwrap();
+        update_memory_view(&window, &debugger_ref);
     });
 
 }
 
 
-fn update_registers(window: &MainWindow, debugger: &Debugger) {
+fn update_register_view(window: &MainWindow, debugger: &Debugger) {
     let current_regs = debugger.read_registers();
     let reg_sets_model: ModelRc<ModelRc<SharedString>> = window.get_register_sets();
     let reg_sets_queue = reg_sets_model.as_any().downcast_ref::<QueueModel<ModelRc<SharedString>>>().unwrap();
@@ -111,7 +119,7 @@ fn update_registers(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn memory_view_changed(window: &MainWindow, debugger: &Debugger) {
+fn update_memory_view(window: &MainWindow, debugger: &Debugger) {
     let mem_start = window.get_memory_start();
     let mem_span = window.get_memory_span();
 
@@ -139,8 +147,8 @@ fn memory_view_changed(window: &MainWindow, debugger: &Debugger) {
 
 
 fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(String, String)> {
-    // TODO: optimize this to reuse the old string buffers when they're the same size.
-    // It seems however to be fast enough, for now.
+    // Note: benchmarks show pre-allocating the strings or reusing old strings does not impact performance
+    // TODO: test it within the application context and see if there's any difference
 
     if memory.len() < range.end {
         range.end = memory.len();
@@ -151,12 +159,8 @@ fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(St
 
     let mem_view = &memory[range.start..range.end];
 
-    let line_count = mem_view.len() / BYTES_PER_MEMORY_ROW + (mem_view.len() % BYTES_PER_MEMORY_ROW != 0) as usize;
-
-    // TODO: pre-allocate the string
     let mut lines_str = String::new();
-    // The *2 considers a space or newline character after every byte
-    let mut mem_str = String::with_capacity(line_count * BYTES_PER_MEMORY_ROW * 2);
+    let mut mem_str = String::new();
     let mut row_index: usize = range.start;
 
     let mut mem_rows = mem_view.array_chunks::<BYTES_PER_MEMORY_ROW>();

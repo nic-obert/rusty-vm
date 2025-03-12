@@ -2,6 +2,7 @@
 #![feature(array_chunks)]
 #![feature(iter_next_chunk)]
 #![feature(slice_as_chunks)]
+#![feature(test)]
 mod cli_parser;
 mod ui;
 mod debugger;
