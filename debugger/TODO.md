@@ -4,4 +4,3 @@
 - (UI) separators to resize the UI areas
 - implement breakpoints
 - implement DWARF-like format
-- update registers in the UI

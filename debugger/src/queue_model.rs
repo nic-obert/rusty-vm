@@ -1,6 +1,7 @@
-use std::{cell::RefCell, collections::VecDeque};
+use std::collections::VecDeque;
+use std::cell::RefCell;
 
-use slint::{Model, ModelNotify, ModelRc, ModelTracker};
+use slint::{Model, ModelNotify, ModelTracker};
 
 
 
@@ -12,14 +13,6 @@ pub struct QueueModel<T> {
 }
 
 impl<T: 'static> QueueModel<T> {
-
-    /// Allocate a new model from a slice
-    pub fn from_slice(slice: &[T]) -> ModelRc<T>
-    where
-        T: Clone,
-    {
-        ModelRc::new(Self::from(slice.to_vec()))
-    }
 
     /// Add a row at the end of the model
     pub fn push_back(&self, value: T) {
@@ -34,36 +27,12 @@ impl<T: 'static> QueueModel<T> {
         v
     }
 
-    /// Clears the model, removing all values
-    ///
-    /// Similar to [`Vec::clear`]
-    pub fn clear(&self) {
-        self.queue.borrow_mut().clear();
-        self.notify.reset();
-    }
-
-
     /// Returns the number of elements in the model
     pub fn len(&self) -> usize {
         self.queue.borrow().len()
     }
 
 }
-
-// impl<T: Clone + 'static> QueueModel<T> {
-//     /// Appends all the elements in the slice to the model
-//     ///
-//     /// Similar to [`Vec::extend_from_slice`]
-//     pub fn extend_from_slice(&self, src: &[T]) {
-//         let mut queue = self.queue.borrow_mut();
-//         let old_idx = queue.len();
-
-//         queue.extend(src.iter());
-//         // queue.extend_from_slice(src);
-//         drop(queue);
-//         self.notify.row_added(old_idx, src.len());
-//     }
-// }
 
 impl<T> From<Vec<T>> for QueueModel<T> {
     fn from(v: Vec<T>) -> Self {

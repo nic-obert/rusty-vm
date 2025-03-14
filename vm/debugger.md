@@ -43,13 +43,25 @@ Possible implementations:
 - use an IPC message to stop or resume the VM (and get the registers state on stop)
 
 ### Advance by one instruction
- 0. Execution is stopped and current registers are available.
- 1. Set a breakpoint on the next instruction.
+ 0. Execution is stopped and current registers are available (initial state).
+ 1. If the previous instruction had a persistent breakpoint, restore the breakpoint
+ 2. Set a breakpoint on the next instruction, if present. (either the current pc or the target jump address)
  DOESN'T WORK IF THE CURRENT PC IS ON A JUMP INSTRUCTION. A branch interpreter may be used in this case to identify the correct instruction to set a breakpoint on.
  Also, check for memory bounds. The last instruction in the executable may also be the last byte in memory. The `exit` instruction may be treated as a jump instruction since it alters the program flow, and no breakpoint shall be placed after it.
- 2. If the current pc has a breakpoint, restore the overwritten instruction at the current pc.
- 3. Continue execution. The VM will stop at the next instruction because of the breakpoint.
- 4. If the previous instruction had a breakpoint, restore the breakpoint.
+ 3. Decrement program counter to execute the current instruction that was replaced by the breakpoint.
+ 4. The current pc should have a breakpoint, restore the overwritten instruction at the current pc.
+ 5. Continue execution. The VM will stop at the next instruction because of the breakpoint.
+
+
+Keep track of the last executed instruction and eventually restore the breakpoint if a persistent breakpoint is registered at that pc.
+
+PC: 1
+0 bp | mov <stop>
+1  mov
+2 BP | mov
+3 mov
+4 exit
+
 
 ### Core dumps
 In the debugger UI, use a file picker to choose the path to save the core file to.
