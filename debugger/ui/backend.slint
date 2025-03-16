@@ -3,12 +3,14 @@ export global Backend {
 
     callback stop();
     callback continue();
-    callback advance();
+    callback step_in();
     callback view_debug_header();
     callback dump_core();
 
     callback memory_start_changed();
     callback memory_span_changed();
     callback memory_refresh();
+
+    callback add_breakpoint_here();
 
 }

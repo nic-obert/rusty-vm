@@ -10,6 +10,7 @@ mod debugger;
 mod queue_model;
 
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use clap::Parser;
 use cli_parser::CliParser;
@@ -25,7 +26,7 @@ fn main() -> Result<(), slint::PlatformError>  {
             eprintln!("Fatal error: {}", err);
             std::process::exit(1);
         });
-    let debugger = Rc::new(debugger);
+    let debugger = Rc::new(RefCell::new(debugger));
 
     ui::run_ui(debugger)
 

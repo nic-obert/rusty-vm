@@ -1,10 +1,11 @@
 import { ListView, Button, CheckBox, StandardButton } from "std-widgets.slint";
+import { Backend } from "backend.slint";
 
 
 export struct BreakPoint {
     name: string,
     location: string,
-    enabled: bool,
+    replaced_value: int,
 }
 
 
@@ -22,16 +23,13 @@ component BreakpointLine {
         Text {
             text: breakpoint.location;
         }
+        Text {
+            text: "(" + breakpoint.replaced-value + ")";
+        }
 
-        HorizontalLayout {
-
-            CheckBox {
-                checked: breakpoint.enabled;
-            }
-            Button {
-                width: self.min-width;
-                text: "X";
-            }
+        Button {
+            width: self.min-width;
+            text: "X";
         }
     }
 
@@ -56,6 +54,9 @@ export component BreakpointArea {
         HorizontalLayout {
             Button {
                 text: "Add here";
+                clicked => {
+                    Backend.add_breakpoint_here();
+                }
             }
             Button {
                 text: "Add at label";

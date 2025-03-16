@@ -24,9 +24,9 @@ export component ActionButtons {
         }
         advance-btn := Button {
             width: self.min-width + button_padding;
-            text: "Advance";
+            text: "Step in";
             clicked => {
-                Backend.advance();
+                Backend.step_in();
             }
         }
         continue-btn := Button {

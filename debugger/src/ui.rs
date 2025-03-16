@@ -1,4 +1,5 @@
 use core::range::Range;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use rfd::FileDialog;
@@ -19,7 +20,7 @@ const BYTES_PER_MEMORY_ROW: usize = 16;
 const REGISTERS_HISTORY_LIMIT: usize = 10;
 
 
-pub fn run_ui(debugger: Rc<Debugger>) -> Result<(), slint::PlatformError> {
+pub fn run_ui(debugger: Rc<RefCell<Debugger>>) -> Result<(), slint::PlatformError> {
     let main_window = MainWindow::new()?;
 
     create_ui(&main_window, debugger);
@@ -28,17 +29,25 @@ pub fn run_ui(debugger: Rc<Debugger>) -> Result<(), slint::PlatformError> {
 }
 
 
-fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
+fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
+
+    // Create data models
+    //
 
     // Initialize the register model
-    let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::from(vec![]));
+    let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::default());
     let regs_model = ModelRc::from(regs);
     main_window.set_register_sets(regs_model);
 
+    // Initialize the breakpoint model
+    let breakpoints: Rc<VecModel<BreakPoint>> = Rc::new(VecModel::default());
+    let breakpoints_model = ModelRc::from(breakpoints);
+    main_window.set_breakpoints(breakpoints_model);
 
-    // Initialize the models with initial values
+
+    // Initialize the models with initial values, if required
     //
-    update_register_view(main_window, &debugger);
+    update_register_view(main_window, &debugger.borrow());
 
     // Bind UI to backend functionality
     //
@@ -51,26 +60,33 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
                 .save_file()
         };
 
-        debugger_ref.dump_core(pick_file);
+        debugger_ref.borrow().dump_core(pick_file);
     });
 
     let debugger_ref = Rc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_stop(move || {
         let window = window_weak.unwrap();
-        debugger_ref.stop_vm();
-        update_register_view(&window, &debugger_ref);
+        debugger_ref.borrow().stop_vm();
+        update_register_view(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
     main_window.global::<Backend>().on_continue(move || {
-        debugger_ref.resume_vm();
-        // TODO: deal with eventual breakpoints when they're implemented
+        debugger_ref.borrow_mut().continue_vm();
+    });
+
+    let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    main_window.global::<Backend>().on_step_in(move || {
+        let window = window_weak.unwrap();
+        debugger_ref.borrow_mut().step_in();
+        update_all_views(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
     main_window.window().on_close_requested(move || {
-        debugger_ref.close();
+        debugger_ref.borrow().close();
         CloseRequestResponse::HideWindow
     });
 
@@ -78,23 +94,57 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<Debugger>) {
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_start_changed(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref);
+        update_memory_view(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_span_changed(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref);
+        update_memory_view(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_refresh(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref);
+        update_memory_view(&window, &debugger_ref.borrow());
     });
 
+    let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    main_window.global::<Backend>().on_add_breakpoint_here(move || {
+        let window = window_weak.unwrap();
+        debugger_ref.borrow_mut().add_persistent_breakpoint_at_pc().unwrap();
+        update_breakpoint_view(&window, &debugger_ref.borrow());
+        todo!()
+    });
+
+}
+
+
+fn update_all_views(window: &MainWindow, debugger: &Debugger) {
+    update_memory_view(window, debugger);
+    update_register_view(window, debugger);
+    update_breakpoint_view(window, debugger);
+}
+
+
+fn update_breakpoint_view(window: &MainWindow, debugger: &Debugger) {
+    let breakpoints = debugger.breakpoint_table().breakpoints();
+    let bp_model = window.get_breakpoints();
+    let bp_vec = bp_model.as_any().downcast_ref::<VecModel<BreakPoint>>().unwrap();
+
+    bp_vec.clear();
+
+    for bp in breakpoints {
+        let bp_view_model = BreakPoint {
+            location: format!("{:X}", bp.location).to_shared_string(),
+            name: bp.name.as_ref().map_or(SharedString::new(), |s| s.clone()),
+            replaced_value: bp.replaced_value as i32
+        };
+        bp_vec.push(bp_view_model);
+    }
 }
 
 

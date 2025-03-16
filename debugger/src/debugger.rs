@@ -14,7 +14,7 @@ use slint::SharedString;
 
 
 #[derive(Clone)]
-struct Breakpoint {
+pub struct Breakpoint {
     pub name: Option<SharedString>,
     pub location: usize,
     pub replaced_value: u8,
@@ -22,24 +22,28 @@ struct Breakpoint {
 }
 
 #[derive(Default)]
-struct BreakpointTable {
+pub struct BreakpointTable {
     breakpoints: HashMap<usize, Breakpoint>,
 }
 
 impl BreakpointTable {
 
-    pub fn get(&self, location: usize) -> Option<Breakpoint> {
-        self.breakpoints.get(&location).cloned()
+    pub fn breakpoints(&self) -> impl Iterator<Item = &Breakpoint> {
+        self.breakpoints.values()
     }
 
-    pub fn insert(&mut self, location: usize, bp: Breakpoint) {
+    pub fn get(&self, location: usize) -> Option<&Breakpoint> {
+        self.breakpoints.get(&location)
+    }
+
+    pub fn insert_replace(&mut self, bp: Breakpoint) {
         if bp.persistent {
             // Persistent breakpoints always get inserted.
             // If a persistent breakpoint is already present in the same location, the new breakpoint will overwrite the old one.
-            self.breakpoints.insert(location, bp);
+            self.breakpoints.insert(bp.location, bp);
         } else {
             // Temporary breakpoints are only inserted if no other breakpoint is present in the same location.
-            let _ = self.breakpoints.try_insert(location, bp);
+            let _ = self.breakpoints.try_insert(bp.location, bp);
         }
     }
 
@@ -69,6 +73,10 @@ pub struct Debugger {
 
 impl Debugger {
 
+    pub fn breakpoint_table(&self) -> &BreakpointTable {
+        &self.breakpoint_table
+    }
+
     fn read_update_counter(&self) -> u8 {
         unsafe {
             self.vm_updated_counter.read_volatile()
@@ -89,14 +97,55 @@ impl Debugger {
     }
 
 
+    fn assert_stopped(&self) {
+        assert!(!self.is_running(), "The VM must not be running in order to perform the requested operation");
+    }
+
+
+    pub fn add_persistent_breakpoint_at_pc(&mut self) -> Result<(), ()> {
+        self.assert_stopped();
+
+        let pc = self.read_registers().pc();
+
+        self.add_breakpoint(pc, None, true)
+    }
+
+
+    /// Register a new breakpoint at the given location.
+    /// If a breakpoint already exists, replace it with the new one, preserving the original replaced value.
+    /// Write the breakpoint instruction to VM memory.
+    pub fn add_breakpoint(&mut self, location: usize, name: Option<SharedString>, persistent: bool) -> Result<(), ()> {
+        self.assert_stopped();
+
+        let replaced_value = if let Some(old_bp) = self.breakpoint_table.get(location) {
+            old_bp.replaced_value
+        } else {
+            let Some(&replaced_value) = self.read_vm_memory().get(location) else {
+                return Err(());
+            };
+            replaced_value
+        };
+
+        let bp = Breakpoint {
+            name,
+            location,
+            replaced_value,
+            persistent,
+        };
+
+        self.write_vm_memory(bp.location, ByteCodes::BREAKPOINT as u8);
+
+        self.breakpoint_table.insert_replace(bp);
+
+        Ok(())
+    }
+
+
     pub fn step_in(&mut self) {
+        self.assert_stopped();
 
-        if self.is_running() {
-            return;
-        }
-
+        // If the previous instruction had a persistent breakpoint, restore it
         if let Some(last_bp) = self.last_persistent_breakpoint.take() {
-            // If the previous instruction had a persistent breakpoint, restore it
             self.write_vm_memory(last_bp, ByteCodes::BREAKPOINT as u8);
         }
 
@@ -107,41 +156,48 @@ impl Debugger {
         // We thus need to get the actual instruction at pc-1
         let mut current_registers = unsafe { self.cpu_registers.read_volatile() };
         let replaced_instruction_pc = current_registers.pc() - 1;
-        // Now we need to get the replaced operator from some breakpoint table and interpret the instruction to get the next pc
-        let current_breakpoint = self.breakpoint_table.get(replaced_instruction_pc).expect("Breakpoint should be registered");
-        let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
-        let next_pc = calculate_next_pc(self.read_vm_memory(), replaced_instruction_pc, replaced_operator);
-        // Set a breakpoint on the next instruction, if present
+
+        let next_pc = {
+            if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
+
+                // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
+                let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
+
+                let next_pc = calculate_next_pc(self.read_vm_memory(), replaced_instruction_pc, replaced_operator);
+
+                // Decrement the pc to execute the instruction that was replaced by the breakpoint
+                current_registers.set(Registers::PROGRAM_COUNTER, replaced_instruction_pc as u64);
+                unsafe {
+                    self.cpu_registers.write_volatile(current_registers);
+                }
+                // Ensure the current pc has a breakpoint
+                assert_eq!(self.read_vm_memory()[replaced_instruction_pc], ByteCodes::BREAKPOINT as u8, "The replaced instruction pc should have a breakpoint set");
+
+                // Restore the operator overwritten by the just-executed breakpoint
+                self.write_vm_memory(replaced_instruction_pc, replaced_operator as u8);
+
+                // If the current breakpoint is persistent, flag it so that it can be restored after executing the next instruction.
+                if current_breakpoint.persistent {
+                    self.last_persistent_breakpoint = Some(replaced_instruction_pc);
+                }
+
+                // If the current breakpoint is temporary, remove it from the table
+                self.breakpoint_table.remove_if_temporary(replaced_instruction_pc);
+
+                next_pc
+            } else {
+                // No breakpoint is present here. The VM was stopped via the debugger.
+                Some(current_registers.pc())
+            }
+        };
+
+        // Set a temporary breakpoint on the next instruction, if present
         if let Some(next_pc) = next_pc {
             // Register the new breakpoint in the table
-            let next_bp = Breakpoint {
-                name: None,
-                location: next_pc,
-                replaced_value: self.read_vm_memory()[next_pc],
-                persistent: false
-            };
-            self.breakpoint_table.insert(next_pc, next_bp);
-            self.write_vm_memory(next_pc, ByteCodes::BREAKPOINT as u8);
+            self.add_breakpoint(next_pc, None, false).expect("Generated next pc should be valid");
         }
 
-        // Decrement the pc to execute the current instruction that was replaced by the breakpoint
-        current_registers.set(Registers::PROGRAM_COUNTER, replaced_instruction_pc as u64);
-        unsafe {
-            self.cpu_registers.write_volatile(current_registers);
-        }
-        // Ensure the current pc has a breakpoint
-        assert_eq!(self.read_vm_memory()[replaced_instruction_pc], ByteCodes::BREAKPOINT as u8, "The replaced instruction pc should have a breakpoint set");
-
-        // Restore the operator overwritten by the just-executed breakpoint
-        self.write_vm_memory(replaced_instruction_pc, replaced_operator as u8);
-        // If the current breakpoint is temporary, remove it from the table
-        self.breakpoint_table.remove_if_temporary(replaced_instruction_pc);
-
-        if current_breakpoint.persistent {
-            self.last_persistent_breakpoint = Some(replaced_instruction_pc);
-        }
-
-        // Continue execution. The VM will stop at the next instruction because we set a breakpoint.
+        // Continue execution. The VM will stop at the next instruction because we set a temporary breakpoint.
 
         self.resume_vm();
     }
@@ -173,7 +229,8 @@ impl Debugger {
 
 
     pub fn read_registers(&self) -> CPURegisters {
-        assert!(!self.is_running(), "Should not read registers while the VM is running");
+        self.assert_stopped();
+
         unsafe {
             self.cpu_registers.read_volatile()
         }
@@ -229,12 +286,8 @@ impl Debugger {
     }
 
 
-    pub fn resume_vm(&self) {
-
-        // Don't resume the VM if it's already running
-        if self.is_running() {
-            return;
-        }
+    fn resume_vm(&self) {
+        self.assert_stopped();
 
         let old_counter = self.read_update_counter();
         // Tell the VM to resume
@@ -243,6 +296,52 @@ impl Debugger {
         }
         // Wait until the VM is ready
         self.wait_for_vm(old_counter);
+    }
+
+
+    pub fn continue_vm(&mut self) {
+        self.assert_stopped();
+
+        // Deal with breakpoints
+
+        // If the previous breakpoint was persistent, restore it
+        if let Some(last_bp) = self.last_persistent_breakpoint.take() {
+            self.write_vm_memory(last_bp, ByteCodes::BREAKPOINT as u8);
+        }
+
+        // Get current instruction
+        // The VM just executed a breapoint instruction and incremented the pc by 1 byte
+        // We thus need to get the actual instruction at pc-1
+        let mut current_registers = unsafe { self.cpu_registers.read_volatile() };
+        let replaced_instruction_pc = current_registers.pc() - 1;
+
+        // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
+        if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
+
+            let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
+
+            // Decrement the pc to execute the instruction that was replaced by the breakpoint
+            current_registers.set(Registers::PROGRAM_COUNTER, replaced_instruction_pc as u64);
+            unsafe {
+                self.cpu_registers.write_volatile(current_registers);
+            }
+
+            // Ensure the current pc has a breakpoint
+            assert_eq!(self.read_vm_memory()[replaced_instruction_pc], ByteCodes::BREAKPOINT as u8, "The replaced instruction pc should have a breakpoint set");
+
+            // Restore the operator overwritten by the just-executed breakpoint
+            self.write_vm_memory(replaced_instruction_pc, replaced_operator as u8);
+
+            // If the current breakpoint is persistent, flag it so that it can be restored after executing the next instruction.
+            if current_breakpoint.persistent {
+                self.last_persistent_breakpoint = Some(replaced_instruction_pc);
+            }
+
+            // If the current breakpoint is temporary, remove it from the table
+            self.breakpoint_table.remove_if_temporary(replaced_instruction_pc);
+        }
+
+        self.resume_vm();
     }
 
 
