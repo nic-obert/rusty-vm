@@ -21,7 +21,7 @@ fn main() -> Result<(), slint::PlatformError>  {
 
     let args = CliParser::parse();
 
-    let debugger = Debugger::try_attach(args.shmem_id)
+    let debugger = Debugger::try_attach(args.shmem_id, args.debug_mode)
         .unwrap_or_else(|err| {
             eprintln!("Fatal error: {}", err);
             std::process::exit(1);

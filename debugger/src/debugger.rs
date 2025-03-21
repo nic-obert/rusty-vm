@@ -7,7 +7,8 @@ use std::thread;
 
 use rusty_vm_lib::registers::{CPURegisters, Registers};
 use rusty_vm_lib::debugger::{CPU_REGISTERS_OFFSET, DEBUGGER_UPDATE_WAIT_SLEEP, RUNNING_FLAG_OFFSET, TERMINATE_COMMAND_OFFSET, VM_MEM_OFFSET, VM_UPDATED_COUNTER_OFFSET};
-use rusty_vm_lib::byte_code::ByteCodes;
+use rusty_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
+use rusty_vm_lib::assembly;
 
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use slint::SharedString;
@@ -57,6 +58,17 @@ impl BreakpointTable {
 }
 
 
+macro_rules! printv {
+    ($self:ident, $($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        if $self.debug_mode {
+            print!("Debugger: ");
+            println!($($arg)*);
+        }
+    };
+}
+
+
 pub struct Debugger {
 
     shmem: Shmem,
@@ -69,6 +81,8 @@ pub struct Debugger {
 
     last_persistent_breakpoint: Option<usize>,
     breakpoint_table: BreakpointTable,
+
+    debug_mode: bool
 }
 
 impl Debugger {
@@ -85,6 +99,7 @@ impl Debugger {
 
 
     fn wait_for_vm(&self, old_counter: u8) {
+        printv!(self, "Waiting for VM process to respond (old counter: {}) ...", old_counter);
         while old_counter == self.read_update_counter() {
             thread::sleep(DEBUGGER_UPDATE_WAIT_SLEEP);
         }
@@ -115,9 +130,11 @@ impl Debugger {
     /// If a breakpoint already exists, replace it with the new one, preserving the original replaced value.
     /// Write the breakpoint instruction to VM memory.
     pub fn add_breakpoint(&mut self, location: usize, name: Option<SharedString>, persistent: bool) -> Result<(), ()> {
+        printv!(self, "Adding breakpoint at PC={}, persistent:{}, name:{}", location, persistent, name.as_ref().map(|s| s.as_str()).unwrap_or(""));
         self.assert_stopped();
 
         let replaced_value = if let Some(old_bp) = self.breakpoint_table.get(location) {
+            printv!(self, "A breakpoint already exists at this location");
             old_bp.replaced_value
         } else {
             let Some(&replaced_value) = self.read_vm_memory().get(location) else {
@@ -133,6 +150,7 @@ impl Debugger {
             persistent,
         };
 
+        printv!(self, "Inserting breakpoint instruction ...");
         self.write_vm_memory(bp.location, ByteCodes::BREAKPOINT as u8);
 
         self.breakpoint_table.insert_replace(bp);
@@ -142,10 +160,12 @@ impl Debugger {
 
 
     pub fn step_in(&mut self) {
+        printv!(self, "Stepping in ...");
         self.assert_stopped();
 
         // If the previous instruction had a persistent breakpoint, restore it
         if let Some(last_bp) = self.last_persistent_breakpoint.take() {
+            printv!(self, "Restoring previous persistent breakpoint at PC={}", last_bp);
             self.write_vm_memory(last_bp, ByteCodes::BREAKPOINT as u8);
         }
 
@@ -155,10 +175,11 @@ impl Debugger {
         // The VM just executed a breapoint instruction and incremented the pc by 1 byte
         // We thus need to get the actual instruction at pc-1
         let mut current_registers = unsafe { self.cpu_registers.read_volatile() };
-        let replaced_instruction_pc = current_registers.pc() - 1;
+        let replaced_instruction_pc = current_registers.pc().saturating_sub(1);
 
         let next_pc = {
             if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
+                // The VM was stopped due to a breakpoint at the previous PC
 
                 // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
                 let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
@@ -186,7 +207,7 @@ impl Debugger {
 
                 next_pc
             } else {
-                // No breakpoint is present here. The VM was stopped via the debugger.
+                // No breakpoint is present here. The VM was stopped via the debugger or it was just started.
                 Some(current_registers.pc())
             }
         };
@@ -287,6 +308,7 @@ impl Debugger {
 
 
     fn resume_vm(&self) {
+        printv!(self, "Resuming VM ...");
         self.assert_stopped();
 
         let old_counter = self.read_update_counter();
@@ -300,6 +322,7 @@ impl Debugger {
 
 
     pub fn continue_vm(&mut self) {
+        printv!(self, "Continuing execution ...");
         self.assert_stopped();
 
         // Deal with breakpoints
@@ -313,7 +336,7 @@ impl Debugger {
         // The VM just executed a breapoint instruction and incremented the pc by 1 byte
         // We thus need to get the actual instruction at pc-1
         let mut current_registers = unsafe { self.cpu_registers.read_volatile() };
-        let replaced_instruction_pc = current_registers.pc() - 1;
+        let replaced_instruction_pc = current_registers.pc().saturating_sub(1);
 
         // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
         if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
@@ -345,7 +368,7 @@ impl Debugger {
     }
 
 
-    pub fn try_attach(shmem_id: String) -> Result<Self, ShmemError> {
+    pub fn try_attach(shmem_id: String, debug_mode: bool) -> Result<Self, ShmemError> {
         let shmem = ShmemConf::new()
             .os_id(shmem_id)
             .open()?;
@@ -365,6 +388,7 @@ impl Debugger {
             vm_memory,
             last_persistent_breakpoint: None,
             breakpoint_table: BreakpointTable::default(),
+            debug_mode
         })
     }
 
@@ -372,11 +396,12 @@ impl Debugger {
 
 
 fn calculate_next_pc(vm_mem: &[u8], operator_pc: usize, operator: ByteCodes) -> Option<usize> {
+    // TODO: consider arguments size and variable length instructions.
     match operator {
         ByteCodes::EXIT => None,
-        ByteCodes::JUMP => {
+        opcode if is_jump_instruction(opcode) => {
             todo!("interpret all the jump instructions to calculate the next pc")
         }
-        _ => Some(operator_pc + 1)
+        _ => Some(assembly::bytecode_args_size(operator, &vm_mem[operator_pc+1..]).unwrap_or_else(|err| panic!("Invalid instruction {:?}", err)))
     }
 }

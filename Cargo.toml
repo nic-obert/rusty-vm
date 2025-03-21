@@ -1,4 +1,6 @@
+cargo-features = ["codegen-backend"]
 [workspace]
+
 
 resolver = "2"
 
@@ -6,5 +8,10 @@ members = [
     "assembler",
     "rusty_vm_lib",
     "vm",
-    "oxide", "generate_archlib", "debugger",
+    "oxide",
+    "generate_archlib",
+    "debugger",
 ]
+
+[profile.dev]
+codegen-backend = "cranelift"

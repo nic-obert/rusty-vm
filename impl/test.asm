@@ -1,14 +1,14 @@
 .include:
 
-    "stdio.asm"
 
 .data:
 
-    @s
-    dcs "hello"
+
 
 .text:
 
-    !println_str s
+    mov r1 r2
+    mov r2 r1
+    mov r1 r2
 
-   exit
+    exit

@@ -10,7 +10,7 @@ pub struct CliParser {
     pub shmem_id: String,
 
     /// Launch the application in debug mode
-    #[clap(short='d')]
+    #[clap(short='d', long="debug")]
     pub debug_mode: bool,
 
 }

@@ -15,7 +15,7 @@ pub struct CliParser {
     #[clap(long = "max-mem", default_value="1000000")]
     pub max_memory_size: usize,
 
-    /// Execution mode. n = normal, v = verbose, i = interactive
+    /// Execution mode. n = normal, v = verbose, i = interactive, d = debug, dd = verbose debug
     #[arg(value_enum)]
     #[clap(short = 'm', long, default_value="n")]
     pub mode: ExecutionMode,
@@ -41,7 +41,7 @@ pub enum ExecutionMode {
     Normal,
     Verbose,
     Interactive,
-    Debug,
+    Debug { verbose: bool },
 }
 
 
@@ -55,7 +55,9 @@ impl ValueEnum for ExecutionMode {
 
             "i" => Ok(ExecutionMode::Interactive),
 
-            "d" => Ok(ExecutionMode::Debug),
+            "d" => Ok(ExecutionMode::Debug { verbose: false }),
+
+            "dd" => Ok(ExecutionMode::Debug { verbose: true }),
 
             _ => Err(format!("Invalid execution mode: {}", input)),
         }
@@ -67,7 +69,8 @@ impl ValueEnum for ExecutionMode {
             ExecutionMode::Normal,
             ExecutionMode::Verbose,
             ExecutionMode::Interactive,
-            ExecutionMode::Debug
+            ExecutionMode::Debug { verbose: false },
+            ExecutionMode::Debug { verbose: true }
         ]
     }
 
@@ -77,7 +80,8 @@ impl ValueEnum for ExecutionMode {
             ExecutionMode::Normal => Some(clap::builder::PossibleValue::new("n")),
             ExecutionMode::Verbose => Some(clap::builder::PossibleValue::new("v")),
             ExecutionMode::Interactive => Some(clap::builder::PossibleValue::new("i")),
-            ExecutionMode::Debug => Some(clap::builder::PossibleValue::new("d")),
+            ExecutionMode::Debug { verbose: false } => Some(clap::builder::PossibleValue::new("d")),
+            ExecutionMode::Debug { verbose: true } => Some(clap::builder::PossibleValue::new("dd")),
         }
     }
 
