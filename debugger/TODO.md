@@ -7,3 +7,5 @@
 - disable some actions in the UI when the VM is running. In the backend, panic if these actions are performed while VM is running
 - the debugger should periodically check the VM process to see if a breakpoint has been triggered. Failure to access shared memory may mean that the VM process was terminated.
 - autoscroll for registers UI
+- use a monospace font in the memory view area
+- add column indices 0-15 in memory view area

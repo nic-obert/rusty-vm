@@ -292,6 +292,8 @@ impl Processor {
                 }
                 printv!("VM has been resumed");
                 unsafe {
+                    // The debugger may have modified the registers (PC, for instance, is modified by the debuger to implement breakpoints)
+                    self.registers = cpu_registers.read_volatile();
                     // Tell the debugger the VM has been successfully resumed
                     let old_counter = vm_updated_counter.read_volatile();
                     vm_updated_counter.write_volatile(old_counter.wrapping_add(1));

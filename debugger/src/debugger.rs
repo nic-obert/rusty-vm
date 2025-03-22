@@ -214,7 +214,6 @@ impl Debugger {
 
         // Set a temporary breakpoint on the next instruction, if present
         if let Some(next_pc) = next_pc {
-            // Register the new breakpoint in the table
             self.add_breakpoint(next_pc, None, false).expect("Generated next pc should be valid");
         }
 
@@ -396,12 +395,11 @@ impl Debugger {
 
 
 fn calculate_next_pc(vm_mem: &[u8], operator_pc: usize, operator: ByteCodes) -> Option<usize> {
-    // TODO: consider arguments size and variable length instructions.
     match operator {
         ByteCodes::EXIT => None,
         opcode if is_jump_instruction(opcode) => {
             todo!("interpret all the jump instructions to calculate the next pc")
         }
-        _ => Some(assembly::bytecode_args_size(operator, &vm_mem[operator_pc+1..]).unwrap_or_else(|err| panic!("Invalid instruction {:?}", err)))
+        _ => Some(operator_pc + 1 + assembly::bytecode_args_size(operator, &vm_mem[operator_pc+1..]).unwrap_or_else(|err| panic!("Invalid instruction {:?}", err)))
     }
 }
