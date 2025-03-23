@@ -1688,6 +1688,15 @@ impl Processor {
                     println!("Program exited with code {} ({})", exit_code_n, exit_code);
                 }
 
+                if let Some(DebugModeInfo { running_flag, verbose }) = self.debug_mode_running {
+                    if verbose {
+                        println!("VM: Exiting VM process");
+                    }
+                    unsafe {
+                        running_flag.write_volatile(false);
+                    }
+                }
+
                 std::process::exit(exit_code as i32);
             },
         }
