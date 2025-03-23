@@ -105,7 +105,7 @@ impl Debugger {
         }
     }
 
-    fn is_running(&self) -> bool {
+    pub fn is_running(&self) -> bool {
         unsafe {
             self.running_flag.read_volatile()
         }
@@ -224,9 +224,11 @@ impl Debugger {
 
 
     pub fn close(&self) {
+        printv!(self, "Terminating VM");
         unsafe {
             self.terminate_command.write(true);
         }
+        printv!(self, "Termination command written");
     }
 
 
@@ -328,6 +330,7 @@ impl Debugger {
 
         // If the previous breakpoint was persistent, restore it
         if let Some(last_bp) = self.last_persistent_breakpoint.take() {
+            printv!(self, "Restoring previous persistent breakpoint at PC={}", last_bp);
             self.write_vm_memory(last_bp, ByteCodes::BREAKPOINT as u8);
         }
 
@@ -339,6 +342,7 @@ impl Debugger {
 
         // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
         if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
+            // The VM was stopped due to a breakpoint at the previous PC
 
             let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
 

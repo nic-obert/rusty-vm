@@ -7,8 +7,8 @@ edition = "2024"
 clap = { version = "4.5.30", features = ["derive"] }
 shared_memory = "0.12.4"
 rusty_vm_lib = { path = "../rusty_vm_lib" }
-slint = "1.9.2"
+slint = "1.10.0"
 rfd = "0.15.2"
 
 [build-dependencies]
-slint-build = "1.9.2"
+slint-build = "1.10.0"

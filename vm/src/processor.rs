@@ -239,8 +239,20 @@ impl Processor {
         let vm_updated_counter: *mut u8 = unsafe { shmem.as_ptr().byte_add(VM_UPDATED_COUNTER_OFFSET) };
         let cpu_registers: *mut CPURegisters = unsafe { shmem.as_ptr().byte_add(CPU_REGISTERS_OFFSET).cast::<CPURegisters>() };
 
+        /// Send an update signal to the debugger by incrementing the VM updated counter field in shared memory
+        macro_rules! send_update {
+            () => {
+                unsafe {
+                    let old_counter = vm_updated_counter.read_volatile();
+                    vm_updated_counter.write_volatile(old_counter.wrapping_add(1));
+                    printv!("Update counter: {} => {}", old_counter, vm_updated_counter.read_volatile());
+                }
+            }
+        }
+
         self.debug_mode_running = Some(DebugModeInfo { running_flag, verbose });
 
+        // Initialize the control fields
         unsafe {
             running_flag.write_volatile(false);
             terminate_command.write_volatile(false);
@@ -265,6 +277,7 @@ impl Processor {
             thread::sleep(DEBUGGER_ATTACH_SLEEP);
         }
         printv!("Debugger connected");
+        send_update!();
         while unsafe { !terminate_command.read_volatile() } {
 
             if unsafe { running_flag.read_volatile() } {
@@ -279,11 +292,9 @@ impl Processor {
                 unsafe {
                     // When the VM is stopped, communicate the current registers state to the debugger
                     cpu_registers.write_volatile(self.registers.clone());
-                    // Tell the debugger the VM has finished sending data
-                    let old_counter = vm_updated_counter.read_volatile();
-                    vm_updated_counter.write_volatile(old_counter.wrapping_add(1));
-                    printv!("Update counter: {} => {}", old_counter, vm_updated_counter.read_volatile());
                 }
+                // Tell the debugger the VM has finished sending data
+                send_update!();
 
                 // Wait until execution is resumed by the debugger
                 printv!("Waiting for debugger process to resume VM ...");
@@ -294,11 +305,9 @@ impl Processor {
                 unsafe {
                     // The debugger may have modified the registers (PC, for instance, is modified by the debuger to implement breakpoints)
                     self.registers = cpu_registers.read_volatile();
-                    // Tell the debugger the VM has been successfully resumed
-                    let old_counter = vm_updated_counter.read_volatile();
-                    vm_updated_counter.write_volatile(old_counter.wrapping_add(1));
-                    printv!("Update counter: {} => {}", old_counter, vm_updated_counter.read_volatile());
                 }
+                // Tell the debugger the VM has been successfully resumed
+                send_update!();
             }
 
         }

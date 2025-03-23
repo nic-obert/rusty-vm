@@ -1,4 +1,4 @@
-import { TextEdit, ScrollView, LineEdit, Button } from "std-widgets.slint";
+import { TextEdit, ScrollView, LineEdit, Button, VerticalBox } from "std-widgets.slint";
 import { SelectableText } from "utils.slint";
 import { Backend } from "backend.slint";
 import { Styling } from "styling.slint";
@@ -18,7 +18,8 @@ export component MemoryArea {
         Text {
             text: "Memory";
         }
-        ScrollView {
+
+        mem_scrollview := ScrollView {
 
             // TODO: maybe change this
             min-height: 5rem;
@@ -31,15 +32,16 @@ export component MemoryArea {
                 SelectableText {
                     multiline: true;
                     text: memory_lines;
+                    font-family: Styling.buffer_font_family;
                 }
 
-                SelectableText {
+                memory_text := SelectableText {
                     multiline: true;
                     text: memory_view;
+                    font-family: Styling.buffer_font_family;
                 }
             }
         }
-
         HorizontalLayout {
             spacing: 0;
             alignment: start;
@@ -52,7 +54,10 @@ export component MemoryArea {
                 text: "0x";
             }
             mem_start_input := TextInput {
+                text: "00";
+                font-family: Styling.buffer_font_family;
                 min-width: 4rem;
+                font-size: 1.2rem;
                 horizontal-alignment: left;
                 color: mem_start_valid ? Styling.valid_data_color : Styling.invalid_data_color;
                 accepted => {
@@ -68,6 +73,9 @@ export component MemoryArea {
                 text: "0x";
             }
             mem_span_input := TextInput {
+                text: "00";
+                font-family: Styling.buffer_font_family;
+                font-size: 1.2rem;
                 min-width: 4rem;
                 color: mem_span_valid ? Styling.valid_data_color : Styling.invalid_data_color;
                 accepted => {

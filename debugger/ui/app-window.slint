@@ -4,6 +4,7 @@ import { BreakpointArea, BreakPoint } from "breakpoints.slint";
 import { RegistersArea } from "registers.slint";
 import { InstructionsArea } from "instructions.slint";
 import { Styling } from "styling.slint";
+import { VMStatusArea } from "vm_status.slint";
 // import { HorizontalSplitter } from "utils.slint";
 
 export { Backend } from "backend.slint";
@@ -21,10 +22,18 @@ export component MainWindow inherits Window {
     in-out property <[[string]]> register_sets <=> registers_area.register_sets;
     in-out property <[BreakPoint]> breakpoints <=> breakpoint_area.breakpoints;
 
+    in-out property <string> total_memory <=> vm_status_area.total_memory;
+    in-out property <bool> running <=> vm_status_area.running;
+
+    callback update_registers_view <=> registers_area.update;
+    callback update_vm_status_view <=> vm_status_area.update;
+
 
     VerticalLayout {
 
         spacing: Styling.inter_area_spacing;
+
+        vm_status_area := VMStatusArea {}
 
         HorizontalLayout {
 

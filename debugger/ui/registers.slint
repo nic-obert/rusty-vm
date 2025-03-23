@@ -38,11 +38,16 @@ export component RegistersArea {
 
     in-out property <[[string]]> register_sets;
 
+    callback update();
+    update => {
+        reg_view.viewport-y = min(0px, - reg_view.viewport-height + reg_view.visible-height);
+    }
+
     VerticalLayout {
         Text {
             text: "Registers";
         }
-        ListView {
+        reg_view := ListView {
             for reg_set in register_sets: RegisterSetView {
                 registers: reg_set;
             }

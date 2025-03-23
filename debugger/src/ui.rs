@@ -47,7 +47,7 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
 
     // Initialize the models with initial values, if required
     //
-    update_register_view(main_window, &debugger.borrow());
+    update_all_views(main_window, &debugger.borrow());
 
     // Bind UI to backend functionality
     //
@@ -68,12 +68,15 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
     main_window.global::<Backend>().on_stop(move || {
         let window = window_weak.unwrap();
         debugger_ref.borrow().stop_vm();
-        update_register_view(&window, &debugger_ref.borrow());
+        update_all_views(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
+    let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_continue(move || {
+        let window = window_weak.unwrap();
         debugger_ref.borrow_mut().continue_vm();
+        update_vm_status_view(&window, &debugger_ref.borrow());
     });
 
     let debugger_ref = Rc::clone(&debugger);
@@ -124,9 +127,18 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
 
 
 fn update_all_views(window: &MainWindow, debugger: &Debugger) {
+    update_vm_status_view(window, debugger);
     update_memory_view(window, debugger);
     update_register_view(window, debugger);
     update_breakpoint_view(window, debugger);
+}
+
+
+fn update_vm_status_view(window: &MainWindow, debugger: &Debugger) {
+    window.set_total_memory(debugger.vm_memory_size().to_shared_string());
+    window.set_running(debugger.is_running());
+    window.invoke_update_vm_status_view();
+    // TODO: debugger.is_running() returns false, which is unexpected
 }
 
 
@@ -166,6 +178,9 @@ fn update_register_view(window: &MainWindow, debugger: &Debugger) {
         reg_sets_queue.pop_front();
     }
     reg_sets_queue.push_back(new_reg_set_model);
+
+    // Tell the UI to update the view (autoscroll feature)
+    window.invoke_update_registers_view();
 }
 
 
