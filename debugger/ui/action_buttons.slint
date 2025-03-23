@@ -11,6 +11,7 @@ export component ActionButtons {
         dump-core-btn := Button {
             width: self.min-width + button_padding;
             text: "Dump core";
+            enabled: !Backend.running;
             clicked => {
                 Backend.dump_core();
             }
@@ -25,6 +26,7 @@ export component ActionButtons {
         advance-btn := Button {
             width: self.min-width + button_padding;
             text: "Step in";
+            enabled: !Backend.running;
             clicked => {
                 Backend.step_in();
             }
@@ -32,6 +34,7 @@ export component ActionButtons {
         continue-btn := Button {
             width: self.min-width + button_padding;
             text: "Continue";
+            enabled: !Backend.running;
             clicked => {
                 Backend.continue();
             }
@@ -39,6 +42,7 @@ export component ActionButtons {
         stop-btn := Button {
             width: self.min-width + button_padding;
             text: "Stop";
+            enabled: Backend.running;
             clicked => {
                 Backend.stop();
             }

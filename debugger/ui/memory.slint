@@ -60,6 +60,7 @@ export component MemoryArea {
                 font-size: 1.2rem;
                 horizontal-alignment: left;
                 color: mem_start_valid ? Styling.valid_data_color : Styling.invalid_data_color;
+                enabled: !Backend.running;
                 accepted => {
                     Backend.memory_start_changed();
                 }
@@ -78,12 +79,14 @@ export component MemoryArea {
                 font-size: 1.2rem;
                 min-width: 4rem;
                 color: mem_span_valid ? Styling.valid_data_color : Styling.invalid_data_color;
+                enabled: !Backend.running;
                 accepted => {
                     Backend.memory_span_changed();
                 }
             }
             Button {
                 text: "Refresh";
+                enabled: !Backend.running;
                 clicked => {
                     Backend.memory_refresh();
                 }
