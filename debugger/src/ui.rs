@@ -31,23 +31,9 @@ pub fn run_ui(debugger: Rc<RefCell<Debugger>>) -> Result<(), slint::PlatformErro
 
 fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
 
-    // Create data models
+    // Initialize the models and views
     //
-
-    // Initialize the register model
-    let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::default());
-    let regs_model = ModelRc::from(regs);
-    main_window.set_register_sets(regs_model);
-
-    // Initialize the breakpoint model
-    let breakpoints: Rc<VecModel<BreakPoint>> = Rc::new(VecModel::default());
-    let breakpoints_model = ModelRc::from(breakpoints);
-    main_window.set_breakpoints(breakpoints_model);
-
-
-    // Initialize the models with initial values, if required
-    //
-    update_all_views(main_window, &debugger.borrow());
+    initialize_all_views(main_window, &debugger.borrow());
 
     // Bind UI to backend functionality
     //
@@ -126,6 +112,27 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
 }
 
 
+fn initialize_all_views(window: &MainWindow, debugger: &Debugger) {
+    initialize_vm_status_view(window, debugger);
+    initialize_breakpoint_view(window);
+    initialize_registers_view(window);
+}
+
+
+fn initialize_breakpoint_view(window: &MainWindow) {
+    let breakpoints: Rc<VecModel<BreakPoint>> = Rc::new(VecModel::default());
+    let breakpoints_model = ModelRc::from(breakpoints);
+    window.set_breakpoints(breakpoints_model);
+}
+
+
+fn initialize_registers_view(window: &MainWindow) {
+    let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::default());
+    let regs_model = ModelRc::from(regs);
+    window.set_register_sets(regs_model);
+}
+
+
 fn update_all_views(window: &MainWindow, debugger: &Debugger) {
     update_vm_status_view(window, debugger);
     update_memory_view(window, debugger);
@@ -134,11 +141,13 @@ fn update_all_views(window: &MainWindow, debugger: &Debugger) {
 }
 
 
+fn initialize_vm_status_view(window: &MainWindow, debugger: &Debugger) {
+    window.global::<Backend>().set_running(debugger.is_running());
+    window.global::<Backend>().set_total_memory(debugger.vm_memory_size().to_shared_string());
+}
+
 fn update_vm_status_view(window: &MainWindow, debugger: &Debugger) {
-    window.set_total_memory(debugger.vm_memory_size().to_shared_string());
-    window.set_running(debugger.is_running());
-    window.invoke_update_vm_status_view();
-    // TODO: debugger.is_running() returns false, which is unexpected
+    window.global::<Backend>().set_running(debugger.is_running());
 }
 
 
@@ -180,7 +189,7 @@ fn update_register_view(window: &MainWindow, debugger: &Debugger) {
     reg_sets_queue.push_back(new_reg_set_model);
 
     // Tell the UI to update the view (autoscroll feature)
-    window.invoke_update_registers_view();
+    window.invoke_scroll_to_bottom_registers_view();
 }
 
 

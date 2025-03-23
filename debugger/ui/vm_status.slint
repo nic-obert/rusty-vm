@@ -1,16 +1,9 @@
-
 import { SelectableText } from "utils.slint";
 import { HorizontalBox } from "std-widgets.slint";
+
+import { Backend } from "backend.slint";
+
 export component VMStatusArea inherits HorizontalLayout {
-
-    in-out property <bool> running;
-    in-out property <string> total_memory;
-
-    callback update();
-    update => {
-        tot_mem_text.text = total_memory;
-        running_flag.text = running ? "true" : "false";
-    }
 
     alignment: start;
 
@@ -19,7 +12,7 @@ export component VMStatusArea inherits HorizontalLayout {
             text: "Running:";
         }
         running_flag := Text {
-
+            text: Backend.running ? "true" : "false";
         }
     }
 
@@ -28,7 +21,7 @@ export component VMStatusArea inherits HorizontalLayout {
             text: "Memory:";
         }
         tot_mem_text := SelectableText {
-
+            text: Backend.total_memory;
         }
         Text {
             text: " Bytes";
