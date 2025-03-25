@@ -22,9 +22,11 @@ export component MainWindow inherits Window {
     in-out property <bool> memory_start_valid <=> memory_area.mem_start_valid;
     in-out property <[[string]]> register_sets <=> registers_area.register_sets;
     in-out property <[BreakPoint]> breakpoints <=> breakpoint_area.breakpoints;
+    in-out property <[string]> instructions_disassembly <=> instructions_area.instructions;
 
     // TODO: find another way to autoscroll
     callback scroll_to_bottom_registers_view <=> registers_area.scroll_to_bottom;
+    callback scroll_to_bottom_instructions_view <=> instructions_area.scroll_to_bottom;
 
     VerticalLayout {
 

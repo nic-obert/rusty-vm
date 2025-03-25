@@ -15,6 +15,7 @@ use rusty_vm_lib::vm::Address;
 use rusty_vm_lib::vm::ADDRESS_SIZE;
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use slint::SharedString;
+use slint::ToSharedString;
 
 
 #[derive(Clone)]
@@ -162,7 +163,8 @@ impl Debugger {
     }
 
 
-    pub fn step_in(&mut self) {
+    /// Step in and return the current instruction disassembly
+    pub fn step_in(&mut self) -> SharedString {
         printv!(self, "Stepping in ...");
         self.assert_stopped();
 
@@ -180,12 +182,14 @@ impl Debugger {
         let mut current_registers = unsafe { self.cpu_registers.read_volatile() };
         let replaced_instruction_pc = current_registers.pc().saturating_sub(1);
 
-        let next_pc = {
+        let (next_pc, instruction_disassembly) = {
             if let Some(current_breakpoint) = self.breakpoint_table.get(replaced_instruction_pc) {
                 // The VM was stopped due to a breakpoint at the previous PC
 
                 // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
                 let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
+
+                let instruction_disassembly = disassemble_instruction(self.read_vm_memory(), replaced_instruction_pc, replaced_operator);
 
                 let next_pc = calculate_next_pc(self.read_vm_memory(), &current_registers, replaced_instruction_pc, replaced_operator);
 
@@ -208,10 +212,16 @@ impl Debugger {
                 // If the current breakpoint is temporary, remove it from the table
                 self.breakpoint_table.remove_if_temporary(replaced_instruction_pc);
 
-                next_pc
+                (
+                    next_pc,
+                    instruction_disassembly.to_shared_string()
+                )
             } else {
                 // No breakpoint is present here. The VM was stopped via the debugger or it was just started.
-                Some(current_registers.pc())
+                (
+                    Some(current_registers.pc()),
+                    SharedString::new()
+                )
             }
         };
 
@@ -223,6 +233,8 @@ impl Debugger {
         // Continue execution. The VM will stop at the next instruction because we set a temporary breakpoint.
 
         self.resume_vm();
+
+        instruction_disassembly
     }
 
 
@@ -305,6 +317,7 @@ impl Debugger {
             fs::write(file_path, buf)
         )
     }
+
 
     pub fn vm_memory_size(&self) -> usize {
         self.shmem.len() - VM_MEM_OFFSET
@@ -401,7 +414,22 @@ impl Debugger {
 }
 
 
-fn calculate_next_pc(vm_mem: &[u8], cpu_registers: &CPURegisters, operator_pc: usize, operator: ByteCodes) -> Option<Address> {
+fn disassemble_instruction(vm_mem: &[u8], operator_pc: Address, operator: ByteCodes) -> String {
+
+    let (handled_size, args) = assembly::parse_bytecode_args(operator, &vm_mem[operator_pc+OPCODE_SIZE..])
+        .unwrap_or_else(|err| panic!("Could not parse arguments for opcode {operator}:\n{err}"));
+
+    let mut disassembly = format!("{operator} ({handled_size})");
+    for arg in args {
+        disassembly.push(' ');
+        disassembly.push_str(arg.to_string().as_str());
+    }
+
+    disassembly
+}
+
+
+fn calculate_next_pc(vm_mem: &[u8], cpu_registers: &CPURegisters, operator_pc: Address, operator: ByteCodes) -> Option<Address> {
     match operator {
         ByteCodes::EXIT => None,
 

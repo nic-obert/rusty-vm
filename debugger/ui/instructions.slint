@@ -14,16 +14,20 @@ component InstructionLine inherits HorizontalLayout {
 
 export component InstructionsArea {
 
+    in-out property <[string]> instructions;
+
+    callback scroll_to_bottom();
+    scroll_to_bottom => {
+        instructions_view.viewport-y = min(0px, - instructions_view.viewport-height + instructions_view.visible-height);
+    }
+
     VerticalLayout {
         Text {
             text: "Instructions";
         }
-        ListView {
-
-
-
-            for i in 6: InstructionLine {
-                assembly: "mov r1 r2";
+        instructions_view := ListView {
+            for instruction in instructions: InstructionLine {
+                assembly: instruction;
             }
         }
     }

@@ -18,6 +18,8 @@ slint::include_modules!();
 const BYTES_PER_MEMORY_ROW: usize = 16;
 /// How many register sets to keep in the registers area.
 const REGISTERS_HISTORY_LIMIT: usize = 10;
+/// How many disassembled instruction lines to keep in the instructions area.
+const INSTRUCTIONS_DISASSEMBLY_HISTORY_LIMIT: usize = 10;
 
 
 pub fn run_ui(debugger: Rc<RefCell<Debugger>>) -> Result<(), slint::PlatformError> {
@@ -69,7 +71,8 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_step_in(move || {
         let window = window_weak.unwrap();
-        debugger_ref.borrow_mut().step_in();
+        let disassembly = debugger_ref.borrow_mut().step_in();
+        add_disassembly_line(&window, disassembly);
         update_all_views(&window, &debugger_ref.borrow());
     });
 
@@ -116,6 +119,7 @@ fn initialize_all_views(window: &MainWindow, debugger: &Debugger) {
     initialize_vm_status_view(window, debugger);
     initialize_breakpoint_view(window);
     initialize_registers_view(window);
+    initialize_instructions_view(window);
 }
 
 
@@ -138,6 +142,13 @@ fn update_all_views(window: &MainWindow, debugger: &Debugger) {
     update_memory_view(window, debugger);
     update_register_view(window, debugger);
     update_breakpoint_view(window, debugger);
+}
+
+
+fn initialize_instructions_view(window: &MainWindow) {
+    let instructions: Rc<QueueModel<SharedString>> = Rc::new(QueueModel::default());
+    let instructions_model = ModelRc::from(instructions);
+    window.set_instructions_disassembly(instructions_model);
 }
 
 
@@ -166,6 +177,20 @@ fn update_breakpoint_view(window: &MainWindow, debugger: &Debugger) {
         };
         bp_vec.push(bp_view_model);
     }
+}
+
+
+fn add_disassembly_line(window: &MainWindow, new_instruction: SharedString) {
+    let instructions_model: ModelRc<SharedString> = window.get_instructions_disassembly();
+    let instructions_queue = instructions_model.as_any().downcast_ref::<QueueModel<SharedString>>().unwrap();
+
+    if instructions_queue.len() >= INSTRUCTIONS_DISASSEMBLY_HISTORY_LIMIT-1 {
+        instructions_queue.pop_front();
+    }
+    instructions_queue.push_back(new_instruction);
+
+    // Tell the UI to update the view (autoscroll feature)
+    window.invoke_scroll_to_bottom_instructions_view();
 }
 
 
