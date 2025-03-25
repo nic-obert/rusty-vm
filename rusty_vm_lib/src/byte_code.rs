@@ -147,6 +147,7 @@ declare_bytecodes! {
 
 
 pub const BYTE_CODE_COUNT: usize = mem::variant_count::<ByteCodes>();
+pub const OPCODE_SIZE: usize = mem::size_of::<ByteCodes>();
 
 
 impl fmt::Display for ByteCodes {

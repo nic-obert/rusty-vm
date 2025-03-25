@@ -1255,7 +1255,7 @@ impl Processor {
             ByteCodes::JUMP_ZERO => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::ZERO_FLAG) == 1 {
+                if self.registers.get(Registers::ZERO_FLAG) != 0 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1273,7 +1273,7 @@ impl Processor {
             ByteCodes::JUMP_LESS => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) == 1 {
+                if self.registers.get(Registers::SIGN_FLAG) != 0 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1289,8 +1289,8 @@ impl Processor {
             ByteCodes::JUMP_LESS_OR_EQUAL => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) == 1
-                    || self.registers.get(Registers::ZERO_FLAG) == 1
+                if self.registers.get(Registers::SIGN_FLAG) != 0
+                    || self.registers.get(Registers::ZERO_FLAG) != 0
                 {
                     self.jump_to(jump_address);
                 }
@@ -1299,7 +1299,7 @@ impl Processor {
             ByteCodes::JUMP_CARRY => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::CARRY_FLAG) == 1 {
+                if self.registers.get(Registers::CARRY_FLAG) != 0 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1315,7 +1315,7 @@ impl Processor {
             ByteCodes::JUMP_OVERFLOW => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::OVERFLOW_FLAG) == 1 {
+                if self.registers.get(Registers::OVERFLOW_FLAG) != 0 {
                     self.jump_to(jump_address);
                 }
             },
@@ -1331,7 +1331,7 @@ impl Processor {
             ByteCodes::JUMP_SIGN => {
                 let jump_address = self.get_next_address();
 
-                if self.registers.get(Registers::SIGN_FLAG) == 1 {
+                if self.registers.get(Registers::SIGN_FLAG) != 0 {
                     self.jump_to(jump_address);
                 }
             },

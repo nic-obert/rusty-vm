@@ -5,11 +5,14 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 
+use rusty_vm_lib::byte_code::OPCODE_SIZE;
 use rusty_vm_lib::registers::{CPURegisters, Registers};
 use rusty_vm_lib::debugger::{CPU_REGISTERS_OFFSET, DEBUGGER_UPDATE_WAIT_SLEEP, RUNNING_FLAG_OFFSET, TERMINATE_COMMAND_OFFSET, VM_MEM_OFFSET, VM_UPDATED_COUNTER_OFFSET};
-use rusty_vm_lib::byte_code::{ByteCodes, is_jump_instruction};
+use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::assembly;
 
+use rusty_vm_lib::vm::Address;
+use rusty_vm_lib::vm::ADDRESS_SIZE;
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use slint::SharedString;
 
@@ -184,7 +187,7 @@ impl Debugger {
                 // Now we need to get the replaced operator from the breakpoint table and interpret the instruction to get the next pc
                 let replaced_operator: ByteCodes = ByteCodes::from(current_breakpoint.replaced_value);
 
-                let next_pc = calculate_next_pc(self.read_vm_memory(), replaced_instruction_pc, replaced_operator);
+                let next_pc = calculate_next_pc(self.read_vm_memory(), &current_registers, replaced_instruction_pc, replaced_operator);
 
                 // Decrement the pc to execute the instruction that was replaced by the breakpoint
                 current_registers.set(Registers::PROGRAM_COUNTER, replaced_instruction_pc as u64);
@@ -398,12 +401,176 @@ impl Debugger {
 }
 
 
-fn calculate_next_pc(vm_mem: &[u8], operator_pc: usize, operator: ByteCodes) -> Option<usize> {
+fn calculate_next_pc(vm_mem: &[u8], cpu_registers: &CPURegisters, operator_pc: usize, operator: ByteCodes) -> Option<Address> {
     match operator {
         ByteCodes::EXIT => None,
-        opcode if is_jump_instruction(opcode) => {
-            todo!("interpret all the jump instructions to calculate the next pc")
-        }
-        _ => Some(operator_pc + 1 + assembly::bytecode_args_size(operator, &vm_mem[operator_pc+1..]).unwrap_or_else(|err| panic!("Invalid instruction {:?}", err)))
+
+        ByteCodes::JUMP |
+        ByteCodes::CALL_CONST
+        => {
+            let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+            Some(Address::from_le_bytes(target.try_into().unwrap()))
+        },
+
+        ByteCodes::CALL_REG => {
+            let target_reg = Registers::from(vm_mem[operator_pc+OPCODE_SIZE]);
+            Some(cpu_registers.get(target_reg) as Address)
+        },
+
+        ByteCodes::RETURN => {
+            let stp = cpu_registers.stack_top();
+            let target = &vm_mem[stp..stp+ADDRESS_SIZE];
+            Some(Address::from_le_bytes(target.try_into().unwrap()))
+        },
+
+        ByteCodes::JUMP_NOT_ZERO => {
+            let zf = cpu_registers.get(Registers::ZERO_FLAG);
+            let target = if zf == 0 {
+                // ZF=0 means that the last operation was not zero. Naming can be confusing
+                let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                Address::from_le_bytes(target.try_into().unwrap())
+            } else {
+                operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_ZERO => {
+            let zf = cpu_registers.get(Registers::ZERO_FLAG);
+            let target = if zf != 0 {
+                // ZF != 0 means that the last operation was zero. Naming can be confusing
+                let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                Address::from_le_bytes(target.try_into().unwrap())
+            } else {
+                operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_GREATER => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) == 0
+                    && cpu_registers.get(Registers::ZERO_FLAG) == 0
+                {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_GREATER_OR_EQUAL => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) == 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_LESS => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) != 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_LESS_OR_EQUAL => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) != 0
+                    && cpu_registers.get(Registers::ZERO_FLAG) != 0
+                {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_OVERFLOW => {
+            let target = {
+                if cpu_registers.get(Registers::OVERFLOW_FLAG) != 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_NOT_OVERFLOW => {
+            let target = {
+                if cpu_registers.get(Registers::OVERFLOW_FLAG) == 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_CARRY => {
+            let target = {
+                if cpu_registers.get(Registers::CARRY_FLAG) != 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_NOT_CARRY => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) == 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_SIGN => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) != 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        ByteCodes::JUMP_NOT_SIGN => {
+            let target = {
+                if cpu_registers.get(Registers::SIGN_FLAG) == 0 {
+                    let target = &vm_mem[operator_pc+OPCODE_SIZE..operator_pc+OPCODE_SIZE+ADDRESS_SIZE];
+                    Address::from_le_bytes(target.try_into().unwrap())
+                } else {
+                    operator_pc + OPCODE_SIZE + ADDRESS_SIZE
+                }
+            };
+            Some(target)
+        },
+
+        _ => Some(operator_pc + OPCODE_SIZE + assembly::bytecode_args_size(operator, &vm_mem[operator_pc+OPCODE_SIZE..]).unwrap_or_else(|err| panic!("Invalid instruction {:?}", err)))
     }
 }
