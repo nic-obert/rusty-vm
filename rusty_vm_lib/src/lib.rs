@@ -1,4 +1,7 @@
 #![feature(variant_count)]
+#![feature(new_range_api)]
+#![feature(array_chunks)]
+#![feature(iter_next_chunk)]
 
 pub mod byte_code;
 pub mod assembly;
