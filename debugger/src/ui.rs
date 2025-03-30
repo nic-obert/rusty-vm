@@ -1,8 +1,11 @@
 use core::range::Range;
-use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
+use std::thread;
+use std::time::Duration;
 
 use rfd::FileDialog;
+use rusty_vm_lib::debugger::DEBUGGER_COMMAND_WAIT_SLEEP;
 use slint::{CloseRequestResponse, Model, ModelRc, SharedString, ToSharedString, VecModel};
 
 use rusty_vm_lib::registers::REGISTER_SIZE;
@@ -22,24 +25,73 @@ const REGISTERS_HISTORY_LIMIT: usize = 10;
 const INSTRUCTIONS_DISASSEMBLY_HISTORY_LIMIT: usize = 10;
 
 
-pub fn run_ui(debugger: Rc<RefCell<Debugger>>) -> Result<(), slint::PlatformError> {
+pub fn run_ui(debugger: Arc<RwLock<Debugger>>) -> Result<(), slint::PlatformError> {
     let main_window = MainWindow::new()?;
 
-    create_ui(&main_window, debugger);
+    create_ui(&main_window, Arc::clone(&debugger));
+
+    // Regularly check if the VM process was terminated and notify the UI accordingly
+    //
+    let debugger_ref = Arc::clone(&debugger);
+    let window_weak = main_window.as_weak();
+    thread::spawn(move || {
+        const CHECK_FOR_TERMINATED_VM_SLEEP: Duration = Duration::from_millis(300);
+        let debugger = debugger_ref;
+
+        while !debugger.read().unwrap().is_terminated() {
+            thread::sleep(CHECK_FOR_TERMINATED_VM_SLEEP);
+        }
+
+        // Cannot just upgrade the weak reference to the window from the main thread.
+        window_weak.upgrade_in_event_loop(|window| {
+            window.global::<Backend>().set_terminated(true);
+        }).unwrap();
+    });
+
+    // Regularly check if the VM is stopped and notify the UI accordingly
+    //
+    let window_weak = main_window.as_weak();
+    thread::spawn(move || {
+
+        // Continue checking until the VM process is terminated
+        while !debugger.read().unwrap().is_terminated() {
+
+            // Wait until the VM is stopped
+            while debugger.read().unwrap().is_running() {
+                thread::sleep(DEBUGGER_COMMAND_WAIT_SLEEP);
+            }
+
+            // Cannot just upgrade the weak reference to the window from the main thread.
+            let debugger_moved = Arc::clone(&debugger);
+            window_weak.upgrade_in_event_loop(move |window| {
+                window.global::<Backend>().set_running(false);
+                update_all_views(&window, &debugger_moved.read().unwrap());
+            }).unwrap();
+
+            // Don't continue updating the UI until the VM is resumed again.
+            // While the VM is stopped, its state won't change.
+            while {
+                let debugger = debugger.read().unwrap();
+                !debugger.is_running() && !debugger.is_terminated()
+            } {
+                thread::sleep(DEBUGGER_COMMAND_WAIT_SLEEP);
+            }
+        }
+    });
 
     main_window.run()
 }
 
 
-fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
+fn create_ui(main_window: &MainWindow, debugger: Arc<RwLock<Debugger>>) {
 
     // Initialize the models and views
     //
-    initialize_all_views(main_window, &debugger.borrow());
+    initialize_all_views(main_window, &debugger.read().unwrap());
 
     // Bind UI to backend functionality
     //
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     main_window.global::<Backend>().on_dump_core(move || {
 
         let pick_file = || {
@@ -48,67 +100,70 @@ fn create_ui(main_window: &MainWindow, debugger: Rc<RefCell<Debugger>>) {
                 .save_file()
         };
 
-        debugger_ref.borrow().dump_core(pick_file);
+        debugger_ref.read().unwrap().dump_core(pick_file);
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_stop(move || {
         let window = window_weak.unwrap();
-        debugger_ref.borrow().stop_vm();
-        update_all_views(&window, &debugger_ref.borrow());
+        let debugger = debugger_ref.read().unwrap();
+        debugger.stop_vm();
+        update_all_views(&window, &debugger);
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_continue(move || {
         let window = window_weak.unwrap();
-        debugger_ref.borrow_mut().continue_vm();
-        update_vm_status_view(&window, &debugger_ref.borrow());
+        debugger_ref.write().unwrap().continue_vm();
+        update_vm_status_view(&window, &debugger_ref.read().unwrap());
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_step_in(move || {
         let window = window_weak.unwrap();
-        let disassembly = debugger_ref.borrow_mut().step_in();
+        let mut debugger = debugger_ref.write().unwrap();
+        let disassembly = debugger.step_in();
         add_disassembly_line(&window, disassembly);
-        update_all_views(&window, &debugger_ref.borrow());
+        update_all_views(&window, &debugger);
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     main_window.window().on_close_requested(move || {
-        debugger_ref.borrow().close();
+        debugger_ref.read().unwrap().close();
         CloseRequestResponse::HideWindow
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_start_changed(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref.borrow());
+        update_memory_view(&window, &debugger_ref.read().unwrap());
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_span_changed(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref.borrow());
+        update_memory_view(&window, &debugger_ref.read().unwrap());
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_memory_refresh(move || {
         let window = window_weak.unwrap();
-        update_memory_view(&window, &debugger_ref.borrow());
+        update_memory_view(&window, &debugger_ref.read().unwrap());
     });
 
-    let debugger_ref = Rc::clone(&debugger);
+    let debugger_ref = Arc::clone(&debugger);
     let window_weak = main_window.as_weak();
     main_window.global::<Backend>().on_add_breakpoint_here(move || {
         let window = window_weak.unwrap();
-        debugger_ref.borrow_mut().add_persistent_breakpoint_at_pc().unwrap();
-        update_breakpoint_view(&window, &debugger_ref.borrow());
+        let mut debugger = debugger_ref.write().unwrap();
+        debugger.add_persistent_breakpoint_at_pc().unwrap();
+        update_breakpoint_view(&window, &debugger);
         todo!()
     });
 

@@ -7,8 +7,13 @@
 
 .text:
 
-    mov r1 r2
-    mov r2 r1
-    mov r1 r2
+    mov8 r1 0
+
+    @loop
+        inc r1
+        cmp8 r1 100000
+        jmplt loop
+
+    breakpoint
 
     exit

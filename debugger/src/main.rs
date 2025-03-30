@@ -9,8 +9,7 @@ mod ui;
 mod debugger;
 mod queue_model;
 
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, RwLock};
 
 use clap::Parser;
 use cli_parser::CliParser;
@@ -26,7 +25,7 @@ fn main() -> Result<(), slint::PlatformError>  {
             eprintln!("Fatal error: {}", err);
             std::process::exit(1);
         });
-    let debugger = Rc::new(RefCell::new(debugger));
+    let debugger = Arc::new(RwLock::new(debugger));
 
     ui::run_ui(debugger)
 

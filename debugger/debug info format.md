@@ -11,16 +11,16 @@ The sections table contains the start and end addresses of each debug info secti
 Section ordering matters. If a section is omitted, its start and end addresses shall coincide.
 
 "DEBUG SECTIONS\0"
+[start][end] label names section
+[start][end] source files section
 [start][end] labels section
 [start][end] instructions section
-[start][end] source files section
-[start][end] label names section
 
 
 ## Labels section
 
-[label name][label address]
-  8 bytes     8 bytes
+[label name][label address][source file][source line]
+  8 bytes     8 bytes         8 bytes     8 bytes
 
 The label name field is the address of the null-terminated string that represents the label name, found in the label names section.
 

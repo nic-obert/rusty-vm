@@ -23,13 +23,16 @@ pub const DEBUG_SECTIONS_TABLE_ID: &[u8] = "DEBUG SECTIONS\0".as_bytes();
 
 
 pub struct DebugSectionsTable {
+    label_names: Range<Address>,
+    source_files: Range<Address>,
     labels: Range<Address>,
     instructions: Range<Address>,
-    source_files: Range<Address>,
-    label_names: Range<Address>,
 }
 
 impl DebugSectionsTable {
+
+    pub const SECTION_SIZE_ON_DISK: usize = DEBUG_SECTIONS_TABLE_ID.len() + mem::size_of::<DebugSectionsTable>();
+
 
     /// Try to parse the debug sections table, if present.
     /// If the table is not present at the beginning of the given slice, return `None`.
@@ -42,15 +45,9 @@ impl DebugSectionsTable {
 
         let mut chunks = bytes[DEBUG_SECTIONS_TABLE_ID.len()..].array_chunks::<ADDRESS_SIZE>();
 
-        let labels = {
-            if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
-                Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
-            } else {
-                return Some(Err(()));
-            }
-        };
+        // Note that the order of the following operations is critical
 
-        let instructions = {
+        let label_names = {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
@@ -66,7 +63,15 @@ impl DebugSectionsTable {
             }
         };
 
-        let label_names = {
+        let labels = {
+            if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
+                Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
+            } else {
+                return Some(Err(()));
+            }
+        };
+
+        let instructions = {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
@@ -86,7 +91,11 @@ pub struct LabelInfo {
     /// Address where the label name string is located
     name: Address,
     /// Address the label points to
-    address: Address
+    address: Address,
+    /// Address of the source file path this label was originally defined in
+    source_file: Address,
+    /// Source line this label was originally defined at
+    source_line: usize,
 }
 
 

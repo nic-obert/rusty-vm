@@ -18,6 +18,15 @@ export component VMStatusArea inherits HorizontalLayout {
 
     HorizontalBox {
         Text {
+            text: "Terminated:";
+        }
+        terminated_flag := Text {
+            text: Backend.terminated ? "true" : "false";
+        }
+    }
+
+    HorizontalBox {
+        Text {
             text: "Memory:";
         }
         tot_mem_text := SelectableText {

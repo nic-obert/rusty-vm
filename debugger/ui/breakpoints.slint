@@ -53,12 +53,14 @@ export component BreakpointArea {
 
         HorizontalLayout {
             Button {
+                enabled: !Backend.terminated;
                 text: "Add here";
                 clicked => {
                     Backend.add_breakpoint_here();
                 }
             }
             Button {
+                enabled: !Backend.terminated;
                 text: "Add at label";
             }
         }

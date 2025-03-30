@@ -89,7 +89,16 @@ pub struct Debugger {
     debug_mode: bool
 }
 
+unsafe impl Send for Debugger {}
+unsafe impl Sync for Debugger {}
+
 impl Debugger {
+
+    pub fn is_terminated(&self) -> bool {
+        unsafe {
+            self.terminate_command.read_volatile()
+        }
+    }
 
     pub fn breakpoint_table(&self) -> &BreakpointTable {
         &self.breakpoint_table
@@ -104,7 +113,7 @@ impl Debugger {
 
     fn wait_for_vm(&self, old_counter: u8) {
         printv!(self, "Waiting for VM process to respond (old counter: {}) ...", old_counter);
-        while old_counter == self.read_update_counter() {
+        while old_counter == self.read_update_counter() && !self.is_terminated() {
             thread::sleep(DEBUGGER_UPDATE_WAIT_SLEEP);
         }
     }
@@ -135,6 +144,10 @@ impl Debugger {
     /// Write the breakpoint instruction to VM memory.
     pub fn add_breakpoint(&mut self, location: usize, name: Option<SharedString>, persistent: bool) -> Result<(), ()> {
         printv!(self, "Adding breakpoint at PC={}, persistent:{}, name:{}", location, persistent, name.as_ref().map(|s| s.as_str()).unwrap_or(""));
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return Ok(())
+        }
         self.assert_stopped();
 
         let replaced_value = if let Some(old_bp) = self.breakpoint_table.get(location) {
@@ -166,6 +179,10 @@ impl Debugger {
     /// Step in and return the current instruction disassembly
     pub fn step_in(&mut self) -> SharedString {
         printv!(self, "Stepping in ...");
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return SharedString::new();
+        }
         self.assert_stopped();
 
         // If the previous instruction had a persistent breakpoint, restore it
@@ -240,6 +257,10 @@ impl Debugger {
 
     pub fn close(&self) {
         printv!(self, "Terminating VM");
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return;
+        }
         unsafe {
             self.terminate_command.write(true);
         }
@@ -275,6 +296,11 @@ impl Debugger {
 
 
     pub fn stop_vm(&self) {
+
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return;
+        }
 
         // Don't stop the VM if it's not running
         if !self.is_running() {
@@ -326,6 +352,10 @@ impl Debugger {
 
     fn resume_vm(&self) {
         printv!(self, "Resuming VM ...");
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return;
+        }
         self.assert_stopped();
 
         let old_counter = self.read_update_counter();
@@ -340,6 +370,10 @@ impl Debugger {
 
     pub fn continue_vm(&mut self) {
         printv!(self, "Continuing execution ...");
+        if self.is_terminated() {
+            printv!(self, "VM process is terminated: abort");
+            return;
+        }
         self.assert_stopped();
 
         // Deal with breakpoints

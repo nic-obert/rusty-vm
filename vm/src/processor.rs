@@ -101,6 +101,7 @@ unsafe fn bytes_as_address(bytes: &[Byte]) -> Address {
 
 struct DebugModeInfo {
     pub running_flag: *mut bool,
+    pub terminated_flag: *mut bool,
     pub verbose: bool
 }
 
@@ -235,7 +236,7 @@ impl Processor {
             self.memory.set_shared_buffer(new_vm_mem);
         };
         let running_flag: *mut bool = unsafe { shmem.as_ptr().byte_add(RUNNING_FLAG_OFFSET).cast::<bool>() };
-        let terminate_command: *mut bool = unsafe { shmem.as_ptr().byte_add(TERMINATE_COMMAND_OFFSET).cast::<bool>() };
+        let terminated_flag: *mut bool = unsafe { shmem.as_ptr().byte_add(TERMINATE_COMMAND_OFFSET).cast::<bool>() };
         let vm_updated_counter: *mut u8 = unsafe { shmem.as_ptr().byte_add(VM_UPDATED_COUNTER_OFFSET) };
         let cpu_registers: *mut CPURegisters = unsafe { shmem.as_ptr().byte_add(CPU_REGISTERS_OFFSET).cast::<CPURegisters>() };
 
@@ -250,12 +251,12 @@ impl Processor {
             }
         }
 
-        self.debug_mode_running = Some(DebugModeInfo { running_flag, verbose });
+        self.debug_mode_running = Some(DebugModeInfo { running_flag, terminated_flag, verbose });
 
         // Initialize the control fields
         unsafe {
             running_flag.write_volatile(false);
-            terminate_command.write_volatile(false);
+            terminated_flag.write_volatile(false);
             vm_updated_counter.write_volatile(0);
             cpu_registers.write_volatile(self.registers.clone());
         }
@@ -273,12 +274,12 @@ impl Processor {
 
         // Wait for the debugger to be ready
         printv!("Waiting for debugger process to connect ...");
-        while unsafe { !running_flag.read_volatile() && !terminate_command.read_volatile() } {
+        while unsafe { !running_flag.read_volatile() && !terminated_flag.read_volatile() } {
             thread::sleep(DEBUGGER_ATTACH_SLEEP);
         }
         printv!("Debugger connected");
         send_update!();
-        while unsafe { !terminate_command.read_volatile() } {
+        while unsafe { !terminated_flag.read_volatile() } {
 
             if unsafe { running_flag.read_volatile() } {
 
@@ -298,7 +299,7 @@ impl Processor {
 
                 // Wait until execution is resumed by the debugger
                 printv!("Waiting for debugger process to resume VM ...");
-                while unsafe { !running_flag.read_volatile() && !terminate_command.read_volatile() } {
+                while unsafe { !running_flag.read_volatile() && !terminated_flag.read_volatile() } {
                     thread::sleep(DEBUGGER_COMMAND_WAIT_SLEEP);
                 }
                 printv!("VM has been resumed");
@@ -1666,7 +1667,7 @@ impl Processor {
             },
 
             ByteCodes::BREAKPOINT => {
-                if let Some(DebugModeInfo { running_flag, verbose }) = self.debug_mode_running {
+                if let Some(DebugModeInfo { running_flag, terminated_flag: _, verbose }) = self.debug_mode_running {
                     if verbose {
                         println!("VM: Encountered breakpoint at PC={}", self.registers.pc()-1);
                     }
@@ -1688,12 +1689,13 @@ impl Processor {
                     println!("Program exited with code {} ({})", exit_code_n, exit_code);
                 }
 
-                if let Some(DebugModeInfo { running_flag, verbose }) = self.debug_mode_running {
+                if let Some(DebugModeInfo { running_flag, terminated_flag, verbose }) = self.debug_mode_running {
                     if verbose {
                         println!("VM: Exiting VM process");
                     }
                     unsafe {
                         running_flag.write_volatile(false);
+                        terminated_flag.write_volatile(true);
                     }
                 }
 

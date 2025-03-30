@@ -1,5 +1,4 @@
 #![feature(io_error_more)]
-#![feature(os_str_display)]
 #![feature(cell_leak)]
 
 #![deny(unused_must_use)]
@@ -41,7 +40,7 @@ fn main() {
         .unwrap_or_else( |err| error::io_error(err, None, "Failed to resolve current directory path."));
 
     let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths);
- 
+
     let output_name = args.output
         .unwrap_or_else(|| args.input_file.with_extension("out") );
 
@@ -50,4 +49,3 @@ fn main() {
     }
 
 }
-
