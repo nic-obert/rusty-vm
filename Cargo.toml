@@ -10,7 +10,7 @@ members = [
     "vm",
     "oxide",
     "generate_archlib",
-    "debugger",
+    "debugger", "debug_info_viewer",
 ]
 
 [profile.dev]
