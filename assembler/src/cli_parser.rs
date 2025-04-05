@@ -27,5 +27,8 @@ pub struct CliParser {
     #[clap(short='L', value_delimiter=',')]
     pub include_paths: Vec<PathBuf>,
 
-}
+    /// Include debugging information in the assembled binary
+    #[clap(short='d')]
+    pub include_debug_info: bool,
 
+}

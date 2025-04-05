@@ -7,13 +7,14 @@ use rusty_vm_lib::registers::Registers;
 use rusty_vm_lib::vm::{Address, ADDRESS_SIZE};
 use rusty_vm_lib::interrupts::Interrupts;
 
+use crate::debug_info::{DebugInfoTable, InstructionInfo, LabelInfo};
 use crate::error;
 use crate::symbol_table::SymbolTable;
 use crate::module_manager::ModuleManager;
 use crate::lang::{AsmNode, AsmNodeValue};
 
 
-pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>, bytecode: &mut ByteCode) {
+pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable<'a>, module_manager: &ModuleManager<'a>, bytecode: &mut ByteCode, debug_info: &mut Option<DebugInfoTable<'a>>) {
 
     /// A placeholder for the real address of a label. Used as a placeholder for unresolved labels.
     const LABEL_PLACEHOLDER: [u8; ADDRESS_SIZE] = (0 as Address).to_le_bytes();
@@ -52,10 +53,18 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
 
         match node.value {
 
-            AsmNodeValue::Label(name)
-                => symbol_table.define_label(name, current_pos!()),
+            AsmNodeValue::Label(name) => {
+                symbol_table.define_label(name, current_pos!());
+                if let Some(debug_info) = debug_info {
+                    debug_info.add_label(LabelInfo { address: current_pos!(), source: node.source });
+                }
+            },
 
             AsmNodeValue::Instruction(ref instruction) => {
+
+                if let Some(debug_info) = debug_info {
+                    debug_info.add_instruction(InstructionInfo { address: current_pos!(), source: Rc::clone(&node.source) });
+                }
 
                 let instruction_code = instruction.byte_code();
                 push_byte!(instruction_code);
@@ -142,6 +151,10 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
                         => push_bytes!(array.0.to_le_bytes()),
 
                     PseudoInstructionNode::PrintString { string } => {
+
+                        if let Some(debug_info) = debug_info {
+                            debug_info.add_instruction(InstructionInfo { address: current_pos!(), source: node.source });
+                        }
 
                         // jmp <after the string>
                         push_byte!(ByteCodes::JUMP);

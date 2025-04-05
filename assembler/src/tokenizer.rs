@@ -128,7 +128,7 @@ pub fn tokenize<'a>(source: SourceCode<'a>, unit_path: UnitPath<'a>) -> TokenLin
             last_unique_symbol += 1;
             Box::new(
                 format!("__unique_symbol_{}", last_unique_symbol)
-            ).leak()
+            ).leak() // Leaking is ok since the symbol name has to live for the lifetime of the program
         }};
     }
 

@@ -19,10 +19,11 @@ Section ordering matters. If a section is omitted, its start and end addresses s
 
 ## Labels section
 
-[label name][label address][source file][source line]
+[label name][label address][source file][source line][source column]
   8 bytes     8 bytes         8 bytes     8 bytes
 
 The label name field is the address of the null-terminated string that represents the label name, found in the label names section.
+Note that the source line is the line number and starts from 1 (line index + 1)
 
 
 ## Label names section
@@ -35,7 +36,7 @@ This section contains the source file paths as null-terminated strings
 
 ## Instructions section
 
-[program counter][source line][source file]
-   8 bytes          8 bytes     8 bytes
+[program counter][source file][source line][source column]
+   8 bytes          8 bytes     8 bytes        8 bytes
 
 The pc field is the address of the source instruction's first machine operation in the binary program. A source instruction may be comprised of multiple machine operations.

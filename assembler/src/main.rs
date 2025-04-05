@@ -1,5 +1,6 @@
 #![feature(io_error_more)]
 #![feature(cell_leak)]
+#![feature(new_range_api)]
 
 #![deny(unused_must_use)]
 
@@ -12,6 +13,7 @@ mod symbol_table;
 mod lang;
 mod parser;
 mod generator;
+mod debug_info;
 
 use std::path::Path;
 use std::fs;
@@ -39,7 +41,7 @@ fn main() {
     let cwd = env::current_dir()
         .unwrap_or_else( |err| error::io_error(err, None, "Failed to resolve current directory path."));
 
-    let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths);
+    let byte_code = assembler::assemble_all(&cwd, &args.input_file, args.include_paths, args.include_debug_info);
 
     let output_name = args.output
         .unwrap_or_else(|| args.input_file.with_extension("out") );
