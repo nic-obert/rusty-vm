@@ -56,7 +56,7 @@ pub fn generate_bytecode<'a>(asm: Box<[AsmNode<'a>]>, symbol_table: &SymbolTable
             AsmNodeValue::Label(name) => {
                 symbol_table.define_label(name, current_pos!());
                 if let Some(debug_info) = debug_info {
-                    debug_info.add_label(LabelInfo { address: current_pos!(), source: node.source });
+                    debug_info.add_label(LabelInfo { address: current_pos!(), name, source: node.source });
                 }
             },
 

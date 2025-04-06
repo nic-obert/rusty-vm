@@ -11,6 +11,7 @@ use rusty_vm_lib::assembly::{SourceToken, UnitPath};
 
 pub struct LabelInfo<'a> {
     pub address: Address,
+    pub name: &'a str,
     pub source: Rc<SourceToken<'a>>,
 }
 
@@ -64,9 +65,9 @@ impl<'a> DebugInfoTable<'a> {
 
         for label in &self.labels {
             // Don't insert duplicate strings
-            if !label_names_table.contains_key(label.source.string) {
-                label_names_table.insert(label.source.string, buf.len());
-                buf.extend(label.source.string.as_bytes());
+            if !label_names_table.contains_key(label.name) {
+                label_names_table.insert(label.name, buf.len());
+                buf.extend(label.name.as_bytes());
                 buf.push(0);
             }
         }
@@ -98,7 +99,7 @@ impl<'a> DebugInfoTable<'a> {
 
         for label in &self.labels {
             let label_info = debugger::LabelInfo {
-                name: *label_names_table.get(label.source.string).unwrap(),
+                name: *label_names_table.get(label.name).unwrap(),
                 address: label.address,
                 source_file: *source_files_table.get(&label.source.unit_path).unwrap(),
                 source_line: label.source.line_number(),

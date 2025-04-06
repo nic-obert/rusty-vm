@@ -1,5 +1,12 @@
+use core::str;
+use std::ffi::OsStr;
+use std::fmt;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::range::Range;
+use std::str::Utf8Error;
 use std::time::Duration;
+use std::slice;
 use std::mem;
 
 use crate::registers::CPURegisters;
@@ -22,6 +29,15 @@ pub const DEBUGGER_PATH_ENV: &str = "RUSTYVM_DEBUGGER";
 pub const DEBUG_SECTIONS_TABLE_ID: &[u8] = "DEBUG SECTIONS\0".as_bytes();
 
 
+pub enum SectionParseError {
+    NoDebugInfo,
+    InvalidLabelNamesRange,
+    InvalidSourceFilesRange,
+    InvalidLabelsRange,
+    InvalidInstructionsRange,
+}
+
+
 pub struct DebugSectionsTable {
     pub label_names: Range<Address>,
     pub source_files: Range<Address>,
@@ -38,9 +54,9 @@ impl DebugSectionsTable {
     /// If the table is not present at the beginning of the given slice, return `None`.
     /// If the table is present, try to parse and return it.
     /// Return an error if the table is malformed.
-    pub fn try_parse(bytes: &[u8]) -> Option<Result<Self, ()>> {
+    pub fn try_parse(bytes: &[u8]) -> Result<Self, SectionParseError> {
         if !bytes.starts_with(DEBUG_SECTIONS_TABLE_ID) {
-            return None;
+            return Err(SectionParseError::NoDebugInfo);
         }
 
         let mut chunks = bytes[DEBUG_SECTIONS_TABLE_ID.len()..].array_chunks::<ADDRESS_SIZE>();
@@ -51,7 +67,7 @@ impl DebugSectionsTable {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
-                return Some(Err(()));
+                return Err(SectionParseError::InvalidLabelNamesRange);
             }
         };
 
@@ -59,7 +75,7 @@ impl DebugSectionsTable {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
-                return Some(Err(()));
+                return Err(SectionParseError::InvalidSourceFilesRange);
             }
         };
 
@@ -67,7 +83,7 @@ impl DebugSectionsTable {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
-                return Some(Err(()));
+                return Err(SectionParseError::InvalidLabelsRange);
             }
         };
 
@@ -75,13 +91,13 @@ impl DebugSectionsTable {
             if let (Some(start), Some(end)) = (chunks.next(), chunks.next()) {
                 Range { start: Address::from_le_bytes(*start), end: Address::from_le_bytes(*end) }
             } else {
-                return Some(Err(()));
+                return Err(SectionParseError::InvalidInstructionsRange);
             }
         };
 
-        Some(Ok(DebugSectionsTable {
+        Ok(DebugSectionsTable {
             labels, instructions, source_files, label_names
-        }))
+        })
     }
 
 
@@ -122,6 +138,105 @@ impl DebugSectionsTable {
         writer.write_address(self.instructions.end);
     }
 
+}
+
+
+pub enum StringParsingError {
+    OutOfSectionBounds { start: usize },
+    Unterminated { start: usize },
+    ExpectedUtf8 { start: usize, error: Utf8Error },
+}
+
+impl fmt::Display for StringParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StringParsingError::OutOfSectionBounds { start } => write!(f, "string out of section bounds (starts at byte {})", *start),
+            StringParsingError::Unterminated { start } => write!(f, "string was not terminated (starts at byte {})", *start),
+            StringParsingError::ExpectedUtf8 { start, error } => write!(f, "string uses an unsupported encoding (starts at byte {}, error: {})", *start, error),
+        }
+    }
+}
+
+/// Try to read the source files section.
+/// This function does not check if the provided debug sections table is valid for the given program.
+pub fn read_source_files<'a>(sections_table: &DebugSectionsTable, program: &'a [u8]) -> impl Iterator<Item = Result<&'a Path, StringParsingError>> {
+    gen {
+        let mut cursor = sections_table.source_files.start;
+
+        while cursor < sections_table.source_files.end {
+
+            // Read the null-terminated string
+            let str_start = cursor;
+            let null_terminator: usize;
+            loop {
+                if program.len() <= cursor {
+                    yield Err(StringParsingError::Unterminated { start: str_start });
+                    return;
+                }
+                if cursor >= sections_table.source_files.end {
+                    yield Err(StringParsingError::OutOfSectionBounds { start: str_start });
+                    return;
+                }
+
+                if program[cursor] == 0 {
+                    null_terminator = cursor;
+                    cursor += 1;
+                    break;
+                }
+                cursor += 1;
+            }
+
+            // Convert the null-terminated string into a Path
+            yield Ok(Path::new(OsStr::from_bytes(unsafe {
+                slice::from_raw_parts(
+                    program.as_ptr().byte_add(str_start),
+                    null_terminator - str_start
+                )
+            })));
+        }
+    }
+}
+
+
+pub fn read_label_names<'a>(sections_table: &DebugSectionsTable, program: &'a [u8]) -> impl Iterator<Item = Result<&'a str, StringParsingError>> {
+    gen {
+        let mut cursor = sections_table.label_names.start;
+
+        while cursor < sections_table.label_names.end {
+
+            // Read the null-terminated string
+            let str_start = cursor;
+            let null_terminator: usize;
+            loop {
+                if program.len() <= cursor {
+                    yield Err(StringParsingError::Unterminated { start: str_start });
+                    return;
+                }
+                if cursor >= sections_table.source_files.end {
+                    yield Err(StringParsingError::OutOfSectionBounds { start: str_start });
+                    return;
+                }
+
+                if program[cursor] == 0 {
+                    null_terminator = cursor;
+                    cursor += 1;
+                    break;
+                }
+                cursor += 1;
+            }
+
+            let s = unsafe {
+                slice::from_raw_parts(
+                    program.as_ptr().byte_add(str_start),
+                    null_terminator - str_start
+                )
+            };
+            match str::from_utf8(s) {
+                Ok(string) => yield Ok(string),
+                Err(error) => yield Err(StringParsingError::ExpectedUtf8 { start: str_start, error })
+            }
+        }
+    }
 }
 
 
