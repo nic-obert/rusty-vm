@@ -19,6 +19,10 @@ pub struct CliParser {
     #[clap(long = "check-valid")]
     check_valid: bool,
 
+    /// Include the debug section table in the output
+    #[clap(short = 't', long = "table", conflicts_with="has_debug")]
+    include_section_table: bool,
+
     /// Include the source files table in the output
     #[clap(short = 's', long = "sources", conflicts_with="has_debug")]
     include_source_files: bool,
@@ -45,10 +49,11 @@ impl CliParser {
             action: {
                 if self.has_debug {
                     Action::JustCheckHasDebug
-                } else if !self.check_valid && !self.include_source_files && !self.include_label_names && !self.include_labels && !self.include_instructions {
+                } else if !self.check_valid && !self.include_section_table && !self.include_source_files && !self.include_label_names && !self.include_labels && !self.include_instructions {
                     // No specified action means everything is included
                     Action::ViewInfo {
                         check_valid: true,
+                        include_section_table: true,
                         include_source_files: true,
                         include_label_names: true,
                         include_labels: true,
@@ -57,6 +62,7 @@ impl CliParser {
                 } else {
                     Action::ViewInfo {
                         check_valid: self.check_valid,
+                        include_section_table: self.include_section_table,
                         include_source_files: self.include_source_files,
                         include_label_names: self.include_label_names,
                         include_labels: self.include_labels,
@@ -82,6 +88,7 @@ pub enum Action {
     JustCheckHasDebug,
     ViewInfo {
         check_valid: bool,
+        include_section_table: bool,
         include_source_files: bool,
         include_label_names: bool,
         include_labels: bool,

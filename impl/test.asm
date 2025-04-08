@@ -1,19 +1,14 @@
 .include:
 
+    "stdio.asm"
 
 .data:
 
-
+    @msg
+    dcs "hello world"
 
 .text:
 
-    mov8 r1 0
-
-    @loop
-        inc r1
-        cmp8 r1 100000
-        jmplt loop
-
-    breakpoint
+    !println_str msg
 
     exit
