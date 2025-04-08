@@ -1,0 +1,83 @@
+import { TextEdit, ListView, ScrollView, TabWidget } from "std-widgets.slint";
+
+import { SelectableText } from "../utils.slint";
+import { Styling } from "../styling.slint";
+
+component InstructionLine inherits HorizontalLayout {
+
+    in property <string> assembly;
+
+    alignment: LayoutAlignment.start;
+
+    SelectableText {
+        text: assembly;
+    }
+}
+
+component DisassemblyTab inherits VerticalLayout {
+
+    in-out property <[string]> instructions;
+
+    callback scroll_to_bottom();
+    scroll_to_bottom => {
+        instructions_view.viewport-y = min(0px, - instructions_view.viewport-height + instructions_view.visible-height);
+    }
+
+    instructions_view := ListView {
+        for instruction in instructions: InstructionLine {
+            assembly: instruction;
+        }
+    }
+}
+
+component SourceTab inherits VerticalLayout {
+
+    in-out property <string> source_code;
+    in-out property <string> source_file;
+    in-out property <string> source_lines;
+
+    ScrollView {
+        HorizontalLayout {
+
+            alignment: start;
+            spacing: 1rem;
+
+            SelectableText {
+                multiline: true;
+                text: source_lines;
+                font-family: Styling.buffer_font_family;
+            }
+
+            SelectableText {
+                multiline: true;
+                text: source_code;
+                font-family: Styling.buffer_font_family;
+            }
+        }
+    }
+
+}
+
+export component InstructionsArea {
+
+    in-out property <[string]> instructions <=> disassembly_tab.instructions;
+
+    in-out property <string> source_code <=> source_tab.source_code;
+    in-out property <string> source_file <=> source_tab.source_file;
+    in-out property <string> source_lines <=> source_tab.source_lines;
+
+    callback disassembly_scroll_to_bottom <=> disassembly_tab.scroll_to_bottom;
+
+    TabWidget {
+        Tab {
+            title: "Disassembly";
+            disassembly_tab := DisassemblyTab {}
+        }
+        Tab {
+            title: "Source";
+            source_tab := SourceTab {}
+        }
+    }
+
+
+}

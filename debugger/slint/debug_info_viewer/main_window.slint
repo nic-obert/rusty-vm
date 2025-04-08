@@ -1,0 +1,29 @@
+import { DebugInfoTabs } from "info_tabs.slint";
+import { UILabelView, UIInstructionView } from "interface_types.slint";
+import { VerticalBox } from "std-widgets.slint";
+
+export * from "interface_types.slint";
+
+
+export component DebugInfoViewerMainWindow inherits Window {
+
+    in-out property <bool> error;
+    in-out property <[string]> label_names <=> info_tabs.label_names;
+    in-out property <[string]> source_files <=> info_tabs.source_files;
+    in-out property <[UILabelView]> labels <=> info_tabs.labels;
+    in-out property <[UIInstructionView]> instructions <=> info_tabs.instructions;
+
+    preferred-height: 400px;
+    preferred-width: 400px;
+
+    Text {
+        text: "Could not show debug information: an internal error occurred";
+        visible: error;
+    }
+    VerticalLayout {
+        info_tabs := DebugInfoTabs {
+            visible: !error;
+        }
+    }
+
+}

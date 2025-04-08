@@ -1,6 +1,6 @@
 use rusty_vm_lib::assembly::{ByteCode, UnitPath, ENTRY_SECTION_NAME};
 use rusty_vm_lib::byte_code::ByteCodes;
-use rusty_vm_lib::debugger::DebugSectionsTable;
+use rusty_vm_lib::debug::DebugSectionsTable;
 
 use crate::debug_info::DebugInfoTable;
 use crate::generator::generate_bytecode;

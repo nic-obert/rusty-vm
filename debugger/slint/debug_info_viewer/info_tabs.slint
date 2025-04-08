@@ -1,0 +1,93 @@
+import { TabWidget, ScrollView, ListView } from "std-widgets.slint";
+
+import { UILabelView, UIInstructionView } from "interface_types.slint";
+import { SelectableText } from "../utils.slint";
+import { Styling } from "../styling.slint";
+
+
+component LabelNamesTab inherits ScrollView {
+
+    in-out property <[string]> label_names;
+
+    ListView {
+        for label_name in label_names: SelectableText {
+            text: label_name;
+            font-family: Styling.buffer_font_family;
+        }
+    }
+}
+
+component SourceFilesTab inherits ScrollView {
+
+    in-out property <[string]> source_files;
+
+    ListView {
+        for path in source_files: SelectableText {
+            text: path;
+            font-family: Styling.buffer_font_family;
+        }
+    }
+}
+
+component LabelsTab inherits ScrollView {
+
+    in-out property <[UILabelView]> labels;
+
+    ListView {
+        for label in labels: HorizontalLayout {
+
+            alignment: start;
+            spacing: 2rem;
+
+            SelectableText {text: label.name;}
+            SelectableText {text: label.address;}
+            SelectableText {text: label.source_file + ":" + label.source-line + ":" + label.source-column;}
+        }
+    }
+
+}
+
+component InstructionsTab inherits ScrollView {
+
+    in-out property <[UIInstructionView]> instructions;
+
+    ListView {
+        for instruction in instructions: HorizontalLayout {
+            alignment: start;
+            spacing: 2rem;
+
+            SelectableText {text: instruction.pc + ":";}
+            SelectableText {text: instruction.disassembly;}
+            SelectableText {text: instruction.source_file + ":" + instruction.source-line + ":" + instruction.source-column;}
+        }
+    }
+
+}
+
+export component DebugInfoTabs {
+
+    in-out property <[string]> label_names <=> label_names_tab.label_names;
+    in-out property <[string]> source_files <=> source_files_tab.source_files;
+    in-out property <[UILabelView]> labels <=> labels_tab.labels;
+    in-out property <[UIInstructionView]> instructions <=> instructions_tab.instructions;
+
+    TabWidget {
+        Tab {
+            title: "Label names";
+            label_names_tab := LabelNamesTab {}
+        }
+        Tab {
+            title: "Source files";
+            source_files_tab := SourceFilesTab {}
+        }
+        Tab {
+            title: "Labels";
+            labels_tab := LabelsTab {}
+        }
+        Tab {
+            title: "Instructions";
+            instructions_tab := InstructionsTab {}
+        }
+    }
+
+}

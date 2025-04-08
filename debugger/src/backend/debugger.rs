@@ -7,7 +7,7 @@ use std::thread;
 
 use rusty_vm_lib::byte_code::OPCODE_SIZE;
 use rusty_vm_lib::registers::{CPURegisters, Registers};
-use rusty_vm_lib::debugger::{CPU_REGISTERS_OFFSET, DEBUGGER_UPDATE_WAIT_SLEEP, RUNNING_FLAG_OFFSET, TERMINATE_COMMAND_OFFSET, VM_MEM_OFFSET, VM_UPDATED_COUNTER_OFFSET};
+use rusty_vm_lib::debug::{CPU_REGISTERS_OFFSET, DEBUGGER_UPDATE_WAIT_SLEEP, RUNNING_FLAG_OFFSET, TERMINATE_COMMAND_OFFSET, VM_MEM_OFFSET, VM_UPDATED_COUNTER_OFFSET};
 use rusty_vm_lib::byte_code::ByteCodes;
 use rusty_vm_lib::assembly;
 
@@ -448,12 +448,17 @@ impl Debugger {
 }
 
 
+/// The operator must be provided because the operator value in memory may be a breakpoint instruction
 fn disassemble_instruction(vm_mem: &[u8], operator_pc: Address, operator: ByteCodes) -> String {
 
     let (handled_size, args) = assembly::parse_bytecode_args(operator, &vm_mem[operator_pc+OPCODE_SIZE..])
         .unwrap_or_else(|err| panic!("Could not parse arguments for opcode {operator}:\n{err}"));
 
-    let mut disassembly = format!("{operator} ({handled_size})");
+    let mut disassembly = if handled_size != 0 {
+        format!("{operator} ({handled_size})")
+    } else {
+        format!("{operator}")
+    };
     for arg in args {
         disassembly.push(' ');
         disassembly.push_str(arg.to_string().as_str());

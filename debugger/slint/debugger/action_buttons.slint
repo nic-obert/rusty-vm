@@ -1,4 +1,5 @@
 import { Button } from "std-widgets.slint";
+
 import { Backend } from "backend.slint";
 
 
@@ -20,7 +21,7 @@ export component ActionButtons {
             width: self.min-width + button_padding;
             text: "View debug header";
             clicked => {
-                Backend.view_debug_header();
+                Backend.view_debug_info();
             }
         }
         advance-btn := Button {

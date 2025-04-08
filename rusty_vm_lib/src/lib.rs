@@ -10,4 +10,4 @@ pub mod registers;
 pub mod vm;
 pub mod ir;
 pub mod interrupts;
-pub mod debugger;
+pub mod debug;

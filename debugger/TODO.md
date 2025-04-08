@@ -1,6 +1,14 @@
 # Debugger TODO
 
 - (UI) separators to resize the UI areas
-- implement breakpoints (temporary breakpoints are done, persistent breakpoints are still to be implemented)
-- implement DWARF-like format
+- persistent breakpoints with reference to source code lines/instructions
 - add column indices 0-15 in memory view area
+
+# Work in progress:
+
+
+# Completed
+
+- debug information viewer
+- implement DWARF-like format
+- temporary breakpoints

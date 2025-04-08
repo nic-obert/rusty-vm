@@ -4,7 +4,6 @@ use std::cell::RefCell;
 use slint::{Model, ModelNotify, ModelTracker};
 
 
-
 /// A ['Model`] backed by a `VecDequeue<T>`, using interior mutability.
 #[derive(Default)]
 pub struct QueueModel<T> {

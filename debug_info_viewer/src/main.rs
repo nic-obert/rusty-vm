@@ -7,7 +7,7 @@ use clap::Parser;
 use cli_parser::CliParser;
 
 use rusty_vm_lib::byte_code::{ByteCodes, OPCODE_SIZE};
-use rusty_vm_lib::debugger::{self, DebugSectionsTable, DebugSectionsTableParseError};
+use rusty_vm_lib::debug::{self, DebugSectionsTable, DebugSectionsTableParseError};
 use rusty_vm_lib::assembly;
 use rusty_vm_lib::vm::Address;
 
@@ -21,7 +21,7 @@ fn main() {
 
             let program = file_utils::read_file(args.input_file.as_path());
 
-            let has_debug_info = debugger::has_debug_info(&program);
+            let has_debug_info = debug::has_debug_info(&program);
 
             if has_debug_info {
                 println!("Program has debug information");
@@ -60,7 +60,7 @@ fn main() {
 
             if include_label_names {
                 println!("\nLabel names section:");
-                let label_names = debugger::read_label_names_section(&sections_table, &program);
+                let label_names = debug::read_label_names_section(&sections_table, &program);
                 for label in label_names {
                     match label {
                         Ok(name) => println!("{}", name),
@@ -71,7 +71,7 @@ fn main() {
 
             if include_source_files {
                 println!("\nSource files section:");
-                let source_files = debugger::read_source_files_section(&sections_table, &program);
+                let source_files = debug::read_source_files_section(&sections_table, &program);
                 for file in source_files {
                     match file {
                         Ok(file) => println!("{}", file.display()),
@@ -82,7 +82,7 @@ fn main() {
 
             if include_labels {
                 println!("\nLabels section:");
-                let labels = debugger::read_labels_section(&sections_table, &program);
+                let labels = debug::read_labels_section(&sections_table, &program);
                 for label in labels {
                     match label {
                         Ok(label) => println!("`{}` {} {:#X} {}:{}:{}", label.name, label.address, label.address, label.source_file.display(), label.source_line, label.source_column),
@@ -93,7 +93,7 @@ fn main() {
 
             if include_instructions {
                 println!("\nInstructions section:");
-                let instructions = debugger::read_instructions_section(&sections_table, &program);
+                let instructions = debug::read_instructions_section(&sections_table, &program);
                 for instruction in instructions {
                     match instruction {
                         Ok(instruction) => {

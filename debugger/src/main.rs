@@ -4,16 +4,14 @@
 #![feature(slice_as_chunks)]
 #![feature(test)]
 #![feature(map_try_insert)]
-mod cli_parser;
+mod backend;
 mod ui;
-mod debugger;
-mod queue_model;
 
 use std::sync::{Arc, RwLock};
 
 use clap::Parser;
-use cli_parser::CliParser;
-use debugger::Debugger;
+use backend::cli_parser::CliParser;
+use backend::debugger::Debugger;
 
 
 fn main() -> Result<(), slint::PlatformError>  {
@@ -27,6 +25,6 @@ fn main() -> Result<(), slint::PlatformError>  {
         });
     let debugger = Arc::new(RwLock::new(debugger));
 
-    ui::run_ui(debugger)
+    ui::debugger_ui::run_ui(debugger)
 
 }

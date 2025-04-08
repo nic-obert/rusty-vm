@@ -5,13 +5,14 @@ use std::thread;
 use std::time::Duration;
 
 use rfd::FileDialog;
-use rusty_vm_lib::debugger::DEBUGGER_COMMAND_WAIT_SLEEP;
+use rusty_vm_lib::debug::DEBUGGER_COMMAND_WAIT_SLEEP;
 use slint::{CloseRequestResponse, Model, ModelRc, SharedString, ToSharedString, VecModel};
 
 use rusty_vm_lib::registers::REGISTER_SIZE;
 
-use crate::queue_model::QueueModel;
-use crate::debugger::Debugger;
+use super::debug_info_viewer_ui;
+use super::queue_model::QueueModel;
+use crate::backend::debugger::Debugger;
 
 
 slint::include_modules!();
@@ -26,7 +27,7 @@ const INSTRUCTIONS_DISASSEMBLY_HISTORY_LIMIT: usize = 10;
 
 
 pub fn run_ui(debugger: Arc<RwLock<Debugger>>) -> Result<(), slint::PlatformError> {
-    let main_window = MainWindow::new()?;
+    let main_window: DebuggerMainWindow = DebuggerMainWindow::new()?;
 
     create_ui(&main_window, Arc::clone(&debugger));
 
@@ -83,7 +84,7 @@ pub fn run_ui(debugger: Arc<RwLock<Debugger>>) -> Result<(), slint::PlatformErro
 }
 
 
-fn create_ui(main_window: &MainWindow, debugger: Arc<RwLock<Debugger>>) {
+fn create_ui(main_window: &DebuggerMainWindow, debugger: Arc<RwLock<Debugger>>) {
 
     // Initialize the models and views
     //
@@ -101,6 +102,11 @@ fn create_ui(main_window: &MainWindow, debugger: Arc<RwLock<Debugger>>) {
         };
 
         debugger_ref.read().unwrap().dump_core(pick_file);
+    });
+
+    let debugger_ref = Arc::clone(&debugger);
+    main_window.global::<Backend>().on_view_debug_info(move || {
+        debug_info_viewer_ui::run_ui(&debugger_ref.read().unwrap()).expect("Failed to run debug info viewer");
     });
 
     let debugger_ref = Arc::clone(&debugger);
@@ -170,7 +176,7 @@ fn create_ui(main_window: &MainWindow, debugger: Arc<RwLock<Debugger>>) {
 }
 
 
-fn initialize_all_views(window: &MainWindow, debugger: &Debugger) {
+fn initialize_all_views(window: &DebuggerMainWindow, debugger: &Debugger) {
     initialize_vm_status_view(window, debugger);
     initialize_breakpoint_view(window);
     initialize_registers_view(window);
@@ -178,21 +184,21 @@ fn initialize_all_views(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn initialize_breakpoint_view(window: &MainWindow) {
+fn initialize_breakpoint_view(window: &DebuggerMainWindow) {
     let breakpoints: Rc<VecModel<BreakPoint>> = Rc::new(VecModel::default());
     let breakpoints_model = ModelRc::from(breakpoints);
     window.set_breakpoints(breakpoints_model);
 }
 
 
-fn initialize_registers_view(window: &MainWindow) {
+fn initialize_registers_view(window: &DebuggerMainWindow) {
     let regs: Rc<QueueModel<ModelRc<SharedString>>> = Rc::new(QueueModel::default());
     let regs_model = ModelRc::from(regs);
     window.set_register_sets(regs_model);
 }
 
 
-fn update_all_views(window: &MainWindow, debugger: &Debugger) {
+fn update_all_views(window: &DebuggerMainWindow, debugger: &Debugger) {
     update_vm_status_view(window, debugger);
     update_memory_view(window, debugger);
     update_register_view(window, debugger);
@@ -200,24 +206,24 @@ fn update_all_views(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn initialize_instructions_view(window: &MainWindow) {
+fn initialize_instructions_view(window: &DebuggerMainWindow) {
     let instructions: Rc<QueueModel<SharedString>> = Rc::new(QueueModel::default());
     let instructions_model = ModelRc::from(instructions);
     window.set_instructions_disassembly(instructions_model);
 }
 
 
-fn initialize_vm_status_view(window: &MainWindow, debugger: &Debugger) {
+fn initialize_vm_status_view(window: &DebuggerMainWindow, debugger: &Debugger) {
     window.global::<Backend>().set_running(debugger.is_running());
     window.global::<Backend>().set_total_memory(debugger.vm_memory_size().to_shared_string());
 }
 
-fn update_vm_status_view(window: &MainWindow, debugger: &Debugger) {
+fn update_vm_status_view(window: &DebuggerMainWindow, debugger: &Debugger) {
     window.global::<Backend>().set_running(debugger.is_running());
 }
 
 
-fn update_breakpoint_view(window: &MainWindow, debugger: &Debugger) {
+fn update_breakpoint_view(window: &DebuggerMainWindow, debugger: &Debugger) {
     let breakpoints = debugger.breakpoint_table().breakpoints();
     let bp_model = window.get_breakpoints();
     let bp_vec = bp_model.as_any().downcast_ref::<VecModel<BreakPoint>>().unwrap();
@@ -235,7 +241,7 @@ fn update_breakpoint_view(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn add_disassembly_line(window: &MainWindow, new_instruction: SharedString) {
+fn add_disassembly_line(window: &DebuggerMainWindow, new_instruction: SharedString) {
     let instructions_model: ModelRc<SharedString> = window.get_instructions_disassembly();
     let instructions_queue = instructions_model.as_any().downcast_ref::<QueueModel<SharedString>>().unwrap();
 
@@ -249,7 +255,7 @@ fn add_disassembly_line(window: &MainWindow, new_instruction: SharedString) {
 }
 
 
-fn update_register_view(window: &MainWindow, debugger: &Debugger) {
+fn update_register_view(window: &DebuggerMainWindow, debugger: &Debugger) {
     let current_regs = debugger.read_registers();
     let reg_sets_model: ModelRc<ModelRc<SharedString>> = window.get_register_sets();
     let reg_sets_queue = reg_sets_model.as_any().downcast_ref::<QueueModel<ModelRc<SharedString>>>().unwrap();
@@ -273,7 +279,7 @@ fn update_register_view(window: &MainWindow, debugger: &Debugger) {
 }
 
 
-fn update_memory_view(window: &MainWindow, debugger: &Debugger) {
+fn update_memory_view(window: &DebuggerMainWindow, debugger: &Debugger) {
     let mem_start = window.get_memory_start();
     let mem_span = window.get_memory_span();
 

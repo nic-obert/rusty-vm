@@ -4,7 +4,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::range::Range;
 use std::rc::Rc;
 
-use rusty_vm_lib::debugger::{self, DebugSectionsTable};
+use rusty_vm_lib::debug::{self, DebugSectionsTable};
 use rusty_vm_lib::vm::Address;
 use rusty_vm_lib::assembly::{SourceToken, UnitPath};
 
@@ -89,8 +89,8 @@ impl<'a> DebugInfoTable<'a> {
 
         // Reserve some capacity for the known-sized sections
         buf.reserve(
-            mem::size_of::<debugger::LabelInfo>() * self.labels.len()
-            + mem::size_of::<debugger::InstructionInfo>() * self.instructions.len()
+            mem::size_of::<debug::LabelInfo>() * self.labels.len()
+            + mem::size_of::<debug::InstructionInfo>() * self.instructions.len()
         );
 
         // Write the labels section
@@ -98,7 +98,7 @@ impl<'a> DebugInfoTable<'a> {
         let labels_section_start = buf.len();
 
         for label in &self.labels {
-            let label_info = debugger::LabelInfo {
+            let label_info = debug::LabelInfo {
                 name: *label_names_table.get(label.name).unwrap(),
                 address: label.address,
                 source_file: *source_files_table.get(&label.source.unit_path).unwrap(),
@@ -115,7 +115,7 @@ impl<'a> DebugInfoTable<'a> {
         let instructions_section_start = buf.len();
 
         for instruction in &self.instructions {
-            let instruction_info = debugger::InstructionInfo {
+            let instruction_info = debug::InstructionInfo {
                 pc: instruction.address,
                 source_file: *source_files_table.get(&instruction.source.unit_path).unwrap(),
                 source_line: instruction.source.line_number(),
