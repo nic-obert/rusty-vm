@@ -11,6 +11,7 @@ export component ActionButtons {
 
         dump-core-btn := Button {
             width: self.min-width + button_padding;
+            height: self.min-height;
             text: "Dump core";
             enabled: !Backend.running;
             clicked => {
@@ -19,6 +20,7 @@ export component ActionButtons {
         }
         view-debug-header-btn := Button {
             width: self.min-width + button_padding;
+            height: self.min-height;
             text: "View debug header";
             clicked => {
                 Backend.view_debug_info();
@@ -26,6 +28,7 @@ export component ActionButtons {
         }
         advance-btn := Button {
             width: self.min-width + button_padding;
+            height: self.min-height;
             text: "Step in";
             enabled: !Backend.running && !Backend.terminated;
             clicked => {
@@ -34,6 +37,7 @@ export component ActionButtons {
         }
         continue-btn := Button {
             width: self.min-width + button_padding;
+            height: self.min-height;
             text: "Continue";
             enabled: !Backend.running && !Backend.terminated;
             clicked => {
@@ -42,6 +46,7 @@ export component ActionButtons {
         }
         stop-btn := Button {
             width: self.min-width + button_padding;
+            height: self.min-height;
             text: "Stop";
             enabled: Backend.running && !Backend.terminated;
             clicked => {

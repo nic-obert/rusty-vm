@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use core::range::Range;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
@@ -326,21 +327,26 @@ fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(St
     let mut mem_rows = mem_view.array_chunks::<BYTES_PER_MEMORY_ROW>();
     for full_row in mem_rows.by_ref() {
         for byte in &full_row[..BYTES_PER_MEMORY_ROW-1] {
-            mem_str.push_str(format!("{:02X}", *byte).as_str());
-            mem_str.push(' ');
+            write!(mem_str, "{:02X} ", *byte).unwrap();
+            // mem_str.push_str(format!("{:02X}", *byte).as_str());
+            // mem_str.push(' ');
         }
-        mem_str.push_str(format!("{:02X}", full_row[BYTES_PER_MEMORY_ROW-1]).as_str());
-        mem_str.push('\n');
-        lines_str.push_str(format!("{:#X}\n", row_index).as_str());
+        writeln!(mem_str, "{:02X}", full_row[BYTES_PER_MEMORY_ROW-1]).unwrap();
+        // mem_str.push_str(format!("{:02X}", full_row[BYTES_PER_MEMORY_ROW-1]).as_str());
+        // mem_str.push('\n');
+        writeln!(lines_str, "{:#X}", row_index).unwrap();
+        // lines_str.push_str(format!("{:#X}\n", row_index).as_str());
         row_index += BYTES_PER_MEMORY_ROW;
     }
 
     let remainder_row = mem_rows.remainder();
     if !remainder_row.is_empty() {
-        lines_str.push_str(format!("{:#X}\n", row_index).as_str());
+        writeln!(lines_str, "{:#X}", row_index).unwrap();
+        // lines_str.push_str(format!("{:#X}\n", row_index).as_str());
         for byte in remainder_row {
-            mem_str.push_str(format!("{:02X}", *byte).as_str());
-            mem_str.push(' ');
+            write!(mem_str, "{:02X} ", *byte).unwrap();
+            // mem_str.push_str(format!("{:02X}", *byte).as_str());
+            // mem_str.push(' ');
         }
     }
 
@@ -348,4 +354,23 @@ fn generate_memory_strings(memory: &[u8], mut range: Range<usize>) -> Option<(St
         lines_str,
         mem_str
     ))
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    extern crate test;
+    use test::Bencher;
+
+
+    #[bench]
+    fn generate_mem_view(b: &mut Bencher) {
+        let size = 100000;
+        let mem = vec![0;size];
+        let range = Range { start: 0, end: size };
+
+        b.iter(|| generate_memory_strings(&mem, range));
+    }
+
 }
