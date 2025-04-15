@@ -177,6 +177,10 @@ impl Processor {
         }
 
         let program_start: Address = unsafe { bytes_as_address(&byte_code[byte_code.len() - ADDRESS_SIZE..]) };
+        if program_start > byte_code.len() {
+            error::error(format!("Entry point is invalid: {}", program_start).as_str());
+        }
+
         self.registers.set(Registers::PROGRAM_COUNTER, program_start as u64);
 
         // Initialize the stack pointer to the end of the memory. The stack grows downwards
@@ -184,6 +188,9 @@ impl Processor {
 
         // Load the program into memory
         self.memory.set_bytes(Self::STATIC_PROGRAM_ADDRESS, byte_code);
+
+        // Set the end of program register (this value may be used to implement a heap)
+        self.registers.set(Registers::PROGRAM_END_POINTER, (Self::STATIC_PROGRAM_ADDRESS + byte_code.len()) as u64);
 
         self.start_time = SystemTime::now();
 
@@ -615,7 +622,7 @@ impl Processor {
     fn run_interactive(&mut self, byte_code_size: usize) {
 
         println!("Running VM in interactive mode");
-        println!("Warning: interactive mode reads lines from stdin to advence the program counter.");
+        println!("Warning: interactive mode reads lines from stdin to advance the program counter.");
         println!("Byte code size is {} bytes", byte_code_size);
         println!("Start address is: {}", self.registers.pc());
         println!();

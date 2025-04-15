@@ -130,7 +130,7 @@ impl Debugger {
     }
 
 
-    pub fn add_persistent_breakpoint_at_pc(&mut self) -> Result<(), ()> {
+    pub fn add_persistent_breakpoint_at_pc(&mut self) -> Result<(), usize> {
         self.assert_stopped();
 
         let pc = self.read_registers().pc();
@@ -142,7 +142,7 @@ impl Debugger {
     /// Register a new breakpoint at the given location.
     /// If a breakpoint already exists, replace it with the new one, preserving the original replaced value.
     /// Write the breakpoint instruction to VM memory.
-    pub fn add_breakpoint(&mut self, location: usize, name: Option<SharedString>, persistent: bool) -> Result<(), ()> {
+    pub fn add_breakpoint(&mut self, location: usize, name: Option<SharedString>, persistent: bool) -> Result<(), usize> {
         printv!(self, "Adding breakpoint at PC={}, persistent:{}, name:{}", location, persistent, name.as_ref().map(|s| s.as_str()).unwrap_or(""));
         if self.is_terminated() {
             printv!(self, "VM process is terminated: abort");
@@ -155,7 +155,7 @@ impl Debugger {
             old_bp.replaced_value
         } else {
             let Some(&replaced_value) = self.read_vm_memory().get(location) else {
-                return Err(());
+                return Err(location);
             };
             replaced_value
         };
@@ -244,7 +244,7 @@ impl Debugger {
 
         // Set a temporary breakpoint on the next instruction, if present
         if let Some(next_pc) = next_pc {
-            self.add_breakpoint(next_pc, None, false).expect("Generated next pc should be valid");
+            self.add_breakpoint(next_pc, None, false).unwrap_or_else(|location| panic!("Generated next pc should be valid: {}", location));
         }
 
         // Continue execution. The VM will stop at the next instruction because we set a temporary breakpoint.

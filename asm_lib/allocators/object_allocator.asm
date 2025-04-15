@@ -1,8 +1,8 @@
 # Fixed-size object allocator
 #
 # Heap structure:
-# 0x0000 ------------------------------------------------------------------------------ 0xFFFF
-# [ Heap end ptr (8 bytes) ] [ Object size (8 bytes) ] [ ------ Cells ------> ] [ <--- Stack ]
+# 0x0000 -------------------------- 0xFFFF
+# [ ------ Cells ------> ] [ <--- Stack ]
 # Cell structure:
 # [ Free (1 byte) ] [ Cell data ]
 #
@@ -38,12 +38,14 @@
     @zero_obj_count_message
     dcs "Attempting to initialize an object allocator with a maximum of 0 objects"
 
+    @meta_heap_end_ptr
+    dn 8 0
+    @meta_obj_size_ptr
+    dn 8 0
+
 
 .text:
 
-    %- META_HEAP_END_PTR: 0
-    %- META_OBJ_SIZE_PTR: 8
-    %- HEAP_START: 16
     %- CELL_FREE: 0
     %- CELL_OCCUPIED: 1
 
@@ -71,7 +73,8 @@
         mov =OBJ_SIZE r1
         mov =OBJ_TO_INITIALIZE r2
 
-        mov8 r1 =HEAP_START
+        # We trust that pep remains valid for the lifetime of the program
+        mov r1 pep
 
         @initializing
 
@@ -84,10 +87,10 @@
             jmpnz initializing
 
         # Write the heap end ptr to heap metadata
-        mov8 [=META_HEAP_END_PTR] r1
+        mov8 [meta_heap_end_ptr] r1
 
         # Write object size to heap metadata
-        mov8 [=META_OBJ_SIZE_PTR] =OBJ_SIZE
+        mov8 [meta_obj_size_ptr] =OBJ_SIZE
 
         !restore_reg_state r4
         !restore_reg_state r3
@@ -110,12 +113,12 @@
 
         %- CURSOR: r1
 
-        mov8 =CURSOR =HEAP_START
+        mov =CURSOR pep
 
         @searching
 
             # Check if we ran out of cells
-            cmp8 =CURSOR [=META_HEAP_END_PTR]
+            cmp8 =CURSOR [meta_heap_end_ptr]
             jmpge panic_out_of_memory
 
             # If cell is free, end search
@@ -123,7 +126,7 @@
             jmpz end_search
 
             # Calculate the new cursor
-            mov8 r2 [=META_OBJ_SIZE_PTR]
+            mov8 r2 [meta_obj_size_ptr]
             # Note =CURSOR is r1
             iadd
             inc =CURSOR
@@ -164,20 +167,20 @@
         # Check addr > heap_start && addr < heap_end && (addr - heap_start) % (obj_size + cell_meta_size) == 0
         #
         # addr > heap_start
-        cmp8 =ADDR =HEAP_START
+        cmp8 =ADDR pep
         jmple panic_free_out_of_heap
 
         # addr < heap_end
-        cmp8 =ADDR [=META_HEAP_END_PTR]
+        cmp8 =ADDR [meta_heap_end_ptr]
         jmpge panic_free_out_of_heap
 
         # (addr - heap_start - cell_meta_size) % (obj_size + cell_meta_size) == 0
         #mov r1 =ADDR
-        mov8 r2 =HEAP_START
+        mov8 r2 pep
         isub
         dec r1
         mov =TMP_NORMALIZED_ADDR r1
-        mov8 r1 [=META_OBJ_SIZE_PTR]
+        mov8 r1 [meta_obj_size_ptr]
         inc r1
         mov r2 r1
         mov r1 =TMP_NORMALIZED_ADDR

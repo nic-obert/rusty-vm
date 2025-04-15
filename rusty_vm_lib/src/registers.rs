@@ -78,6 +78,7 @@ declare_registers! {
     STACK_TOP_POINTER stp,
     PROGRAM_COUNTER pc,
     STACK_FRAME_BASE_POINTER sbp,
+    PROGRAM_END_POINTER pep,
 
     ZERO_FLAG zf,
     SIGN_FLAG sf,
