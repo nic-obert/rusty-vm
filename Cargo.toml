@@ -1,4 +1,4 @@
-cargo-features = ["codegen-backend"]
+#cargo-features = ["codegen-backend"]
 [workspace]
 
 
@@ -13,5 +13,5 @@ members = [
     "debugger", "debug_info_viewer",
 ]
 
-[profile.dev]
-codegen-backend = "cranelift"
+#[profile.dev]
+#codegen-backend = "cranelift"
