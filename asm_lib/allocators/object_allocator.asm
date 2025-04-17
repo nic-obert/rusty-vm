@@ -6,7 +6,7 @@
 # Cell structure:
 # [ Free (1 byte) ] [ Cell data ]
 #
-# Warning: don't use this allocator along with other heap allocators
+# Warning: only one instance of this object allocator can be used at one time
 #
 
 
@@ -42,6 +42,8 @@
     dn 8 0
     @meta_obj_size_ptr
     dn 8 0
+    @heap_start
+    dn 8 0
 
 
 .text:
@@ -52,6 +54,7 @@
 
     # r1: non-zero object size
     # r2: non-zero max object count
+    # pep: start address of the heap
     #
     # Panics if inputs are invalid
     @@ init_object_allocator
@@ -73,7 +76,9 @@
         mov =OBJ_SIZE r1
         mov =OBJ_TO_INITIALIZE r2
 
-        # We trust that pep remains valid for the lifetime of the program
+        # We don't trust that pep remains unchanged.
+        # pep can be used to set the starting address of the heap
+        mov8 [heap_start] pep
         mov r1 pep
 
         @initializing
@@ -109,11 +114,12 @@
 
         # Linear search for free cells
 
+        !save_reg_state r1
         !save_reg_state r2
 
         %- CURSOR: r1
 
-        mov =CURSOR pep
+        mov8 =CURSOR [heap_start]
 
         @searching
 
@@ -142,6 +148,7 @@
         # Remember that r1 is =CURSOR, so the result is already in r1
 
         !restore_reg_state r2
+        !restore_reg_state r1
 
         ret
 
@@ -167,7 +174,7 @@
         # Check addr > heap_start && addr < heap_end && (addr - heap_start) % (obj_size + cell_meta_size) == 0
         #
         # addr > heap_start
-        cmp8 =ADDR pep
+        cmp8 =ADDR [heap_start]
         jmple panic_free_out_of_heap
 
         # addr < heap_end
@@ -176,7 +183,7 @@
 
         # (addr - heap_start - cell_meta_size) % (obj_size + cell_meta_size) == 0
         #mov r1 =ADDR
-        mov8 r2 pep
+        mov8 r2 [heap_start]
         isub
         dec r1
         mov =TMP_NORMALIZED_ADDR r1

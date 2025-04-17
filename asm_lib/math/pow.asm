@@ -9,6 +9,25 @@
 
 .text:
 
+    # Args:
+    #   - r1: integer exponent < 63 (unchecked)
+    #
+    # Return:
+    #   - r1: the integer result
+    #
+    @@ pow2
+
+        !save_reg_state r2
+
+        mov r2 r1
+        mov8 r1 2
+        shl
+
+        !restore_reg_state r2
+
+        ret
+
+
     # Elevate `base` to the `exp` power
     # Args:
     #   - r1: integer base
@@ -54,7 +73,7 @@
 
     @ negative_exp
 
-        # Reciprocals are usually not integers. 
+        # Reciprocals are usually not integers.
         # 1/5^4, for example, does not result in an integer.
         # While this is ok in a floating point power, the result of this function must be an integer.
 
@@ -65,7 +84,7 @@
 
         ret
 
-    
+
     @ zero_exp
 
         # x^0 = 1
