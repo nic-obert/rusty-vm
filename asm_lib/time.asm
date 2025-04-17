@@ -11,14 +11,16 @@
 
     %% time_nanos:
 
-        intr =HOST_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
 
     %endmacro
 
 
     %% time_micros:
 
-        intr =HOST_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov2 r2 1000
         idiv
 
@@ -27,16 +29,18 @@
 
     %% time_millis:
 
-        intr =HOST_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov4 r2 1000000
         idiv
-    
+
     %endmacro
 
 
     %% time_secs:
 
-        intr =HOST_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov4 r2 1000000000
         idiv
 
@@ -45,14 +49,16 @@
 
     %% elapsed_nanos:
 
-        intr =ELAPSED_TIME_NANOS
+        mov1 int =ELAPSED_TIME_NANOS
+        intr
 
     %endmacro
 
 
     %% elapsed_micros:
 
-        intr =ELAPSED_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov2 r2 1000
         idiv
 
@@ -61,7 +67,8 @@
 
     %% elapsed_millis:
 
-        intr =ELAPSED_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov4 r2 1000000
         idiv
 
@@ -70,7 +77,8 @@
 
     %% elapsed_secs:
 
-        intr =ELAPSED_TIME_NANOS
+        mov1 int =HOST_TIME_NANOS
+        intr
         mov4 r2 1000000000
         idiv
 
@@ -80,7 +88,8 @@
     %% set_timer_nanos t:
 
         mov8 r1 {t}
-        intr =SET_TIMER_NANOS
+        mov1 int =SET_TIMER_NANOS
+        intr
 
     %endmacro
 
@@ -90,8 +99,9 @@
         mov8 r1 {t}
         mov2 r2 1000
         imul
-        intr =SET_TIMER_NANOS
-    
+        mov1 int =SET_TIMER_NANOS
+        intr
+
     %endmacro
 
 
@@ -100,8 +110,9 @@
         mov8 r1 {t}
         mov4 r2 1000000
         imul
-        intr =SET_TIMER_NANOS
-    
+        mov1 int =SET_TIMER_NANOS
+        intr
+
     %endmacro
 
 
@@ -110,7 +121,7 @@
         mov8 r1 {t}
         mov4 r2 1000000000
         imul
-        intr =SET_TIMER_NANOS
-    
-    %endmacro
+        mov1 int =SET_TIMER_NANOS
+        intr
 
+    %endmacro

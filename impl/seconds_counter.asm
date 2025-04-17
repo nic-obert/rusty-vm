@@ -4,10 +4,11 @@
 
 .data:
 
-    OS string "Seconds elapsed: \0"
+    @ OS
+    dcs "Seconds elapsed: "
 
 
-.include: 
+.include:
 
     "stdio.asm"
     "time.asm"
@@ -38,4 +39,3 @@
         mov =last_time r1
 
         jmp loop
-
