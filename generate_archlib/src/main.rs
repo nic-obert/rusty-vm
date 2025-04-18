@@ -4,7 +4,7 @@ use std::env;
 
 use rusty_vm_lib::assembly::LIBRARY_ENV_VARIABLE;
 use rusty_vm_lib::interrupts::Interrupts;
-use rusty_vm_lib::vm::ErrorCodes;
+use rusty_vm_lib::vm::{ErrorCodes, ADDRESS_SIZE};
 
 
 const ARCH_LIB_NAME: &str = "archlib.asm";
@@ -82,6 +82,9 @@ fn main() {
 
     %%- GENERIC_ERROR: {GENERIC_ERROR_CODE}
 
+
+    %%- ADDRESS_SIZE: {ADDRESS_SIZE}
+
     ",
         GENERATED_AT = chrono::Utc::now().to_rfc2822(),
         PRINT_SIGNED_CODE = Interrupts::PrintSigned as u8,
@@ -121,6 +124,7 @@ fn main() {
         WRITE_ZERO_CODE = ErrorCodes::WriteZero as u8,
         MODULE_UNAVAILABLE_CODE = ErrorCodes::ModuleUnavailable as u8,
         GENERIC_ERROR_CODE = ErrorCodes::GenericError as u8,
+        ADDRESS_SIZE = ADDRESS_SIZE
     );
 
     fs::write(&arch_lib_path, asm)

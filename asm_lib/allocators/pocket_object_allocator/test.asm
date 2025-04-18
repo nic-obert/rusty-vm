@@ -1,10 +1,14 @@
 .include:
 
+    "lib.asm"
+
     "stdio.asm"
 
-    "pocket_object_allocator.asm"
 
 .data:
+
+    @alloc_countdown_msg
+    dcs "Allocations remaining: "
 
 .text:
 
@@ -23,5 +27,18 @@
     mov r2 r1
     mov r1 r8
     call free_object
+
+    mov8 r7 16
+
+    @loop
+
+        !print_str alloc_countdown_msg
+        !println_uint r7
+        mov r1 r8
+        call alloc_object
+
+        dec r7
+        jmpnz loop
+
 
     exit
