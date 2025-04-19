@@ -18,7 +18,7 @@
     mov r8 r1
 
     mov r1 r8
-    call alloc_object
+    call pocket_alloc_object
 
     !println_uint r8
     !println_uint r1
@@ -26,7 +26,7 @@
 
     mov r2 r1
     mov r1 r8
-    call free_object
+    call pocket_free_object
 
     mov8 r7 16
 
@@ -35,7 +35,7 @@
         !print_str alloc_countdown_msg
         !println_uint r7
         mov r1 r8
-        call alloc_object
+        call pocket_alloc_object
 
         dec r7
         jmpnz loop

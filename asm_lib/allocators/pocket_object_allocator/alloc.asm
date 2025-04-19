@@ -21,7 +21,7 @@
 #
 # Panics if out of memory
 #
-@@ alloc_object
+@@ pocket_alloc_object
 
     # Linear search for free cells
 

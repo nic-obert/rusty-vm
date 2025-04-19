@@ -27,6 +27,7 @@
 #   - pep: end address of the heap allocator
 #
 # Panics if inputs are invalid
+#
 @@ init_pocket_object_allocator
 
     # Check r1 != 0 && r2 != 0

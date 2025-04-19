@@ -27,7 +27,7 @@
 # Panics in case of double free.
 # Panics if the provided address is misaligned.
 #
-@@ free_object
+@@ pocket_free_object
 
     !save_reg_state r1
     !save_reg_state r2
