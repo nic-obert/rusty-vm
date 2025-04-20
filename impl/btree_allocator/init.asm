@@ -29,6 +29,7 @@
     call validate_heap_size
     mov =HEAP_SIZE r1
     mov =TREE_MAX_DEPTH r2
+    mov8 [free_table_depth] =TREE_MAX_DEPTH
 
     # Allocate the heap buffer
     #

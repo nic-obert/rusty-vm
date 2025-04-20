@@ -6,7 +6,7 @@
 # - actual heap buffer
 #
 # Node structure:
-# - Type: [free parent/occupied parent/free leaf/occupied leaf] (1 byte)
+# - Type: [parent/free leaf/occupied leaf] (1 byte)
 # - Left child: non-null ptr
 # - Right child: non-null ptr
 #
