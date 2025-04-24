@@ -8,9 +8,10 @@ members = [
     "assembler",
     "rusty_vm_lib",
     "vm",
-    "oxide",
+    #"oxide",
     "generate_archlib",
-    "debugger", "debug_info_viewer",
+    "debugger",
+    "debug_info_viewer",
 ]
 
 #[profile.dev]
